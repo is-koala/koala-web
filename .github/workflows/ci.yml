@@ -14,6 +14,8 @@ env:
   NEXT_PUBLIC_SITE_URL: https://iskoala.com
   NEXT_PUBLIC_APP_URL_SCHEME: koala
   NEXT_PUBLIC_ANDROID_PACKAGE_ID: com.iskoala.koala
+  API_URL: https://api-staging.iskoala.com
+  APP_VERSION: 0.1.0
 
 jobs:
   quality:
