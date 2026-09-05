@@ -3,6 +3,7 @@ import "server-only";
 import {
   backendHeaders,
   backendLanguage,
+  deviceIdPattern,
   unexpectedError,
   upgradeRequiredErrorCode,
   upgradeRequiredStatus,
@@ -53,6 +54,13 @@ type BackendEnvelope = {
  * hiç görmez.
  */
 export async function apiFetch<T>(path: string, options: ApiRequestOptions): Promise<T> {
+  // Backend kalıba uymayan kimliği sessizce yok sayar; hata web login ve
+  // refresh çağrılarında ilgisiz bir doğrulama mesajı olarak geri döner.
+  // Kimliği src/proxy.ts ürettiği için buraya düşmesi yapılandırma hatasıdır.
+  if (!deviceIdPattern.test(options.deviceId)) {
+    throw new Error("Cihaz kimliği backend biçimine uymuyor.");
+  }
+
   const { apiUrl, appVersion } = serverEnvironment();
 
   const headers = new Headers({

@@ -198,6 +198,17 @@ describe("BFF API istemcisi", () => {
     await expect(apiFetch("/notifications/read", { deviceId, method: "POST" })).resolves.toBeNull();
   });
 
+  it("backend'in yok sayacağı cihaz kimliğiyle ağa hiç çıkmaz", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { success: true, data: null }));
+
+    // Boş kimlik backend'de sessizce null'a düşer ve web login/refresh
+    // çağrıları anlaşılmaz bir doğrulama hatasıyla reddedilir.
+    await expect(apiFetch("/users/me", { deviceId: "" })).rejects.toThrow(
+      "Cihaz kimliği backend biçimine uymuyor.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("istemci IP'sini tek bir X-Forwarded-For değeri olarak yazar", async () => {
     const fetchMock = stubFetch(jsonResponse(200, { success: true, data: null }));
 

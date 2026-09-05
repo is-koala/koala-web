@@ -1,6 +1,6 @@
 import "server-only";
 
-import { upgradeRequiredStatus } from "@/server/contract";
+import { unauthorizedStatus, upgradeRequiredStatus } from "@/server/contract";
 
 /** Doğrulama hatalarında alan bazında mesaj taşıyan `FieldError` kaydı. */
 export type ApiFieldError = {
@@ -52,4 +52,9 @@ export class ApiError extends Error {
  */
 export function isUpgradeRequired(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === upgradeRequiredStatus;
+}
+
+/** Erişim tokenı reddedildi; oturum yenilenmeden istek tekrarlanamaz. */
+export function isUnauthorized(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === unauthorizedStatus;
 }
