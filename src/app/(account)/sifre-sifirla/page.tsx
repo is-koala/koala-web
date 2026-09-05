@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { OpenInApp } from "@/components/open-in-app";
-import { deepLink, detectPlatform, storeLink } from "@/lib/platform";
+import { appHostForRoute, deepLink, detectPlatform, storeLink } from "@/lib/platform";
 
 export const metadata: Metadata = { title: "Şifreni Sıfırla" };
 
@@ -12,6 +12,7 @@ export default async function Page({
 }) {
   const { token } = await searchParams;
   const platform = detectPlatform((await headers()).get("user-agent"));
+  const host = appHostForRoute["sifre-sifirla"];
 
   if (!token) {
     return (
@@ -21,10 +22,10 @@ export default async function Page({
     );
   }
 
-  if (platform !== "desktop") {
+  if (platform !== "desktop" && host) {
     return (
       <OpenInApp
-        deepLink={deepLink("sifre-sifirla", token)}
+        deepLink={deepLink(host, token)}
         storeLink={storeLink(platform)}
       />
     );

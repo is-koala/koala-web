@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { OpenInApp } from "@/components/open-in-app";
-import { deepLink, detectPlatform, storeLink } from "@/lib/platform";
+import { detectPlatform, openAppLink, storeLink } from "@/lib/platform";
 
 export const metadata: Metadata = { title: "Uygulamayı Aç" };
 
@@ -21,5 +21,5 @@ export default async function Page() {
     );
   }
 
-  return <OpenInApp deepLink={deepLink("")} storeLink={storeLink(platform)} />;
+  return <OpenInApp deepLink={openAppLink()} storeLink={storeLink(platform)} />;
 }
