@@ -6,6 +6,7 @@ import { OpenInApp } from "./open-in-app";
 
 describe("OpenInApp", () => {
   afterEach(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
     vi.useRealTimers();
     vi.unstubAllGlobals();
     localStorage.clear();
@@ -35,9 +36,12 @@ describe("OpenInApp", () => {
     );
   });
 
-  it("uygulama sayfayı gizlediyse mağaza yedeğini çalıştırmaz", () => {
+  it("uygulama sayfayı yeterince uzun süre gizlediyse açılışı ölçer", () => {
     vi.useFakeTimers();
     const navigate = vi.fn();
+    localStorage.setItem(consentStorageKey, serializeConsent(true));
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetcher);
     render(
       <OpenInApp
         deepLink="koala://sifre-sifirla?token=t"
@@ -48,10 +52,15 @@ describe("OpenInApp", () => {
     );
 
     fireEvent.click(screen.getByRole("link", { name: "Uygulamada aç" }));
-    fireEvent.pageHide(window);
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    fireEvent(document, new Event("visibilitychange"));
     act(() => vi.advanceTimersByTime(1500));
 
     expect(navigate).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect((fetcher.mock.calls[1][1] as RequestInit).body).toBe(
+      JSON.stringify({ event: "app_opened", platform: "ios" }),
+    );
   });
 
   it("mağaza kimliği yoksa ölü mağaza düğmesi çizmez", () => {
@@ -84,7 +93,8 @@ describe("OpenInApp", () => {
     );
   });
 
-  it("Android uygulama denemesini token taşımadan ölçer", () => {
+  it("Android denemesini ölçer ama Play Store'a giden pagehide olayını açılış saymaz", () => {
+    vi.useFakeTimers();
     localStorage.setItem(consentStorageKey, serializeConsent(true));
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
     vi.stubGlobal("fetch", fetcher);
@@ -104,10 +114,40 @@ describe("OpenInApp", () => {
       JSON.stringify({ event: "deep_link_attempted", platform: "android" }),
     );
 
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    fireEvent(document, new Event("visibilitychange"));
     fireEvent.pageHide(window);
+    act(() => vi.advanceTimersByTime(1500));
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("elle seçilen mağaza yedeğini ayrı ölçer ve uygulama açılışı üretmez", () => {
+    vi.useFakeTimers();
+    localStorage.setItem(consentStorageKey, serializeConsent(true));
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetcher);
+    render(
+      <OpenInApp
+        deepLink="koala://hesap-dogrula?token=secret"
+        storeLink="https://apps.apple.com/tr/app/id1"
+        platformOverride="ios"
+        navigate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Uygulamada aç" }));
+    fireEvent.click(screen.getByRole("link", { name: "Mağazaya git" }));
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    fireEvent(document, new Event("visibilitychange"));
+    act(() => vi.advanceTimersByTime(1500));
+
     expect(fetcher).toHaveBeenCalledTimes(2);
+    expect((fetcher.mock.calls[0][1] as RequestInit).body).toBe(
+      JSON.stringify({ event: "deep_link_attempted", platform: "ios" }),
+    );
     expect((fetcher.mock.calls[1][1] as RequestInit).body).toBe(
-      JSON.stringify({ event: "app_opened", platform: "android" }),
+      JSON.stringify({ event: "store_fallback", platform: "ios" }),
     );
   });
 });

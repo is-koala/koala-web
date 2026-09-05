@@ -19,7 +19,15 @@ zarfına giremez.
 `platform` yalnız `ios`, `android` veya `desktop` olabilir. Uygulamaya geçiş
 oranı platform bazında `app_opened / deep_link_attempted` olarak izlenir;
 mağaza ve masaüstü sonuçları ayrı sayaçtır. `app_opened` bir tarayıcı
-görünürlük sinyalidir, finansal veya kimlik doğrulama sonucu değildir.
+görünürlük sinyalidir, finansal veya kimlik doğrulama sonucu değildir. Yalnız
+uygulama denemesinden sonra sayfa en az bir saniye görünmez kaldığında yazılır.
+Başka bir sayfaya veya mağazaya giden `pagehide` olayı bekleyen sinyali iptal
+eder.
+
+Public olay ucu istemci başına dakikada 30, çalışan süreç başına toplam 600 zarf
+kabul eder ve bellekte en fazla 2.000 geçici istemci kovası tutar. Kota aşımı
+`429` ve `Retry-After` döndürür; ölçüm en iyi çaba niteliğindedir ve ürün akışını
+engellemez.
 
 Üretimde `koala_handoff_metric` türündeki yapılandırılmış loglar stdout'a ve
 Sentry Logs'a gider; gözlemleme panosunda sayaç ve oran metriğine dönüştürülür.

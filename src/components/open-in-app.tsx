@@ -2,10 +2,12 @@
 
 import QRCode from "qrcode";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sendHandoffEvent } from "@/analytics/events";
 import { resolvePlatform, type Platform } from "@/handoff/links";
+
+const appOpenSignalDelayMs = 1000;
 
 type OpenInAppProps = {
   deepLink: string;
@@ -31,6 +33,13 @@ export function OpenInApp({
   const [qrCode, setQrCode] = useState<string | null>(null);
   const attempted = useRef(false);
   const settled = useRef(false);
+  const appOpenTimer = useRef<number | null>(null);
+
+  const cancelAppOpenSignal = useCallback(() => {
+    if (appOpenTimer.current === null) return;
+    window.clearTimeout(appOpenTimer.current);
+    appOpenTimer.current = null;
+  }, []);
 
   useEffect(() => {
     const detection = window.setTimeout(() => {
@@ -53,22 +62,30 @@ export function OpenInApp({
   useEffect(() => {
     const recordSuccess = () => {
       if (!attempted.current || settled.current || !platform) return;
+      appOpenTimer.current = null;
       settled.current = true;
       sendHandoffEvent("app_opened", platform);
     };
     const onVisibilityChange = () => {
-      if (document.hidden) recordSuccess();
+      cancelAppOpenSignal();
+      if (!document.hidden || !attempted.current || settled.current) return;
+      // Mağaza/başka sayfa navigasyonu da belgeyi gizleyebilir. Kısa gecikme
+      // içindeki pagehide bunu iptal eder; yalnız uygulamaya geçiş sinyali kalır.
+      appOpenTimer.current = window.setTimeout(recordSuccess, appOpenSignalDelayMs);
     };
+    const onPageHide = () => cancelAppOpenSignal();
     document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("pagehide", recordSuccess);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
+      cancelAppOpenSignal();
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("pagehide", recordSuccess);
+      window.removeEventListener("pagehide", onPageHide);
     };
-  }, [platform]);
+  }, [cancelAppOpenSignal, platform]);
 
   const openIosApp = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
+    cancelAppOpenSignal();
     settled.current = false;
     attempted.current = true;
     sendHandoffEvent("deep_link_attempted", "ios");
@@ -99,6 +116,7 @@ export function OpenInApp({
           className="button button-primary"
           href={androidIntentLink ?? deepLink}
           onClick={() => {
+            cancelAppOpenSignal();
             settled.current = false;
             attempted.current = true;
             sendHandoffEvent("deep_link_attempted", "android");
@@ -106,7 +124,14 @@ export function OpenInApp({
         >
           Uygulamada aç
         </a>
-        <StoreAvailability storeLink={androidStoreLink ?? storeLink} platform="android" />
+        <StoreAvailability
+          storeLink={androidStoreLink ?? storeLink}
+          platform="android"
+          onFallback={() => {
+            cancelAppOpenSignal();
+            settled.current = true;
+          }}
+        />
       </div>
     );
   }
@@ -116,7 +141,14 @@ export function OpenInApp({
       <a className="button button-primary" href={deepLink} onClick={openIosApp}>
         Uygulamada aç
       </a>
-      <StoreAvailability storeLink={storeLink} platform="ios" />
+      <StoreAvailability
+        storeLink={storeLink}
+        platform="ios"
+        onFallback={() => {
+          cancelAppOpenSignal();
+          settled.current = true;
+        }}
+      />
     </div>
   );
 }
@@ -124,9 +156,11 @@ export function OpenInApp({
 function StoreAvailability({
   storeLink,
   platform,
+  onFallback,
 }: {
   storeLink: string | null;
   platform?: Platform;
+  onFallback?: () => void;
 }) {
   if (!storeLink) {
     return (
@@ -137,7 +171,10 @@ function StoreAvailability({
     <a
       className="text-link"
       href={storeLink}
-      onClick={() => platform && sendHandoffEvent("store_fallback", platform)}
+      onClick={() => {
+        onFallback?.();
+        if (platform) sendHandoffEvent("store_fallback", platform);
+      }}
     >
       Mağazaya git
     </a>
