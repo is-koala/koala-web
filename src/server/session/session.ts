@@ -1,0 +1,99 @@
+import "server-only";
+
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import { loginPath } from "@/lib/site";
+import { apiFetch, type ApiCaller, type HttpMethod } from "@/server/api/client";
+import { isUnauthorized } from "@/server/api/errors";
+import { ingressClientIpHeader, sessionCookies } from "@/server/contract";
+
+import { clearSessionCookies, writeSessionCookies } from "./cookies";
+import { refreshTokenPair, SessionExpiredError } from "./refresh";
+
+export type Session = {
+  deviceId: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+};
+
+export type SessionRequestOptions = {
+  method?: HttpMethod;
+  body?: unknown;
+  clientIp?: string | null;
+};
+
+export async function readSession(): Promise<Session> {
+  const store = await cookies();
+  return {
+    deviceId: store.get(sessionCookies.deviceId)?.value ?? "",
+    accessToken: store.get(sessionCookies.accessToken)?.value ?? null,
+    refreshToken: store.get(sessionCookies.refreshToken)?.value ?? null,
+  };
+}
+
+/**
+ * Oturum bağlamını taşıyan backend çağrısı.
+ *
+ * Sayfalar ve action'lar tokenları hiç görmez: erişim tokenı ve cihaz
+ * kimliği çerezlerden okunur, süresi dolmuşsa bir kez yenilenip istek
+ * tekrarlanır.
+ */
+export async function apiRequest<T>(
+  path: string,
+  options: SessionRequestOptions = {},
+): Promise<T> {
+  const session = await readSession();
+  const clientIp = options.clientIp ?? (await ingressClientIp());
+
+  try {
+    return await apiFetch<T>(path, {
+      ...options,
+      ...callerFrom(session, session.accessToken, clientIp),
+    });
+  } catch (error) {
+    if (!isUnauthorized(error) || !session.refreshToken) throw error;
+
+    const renewed = await renew(session, session.refreshToken, clientIp);
+    return apiFetch<T>(path, { ...options, ...callerFrom(session, renewed, clientIp) });
+  }
+}
+
+/**
+ * ADR-0011: tarayıcının gönderdiği `Forwarded` / `X-Forwarded-For` güvenilmez
+ * ve iletilmez. Ingress'in her istekte üzerine yazdığı başlık okunur; yoksa
+ * backend'e hiç iletme başlığı gitmez ve bağlantı IP'sini kendisi görür.
+ */
+async function ingressClientIp() {
+  const requestHeaders = await headers();
+  return requestHeaders.get(ingressClientIpHeader);
+}
+
+/** `apiRequest` yenileme tokenının varlığını doğruladıktan sonra çağırır. */
+async function renew(session: Session, refreshToken: string, clientIp: string | null | undefined) {
+  try {
+    const pair = await refreshTokenPair({
+      accessToken: session.accessToken,
+      refreshToken,
+      deviceId: session.deviceId,
+      clientIp,
+    });
+    await writeSessionCookies(pair);
+    return pair.token;
+  } catch (error) {
+    if (!(error instanceof SessionExpiredError)) throw error;
+
+    // Oturum bitti: çerezler temizlenir ve kullanıcı girişe alınır. Render
+    // sırasında çerez silinemese bile giriş sayfası onları üzerine yazar.
+    await clearSessionCookies();
+    redirect(loginPath);
+  }
+}
+
+function callerFrom(
+  session: Session,
+  accessToken: string | null,
+  clientIp: string | null | undefined,
+): ApiCaller {
+  return { deviceId: session.deviceId, accessToken, clientIp };
+}

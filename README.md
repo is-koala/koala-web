@@ -9,6 +9,12 @@ kopyalayıp `npm ci && npm run dev` çalıştır. Zorunlu `NEXT_PUBLIC_SITE_URL`
 veya `NEXT_PUBLIC_APP_URL_SCHEME` eksikse build, hangi değerin eksik olduğunu
 söyleyen Türkçe bir hatayla durur.
 
+BFF katmanının sunucu tarafı değişkenleri `API_URL` ve `APP_VERSION`
+sunucu açılışında doğrulanır: eksik `API_URL` ya da backend sürüm kapısının
+okuyamayacağı bir `APP_VERSION` sunucuyu ilk istek gelmeden durdurur.
+`API_URL` sırdır, `NEXT_PUBLIC_` öneki almaz ve image katmanına gömülmez;
+yalnız çalışma ortamında tanımlanır.
+
 Kalite kapısı: `npm run lint && npm run typecheck && npm test && npm run build`
 ve ardından `npm run test:e2e`.
 
@@ -38,8 +44,8 @@ ayrılacaktır.
 Dağıtım kaynağı GitHub `main` değil, backend ile aynı şekilde `v*` etiketidir.
 Dokploy servisi repodaki çok aşamalı `Dockerfile` ile build edilir, container
 3000 portunu açar ve sağlık kontrolü `/api/health` adresini kullanır. Build
-ortamında `.env.example` içindeki public değerler; runtime'da `APP_VERSION` ve
-`GIT_SHA` tanımlanır. `iskoala.com` servise bağlanır, TLS ve HTTPS zorlama
+ortamında `.env.example` içindeki public değerler; runtime'da `API_URL`,
+`APP_VERSION` ve `GIT_SHA` tanımlanır. `iskoala.com` servise bağlanır, TLS ve HTTPS zorlama
 açılır; `www.iskoala.com` aynı servise bağlanır ve uygulama katmanında apex'e
 301 döner.
 
