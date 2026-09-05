@@ -56,6 +56,23 @@ export function deepLink(host: AppHost, token: string): string {
   return `${scheme}://${host}?token=${encodeURIComponent(token)}`;
 }
 
+/**
+ * Ödeme sonucu derin bağlantısı.
+ *
+ * Diğerlerinden ayrı bir yardımcı çünkü `payment-result` host'u **tam iki**
+ * parametre bekliyor (`app_link_destination.dart:33`), diğer akışlar ise tam
+ * bir tane. Tek bir genel yardımcı bu farkı gizler ve sessiz reddedilmeye yol
+ * açar.
+ */
+export function paymentResultDeepLink(
+  status: string,
+  assignmentId: string,
+): string {
+  const scheme = process.env.NEXT_PUBLIC_APP_SCHEME ?? "koala";
+  const q = new URLSearchParams({ status, assignmentId }).toString();
+  return `${scheme}://payment-result?${q}`;
+}
+
 /** Token taşımayan sade açılış: uygulama açılır, özel bir ekrana gitmez. */
 export function openAppLink(): string {
   const scheme = process.env.NEXT_PUBLIC_APP_SCHEME ?? "koala";
