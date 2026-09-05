@@ -1,20 +1,22 @@
 import Link from "next/link";
+import { Wordmark } from "@/brand/Wordmark";
 import { legalNav, site } from "@/lib/site";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-16 border-t border-neutral-200">
-      <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-neutral-600">
-        <ul className="flex flex-wrap gap-4">
+    <footer className="site-footer">
+      <div className="footer-inner">
+        <div><Wordmark /><p>Bugünün işi, bugünün insanı.</p></div>
+        <ul className="footer-links">
           {legalNav.map((item) => (
             <li key={item.href}>
-              <Link href={item.href} className="hover:underline">
+              <Link href={item.href}>
                 {item.label}
               </Link>
             </li>
           ))}
         </ul>
-        <p className="mt-6">
+        <p className="copyright">
           © {new Date().getFullYear()} {site.name}
         </p>
       </div>

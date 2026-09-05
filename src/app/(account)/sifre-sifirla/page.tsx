@@ -1,41 +1,16 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { OpenInApp } from "@/components/open-in-app";
-import { appHostForRoute, deepLink, detectPlatform, storeLink } from "@/lib/platform";
 
-export const metadata: Metadata = { title: "Şifreni Sıfırla" };
+import { AccountHandoff } from "@/components/account-handoff";
+import { accountContent } from "@/content/account";
+
+export const metadata: Metadata = { title: "Şifreni Sıfırla", robots: { index: false, follow: false } };
 
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string | string[] }>;
 }) {
   const { token } = await searchParams;
-  const platform = detectPlatform((await headers()).get("user-agent"));
-  const host = appHostForRoute["sifre-sifirla"];
-
-  if (!token) {
-    return (
-      <p className="text-neutral-600">
-        Bu bağlantı geçersiz görünüyor. Lütfen e-postandaki bağlantıya yeniden tıkla.
-      </p>
-    );
-  }
-
-  if (platform !== "desktop" && host) {
-    return (
-      <OpenInApp
-        deepLink={deepLink(host, token)}
-        storeLink={storeLink(platform)}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Şifreni Sıfırla</h1>
-      {/* TODO(#1 Faz 0): masaüstü akışı. */}
-      <p className="text-neutral-600">Bu akış hazırlanıyor.</p>
-    </div>
-  );
+  const content = accountContent["sifre-sifirla"];
+  return <AccountHandoff {...content} tokenValue={token} />;
 }

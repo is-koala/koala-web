@@ -1,13 +1,10 @@
-import type { Metadata } from "next";
+import { MarketingPage } from "@/components/marketing-page";
+import { marketingContent } from "@/content/marketing";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = { title: "Nasıl Çalışır" };
+const content = marketingContent["nasil-calisir"];
+export const metadata = pageMetadata(content.title, content.description, "/nasil-calisir");
 
 export default function Page() {
-  return (
-    <article className="space-y-4">
-      <h1 className="text-3xl font-semibold">Nasıl Çalışır</h1>
-      <p className="text-neutral-600">İlandan ödemeye kadar süreç.</p>
-      {/* TODO(#1 Faz 0): içerik yazılacak. */}
-    </article>
-  );
+  return <MarketingPage content={content} />;
 }

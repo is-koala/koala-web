@@ -1,13 +1,19 @@
-import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/metadata";
+import { contactContent } from "@/content/marketing";
 
-export const metadata: Metadata = { title: "İletişim" };
+export const metadata = pageMetadata(
+  "Koala ile İletişim",
+  "Koala ekibine e-posta ile ulaş.",
+  "/iletisim",
+);
 
 export default function Page() {
   return (
-    <article className="space-y-4">
-      <h1 className="text-3xl font-semibold">İletişim</h1>
-      <p className="text-neutral-600">Bize nasıl ulaşabilirsin.</p>
-      {/* TODO(#1 Faz 0): içerik yazılacak. */}
+    <article className="hero hero-compact">
+      <p className="eyebrow">{contactContent.eyebrow}</p>
+      <h1>{contactContent.title}</h1>
+      <p className="lede">{contactContent.intro}</p>
+      <a className="button button-primary" href={`mailto:${contactContent.email}`}>{contactContent.email}</a>
     </article>
   );
 }
