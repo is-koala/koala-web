@@ -9,6 +9,10 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    env: {
+      API_URL: process.env.API_URL ?? "https://api.example.test",
+      APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
+    },
     url: "http://localhost:3000/api/health",
     reuseExistingServer: !process.env.CI,
   },
