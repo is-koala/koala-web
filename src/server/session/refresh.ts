@@ -1,7 +1,7 @@
 import "server-only";
 
 import { apiFetch } from "@/server/api/client";
-import { isUnauthorized } from "@/server/api/errors";
+import { isNotFound, isUnauthorized } from "@/server/api/errors";
 import { backendPaths } from "@/server/contract";
 
 /** `TokenResponseDto`. */
@@ -68,10 +68,14 @@ async function requestRefresh(input: RefreshInput): Promise<TokenPair> {
       body: { refreshToken: input.refreshToken },
     });
   } catch (error) {
-    // Yalnız yetkisiz yanıt oturumun bittiğini söyler. Geçici backend
-    // arızasında kullanıcıyı çıkışa zorlamak, yeniden denemekle
+    // Oturumun bittiğini iki durum söyler: 401 reddedilmiş tokenı, 404 ise
+    // sunucuda pasifleşmiş oturumu (`findActiveSessionById`) bildirir. 404'ü
+    // geçici arıza sayıp yeniden denemek 401 → yenile → 404 döngüsü üretir.
+    // Diğer hatalarda kullanıcıyı çıkışa zorlamak, yeniden denemekle
     // kurtulabilecek bir oturumu kaybettirirdi.
-    if (isUnauthorized(error)) throw new SessionExpiredError(error.errorCode);
+    if (isUnauthorized(error) || isNotFound(error)) {
+      throw new SessionExpiredError(error.errorCode);
+    }
     throw error;
   }
 }

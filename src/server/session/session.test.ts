@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
 
+import { redirectTo } from "../../../tests/support/navigation";
+
 import { SessionExpiredError } from "./refresh";
 import { apiRequest } from "./session";
 
@@ -27,10 +29,8 @@ vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve(store),
   headers: () => Promise.resolve(requestHeaders),
 }));
-vi.mock("next/navigation", () => ({
-  redirect: (target: string) => {
-    throw new Error(`REDIRECT:${target}`);
-  },
+vi.mock("next/navigation", async () => ({
+  redirect: (await import("../../../tests/support/navigation")).throwingRedirect(),
 }));
 
 function jsonResponse(status: number, body: unknown) {
@@ -54,6 +54,17 @@ function unauthorized() {
   });
 }
 
+/** Oturum sunucuda pasifleştiyse `findActiveSessionById` 404 döndürür. */
+function sessionNotFound() {
+  return jsonResponse(404, {
+    success: false,
+    httpStatus: "NOT_FOUND",
+    errorCode: "SESSION_NOT_FOUND",
+    errorCategory: "RESOURCE_NOT_FOUND",
+    message: "Oturum bulunamadi.",
+  });
+}
+
 function seedSession(tokens: Record<string, string> = {}) {
   store.values.clear();
   store.values.set("koala_did", deviceId);
@@ -65,6 +76,7 @@ describe("BFF oturum katmanı", () => {
     vi.stubEnv("API_URL", "https://api.example.test");
     vi.stubEnv("APP_VERSION", "1.4.0");
     requestHeaders.delete("x-real-ip");
+    requestHeaders.delete("x-koala-path");
     store.set.mockClear();
     store.delete.mockClear();
     seedSession({ koala_at: "access-placeholder", koala_rt: "refresh-placeholder" });
@@ -200,7 +212,9 @@ describe("BFF oturum katmanı", () => {
       vi.fn().mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(unauthorized()),
     );
 
-    await expect(apiRequest("/users/me")).rejects.toThrow("REDIRECT:/giris");
+    await expect(apiRequest("/users/me")).rejects.toThrowError(
+      new Error(redirectTo("/giris")),
+    );
     expect(store.delete).toHaveBeenCalledWith("koala_at");
     expect(store.delete).toHaveBeenCalledWith("koala_rt");
   });
@@ -231,13 +245,30 @@ describe("BFF oturum katmanı", () => {
     requestHeaders.delete("forwarded");
   });
 
-  it("oturum bittiğinde kullanıcıyı girişe yollar", async () => {
+  it("oturum bittiğinde kullanıcıyı bıraktığı sayfayla birlikte girişe yollar", async () => {
+    // Yolu vekil yazar; render sırasında server component kendi adresini
+    // okuyamadığı için dönüş hedefinin tek kaynağı bu başlıktır.
+    requestHeaders.set("x-koala-path", "/panel/islerim?filtre=acik");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(unauthorized()),
     );
 
-    await expect(apiRequest("/users/me")).rejects.toThrow("REDIRECT:/giris");
+    await expect(apiRequest("/users/me")).rejects.toThrowError(
+      new Error(redirectTo("/giris?next=%2Fpanel%2Fislerim%3Ffiltre%3Dacik")),
+    );
+  });
+
+  it("dönüş hedefi siteden çıkıyorsa girişe next taşımadan yollar", async () => {
+    requestHeaders.set("x-koala-path", "//kotu.example");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(unauthorized()),
+    );
+
+    await expect(apiRequest("/users/me")).rejects.toThrowError(
+      new Error(redirectTo("/giris")),
+    );
   });
 
   it("yenileme sunucu hatasıyla düşerse oturumu silmez", async () => {
@@ -263,6 +294,21 @@ describe("BFF oturum katmanı", () => {
     // kurtulabilecekken çıkışa zorlanmamalı.
     expect(failure).not.toBeInstanceOf(SessionExpiredError);
     expect(store.delete).not.toHaveBeenCalled();
+  });
+
+  it("yenileme 404 dönerse çerezleri temizler ve girişe yönlendirir", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(sessionNotFound()),
+    );
+
+    // Oturum sunucuda kapandığında yenileme 401 değil 404 döner; bunu geçici
+    // arıza sayıp yeniden denemek 401 → yenile → 404 döngüsü üretirdi.
+    await expect(apiRequest("/users/me")).rejects.toThrowError(
+      new Error(redirectTo("/giris")),
+    );
+    expect(store.delete).toHaveBeenCalledWith("koala_at");
+    expect(store.delete).toHaveBeenCalledWith("koala_rt");
   });
 
   it("yenileme tokenı yokken yenilemeyi denemez", async () => {

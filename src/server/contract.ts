@@ -72,6 +72,13 @@ export const backendPaths = {
 export const unauthorizedStatus = 401;
 
 /**
+ * `ResourceNotFoundException`. Yenileme yolunda ayrı bir anlamı var:
+ * `SessionManager.findActiveSessionById` pasifleşmiş oturumu bulamayınca bu
+ * durumu döner, yani 404 da oturumun bittiğini söyler.
+ */
+export const notFoundStatus = 404;
+
+/**
  * ADR-0011 gereği oturum çerezleri tarayıcı JavaScript'ine kapalıdır.
  * `SameSite=Lax` CSRF'e karşı ilk savunma; durum değiştiren istekler ayrıca
  * `src/proxy.ts` içinde origin doğrulamasından geçer.
@@ -96,3 +103,11 @@ export const deviceIdMaxAgeSeconds = 63_072_000;
  * başlığı her istekte kendisi üzerine yazar.
  */
 export const ingressClientIpHeader = "x-real-ip";
+
+/**
+ * Vekilin isteğe yazdığı, render edilen sayfanın yolu. Server component'ler
+ * kendi adreslerini okuyamaz; oturum render ortasında bittiğinde kullanıcıyı
+ * bıraktığı sayfaya döndürebilmek için tek kaynak budur. Değeri yalnız
+ * `src/proxy.ts` koyar ve tarayıcıdan gelen aynı adlı başlığın üzerine yazar.
+ */
+export const requestPathHeader = "x-koala-path";
