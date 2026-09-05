@@ -1,23 +1,22 @@
 import Link from "next/link";
-import { marketingNav, site } from "@/lib/site";
+import { Wordmark } from "@/brand/Wordmark";
+import { marketingNav } from "@/lib/site";
 
 export function SiteHeader() {
   return (
-    <header className="border-b border-neutral-200">
-      <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-        {/* Logo henüz yok; gelene kadar kelime markası duruyor. */}
-        <Link href="/" className="text-lg font-semibold">
-          {site.name}
-        </Link>
-        <ul className="hidden gap-6 text-sm md:flex">
+    <header className="site-header">
+      <nav className="site-nav" aria-label="Ana menü">
+        <Wordmark />
+        <ul className="nav-links">
           {marketingNav.map((item) => (
             <li key={item.href}>
-              <Link href={item.href} className="hover:underline">
+              <Link href={item.href}>
                 {item.label}
               </Link>
             </li>
           ))}
         </ul>
+        <Link className="button button-small" href="/uygulamayi-ac">Uygulamayı aç</Link>
       </nav>
     </header>
   );

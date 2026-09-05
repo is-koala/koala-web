@@ -19,9 +19,8 @@ export const marketingNav = [
   { href: "/sss", label: "SSS" },
 ] as const;
 
-export const legalNav = [
-  { href: "/kullanim-kosullari", label: "Kullanım Koşulları" },
-  { href: "/gizlilik-politikasi", label: "Gizlilik Politikası" },
-  { href: "/kvkk-aydinlatma", label: "KVKK Aydınlatma Metni" },
-  { href: "/cerez-politikasi", label: "Çerez Politikası" },
-] as const;
+export const legalNav = Object.entries(legalCatalog).map(([slug, document]) => ({
+  href: `/${slug}`,
+  label: document.title,
+}));
+import { legalCatalog } from "@/content/legal/catalog";

@@ -28,15 +28,16 @@ yaptığını değil.
 
 ## Backend sözleşmesi
 
-- Tek kaynak `https://api.iskoala.com`. Ortam değişkeni `NEXT_PUBLIC_API_BASE_URL`.
-- **Her istek `X-App-Version` taşımalı.** Sunucunun filtresi başlığı
-  taşımayan isteği geçiriyor — yani göndermemek zorunlu güncelleme kapısını
-  tamamen devre dışı bırakır. Web için bu başlığın ne olacağı henüz karara
-  bağlı; kararlaşana kadar yeni istek yolu ekleme.
-- **Oturum cihaza bağlı.** Backend `X-Device-Id` ile oturumu cihaza bağlıyor
-  ve yeni giriş o cihazın diğer oturumlarını kapatıyor. Tarayıcının "cihaz"ı
-  ne olacağı da karara bağlı — kullanıcının telefonu ile tarayıcısı
-  birbirinin oturumunu kapatmamalı.
+- HTTP çağrıları [ADR-0011](https://github.com/is-koala/koala-backend/blob/main/docs/adr/0011-web-client-architecture.md)
+  uyarınca yalnız Next.js BFF üzerinden gider. Tarayıcı `api.iskoala.com` ile
+  doğrudan konuşmaz; backend URL'si ve oturum tokenları public ortam
+  değişkenlerine veya client bundle'a girmez.
+- BFF her backend isteğine `X-App-Version`, `X-Client-Platform: web` ve
+  tarayıcı profiline ait `X-Device-Id` başlıklarını ekler. Cihaz kimliği ile
+  tokenlar `HttpOnly`, `Secure`, `SameSite=Lax` cookie'lerde tutulur.
+- Tarayıcının doğrudan açtığı STOMP bağlantısı HTTP BFF sınırının tek
+  istisnasıdır. Ana oturum tokenını JavaScript'e açma; kısa ömürlü STOMP
+  kimliği backend'de hazır olana kadar web mesajlaşmasını bağlama.
 - Yanıt zarfı: `{ success, data, message, errorCode, httpStatus, timeStamp }`.
   Hata yönlendirmesi **`errorCode`** ile yapılır, mesaj metniyle asla.
 - Adres seçimi backend'in sağlayıcıdan bağımsız ağ geçidi üzerinden yapılır;
@@ -69,11 +70,17 @@ yok. Bu sayfalar o iki boşluğu da kapatıyor — URL'leri kalıcı kabul et.
 doğru göründüğü anlamına gelmez. Görsel değişiklik yaptıysan bunu ekranda
 doğrulamadığını **açıkça söyle** ve nelere bakılması gerektiğini yaz.
 
+## Ekran durumları
+
+Yeni veri ekranı yükleniyor, boş ve hata durumlarının üçünü de tanımlar.
+Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
+`errorCode` ile seç ve bilinmeyen kodda nötr Türkçe yedeği göster.
+
 ## Commit ve PR
 
-Her dilim için ayrı branch, küçük commitler, PR. Conventional commit,
-İngilizce imperative başlık, gövdede `Refs #NN`. CI geçmeden merge yok.
-`git add .` kullanma — dosyaları açık yolla stage et.
+Değişiklikler ayrı feature branch'te küçük Conventional Commit'lerle
+gönderilir ve PR açılır. Doğrudan `main` dalına push edilmez; başlık İngilizce imperative,
+gövde `Refs #NN` taşır. CI geçmeden merge yok ve `git add .` kullanılmaz.
 
 ## Sır yönetimi
 

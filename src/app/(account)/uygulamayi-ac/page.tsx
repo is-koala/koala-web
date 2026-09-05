@@ -1,25 +1,44 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+
 import { OpenInApp } from "@/components/open-in-app";
-import { detectPlatform, openAppLink, storeLink } from "@/lib/platform";
+import { openAppContent } from "@/content/account";
+import { buildAndroidIntentUrl, buildAppLink, buildOpenAppLink, storeUrl, type AppDestination } from "@/handoff/links";
+import { readSingleToken } from "@/handoff/token";
+import { publicEnvironment } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Uygulamayı Aç" };
+export const metadata: Metadata = { title: "Uygulamayı Aç", robots: { index: false, follow: false } };
 
-/** Token taşımayan genel giriş: kullanıcıyı uygulamaya ya da mağazaya yollar. */
-export default async function Page() {
-  const platform = detectPlatform((await headers()).get("user-agent"));
+const allowedDestinations = new Set<AppDestination>(["hesap-dogrula", "sifre-sifirla"]);
 
-  if (platform === "desktop") {
-    return (
-      <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-semibold">Koala&apos;yı telefonuna kur</h1>
-        <p className="text-neutral-600">
-          Koala mobil bir uygulama. Telefonundan bu sayfayı açarak devam edebilirsin.
-        </p>
-        {/* TODO(#1 Faz 0): mağaza rozetleri ve QR kodu. */}
-      </div>
-    );
+export default async function Page({ searchParams }: { searchParams: Promise<{ hedef?: string | string[]; token?: string | string[] }> }) {
+  const { hedef, token: tokenValue } = await searchParams;
+  const env = publicEnvironment();
+  let deepLink = buildOpenAppLink(env.appUrlScheme);
+  let androidIntentLink: string | undefined;
+  if (hedef !== undefined || tokenValue !== undefined) {
+    const token = readSingleToken(tokenValue);
+    if (typeof hedef !== "string" || !allowedDestinations.has(hedef as AppDestination) || !token.ok) {
+      return <section className="account-card"><h1>{openAppContent.invalidTitle}</h1><p>{openAppContent.invalidBody}</p></section>;
+    }
+    deepLink = buildAppLink({ destination: hedef as AppDestination, token: token.value, scheme: env.appUrlScheme });
+    const androidStore = storeUrl("android", env);
+    if (env.androidPackageId && androidStore) {
+      androidIntentLink = buildAndroidIntentUrl({ destination: hedef as AppDestination, token: token.value, scheme: env.appUrlScheme, packageId: env.androidPackageId, fallbackUrl: androidStore });
+    }
   }
-
-  return <OpenInApp deepLink={openAppLink()} storeLink={storeLink(platform)} />;
+  const iosStore = storeUrl("ios", env);
+  const androidStore = storeUrl("android", env);
+  return (
+    <section className="account-card">
+      <p className="eyebrow">{openAppContent.eyebrow}</p>
+      <h1>{openAppContent.title}</h1>
+      <p className="lede">{openAppContent.body}</p>
+      <OpenInApp deepLink={deepLink} androidIntentLink={androidIntentLink} storeLink={iosStore} androidStoreLink={androidStore} />
+      <noscript>
+        <p><a href={deepLink}>Koala uygulamasını aç</a></p>
+        {iosStore && <p><a href={iosStore}>App Store&apos;a git</a></p>}
+        {androidStore && <p><a href={androidStore}>Play Store&apos;a git</a></p>}
+      </noscript>
+    </section>
+  );
 }

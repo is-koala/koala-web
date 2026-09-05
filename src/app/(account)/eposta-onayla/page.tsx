@@ -1,41 +1,18 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { OpenInApp } from "@/components/open-in-app";
-import { appHostForRoute, deepLink, detectPlatform, storeLink } from "@/lib/platform";
+import Link from "next/link";
 
-export const metadata: Metadata = { title: "E-posta Adresini Onayla" };
+import { emailVerificationContent, trustMessage } from "@/content/account";
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ token?: string }>;
-}) {
-  const { token } = await searchParams;
-  const platform = detectPlatform((await headers()).get("user-agent"));
-  const host = appHostForRoute["eposta-onayla"];
+export const metadata: Metadata = { title: "E-posta Adresini Onayla", robots: { index: false, follow: false } };
 
-  if (!token) {
-    return (
-      <p className="text-neutral-600">
-        Bu bağlantı geçersiz görünüyor. Lütfen e-postandaki bağlantıya yeniden tıkla.
-      </p>
-    );
-  }
-
-  if (platform !== "desktop" && host) {
-    return (
-      <OpenInApp
-        deepLink={deepLink(host, token)}
-        storeLink={storeLink(platform)}
-      />
-    );
-  }
-
+export default function Page() {
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">E-posta Adresini Onayla</h1>
-      {/* TODO(#1 Faz 0): masaüstü akışı. */}
-      <p className="text-neutral-600">Bu akış hazırlanıyor.</p>
-    </div>
+    <section className="account-card">
+      <p className="eyebrow">{emailVerificationContent.eyebrow}</p>
+      <h1>{emailVerificationContent.title}</h1>
+      <p className="lede">{emailVerificationContent.body}</p>
+      <Link className="button button-primary" href="/uygulamayi-ac">{emailVerificationContent.action}</Link>
+      <p className="trust-note">{trustMessage}</p>
+    </section>
   );
 }
