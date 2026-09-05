@@ -1,3 +1,5 @@
+import { legalCatalog } from "@/content/legal/catalog";
+
 /**
  * Sitenin tek doğruluk kaynağı olan sabitler.
  *
@@ -30,4 +32,3 @@ export const legalNav = Object.entries(legalCatalog).map(([slug, document]) => (
   href: `/${slug}`,
   label: document.title,
 }));
-import { legalCatalog } from "@/content/legal/catalog";

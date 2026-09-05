@@ -1,14 +1,43 @@
 import Link from "next/link";
 
-import { legalDocuments, type LegalDocumentSlug } from "@/content/legal/documents";
+import {
+  getLegalDocumentVersion,
+  legalDocuments,
+  legalDocumentVersions,
+  type LegalDocumentSlug,
+} from "@/content/legal/documents";
 
-export function LegalDocument({ slug, frozen = false }: { slug: LegalDocumentSlug; frozen?: boolean }) {
-  const document = legalDocuments[slug];
+export function LegalDocument({
+  slug,
+  version,
+  frozen = false,
+}: {
+  slug: LegalDocumentSlug;
+  version?: string;
+  frozen?: boolean;
+}) {
+  const document = version
+    ? getLegalDocumentVersion(slug, version)
+    : legalDocuments[slug];
+  if (!document) return null;
+  const versions = Object.keys(legalDocumentVersions[slug]).sort();
   return (
     <article className="legal-document">
       <p className="legal-meta">Sürüm {document.version} · Yürürlük tarihi: {document.effectiveDate}</p>
       <document.Component />
-      {!frozen && <p><Link className="text-link" href={`/${slug}/v/${document.version}`}>Önceki sürümler: 1.0</Link></p>}
+      {!frozen && (
+        <p>
+          Sürümler:{" "}
+          {versions.map((availableVersion, index) => (
+            <span key={availableVersion}>
+              {index > 0 && " · "}
+              <Link className="text-link" href={`/${slug}/v/${availableVersion}`}>
+                {availableVersion}
+              </Link>
+            </span>
+          ))}
+        </p>
+      )}
     </article>
   );
 }

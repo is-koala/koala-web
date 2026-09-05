@@ -1,4 +1,5 @@
-export type Platform = "ios" | "android" | "desktop";
+export const platforms = ["ios", "android", "desktop"] as const;
+export type Platform = (typeof platforms)[number];
 
 export type AppDestination =
   | "hesap-dogrula"

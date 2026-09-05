@@ -1,7 +1,12 @@
 import type { ComponentType } from "react";
 
-import { legalCatalog, type LegalDocumentSlug } from "./catalog";
-import CookiePolicy from "./cerez-politikasi/1.0.mdx";
+import {
+  legalCatalog,
+  type LegalDocumentSlug,
+  type LegalDocumentVersion,
+} from "./catalog";
+import CookiePolicyV10 from "./cerez-politikasi/1.0.mdx";
+import CookiePolicyV11 from "./cerez-politikasi/1.1.mdx";
 import PrivacyPolicy from "./gizlilik-politikasi/1.0.mdx";
 import Terms from "./kullanim-kosullari/1.0.mdx";
 import KvkkNotice from "./kvkk-aydinlatma/1.0.mdx";
@@ -9,24 +14,49 @@ import DistanceContract from "./mesafeli-hizmet-sozlesmesi/1.0.mdx";
 
 export type { LegalDocumentSlug } from "./catalog";
 
-const legalComponents = {
-  "kullanim-kosullari": Terms,
-  "gizlilik-politikasi": PrivacyPolicy,
-  "mesafeli-hizmet-sozlesmesi": DistanceContract,
-  "kvkk-aydinlatma": KvkkNotice,
-  "cerez-politikasi": CookiePolicy,
-} satisfies Record<LegalDocumentSlug, ComponentType>;
+export type LegalDocumentRecord = {
+  title: string;
+  version: LegalDocumentVersion;
+  effectiveDate: string;
+  Component: ComponentType;
+};
 
-export const legalDocuments = mapDocuments(legalCatalog, legalComponents);
+const legalVersionComponents = {
+  "kullanim-kosullari": { "1.0": Terms },
+  "gizlilik-politikasi": { "1.0": PrivacyPolicy },
+  "mesafeli-hizmet-sozlesmesi": { "1.0": DistanceContract },
+  "kvkk-aydinlatma": { "1.0": KvkkNotice },
+  "cerez-politikasi": { "1.0": CookiePolicyV10, "1.1": CookiePolicyV11 },
+} satisfies Record<
+  LegalDocumentSlug,
+  Partial<Record<LegalDocumentVersion, ComponentType>>
+>;
 
-function mapDocuments<Slug extends string>(
-  catalog: Record<Slug, { title: string; version: "1.0"; effectiveDate: string }>,
-  components: Record<Slug, ComponentType>,
-) {
-  return Object.fromEntries(
-    (Object.keys(catalog) as Slug[]).map((slug) => [
-      slug,
-      { ...catalog[slug], Component: components[slug] },
-    ]),
-  ) as Record<Slug, { title: string; version: "1.0"; effectiveDate: string; Component: ComponentType }>;
+export const legalDocumentVersions = Object.fromEntries(
+  (Object.keys(legalCatalog) as LegalDocumentSlug[]).map((slug) => [
+    slug,
+    Object.fromEntries(
+      Object.entries(legalVersionComponents[slug]).map(([version, Component]) => [
+        version,
+        { ...legalCatalog[slug], version, Component },
+      ]),
+    ) as Partial<Record<LegalDocumentVersion, LegalDocumentRecord>>,
+  ]),
+) as Record<
+  LegalDocumentSlug,
+  Partial<Record<LegalDocumentVersion, LegalDocumentRecord>>
+>;
+
+export const legalDocuments = Object.fromEntries(
+  (Object.keys(legalCatalog) as LegalDocumentSlug[]).map((slug) => {
+    const current = legalCatalog[slug];
+    return [slug, legalDocumentVersions[slug][current.version]];
+  }),
+) as Record<LegalDocumentSlug, LegalDocumentRecord>;
+
+export function getLegalDocumentVersion(
+  slug: LegalDocumentSlug,
+  version: string,
+): LegalDocumentRecord | undefined {
+  return legalDocumentVersions[slug][version as LegalDocumentVersion];
 }

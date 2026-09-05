@@ -1,17 +1,21 @@
 export const legalCatalog = {
-  "kullanim-kosullari": legalDocument("Kullanım Koşulları"),
-  "gizlilik-politikasi": legalDocument("Gizlilik Politikası"),
-  "mesafeli-hizmet-sozlesmesi": legalDocument("Mesafeli Hizmet Sözleşmesi"),
-  "kvkk-aydinlatma": legalDocument("KVKK Aydınlatma Metni"),
-  "cerez-politikasi": legalDocument("Çerez Politikası"),
+  "kullanim-kosullari": legalDocument("Kullanım Koşulları", "1.0"),
+  "gizlilik-politikasi": legalDocument("Gizlilik Politikası", "1.0"),
+  "mesafeli-hizmet-sozlesmesi": legalDocument("Mesafeli Hizmet Sözleşmesi", "1.0"),
+  "kvkk-aydinlatma": legalDocument("KVKK Aydınlatma Metni", "1.0"),
+  "cerez-politikasi": legalDocument("Çerez Politikası", "1.1"),
 } as const;
 
 export type LegalDocumentSlug = keyof typeof legalCatalog;
+export type LegalDocumentVersion = "1.0" | "1.1";
 
-function legalDocument(title: string) {
+function legalDocument<Version extends LegalDocumentVersion>(
+  title: string,
+  version: Version,
+) {
   return {
     title,
-    version: "1.0" as const,
+    version,
     effectiveDate: "Hukuk incelemesi sonrası belirlenecek",
   };
 }

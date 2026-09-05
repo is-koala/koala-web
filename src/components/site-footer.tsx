@@ -8,6 +8,7 @@ export function SiteFooter() {
       <div className="footer-inner">
         <div><Wordmark /><p>Bugünün işi, bugünün insanı.</p></div>
         <ul className="footer-links">
+          <li><Link href="/hesap-silme">Hesap Silme</Link></li>
           {legalNav.map((item) => (
             <li key={item.href}>
               <Link href={item.href}>

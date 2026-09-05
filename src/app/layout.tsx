@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Manrope } from "next/font/google";
+import { ConsentManager } from "@/components/consent-manager";
 import { publicEnvironment } from "@/lib/env";
 import { site } from "@/lib/site";
 import "./globals.css";
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="tr" data-scroll-behavior="smooth">
       <body className={`${bodyFont.variable} ${displayFont.variable}`}>
         {children}
+        <ConsentManager />
       </body>
     </html>
   );

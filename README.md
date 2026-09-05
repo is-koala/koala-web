@@ -32,7 +32,7 @@ kuralları aynı derleme hattında sunduğu için seçildi. Marka değişkenleri
 | Platform | Davranış |
 | --- | --- |
 | Android | Kullanıcı dokununca paket ve Play Store yedeği bulunan `intent://` bağlantısı açılır. |
-| iOS | Otomatik yönlendirme yapılmaz; dokunuştan sonra sayfa görünür kalırsa yaklaşık 1,5 saniyede mağaza yedeği gösterilir. |
+| iOS | Otomatik yönlendirme veya zamanlayıcılı mağaza geçişi yapılmaz; kullanıcı uygulamayı ya da mağazayı açıkça seçer. |
 | Masaüstü | Custom scheme denenmez; QR kod ve varsa mağaza bağlantısı gösterilir. |
 
 `/sifre-belirle`, ayrı backend akışı oluşana kadar geçici olarak 308 ile
@@ -52,3 +52,44 @@ açılır; `www.iskoala.com` aynı servise bağlanır ve uygulama katmanında ap
 PR birleştirme, `v*` etiketi yayımlama ve production deploy birbirinden ayrı
 yayın kararlarıdır. CI doğrulamasından sonra yayımlanan etiket Dokploy'da yeni
 dağıtımı tetikler.
+
+## Uygulama bağlantısı doğrulaması
+
+`/.well-known/apple-app-site-association` ve `/.well-known/assetlinks.json`
+yanıtları yönlendirmesiz JSON üretir. `APPLE_APP_IDENTIFIER`, Apple Developer
+portalındaki gerçek Application Identifier Prefix ile bundle kimliğinin
+birleşimidir; Team ID olduğu varsayılmaz. Android parmak izi upload key'den
+değil, Play Console'daki App Signing sertifikasından alınır. Değerler eksik veya
+biçimsizse geçersiz ilişkilendirme belgesi yayımlamak yerine uç 503 döner.
+
+Her alan adı kendi belgesini doğrudan HTTPS 200 ile sunmalıdır. Production,
+staging ve geliştirme birbirinin uygulama kimliğini veya imza parmak izini
+paylaşmaz.
+
+## Google anahtarları
+
+Web haritası yalnız `NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY` kullanır. Bu anahtar
+tarayıcıya iner; bu nedenle staging ve production için ayrıdır, yalnız Maps
+JavaScript API'ye yetkilidir ve exact HTTP referrer listesiyle kısıtlanır.
+Production anahtarına localhost eklenmez. Places ve Geocoding web service
+çağrıları backend'in sağlayıcıdan bağımsız adres uçlarında ve sunucu anahtarıyla
+kalır.
+
+Google Cloud'da günlük Maps JS kotası harcama sınırıdır; bütçe uyarısı yalnız
+bildirim üretir. Gerçek anahtar hiçbir tracked dosyaya, issue'ya veya CI loguna
+yazılmaz; `.env.example` değeri bilerek boştur.
+
+## Wave 2 sağlayıcı kurulumu
+
+Apple/Android ilişkilendirme değerleri, Maps kısıtları ve Sentry gizlilik
+ayarları insan hesabı gerektirir. Tekrarlanabilir kontrol listesi için
+`ops/setup-wave2-platforms.sh` çalıştırılır; sihirbaz gizli değerleri ekrana
+basmadan yerel env ve GitHub Actions ayarlarına yönlendirir.
+
+## Hata izleme
+
+Sentry yalnız `NEXT_PUBLIC_SENTRY_DSN` tanımlandığında açılır. Varsayılan kişisel
+veri gönderimi, tracing ve replay kapalıdır; olaylar istemci ve sunucuda ortak
+bir scrubber'dan geçer. Source map yüklemek için CI'da `SENTRY_ORG`,
+`SENTRY_PROJECT` ve gizli `SENTRY_AUTH_TOKEN` tanımlanır. Proje tarafındaki IP
+saklama, sunucu scrubbing ve uyarı kanalı sihirbazla ayrıca doğrulanır.

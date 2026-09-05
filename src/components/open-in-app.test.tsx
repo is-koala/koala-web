@@ -1,12 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { consentStorageKey, serializeConsent } from "@/analytics/consent";
 import { OpenInApp } from "./open-in-app";
 
 describe("OpenInApp", () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
-  it("iOS'ta kullanıcı dokunmadan şema tetiklemez ve görünür kalırsa mağazaya gider", () => {
+  it("iOS'ta uygulama açılmazsa kullanıcıyı zamanlayıcıyla mağazaya zorlamaz", () => {
     vi.useFakeTimers();
     const navigate = vi.fn();
     render(
@@ -23,7 +28,11 @@ describe("OpenInApp", () => {
     expect(navigate).toHaveBeenCalledWith("koala://hesap-dogrula?token=t");
 
     act(() => vi.advanceTimersByTime(1500));
-    expect(navigate).toHaveBeenLastCalledWith("https://apps.apple.com/tr/app/id1");
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("link", { name: "Mağazaya git" })).toHaveAttribute(
+      "href",
+      "https://apps.apple.com/tr/app/id1",
+    );
   });
 
   it("uygulama sayfayı gizlediyse mağaza yedeğini çalıştırmaz", () => {
@@ -72,6 +81,33 @@ describe("OpenInApp", () => {
     expect(screen.getByRole("link", { name: "Uygulamada aç" })).toHaveAttribute(
       "href",
       expect.stringContaining("S.browser_fallback_url="),
+    );
+  });
+
+  it("Android uygulama denemesini token taşımadan ölçer", () => {
+    localStorage.setItem(consentStorageKey, serializeConsent(true));
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetcher);
+    render(
+      <OpenInApp
+        deepLink="koala://hesap-dogrula?token=secret"
+        androidIntentLink="#open-app"
+        storeLink={null}
+        platformOverride="android"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Uygulamada aç" }));
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect((fetcher.mock.calls[0][1] as RequestInit).body).toBe(
+      JSON.stringify({ event: "deep_link_attempted", platform: "android" }),
+    );
+
+    fireEvent.pageHide(window);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect((fetcher.mock.calls[1][1] as RequestInit).body).toBe(
+      JSON.stringify({ event: "app_opened", platform: "android" }),
     );
   });
 });
