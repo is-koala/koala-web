@@ -64,8 +64,9 @@ export const sessionCookies = {
 } as const;
 
 /**
- * `AuthController`, `LegalController`, `UsersController`, `AddressSearchController`
- * ve `ReferenceDataController` uçları; backend'de context-path yok.
+ * `AuthController`, `LegalController`, `UsersController`, `JobAssignmentsController`,
+ * `AddressSearchController` ve `ReferenceDataController` uçları; backend'de
+ * context-path yok.
  *
  * Adres uçlarının kimlik alan parçaları burada değil `@/server/address/gateway`
  * içinde birleştirilir: kimlikler tarayıcıdan geldiği için yola konmadan önce
@@ -76,6 +77,7 @@ export const sessionCookies = {
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
   forgotPassword: "/auth/forgot-password",
+  jobAssignments: "/job-assignments",
   login: "/auth/login",
   logout: "/auth/logout",
   refreshToken: "/auth/refresh-token",
@@ -91,6 +93,7 @@ export const sessionCookies = {
    * bir tur gerekmiyor.
    */
   usersMe: "/users/me",
+  workerAssignments: "/users/me/assignments?asEmployer=false",
   verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 
