@@ -118,6 +118,36 @@ function cancelBlockedReason(status: JobStatus): string | null {
   return null;
 }
 
+/**
+ * Bu ilanın başvuru yüzeyi neden kapalı; açıksa `null`.
+ *
+ * Kural burada yaşıyor çünkü backend'de **yok**: `JobApplicationManager`
+ * başvuru alırken ilanın durumuna hiç bakmıyor, yani kapatılmış bir ilana
+ * doğrudan bağlantıyla gelen kişi API'den hâlâ başvurabiliyor. Arama
+ * kapatılmış ilanı zaten göstermiyor (`JobManager.search` yalnız `OPEN`
+ * arıyor), ama paylaşılmış bir bağlantı o filtrenin dışından geliyor.
+ *
+ * Tanınmayan bir durum **kapalı sayılmıyor**: alan yanıttan hiç gelmezse
+ * `UNKNOWN` oluyor ve bilinmeyeni kapalı saymak, tek bir sözleşme
+ * değişikliğinde her ilanın başvuru formunu sessizce kaldırırdı. Karar yalnız
+ * sunucunun açıkça söylediği durumlardan çıkar.
+ */
+export function jobApplicationsClosedReason(status: string): string | null {
+  return isJobStatus(status) ? (applicationsClosedReasons[status] ?? null) : null;
+}
+
+const applicationsClosedReasons: Readonly<Partial<Record<JobStatus, string>>> = {
+  CLOSED: "Bu ilan kapatıldı ve yeni başvuru almıyor.",
+  CANCELLED: "Bu ilan iptal edildi ve yeni başvuru almıyor.",
+  COMPLETED: "Bu ilan tamamlandı ve yeni başvuru almıyor.",
+  IN_PROGRESS: "Bu ilanın işi başladı; yeni başvuru alınmıyor.",
+};
+
+/** `known()` yardımcısının tanıdığı değerler; sözleşme tek yerden okunur. */
+export const jobStatuses: ReadonlySet<JobStatus> = new Set(
+  Object.keys(statusLabels) as JobStatus[],
+);
+
 function isJobStatus(status: string): status is JobStatus {
   return Object.hasOwn(statusLabels, status);
 }

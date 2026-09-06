@@ -11,6 +11,7 @@ import type {
   JobDetail as PublicJobDetail,
   SalaryType,
 } from "@/jobs/contract";
+import { jobStatuses } from "@/jobs/lifecycle";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -140,6 +141,7 @@ type JobDetailDto = {
   experienceRequired?: boolean;
   address?: { displayAddress?: string | null } | null;
   addressPrecision?: string | null;
+  status?: string | null;
 };
 
 type JobApplicationDto = {
@@ -193,6 +195,7 @@ function toJobDetail(dto: JobDetailDto): PublicJobDetail {
     experienceRequired: dto.experienceRequired === true,
     location: clean(dto.address?.displayAddress),
     addressPrecision: known(dto.addressPrecision, addressPrecisions),
+    status: known(dto.status, jobStatuses),
   };
 }
 

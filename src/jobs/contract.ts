@@ -1,3 +1,5 @@
+import type { JobStatus } from "./lifecycle";
+
 export type SalaryType = "HOURLY" | "DAILY" | "UNKNOWN";
 
 export type AddressPrecision = "APPROXIMATE" | "EXACT" | "UNKNOWN";
@@ -23,6 +25,11 @@ export type JobDetail = {
   /** Backend'in görünürlük kuralından geçmiş `displayAddress` değeri. */
   readonly location: string | null;
   readonly addressPrecision: AddressPrecision;
+  /**
+   * `JobStatus`. Başvuru formunun çizilip çizilmeyeceğine bu karar veriyor;
+   * okunamayan bir değer `UNKNOWN` olur ve başvuruyu kapatmaz.
+   */
+  readonly status: JobStatus | "UNKNOWN";
 };
 
 /** Başarılı 201 zarfından bu akışın kullandığı tek alan. */
