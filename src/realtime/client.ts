@@ -115,9 +115,7 @@ export function createRealtimeClient(): RealtimeClient {
         if (socket !== nextSocket) return;
         cancelConnectionTimers();
         socket = null;
-        desiredSubscriptions.forEach((subscription) => {
-          subscription.subscriptionId = null;
-        });
+        resetActiveSubscriptions();
         scheduleReconnect();
       };
     } catch {
@@ -163,6 +161,7 @@ export function createRealtimeClient(): RealtimeClient {
     const current = socket;
     socket = null;
     cancelConnectionTimers();
+    resetActiveSubscriptions();
     if (!current) return;
     if (sendDisconnect && current.readyState === WebSocket.OPEN) {
       current.send(stompFrame("DISCONNECT"));
@@ -172,6 +171,12 @@ export function createRealtimeClient(): RealtimeClient {
     current.onclose = null;
     current.onerror = null;
     current.close();
+  }
+
+  function resetActiveSubscriptions() {
+    desiredSubscriptions.forEach((subscription) => {
+      subscription.subscriptionId = null;
+    });
   }
 
   function scheduleCredentialRenewal(currentSocket: WebSocket, expiresAt: string) {

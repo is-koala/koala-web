@@ -136,6 +136,7 @@ describe("RealtimeClient", () => {
     )));
     vi.stubGlobal("fetch", fetchMock);
     const client = createRealtimeClient();
+    client.listenToMessages(vi.fn());
 
     client.start();
     await flushPromises();
@@ -153,6 +154,10 @@ describe("RealtimeClient", () => {
     second.open();
     expect(second.sent[0]).toContain("Authorization:Bearer scoped-token-2");
     expect(client.getState()).toEqual({ phase: "connecting", mode: "rest" });
+    second.receive("CONNECTED\nversion:1.2\n\n\0");
+    expect(second.sent.at(-1)).toMatch(
+      /^SUBSCRIBE\nid:realtime-2\ndestination:\/user\/queue\/messages\nack:auto/,
+    );
     client.stop();
   });
 
