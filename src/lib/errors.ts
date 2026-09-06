@@ -114,6 +114,33 @@ const exactErrors: Record<string, ErrorPresentation> = {
       "İşveren olup olmadığın kayıt sırasında seçiliyor ve bugün değiştirilemiyor. İlan açmak için işveren olarak yeni bir hesap açman gerekiyor.",
     action: "home",
   },
+  // İlanın üç durum geçişi reddi. Üçü de `conflict` ailesinde, ama aile
+  // metni ("Bu kayıt başka bir duruma geçmiş olabilir") üçünü de aynı şeye
+  // benzetirdi: ilkinde ilan çoktan kapanmış, ikincisinde kapanış kalıcı,
+  // üçüncüsünde ise ilanın kendisinde bir sorun yok ve engel başka bir
+  // kayıtta duruyor.
+  JOB_NOT_OPEN: {
+    title: "Bu ilan artık yayında değil",
+    message:
+      "İlan bu sırada kapatılmış ya da iptal edilmiş olabilir. Sayfayı yenileyip güncel durumu görebilirsin.",
+    action: "retry",
+  },
+  JOB_NOT_CANCELLABLE: {
+    title: "Bu ilan iptal edilemiyor",
+    message:
+      "İlan zaten iptal edilmiş ya da tamamlanmış görünüyor. Sayfayı yenileyip güncel durumu görebilirsin.",
+    action: "retry",
+  },
+  // `JobManager.java:395-397`: canlı atama koşulu istemciden okunamıyor —
+  // `JobDetailDto.hiredCount` başka bir durum kümesini sayıyor, yani bu redde
+  // düşmeden önce düğmeyi gizlemek mümkün değil. Metin bu yüzden kullanıcıyı
+  // eli boş bırakmayıp atamanın kendi akışına yolluyor.
+  JOB_HAS_LIVE_ASSIGNMENT: {
+    title: "İlanda devam eden bir atama var",
+    message:
+      "İlanı iptal etmeden önce atamayı kendi iptal akışından iptal etmen gerekiyor; kesinti ve iade tutarı orada hesaplanıyor.",
+    action: "none",
+  },
   JOB_ASSIGNMENT_EMPLOYER_IDENTITY_NOT_VERIFIED: {
     title: "Kimlik bilgilerin eksik",
     message:

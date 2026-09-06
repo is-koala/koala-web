@@ -7,7 +7,7 @@ import {
   requestHeaders,
 } from "../../../tests/support/session-cookies";
 
-import { createJobApplication, readJobDetail } from "./jobs";
+import { cancelJob, closeJob, createJobApplication, readJobDetail } from "./jobs";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const jobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
@@ -94,6 +94,49 @@ describe("ilan ayrıntısı ve başvuru BFF sözleşmesi", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.body).toBe(JSON.stringify({}));
+  });
+
+  it("kapatmayı ilanın kendi POST ucuna, gövdesiz gönderir", async () => {
+    // `SuccessResult` veri taşımıyor; zarfın `data` alanı yok ve çağıran
+    // bunu bir değer sanmamalı.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { success: true, httpStatus: "OK", message: "İlan kapatıldı" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(closeJob(jobId)).resolves.toBeUndefined();
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`https://api.example.test/jobs/${jobId}/close`);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+  });
+
+  it("iptali ayrı POST ucuna gönderir; kapatmayla aynı yola düşmez", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { success: true, httpStatus: "OK", message: "İlan iptal edildi" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await cancelJob(jobId);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`https://api.example.test/jobs/${jobId}/cancel`);
+    expect(init.method).toBe("POST");
+  });
+
+  it("kimliği yola koymadan önce kaçırır", async () => {
+    // Kimlik tarayıcıdan geliyor; action UUID doğrulaması yapıyor ama yol
+    // birleştirmesi kendi başına da güvenli olmalı.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { success: true, httpStatus: "OK" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await closeJob("../auth/login");
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("https://api.example.test/jobs/..%2Fauth%2Flogin/close");
   });
 });
 
