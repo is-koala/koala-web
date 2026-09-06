@@ -43,7 +43,7 @@ type BackendEnvelope = {
   data?: unknown;
   errorCode?: string;
   errorCategory?: string;
-  correlationId?: string;
+  requestId?: string;
   details?: ApiFieldError[];
 };
 
@@ -108,7 +108,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions): Pro
       errorCategory: envelope.errorCategory ?? unexpectedError,
       message: envelope.message ?? "",
       details: envelope.details,
-      correlationId: envelope.correlationId,
+      requestId: envelope.requestId,
       minimumAppVersion: response.headers.get(backendHeaders.minimumAppVersion),
     });
   }

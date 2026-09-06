@@ -68,5 +68,5 @@ function collapseCredentialFailure(error: unknown): unknown {
 
   // Ham mesaj da taşınmıyor: "Kullanici bulunamadi" ile "parola hatali"
   // arasındaki fark kayıtlı adresleri ele verirdi.
-  return new ApiError({ ...credentialFailure, correlationId: error.correlationId });
+  return new ApiError({ ...credentialFailure, requestId: error.requestId });
 }
