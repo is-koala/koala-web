@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 
 import type { FormState } from "@/lib/form-state";
 import { passwordProblem, passwordRequirement, passwordsDoNotMatch } from "@/lib/password";
@@ -179,6 +180,7 @@ async function changeContact(
         }
       : { status: "done" };
   } catch (error) {
+    unstable_rethrow(error);
     const state = failureState(error);
     const message = state.status === "error" ? state.fieldErrors?.[backendField] : undefined;
     return state.status === "error" && message
@@ -196,6 +198,7 @@ async function runMutation(
     revalidateSettings();
     return { status: "done" };
   } catch (error) {
+    unstable_rethrow(error);
     return onFailure(error);
   }
 }

@@ -35,6 +35,9 @@ vi.mock("next/headers", async () => {
 });
 vi.mock("next/navigation", async () => ({
   redirect: (await import("../../../tests/support/navigation")).throwingRedirect(),
+  unstable_rethrow: (error: unknown) => {
+    if (error instanceof Error && error.message.startsWith("REDIRECT:")) throw error;
+  },
 }));
 
 describe("hesap ayarları action'ları", () => {
@@ -64,6 +67,27 @@ describe("hesap ayarları action'ları", () => {
       redirectTo("/giris?next=%2Fpanel%2Fhesap"),
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("mutation sırasında süresi dolan oturumu hata state'ine çevirmeden girişe yönlendirir", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        jsonResponse(401, {
+          success: false,
+          errorCode: "UNAUTHORIZED",
+          errorCategory: "AUTHENTICATION",
+          message: "Oturum sona erdi.",
+        }),
+      ),
+    );
+
+    await expect(
+      addBankAccountAction({ status: "idle" }, fields({ iban: rawIban })),
+    ).rejects.toThrow(redirectTo("/giris?next=%2Fpanel%2Fhesap"));
+
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
   });
 
   it("boşluklu IBAN'ı normalize eder; başarılı sonuçta ham değeri taşımaz", async () => {

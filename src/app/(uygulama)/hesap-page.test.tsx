@@ -6,6 +6,7 @@ import {
   jsonResponse,
   requestHeaders,
 } from "../../../tests/support/session-cookies";
+import { redirectTo } from "../../../tests/support/navigation";
 
 import { AccountPage } from "./hesap-page";
 
@@ -20,6 +21,9 @@ vi.mock("next/headers", async () => {
 });
 vi.mock("next/navigation", async () => ({
   redirect: (await import("../../../tests/support/navigation")).throwingRedirect(),
+  unstable_rethrow: (error: unknown) => {
+    if (error instanceof Error && error.message.startsWith("REDIRECT:")) throw error;
+  },
 }));
 
 describe("hesap sayfası bildirim sayfalaması", () => {
@@ -72,5 +76,40 @@ describe("hesap sayfası bildirim sayfalaması", () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
       "https://api.example.test/users/me/notifications?page=1",
     );
+  });
+
+  it("ayarlar yüklenirken süresi dolan oturumu hata kartına çevirmeden girişe yönlendirir", async () => {
+    const unauthorized = () =>
+      jsonResponse(401, {
+        success: false,
+        errorCode: "UNAUTHORIZED",
+        errorCategory: "AUTHENTICATION",
+        message: "Oturum sona erdi.",
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope({
+            id: "38a790b9-5212-438b-a3cd-1305b5b35ebf",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada@example.test",
+            phoneNumber: "+905551112233",
+            emailVerified: true,
+            phoneVerified: true,
+          }),
+        ),
+      )
+      .mockImplementation(unauthorized);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(AccountPage()).rejects.toThrow(
+      redirectTo("/giris?next=%2Fpanel%2Fhesap"),
+    );
+
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
   });
 });

@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 import { AccountSettings, type AccountSettingsActions } from "@/components/account-settings";
 import { ErrorState } from "@/components/states";
 import {
@@ -45,6 +47,7 @@ export async function AccountPage({ searchParams }: AccountPageProps = {}) {
   try {
     data = await loadAccountSettings(await notificationPageFrom(searchParams));
   } catch (error) {
+    unstable_rethrow(error);
     const failure = failureView(error);
     return (
       <section className="app-panel" aria-labelledby="hesap-hata-baslik">
