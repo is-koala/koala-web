@@ -118,8 +118,7 @@ const employerShell: AppShell = {
       href: "/isveren/mesajlar",
       label: "Mesajlar",
       requires: [],
-      status: "planned",
-      note: "Web mesajlaşması henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/isveren/odemeler",
@@ -169,8 +168,7 @@ const workerShell: AppShell = {
       href: "/panel/mesajlar",
       label: "Mesajlar",
       requires: [],
-      status: "planned",
-      note: "Web mesajlaşması henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/panel/kazanclarim",
