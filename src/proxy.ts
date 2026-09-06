@@ -1,11 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  deviceIdMaxAgeSeconds,
-  requestPathHeader,
-  secureCookieOptions,
-  sessionCookies,
-} from "@/server/contract";
+import { deviceIdCookieOptions, requestPathHeader, sessionCookies } from "@/server/contract";
 import { createDeviceId, isValidDeviceId } from "@/server/session/device-id";
 
 /** Durum değiştirmeyen yöntemler; çapraz origin gezinmeyle çalışabilirler. */
@@ -47,10 +42,7 @@ export function proxy(request: NextRequest) {
   request.cookies.set(sessionCookies.deviceId, deviceId);
 
   const response = NextResponse.next({ request });
-  response.cookies.set(sessionCookies.deviceId, deviceId, {
-    ...secureCookieOptions,
-    maxAge: deviceIdMaxAgeSeconds,
-  });
+  response.cookies.set(sessionCookies.deviceId, deviceId, deviceIdCookieOptions);
   return response;
 }
 

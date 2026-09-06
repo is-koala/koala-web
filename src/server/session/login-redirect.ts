@@ -40,3 +40,18 @@ function sameSitePath(candidate: string): string | null {
     return null;
   }
 }
+
+/** Dönüş hedefi yokken kullanıcının bırakılacağı yer. */
+const defaultDestination = "/";
+
+/**
+ * `?next=` parametresinin okunmuş hâli.
+ *
+ * Giriş formuna gelen değer tarayıcıdan geçtiği için `loginRedirect`'in
+ * ürettiği hedefle aynı olduğu varsayılamaz: kullanıcı adres çubuğunda
+ * değiştirebilir. Aynı `sameSitePath` denetiminden geçirmek, giriş sayfasının
+ * açık yönlendirme aracına dönmesini engeller; hedef yoksa ana sayfaya düşer.
+ */
+export function returnDestination(candidate: string | undefined | null): string {
+  return (candidate && sameSitePath(candidate)) || defaultDestination;
+}

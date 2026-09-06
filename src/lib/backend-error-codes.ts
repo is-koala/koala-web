@@ -33,6 +33,9 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "AUTH_SESSION_NOT_MATCHING_CURRENT_DEVICE": "authentication",
   "AUTH_SESSION_NOT_MATCHING_USER": "authentication",
   "AUTH_TOO_MANY_REQUESTS": "rateLimited",
+  // `ClientContext.requireWebDeviceId` bunu ValidationException olarak atar:
+  // web isteği geçerli bir X-Device-Id taşımadan giriş ya da kayıt yapamaz.
+  "AUTH_WEB_DEVICE_ID_REQUIRED": "validation",
   "AVAILABILITY_NOT_FOUND": "notFound",
   "AVAILABILITY_OVERLAPPING_SLOTS": "validation",
   "BADGE_CODE_ALREADY_EXISTS": "conflict",

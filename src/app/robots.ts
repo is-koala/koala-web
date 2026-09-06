@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/hesap-dogrula", "/sifre-belirle", "/sifre-sifirla", "/eposta-onayla", "/uygulamayi-ac", "/payment/result"],
+      disallow: ["/giris", "/cikis", "/hesap-dogrula", "/sifre-belirle", "/sifre-sifirla", "/eposta-onayla", "/uygulamayi-ac", "/payment/result"],
     },
     sitemap: new URL("/sitemap.xml", siteUrl).toString(),
   };

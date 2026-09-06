@@ -63,8 +63,10 @@ export const sessionCookies = {
   deviceId: "koala_did",
 } as const;
 
-/** `AuthController` ucu; backend'de context-path yok, yol kök altında. */
+/** `AuthController` uçları; backend'de context-path yok, yollar kök altında. */
 export const backendPaths = {
+  login: "/auth/login",
+  logout: "/auth/logout",
   refreshToken: "/auth/refresh-token",
 } as const;
 
@@ -96,6 +98,16 @@ export const secureCookieOptions = {
  * bu yüzden ömrü uzun tutulur.
  */
 export const deviceIdMaxAgeSeconds = 63_072_000;
+
+/**
+ * Cihaz kimliği çerezinin tam ayarı. Kimlik hem vekilde (ilk üretim) hem
+ * giriş akışında (oturumun bağlandığı kimlikle tazeleme) yazıldığı için
+ * ayarın iki yerde ayrışmaması gerekiyor.
+ */
+export const deviceIdCookieOptions = {
+  ...secureCookieOptions,
+  maxAge: deviceIdMaxAgeSeconds,
+} as const;
 
 /**
  * Ingress'in yazdığı gerçek istemci IP'si. Tarayıcının gönderdiği

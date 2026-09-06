@@ -8,6 +8,7 @@ import { isUnauthorized } from "@/server/api/errors";
 import { ingressClientIpHeader, requestPathHeader, sessionCookies } from "@/server/contract";
 
 import { clearSessionCookies, writeSessionCookies } from "./cookies";
+import { createDeviceId, isValidDeviceId } from "./device-id";
 import { loginRedirect } from "./login-redirect";
 import { refreshTokenPair, SessionExpiredError } from "./refresh";
 
@@ -29,6 +30,23 @@ export async function readSession(): Promise<Session> {
     deviceId: store.get(sessionCookies.deviceId)?.value ?? "",
     accessToken: store.get(sessionCookies.accessToken)?.value ?? null,
     refreshToken: store.get(sessionCookies.refreshToken)?.value ?? null,
+  };
+}
+
+/**
+ * Oturumu olmayan çağrının bağlamı.
+ *
+ * Giriş ve kayıt uçları token taşımaz ama backend web isteğinde cihaz
+ * kimliğini zorunlu tutar (`ClientContext.requireWebDeviceId`). Çerez henüz
+ * düşmemişse kimlik burada üretilir; çağıran onu oturum kurulduğunda çereze
+ * yazarak vekildeki üretim yarışını kapatır.
+ */
+export async function anonymousCaller(): Promise<ApiCaller> {
+  const session = await readSession();
+  return {
+    deviceId: isValidDeviceId(session.deviceId) ? session.deviceId : createDeviceId(),
+    accessToken: null,
+    clientIp: await ingressClientIp(),
   };
 }
 

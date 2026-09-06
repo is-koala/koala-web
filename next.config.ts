@@ -32,6 +32,8 @@ const nextConfig: NextConfig = {
         has: [{ type: "host", value: "staging.iskoala.com" }],
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
       },
+      { source: "/giris", headers: privateHeaders },
+      { source: "/cikis", headers: privateHeaders },
       { source: "/hesap-dogrula", headers: privateHeaders },
       { source: "/sifre-belirle", headers: privateHeaders },
       { source: "/sifre-sifirla", headers: privateHeaders },

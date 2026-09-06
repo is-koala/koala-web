@@ -26,6 +26,16 @@ describe("API hata sunumu", () => {
     });
   });
 
+  it("web cihaz kimliği eksikliğini nötr yedeğe düşürmez", () => {
+    // Kod haritada yoksa geliştirici hatası kullanıcıya "Bir sorun oluştu"
+    // diye görünür ve nedeni hiçbir yerde yazmaz.
+    expect(errorPresentation("AUTH_WEB_DEVICE_ID_REQUIRED", 400)).toEqual({
+      title: "Bilgileri kontrol et",
+      message: "Gönderdiğin bilgilerden bazıları geçerli değil.",
+      action: "none",
+    });
+  });
+
   it("bilinmeyen backend mesajını kullanıcıya göstermez", () => {
     expect(errorPresentation("NEW_INTERNAL_DETAIL", 500)).toEqual({
       title: "Bir sorun oluştu",
