@@ -10,7 +10,6 @@ import type { JobCategory } from "@/lib/job-posting";
 import { failureView } from "@/server/form";
 import { fetchJobCategories, fetchJobTemplates, type JobTemplate } from "@/server/jobs/jobs";
 import { currentGates } from "@/server/session/gates";
-import { enterShell } from "@/server/session/viewer";
 
 import { ShellGate } from "../../../shell";
 
@@ -30,8 +29,6 @@ export const metadata: Metadata = {
  * yazılıp geri alınamıyor ve doldurulacak formun sonunda kesin bir 403 var.
  */
 export default async function Page() {
-  await enterShell();
-
   return (
     <ShellGate shell="employer" href={newIndividualJobPath}>
       <NewIndividualJobPanel />
@@ -46,7 +43,7 @@ export default async function Page() {
  * gövdesinde bir `if` olsaydı bu iki çağrı kullanıcının göremeyeceği bir
  * ekran için yapılırdı.
  */
-async function NewIndividualJobPanel() {
+export async function NewIndividualJobPanel() {
   const { gates } = await currentGates();
   const [categories, templates] = await Promise.all([
     load<readonly JobCategory[]>(fetchJobCategories()),

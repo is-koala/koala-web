@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ErrorState } from "@/components/states";
+import { isUuid } from "@/lib/identifiers";
 import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/server/api/errors";
 import { notFoundStatus } from "@/server/contract";
@@ -31,6 +32,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (viewer === null) return null;
 
   const { id } = await params;
+  // Kimlik tarayıcıdan geliyor ve yola giriyor: UUID olmayan bir değer
+  // backend'e hiç sorulmaz (`server/address/gateway.ts` aynı kuralı yazıyor).
+  if (!isUuid(id)) notFound();
 
   let job: JobDetail;
   try {
