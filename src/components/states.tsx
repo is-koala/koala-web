@@ -2,6 +2,7 @@ import { errorPresentation } from "@/lib/errors";
 
 const emptyCopy = {
   jobs: ["Henüz ilan yok", "Yeni ilanlar yayımlandığında burada görünecek."],
+  jobDetail: ["İlan bulunamadı", "Bu ilan kaldırılmış veya artık yayında olmayabilir."],
   applications: ["Henüz başvuru yok", "Başvurular burada listelenecek."],
   messages: ["Henüz mesaj yok", "Konuşmaların başladığında burada görünecek."],
   assignments: ["Henüz atama yok", "Atamaların burada görünecek."],

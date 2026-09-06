@@ -37,6 +37,36 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Devam etmek için yeniden giriş yap.",
     action: "login",
   },
+  APPLICANT_IDENTITY_NOT_VERIFIED: {
+    title: "Kimliğini doğrulaman gerekiyor",
+    message: "Başvuru yapmadan önce kimlik doğrulamanı tamamlamalısın.",
+    action: "none",
+  },
+  APPLICANT_ADDRESS_REQUIRED: {
+    title: "Adresini eklemen gerekiyor",
+    message: "Başvuru yapmadan önce hesabına bir adres eklemelisin.",
+    action: "none",
+  },
+  APPLICANT_BANK_ACCOUNT_REQUIRED: {
+    title: "Ödeme hesabını eklemen gerekiyor",
+    message: "Kazancının aktarılabilmesi için bir ödeme hesabı eklemelisin.",
+    action: "none",
+  },
+  JOB_APPLICATION_USER_CANNOT_APPLY_TO_OWN_JOB: {
+    title: "Kendi ilanına başvuramazsın",
+    message: "Yayınladığın bir ilana çalışan olarak başvuru yapılamıyor.",
+    action: "none",
+  },
+  JOB_APPLICATION_CONTACT_USER_CANNOT_APPLY_TO_COMPANY_JOB: {
+    title: "Şirketinin ilanına başvuramazsın",
+    message: "Yetkilisi olduğun şirketin ilanına çalışan olarak başvuru yapılamıyor.",
+    action: "none",
+  },
+  JOB_APPLICATION_USER_ALREADY_APPLIED_TO_JOB: {
+    title: "Bu ilana zaten başvurdun",
+    message: "Başvurunun güncel durumunu Başvurularım sayfasından takip edebilirsin.",
+    action: "none",
+  },
   AUTH_REGISTRATION_TOKEN_EXPIRED: {
     title: "Bağlantının süresi dolmuş",
     message: "Yeni bir kayıt bağlantısı isteyerek yeniden deneyebilirsin.",
