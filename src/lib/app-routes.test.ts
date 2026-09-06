@@ -21,11 +21,13 @@ describe("kabuk rota kaydı", () => {
     expect(sectionAt("worker", ["hesap"])).toEqual({
       href: "/panel/hesap",
       label: "Hesap ve ayarlar",
+      requires: [],
       status: "ready",
     });
     expect(sectionAt("employer", ["hesap"])).toEqual({
       href: "/isveren/hesap",
       label: "Hesap ve ayarlar",
+      requires: [],
       status: "ready",
     });
   });
