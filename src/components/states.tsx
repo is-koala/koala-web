@@ -4,7 +4,7 @@ const emptyCopy = {
   jobs: ["Henüz ilan yok", "Yeni ilanlar yayımlandığında burada görünecek."],
   applications: ["Henüz başvuru yok", "Başvurular burada listelenecek."],
   messages: ["Henüz mesaj yok", "Konuşmaların başladığında burada görünecek."],
-  assignments: ["Henüz atama yok", "Kabul edilen işler burada görünecek."],
+  assignments: ["Henüz atama yok", "Atamaların burada görünecek."],
   addressSuggestions: [
     "Eşleşen adres bulunamadı",
     "Sokak ya da mahalle adını farklı yazmayı deneyebilirsin.",
