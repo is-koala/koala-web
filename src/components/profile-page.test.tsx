@@ -110,4 +110,34 @@ describe("profil sayfası", () => {
     expect(screen.getByText("Eğitim kataloğu henüz hazır değil")).toBeInTheDocument();
     expect(screen.queryByText("EXTERNAL_SERVICE")).not.toBeInTheDocument();
   });
+
+  it("üniversite kataloğu okunamadığında mevcut eğitimi düzenlenebilir bırakır", () => {
+    render(
+      <ProfilePageView
+        profile={profile()}
+        preferences={{ status: "ready", data: [] }}
+        universities={{ status: "error", errorCode: "EXTERNAL_SERVICE", httpStatus: 503 }}
+      />,
+    );
+
+    expect(screen.getByText("Eğitimi düzenle")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Eğitimi sil" })).toBeInTheDocument();
+    expect(screen.queryByText("Yeni eğitim ekle")).not.toBeInTheDocument();
+    expect(screen.getByText("Hizmete ulaşılamıyor")).toBeInTheDocument();
+  });
+
+  it("üniversite kataloğu boşken mevcut eğitimi düzenlenebilir bırakır", () => {
+    render(
+      <ProfilePageView
+        profile={profile()}
+        preferences={{ status: "ready", data: [] }}
+        universities={{ status: "ready", data: [] }}
+      />,
+    );
+
+    expect(screen.getByText("Eğitimi düzenle")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Eğitimi sil" })).toBeInTheDocument();
+    expect(screen.queryByText("Yeni eğitim ekle")).not.toBeInTheDocument();
+    expect(screen.getByText("Eğitim kataloğu henüz hazır değil")).toBeInTheDocument();
+  });
 });

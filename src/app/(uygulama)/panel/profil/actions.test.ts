@@ -8,13 +8,13 @@ import {
   requestHeaders,
 } from "../../../../../tests/support/session-cookies";
 
+import { createEducationAction } from "./education-actions";
+import { createExperienceAction } from "./experience-actions";
+import { updateNotificationPreferencesAction } from "./notification-actions";
 import {
-  createEducationAction,
-  createExperienceAction,
-  updateNotificationPreferencesAction,
   updateProfileAction,
   uploadProfilePictureAction,
-} from "./actions";
+} from "./profile-actions";
 
 const revalidatePath = vi.hoisted(() => vi.fn());
 
