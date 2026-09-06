@@ -98,6 +98,9 @@ export const sessionCookies = {
   jobTemplates: "/users/me/job-templates",
   login: "/auth/login",
   logout: "/auth/logout",
+  bankAccounts: "/users/me/bank-accounts",
+  changePassword: "/users/me/password",
+  notifications: "/users/me/notifications",
   /**
    * `POST /payment-quotes`. İlan öncesi fiyat dökümü; aynı hesap ilan
    * yayımlanırken `pricingService.snapshot(job)` ile tekrar yapılıp kilitlenir.
@@ -108,6 +111,7 @@ export const sessionCookies = {
   referenceCountries: "/reference/countries",
   realtimeCredential: "/users/me/realtime-credential",
   resetPassword: "/auth/reset-password",
+  sessions: "/users/me/sessions",
   startRegistration: "/auth/start-registration",
   /**
    * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta

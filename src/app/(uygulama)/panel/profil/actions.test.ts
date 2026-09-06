@@ -7,6 +7,7 @@ import {
   jsonResponse,
   requestHeaders,
 } from "../../../../../tests/support/session-cookies";
+import { redirectTo } from "../../../../../tests/support/navigation";
 
 import { createEducationAction } from "./education-actions";
 import { createExperienceAction } from "./experience-actions";
@@ -19,6 +20,12 @@ import {
 const revalidatePath = vi.hoisted(() => vi.fn());
 
 vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("next/navigation", async () => ({
+  redirect: (await import("../../../../../tests/support/navigation")).throwingRedirect(),
+  unstable_rethrow: (error: unknown) => {
+    if (error instanceof Error && error.message.startsWith("REDIRECT:")) throw error;
+  },
+}));
 vi.mock("next/headers", async () => {
   const support = await import("../../../../../tests/support/session-cookies");
   return {
@@ -137,6 +144,29 @@ describe("profil Server Action'ları", () => {
         { category: "NEWSLETTER", channel: "EMAIL", enabled: false },
       ],
     });
+  });
+
+  it("tercih kaydında süresi dolan oturumu hata state'ine çevirmeden girişe yönlendirir", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        jsonResponse(401, {
+          success: false,
+          errorCode: "UNAUTHORIZED",
+          errorCategory: "AUTHENTICATION",
+          message: "Oturum sona erdi.",
+        }),
+      ),
+    );
+    const form = new FormData();
+    form.append("preferences", "JOB_ALERTS|PUSH|true");
+
+    await expect(updateNotificationPreferencesAction(idleFormState, form)).rejects.toThrow(
+      redirectTo("/giris?next=%2Fpanel%2Fprofil"),
+    );
+
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
   });
 
   it("fotoğraf formundan yalnız image dosyasını multipart iletir", async () => {

@@ -221,7 +221,6 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "USER_MUST_VERIFY_IDENTITY": "validation",
   "USER_NEW_PASSWORD_CANNOT_BE_SAME_AS_CURRENT_PASSWORD": "validation",
   "USER_NOT_ASSOCIATED_WITH_COMPANY": "forbidden",
-  "USER_NOT_ASSOCIATED_WITH_INVITATION": "forbidden",
   "USER_NOT_AUTHENTICATED": "notFound",
   "USER_NOT_FOUND": "notFound",
   "USER_NOT_FOUND_BY_EMAIL": "notFound",
