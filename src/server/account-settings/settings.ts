@@ -44,14 +44,17 @@ export type NotificationFeed = {
 
 export type AccountSession = {
   id: string;
-  deviceId: string;
   deviceType: string;
   deviceName: string | null;
-  ipAddress: string | null;
   location: string | null;
   lastAccessedAt: string;
-  refreshExpiresAt: string;
   current: boolean;
+};
+
+type AccountSessionDto = AccountSession & {
+  deviceId: string;
+  ipAddress: string | null;
+  refreshExpiresAt: string;
 };
 
 export type PasswordChange = {
@@ -122,7 +125,15 @@ export async function markAllNotificationsRead(): Promise<number> {
 }
 
 export async function listSessions(): Promise<readonly AccountSession[]> {
-  return apiRequest<AccountSession[]>(backendPaths.sessions);
+  const sessions = await apiRequest<AccountSessionDto[]>(backendPaths.sessions);
+  return sessions.map(({ id, deviceType, deviceName, location, lastAccessedAt, current }) => ({
+    id,
+    deviceType,
+    deviceName,
+    location,
+    lastAccessedAt,
+    current,
+  }));
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {

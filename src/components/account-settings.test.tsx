@@ -67,24 +67,18 @@ const data: AccountSettingsData = {
   sessions: [
     {
       id: "4ace3ee5-f9fd-420c-8926-b35f2b82915a",
-      deviceId: "30c46a8e-3e1b-4c35-b616-550171243a8b",
       deviceType: "WEB",
       deviceName: "Safari",
-      ipAddress: "192.0.2.1",
       location: "İstanbul",
       lastAccessedAt: "2026-09-06T12:00:00Z",
-      refreshExpiresAt: "2026-10-06T12:00:00Z",
       current: true,
     },
     {
       id: "0e30edb1-3642-458b-aa0b-7569842448f0",
-      deviceId: "0e58e609-2564-4bdb-a2cf-88240b731878",
       deviceType: "MOBILE",
       deviceName: "iPhone",
-      ipAddress: null,
       location: null,
       lastAccessedAt: "2026-09-05T12:00:00Z",
-      refreshExpiresAt: "2026-10-05T12:00:00Z",
       current: false,
     },
   ],
@@ -98,7 +92,8 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(screen.getByText("Birincil hesap")).toBeVisible();
     expect(screen.getByRole("button", { name: "Birincil yap" })).toBeVisible();
     expect(screen.queryByText(rawIban)).toBeNull();
-    expect(screen.getByText("Durum: REVIEWING_BY_BANK")).toBeVisible();
+    expect(screen.getByText("Doğrulama durumu bilinmiyor")).toBeVisible();
+    expect(screen.queryByText(/REVIEWING_BY_BANK/)).toBeNull();
   });
 
   it("IBAN eklendiğinde action'a gönderir fakat başarı görünümüne ham değeri taşımaz", async () => {
@@ -143,6 +138,30 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(within(center).getByText("Başvurun güncellendi")).toBeVisible();
     expect(within(center).getByRole("button", { name: "Okundu işaretle" })).toBeVisible();
     expect(within(center).getByRole("button", { name: "Tümünü okundu işaretle" })).toBeVisible();
+  });
+
+  it("bilinmeyen bildirim kategorisini backend enum'u yerine nötr Türkçe gösterir", () => {
+    renderSettings({
+      data: {
+        ...data,
+        notifications: {
+          ...data.notifications,
+          notifications: {
+            ...data.notifications.notifications,
+            content: [
+              {
+                ...data.notifications.notifications.content[0],
+                category: "FUTURE_BACKEND_CATEGORY",
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const center = screen.getByRole("region", { name: "Bildirim merkezi" });
+    expect(within(center).getByText(/Diğer bildirim/)).toBeVisible();
+    expect(within(center).queryByText(/FUTURE_BACKEND_CATEGORY/)).toBeNull();
   });
 
   it("işlemsel tercihi kilitli, isteğe bağlı tercihi değiştirilebilir gösterir", () => {

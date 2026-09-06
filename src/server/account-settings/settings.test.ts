@@ -116,11 +116,40 @@ describe("hesap ayarları banka sözleşmesi", () => {
       .mockResolvedValueOnce(jsonResponse(200, envelope([])))
       .mockResolvedValueOnce(jsonResponse(200, envelope(feed)))
       .mockResolvedValueOnce(jsonResponse(200, envelope([])))
-      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope([
+            {
+              id: "4ace3ee5-f9fd-420c-8926-b35f2b82915a",
+              deviceId: "30c46a8e-3e1b-4c35-b616-550171243a8b",
+              deviceType: "WEB",
+              deviceName: "Safari",
+              ipAddress: "192.0.2.1",
+              location: "İstanbul",
+              lastAccessedAt: "2026-09-06T12:00:00Z",
+              refreshExpiresAt: "2026-10-06T12:00:00Z",
+              current: true,
+            },
+          ]),
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(loadAccountSettings()).resolves.toEqual({
-      bankAccounts: [], notifications: feed, preferences: [], sessions: [],
+      bankAccounts: [],
+      notifications: feed,
+      preferences: [],
+      sessions: [
+        {
+          id: "4ace3ee5-f9fd-420c-8926-b35f2b82915a",
+          deviceType: "WEB",
+          deviceName: "Safari",
+          location: "İstanbul",
+          lastAccessedAt: "2026-09-06T12:00:00Z",
+          current: true,
+        },
+      ],
     });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "https://api.example.test/users/me/bank-accounts",
