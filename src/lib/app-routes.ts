@@ -1,3 +1,5 @@
+import type { GateId } from "./gates";
+
 /**
  * Oturumlu kabukların rota kaydı.
  *
@@ -14,6 +16,17 @@ type SectionIdentity = {
   /** Kabuk kökünün altındaki kalıcı adres. */
   readonly href: string;
   readonly label: string;
+  /**
+   * Bu bölümün asıl eyleminin arkasındaki yetki kapıları.
+   *
+   * `status` gibi zorunlu ve `note` gibi bir karar dayatıyor: isteğe bağlı
+   * olsaydı yeni bir bölüm kapısını sessizce atlar ve kullanıcı eksiğini
+   * ancak backend reddettiğinde öğrenirdi. Kapısı olmayan bölüm boş liste
+   * yazar — "bakılmadı" ile "gerekmiyor" ayrı şeyler.
+   *
+   * Kararı `@/server/session/gates` veriyor, metni `@/lib/errors`.
+   */
+  readonly requires: readonly GateId[];
 };
 
 /** Rotası teslim edilmiş, tıklanabilir bölüm. */
@@ -40,6 +53,14 @@ export type AppShell = {
   readonly title: string;
   /** Kabuğun ne olduğunu bir cümlede söyleyen giriş metni. */
   readonly description: string;
+  /**
+   * Kabuğun tamamında geçerli kapılar.
+   *
+   * Bölümün değil kabuğun listesi, çünkü kimlik gibi bir eksik tek bir
+   * bölümün işi değil: kullanıcı hangi sayfada olursa olsun aynı eksiği
+   * taşıyor ve şeridi her sayfada görmeli.
+   */
+  readonly requires: readonly GateId[];
   readonly sections: readonly AppSection[];
 };
 
@@ -54,40 +75,59 @@ const employerShell: AppShell = {
   root: "/isveren",
   title: "İşveren",
   description: "İlanlarını, başvuruları ve atamalarını buradan yönetirsin.",
+  // Kimlik kapısı işveren kabuğunun üç eyleminin de önünde
+  // (`JobManager.java:110`, `CompanyManager.java:103`); işveren rolü ise
+  // yalnız bireysel ilanın önünde, ama kayıt anında yazıldığı ve geri
+  // alınamadığı için kullanıcı bunu kabuğa girer girmez bilmeli.
+  requires: ["identityVerification", "employerRole"],
   sections: [
     {
       href: "/isveren/sirket",
       label: "Şirketim",
+      // `CompanyManager.java:103-105` şirket kurmak için kimlik istiyor.
+      requires: ["identityVerification"],
       status: "planned",
       note: "Şirket oluşturma ve profil yönetimi henüz açılmadı.",
     },
     {
       href: "/isveren/ilanlar",
       label: "İlanlarım",
+      // İlan açmanın ortak koşulu. Bireysel/şirket ayrımı ve şirket onayı
+      // ilanın açılacağı yere göre eylem başında kararlaşıyor.
+      requires: ["identityVerification"],
       status: "planned",
       note: "İlan açma ve yönetim ekranları henüz açılmadı.",
     },
     {
       href: "/isveren/basvurular",
       label: "Başvurular",
+      // Başvuruları görmek kapıya takılmıyor; kabul kararı atama ve ödeme
+      // kapılarını açıyor ve onlar eylem başında okunuyor.
+      requires: [],
       status: "planned",
       note: "Başvuru listesi ve aday inceleme henüz açılmadı.",
     },
     {
       href: "/isveren/atamalar",
       label: "Atamalar",
+      requires: [],
       status: "planned",
       note: "Atama takibi henüz açılmadı.",
     },
     {
       href: "/isveren/mesajlar",
       label: "Mesajlar",
+      requires: [],
       status: "planned",
       note: "Web mesajlaşması henüz açılmadı.",
     },
     {
       href: "/isveren/odemeler",
       label: "Ödemeler",
+      // `JobAssignmentManager.java:212` iki koşul arıyor: doğrulanmış kimlik
+      // **ve** dolu TC. Yalnız ilkini bildirmek kullanıcıyı ödeme ekranında
+      // beklenmedik bir 400'e sokardı.
+      requires: ["identityVerification", "identityNumber"],
       status: "planned",
       note: "Ödeme ve emanet özeti henüz açılmadı.",
     },
@@ -100,33 +140,43 @@ const workerShell: AppShell = {
   root: "/panel",
   title: "Panel",
   description: "Başvurularını, işlerini ve kazançlarını buradan takip edersin.",
+  // Boş, ve bilerek: başvuru yapmanın da kimlik kapısı var
+  // (`JobApplicationManager.java:245-249`, ayrıca `APPLICANT_ADDRESS_REQUIRED`
+  // ile adres koşulu), ama iş arayan tarafını başvuru dilimi teslim ediyor
+  // (is-koala/koala-web#36). Kapı katmanı hazır; orada tek satır yetecek.
+  requires: [],
   sections: [
     {
       href: "/panel/profil",
       label: "Profilim",
+      requires: [],
       status: "ready",
     },
     {
       href: "/panel/islerim",
       label: "İşlerim",
+      requires: [],
       status: "planned",
       note: "Kabul edilen işlerin takibi henüz açılmadı.",
     },
     {
       href: "/panel/basvurularim",
       label: "Başvurularım",
+      requires: [],
       status: "planned",
       note: "Başvuru akışı ve listesi henüz açılmadı.",
     },
     {
       href: "/panel/mesajlar",
       label: "Mesajlar",
+      requires: [],
       status: "planned",
       note: "Web mesajlaşması henüz açılmadı.",
     },
     {
       href: "/panel/kazanclarim",
       label: "Kazançlarım",
+      requires: [],
       status: "planned",
       note: "Kazanç listesi henüz açılmadı.",
     },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { appShells, sectionAt } from "./app-routes";
+import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
 
 describe("kabuk rota kaydı", () => {
@@ -19,6 +20,7 @@ describe("kabuk rota kaydı", () => {
     expect(sectionAt("worker", ["profil"])).toEqual({
       href: "/panel/profil",
       label: "Profilim",
+      requires: [],
       status: "ready",
     });
   });
@@ -47,6 +49,45 @@ describe("kabuk rota kaydı", () => {
     expect(planned.length).toBeGreaterThan(0);
     for (const section of planned) {
       expect(section.note.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("her kabuk ve her bölüm istediği kapıları yazılı bildirir", () => {
+    // `requires` isteğe bağlı olsaydı yeni bir bölüm kapısını sessizce
+    // atlardı; tip onu yazmadan bölüm eklenmesine izin vermiyor.
+    for (const shell of Object.values(appShells)) {
+      expect(Array.isArray(shell.requires), shell.id).toBe(true);
+      for (const section of shell.sections) {
+        expect(Array.isArray(section.requires), section.href).toBe(true);
+      }
+    }
+  });
+
+  it("işveren kabuğu kimlik kapısını kabuk düzeyinde bildirir", () => {
+    // Kimlik şeridi tek bir bölümün değil kabuğun tamamının işi: üç ayrı
+    // backend kapısı ona bakıyor ve kullanıcı hangi bölümde olursa olsun aynı
+    // eksiği taşıyor.
+    expect(appShells.employer.requires).toContain("identityVerification");
+  });
+
+  it("ödemeler bölümü kimlik numarası kapısını da bildirir", () => {
+    // `JobAssignmentManager.java:212` iki koşul arıyor; yalnız
+    // `identityVerified` bildiren bir bölüm kullanıcıyı 400'e sürerdi.
+    expect(sectionAt("employer", ["odemeler"])?.requires).toEqual([
+      "identityVerification",
+      "identityNumber",
+    ]);
+  });
+
+  it("bildirilen her kapı sözlükte tanımlı", () => {
+    const declared = Object.values(appShells).flatMap((shell) => [
+      ...shell.requires,
+      ...shell.sections.flatMap((section) => section.requires),
+    ]);
+
+    expect(declared.length).toBeGreaterThan(0);
+    for (const gate of declared) {
+      expect(gateModes[gate], gate).toBeDefined();
     }
   });
 

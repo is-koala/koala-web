@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { errorPresentation } from "./errors";
+import { backendErrorFamilies } from "./backend-error-codes";
+import { errorPresentation, gateNotice } from "./errors";
+import { gateModes, type GateId } from "./gates";
+import { privateRoutes } from "./private-routes";
 
 describe("API hata sunumu", () => {
   it("oturum hatasını yeniden giriş eylemine dönüştürür", () => {
@@ -79,5 +82,74 @@ describe("API hata sunumu", () => {
       message: "İşlemi şu anda tamamlayamadık. Biraz sonra yeniden dene.",
       action: "retry",
     });
+  });
+});
+
+describe("kapı metinleri", () => {
+  it("kimlik kapısını nedeniyle ve gidilecek yolla anlatır", () => {
+    // Aile metni ("Bilgileri kontrol et") burada yanlış olurdu: düzeltilecek
+    // bir form alanı yok, yapılacak iş kimlik doğrulamak.
+    const notice = gateNotice("identityVerification");
+
+    expect(notice.title).toBe("Kimliğini doğrulaman gerekiyor");
+    expect(notice.remedy?.href).toBe("/uygulamayi-ac");
+  });
+
+  it("iki fatura adresi kapısını farklı metinlerle anlatır", () => {
+    // Ödeme, şirket ilanında **şirketin** adresini okuyor
+    // (`JobAssignmentManager.java:316-326`), kullanıcınınkini değil; tek metin
+    // iki durumu da yanlış anlatır.
+    const individual = gateNotice("individualBillingAddress");
+    const company = gateNotice("companyBillingAddress");
+
+    expect(individual.message).not.toBe(company.message);
+    expect(individual.title).not.toBe(company.title);
+  });
+
+  it("her kapı önlediği backend kodunu yazılı taşır", () => {
+    // Kapı ile arkasındaki reddin eşleşmesi yazılı olmazsa, backend koşulu
+    // değiştiğinde kapının bayatladığını kimse fark etmez.
+    expect(gateNotice("employerRole").errorCodes).toEqual(["JOB_USER_IS_NOT_EMPLOYER"]);
+    expect(gateNotice("identityNumber").errorCodes).toEqual([
+      "JOB_ASSIGNMENT_EMPLOYER_IDENTITY_NOT_VERIFIED",
+    ]);
+  });
+
+  it("şirket onayı kapısının backend'de karşılığı olmadığını yazılı tutar", () => {
+    // `company.isApproved()` iş mantığında hiç okunmuyor: bu kapı bir ürün
+    // kuralı, güvenlik sınırı değil. Boş liste onu söylemenin tek yolu.
+    expect(gateNotice("companyApproval").errorCodes).toEqual([]);
+  });
+});
+
+describe("kapı sözlüğünün bütünlüğü", () => {
+  it("her kapının bildirdiği kod backend haritasında gerçekten var", () => {
+    // Elle yazılmış bir kod, backend sabiti yeniden adlandırıldığında sessizce
+    // bayatlar; harita bunu yakalayan tek yer.
+    const unknown = (Object.keys(gateModes) as GateId[]).flatMap((gate) =>
+      gateNotice(gate).errorCodes.filter((code) => backendErrorFamilies[code] === undefined),
+    );
+
+    expect(unknown).toEqual([]);
+  });
+
+  it("kapının gösterdiği yol gerçekten var olan bir rota", () => {
+    // Var olmayan bir adrese yollayan kapı, kapı olmamasından kötü: kullanıcı
+    // eksiğini öğrenip 404'e düşer.
+    const known = new Set<string>(privateRoutes);
+
+    for (const gate of Object.keys(gateModes) as GateId[]) {
+      const remedy = gateNotice(gate).remedy;
+      if (remedy === null) continue;
+      expect(known.has(remedy.href), `${gate} → ${remedy.href}`).toBe(true);
+    }
+  });
+
+  it("her kapı Türkçe başlık ve gerekçe taşır", () => {
+    for (const gate of Object.keys(gateModes) as GateId[]) {
+      const notice = gateNotice(gate);
+      expect(notice.title.trim().length, gate).toBeGreaterThan(0);
+      expect(notice.message.trim().length, gate).toBeGreaterThan(0);
+    }
   });
 });

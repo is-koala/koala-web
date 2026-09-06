@@ -35,11 +35,13 @@ const mixedShell: AppShellDefinition = {
   root: "/isveren",
   title: "İşveren",
   description: "Kısa açıklama.",
+  requires: [],
   sections: [
-    { href: "/isveren/ilanlar", label: "İlanlarım", status: "ready" },
+    { href: "/isveren/ilanlar", label: "İlanlarım", requires: [], status: "ready" },
     {
       href: "/isveren/odemeler",
       label: "Ödemeler",
+      requires: [],
       status: "planned",
       note: "Ödeme özeti henüz açılmadı.",
     },
@@ -49,7 +51,7 @@ const mixedShell: AppShellDefinition = {
 describe("oturumlu uygulama kabuğu", () => {
   it("teslim edilmiş bölümü bağlantı, edilmemişi tıklanamaz madde olarak çizer", () => {
     render(
-      <AppShell shell={mixedShell} context={{ viewer, failure: null }}>
+      <AppShell shell={mixedShell} context={{ viewer, failure: null }} advisories={[]}>
         <p>sayfa içeriği</p>
       </AppShell>,
     );
@@ -64,7 +66,7 @@ describe("oturumlu uygulama kabuğu", () => {
 
   it("açılmamış bölümün nedenini ekranda yazar", () => {
     render(
-      <AppShell shell={mixedShell} context={{ viewer, failure: null }}>
+      <AppShell shell={mixedShell} context={{ viewer, failure: null }} advisories={[]}>
         <p>sayfa içeriği</p>
       </AppShell>,
     );
@@ -74,7 +76,7 @@ describe("oturumlu uygulama kabuğu", () => {
 
   it("kullanıcının adını ve çıkış yolunu üst barda taşır", () => {
     render(
-      <AppShell shell={appShells.employer} context={{ viewer, failure: null }}>
+      <AppShell shell={appShells.employer} context={{ viewer, failure: null }} advisories={[]}>
         <p>sayfa içeriği</p>
       </AppShell>,
     );
@@ -88,6 +90,7 @@ describe("oturumlu uygulama kabuğu", () => {
       <AppShell
         shell={appShells.employer}
         context={{ viewer: null, failure: { status: 503, errorCode: "EXTERNAL_SERVICE" } }}
+        advisories={[]}
       >
         <p>sayfa içeriği</p>
       </AppShell>,
@@ -106,7 +109,7 @@ describe("oturumlu uygulama kabuğu", () => {
 
   it("sayfa içeriğini kabuğun altında sürdürür", () => {
     render(
-      <AppShell shell={appShells.worker} context={{ viewer, failure: null }}>
+      <AppShell shell={appShells.worker} context={{ viewer, failure: null }} advisories={[]}>
         <p>sayfa içeriği</p>
       </AppShell>,
     );
@@ -120,6 +123,7 @@ describe("oturumlu uygulama kabuğu", () => {
         section={{
           href: "/isveren/odemeler",
           label: "Ödemeler",
+          requires: [],
           status: "planned",
           note: "Ödeme özeti henüz açılmadı.",
         }}
@@ -131,12 +135,41 @@ describe("oturumlu uygulama kabuğu", () => {
     expect(notice).toHaveTextContent("Ödeme özeti henüz açılmadı.");
   });
 
+  it("karşılanmamış advisory kapıyı kalıcı şerit olarak taşır", () => {
+    // Kimlik eksiği tek bir bölümün değil kabuğun işi: kullanıcı hangi
+    // sayfada olursa olsun aynı eksiği taşıyor.
+    render(
+      <AppShell
+        shell={appShells.employer}
+        context={{ viewer, failure: null }}
+        advisories={["identityVerification"]}
+      >
+        <p>sayfa içeriği</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Kimliğini doğrulaman gerekiyor");
+    // Şerit engellemiyor: menü ve sayfa yerinde kalıyor.
+    expect(screen.getByRole("navigation", { name: "İşveren menüsü" })).toBeVisible();
+    expect(within(screen.getByRole("main")).getByText("sayfa içeriği")).toBeVisible();
+  });
+
+  it("kapısı olmayan kabukta şerit çizmez", () => {
+    render(
+      <AppShell shell={appShells.worker} context={{ viewer, failure: null }} advisories={[]}>
+        <p>sayfa içeriği</p>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("rol değiştirici sunmaz", () => {
     // Ürün sahibi "web'de rol değiştirilebilir mi?" sorusunu henüz
     // cevaplamadı (is-koala/koala-web#25). Karar gelmeden konan bir geçiş
     // bağlantısı, geri alınması pahalı bir ürün kararını sessizce vermek olur.
     render(
-      <AppShell shell={appShells.employer} context={{ viewer, failure: null }}>
+      <AppShell shell={appShells.employer} context={{ viewer, failure: null }} advisories={[]}>
         <p>sayfa içeriği</p>
       </AppShell>,
     );
