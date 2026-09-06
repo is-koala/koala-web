@@ -136,8 +136,7 @@ const employerShell: AppShell = {
       href: "/isveren/atamalar",
       label: "Atamalar",
       requires: [],
-      status: "planned",
-      note: "Atama takibi henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/isveren/mesajlar",
@@ -148,12 +147,11 @@ const employerShell: AppShell = {
     {
       href: "/isveren/odemeler",
       label: "Ödemeler",
-      // `JobAssignmentManager.java:212` iki koşul arıyor: doğrulanmış kimlik
-      // **ve** dolu TC. Yalnız ilkini bildirmek kullanıcıyı ödeme ekranında
-      // beklenmedik bir 400'e sokardı.
-      requires: ["identityVerification", "identityNumber"],
-      status: "planned",
-      note: "Ödeme ve emanet özeti henüz açılmadı.",
+      // Bu bölüm yalnız finansal durumu okur. Kimlik, kimlik numarası ve
+      // fatura adresi ödeme **başlatma** eyleminin kapılarıdır; geçmişi
+      // görmek için kullanıcıyı bölümün dışında bırakmaz.
+      requires: [],
+      status: "ready",
     },
     {
       href: "/isveren/hesap",
@@ -204,8 +202,7 @@ const workerShell: AppShell = {
       href: "/panel/kazanclarim",
       label: "Kazançlarım",
       requires: [],
-      status: "planned",
-      note: "Kazanç listesi henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/panel/hesap",

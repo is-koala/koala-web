@@ -47,7 +47,7 @@ const detail = {
   dressCode: null,
   fullAddress: "Moda Caddesi No: 12",
   sessions: [],
-  cancellationPreview: null,
+  resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
 } satisfies WorkDetail;
 
 describe("iş ayrıntısı action sözleşmesi", () => {

@@ -14,6 +14,7 @@ import type {
   WorkDetailActionResult,
   WorkDetailCommand,
 } from "@/assignments/work-detail";
+import { WorkerAssignmentResolutionPanel } from "@/components/assignment-resolution";
 
 import { locationNotice, timesheetErrorMessage } from "./presenters";
 import { WorkSecondaryActions } from "./work-secondary-actions";
@@ -110,6 +111,9 @@ export function WorkDetailScreen({
         />
         <WorkTimeline detail={detail} />
       </div>
+      <WorkerAssignmentResolutionPanel
+        resolution={detail.resolution}
+      />
       <WorkSecondaryActions detail={detail} pending={isPending} onCommand={run} />
     </div>
   );

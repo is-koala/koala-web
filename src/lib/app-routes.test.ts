@@ -129,13 +129,15 @@ describe("kabuk rota kaydı", () => {
     expect(appShells.employer.requires).toContain("identityVerification");
   });
 
-  it("ödemeler bölümü kimlik numarası kapısını da bildirir", () => {
-    // `JobAssignmentManager.java:212` iki koşul arıyor; yalnız
-    // `identityVerified` bildiren bir bölüm kullanıcıyı 400'e sürerdi.
-    expect(sectionAt("employer", ["odemeler"])?.requires).toEqual([
-      "identityVerification",
-      "identityNumber",
-    ]);
+  it("ödemeler bölümünü okuma için açık, ödeme eylemini kendi kapısına bırakarak bildirir", () => {
+    // Kimlik ve adres ödeme oturumu açmanın koşuludur; geçmişi okumak için
+    // kullanıcıyı bütün bölümün dışında bırakmak finansal görünürlüğü keserdi.
+    expect(sectionAt("employer", ["odemeler"])).toEqual({
+      href: "/isveren/odemeler",
+      label: "Ödemeler",
+      requires: [],
+      status: "ready",
+    });
   });
 
   it("bildirilen her kapı sözlükte tanımlı", () => {
@@ -159,6 +161,15 @@ describe("kabuk rota kaydı", () => {
     expect(sectionAt("worker", ["islerim"])).toEqual({
       href: "/panel/islerim",
       label: "İşlerim",
+      requires: [],
+      status: "ready",
+    });
+  });
+
+  it("Kazançlarım bölümünü teslim edilmiş çalışan bağlantısı olarak kaydeder", () => {
+    expect(sectionAt("worker", ["kazanclarim"])).toEqual({
+      href: "/panel/kazanclarim",
+      label: "Kazançlarım",
       requires: [],
       status: "ready",
     });

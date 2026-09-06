@@ -82,6 +82,23 @@ describe("çalışan atama listesi", () => {
     expect(screen.queryByRole("button", { name: "Kabul et" })).toBeNull();
   });
 
+  it("genel iade durumunu tamamlandı diye sunmaz", () => {
+    render(
+      <AssignmentList
+        initialPage={pageOf({
+          ...baseAssignment,
+          status: "CANCELLED",
+          paymentStatus: "REFUNDED",
+        })}
+        respondAction={unusedAction}
+        acceptanceAction={detailAction}
+      />,
+    );
+
+    expect(screen.getByText("İade sürecinde")).toBeVisible();
+    expect(screen.queryByText("Ödeme iade edildi")).toBeNull();
+  });
+
   it("reddedilmiş işi durumuyla listeler ve yeniden cevap sunmaz", () => {
     render(
       <AssignmentList

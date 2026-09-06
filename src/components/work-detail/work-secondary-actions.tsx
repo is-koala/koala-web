@@ -3,9 +3,9 @@
 import type { FormEvent } from "react";
 
 import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
-import { formatMoney } from "@/components/assignment-presenters";
+import { canCancelAssignment } from "@/assignments/resolution";
 
-import { canOpenDispute, formatNotice, formatRate } from "./presenters";
+import { canOpenDispute, formatNotice } from "./presenters";
 
 export function WorkSecondaryActions({
   detail,
@@ -16,24 +16,28 @@ export function WorkSecondaryActions({
   pending: boolean;
   onCommand: (command: WorkDetailCommand, notice?: string) => void;
 }) {
-  const preview = detail.cancellationPreview;
+  const preview = detail.resolution.cancellationPreview;
+  const canCancel = canCancelAssignment({
+    assignmentStatus: detail.assignment.status,
+    resolution: detail.resolution,
+  });
   const canReview = detail.assignment.status === "COMPLETED";
   const showDispute = canOpenDispute(detail);
-  if (!preview?.cancellableNow && !showDispute && !canReview) return null;
+  if (!canCancel && !showDispute && !canReview) return null;
 
   return (
     <section className="work-detail-section work-secondary-actions" aria-labelledby="other-actions-heading">
       <h2 id="other-actions-heading">Diğer işlemler</h2>
-      {preview?.cancellableNow ? (
+      {canCancel && preview ? (
         <details>
           <summary>İptal önizlemesi</summary>
           <div className="work-action-body">
             <dl className="cancellation-facts">
-              <div><dt>Kesinti</dt><dd>{formatMoney(preview.feeAmount, detail.assignment.currency)}</dd></div>
-              <div><dt>İşverene iade</dt><dd>{formatMoney(preview.refundAmount, detail.assignment.currency)}</dd></div>
-              <div><dt>Kesinti oranı</dt><dd>{formatRate(preview.feeRate)}</dd></div>
               <div><dt>Başlangıca kalan</dt><dd>{formatNotice(preview.noticeMinutes)}</dd></div>
             </dl>
+            <p className="muted">
+              Onayladığında bu atamadaki çalışmadan çekilmiş olursun.
+            </p>
             <ActionForm
               label="İptal nedeni"
               button="Atamayı iptal et"

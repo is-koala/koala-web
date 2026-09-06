@@ -15,7 +15,7 @@ export const paymentStatusLabel: Readonly<Record<PaymentStatus, string>> = {
   HELD_IN_ESCROW: "Ödeme güvende",
   RELEASED_TO_WORKER: "Ödeme aktarıldı",
   FAILED: "Ödeme tamamlanamadı",
-  REFUNDED: "Ödeme iade edildi",
+  REFUNDED: "İade sürecinde",
   UNKNOWN: "Ödeme durumu güncelleniyor",
 };
 

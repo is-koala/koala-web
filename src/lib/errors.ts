@@ -114,6 +114,49 @@ const exactErrors: Record<string, ErrorPresentation> = {
       "İşveren olup olmadığın kayıt sırasında seçiliyor ve bugün değiştirilemiyor. İlan açmak için işveren olarak yeni bir hesap açman gerekiyor.",
     action: "home",
   },
+  JOB_ASSIGNMENT_EMPLOYER_IDENTITY_NOT_VERIFIED: {
+    title: "Kimlik bilgilerin eksik",
+    message:
+      "Ödeme alınmadı. Kimlik doğrulamanı ve kimlik numaranı tamamladıktan sonra yeniden deneyebilirsin.",
+    action: "none",
+  },
+  JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER: {
+    title: "Fatura adresi eksik",
+    message: "Ödeme alınmadı. Fatura adresini tamamladıktan sonra yeniden deneyebilirsin.",
+    action: "none",
+  },
+  JOB_ASSIGNMENT_NOT_READY_FOR_PAYMENT: {
+    title: "Bu atama için ödeme başlatılamıyor",
+    message:
+      "Atamanın güncel durumunu kontrol et. Tahsil edilmiş veya işçi tarafından henüz onaylanmamış olabilir.",
+    action: "retry",
+  },
+  PAYMENT_PROVIDER_UNAVAILABLE: {
+    title: "Ödeme sağlayıcısına ulaşılamadı",
+    message: "Kartından ödeme alınmadı. Biraz sonra yeniden deneyebilirsin.",
+    action: "retry",
+  },
+  PAYMENT_PROVIDER_REJECTED: {
+    title: "Ödeme başlatılamadı",
+    message: "Kartından ödeme alınmadı. Biraz sonra yeniden deneyebilirsin.",
+    action: "retry",
+  },
+  PAYMENT_PAGE_URL_REJECTED: {
+    title: "Güvenli ödeme sayfası açılamadı",
+    message: "Yönlendirme güvenlik kontrolünden geçmedi. Kartından ödeme alınmadı.",
+    action: "retry",
+  },
+  PAYMENT_ATTEMPT_IN_PROGRESS: {
+    title: "Ödeme sonucu bekleniyor",
+    message: "Devam eden ödeme denemesi kesinleşmeden yeni bir ödeme başlatılamaz.",
+    action: "none",
+  },
+  DISPUTE_BLOCKS_RELEASE: {
+    title: "Uyuşmazlık sonuçlanmayı bekliyor",
+    message:
+      "Açık uyuşmazlık sonuçlanana kadar atama iptal edilemez; emanetteki para iade edilmez veya işçiye aktarılmaz.",
+    action: "none",
+  },
   /**
    * Şirket yetkilisi uçlarının ortak reddi.
    *

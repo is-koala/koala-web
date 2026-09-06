@@ -83,6 +83,36 @@ describe("API hata sunumu", () => {
       action: "retry",
     });
   });
+
+  it("ödeme reddini backend mesajına ihtiyaç duymadan kullanıcı eylemine çevirir", () => {
+    expect(errorPresentation("JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER", 400)).toEqual({
+      title: "Fatura adresi eksik",
+      message: "Ödeme alınmadı. Fatura adresini tamamladıktan sonra yeniden deneyebilirsin.",
+      action: "none",
+    });
+    expect(errorPresentation("PAYMENT_PROVIDER_UNAVAILABLE", 502)).toEqual({
+      title: "Ödeme sağlayıcısına ulaşılamadı",
+      message: "Kartından ödeme alınmadı. Biraz sonra yeniden deneyebilirsin.",
+      action: "retry",
+    });
+    expect(errorPresentation("PAYMENT_PAGE_URL_REJECTED", 502).title).toBe(
+      "Güvenli ödeme sayfası açılamadı",
+    );
+    expect(errorPresentation("PAYMENT_ATTEMPT_IN_PROGRESS", 409)).toEqual({
+      title: "Ödeme sonucu bekleniyor",
+      message: "Devam eden ödeme denemesi kesinleşmeden yeni bir ödeme başlatılamaz.",
+      action: "none",
+    });
+  });
+
+  it("açık uyuşmazlığın para hareketlerini neden durdurduğunu açıklar", () => {
+    expect(errorPresentation("DISPUTE_BLOCKS_RELEASE", 409)).toEqual({
+      title: "Uyuşmazlık sonuçlanmayı bekliyor",
+      message:
+        "Açık uyuşmazlık sonuçlanana kadar atama iptal edilemez; emanetteki para iade edilmez veya işçiye aktarılmaz.",
+      action: "none",
+    });
+  });
 });
 
 describe("şirket yetkilisi hataları", () => {

@@ -43,12 +43,13 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
       checkOutAt: "2026-09-11T10:30:00Z",
       minutes: 90,
     }],
-    cancellationPreview: {
-      feeRate: "0",
-      feeAmount: "0",
-      refundAmount: "1400",
-      noticeMinutes: 120,
-      cancellableNow: true,
+    resolution: {
+      cancellationPreview: {
+        noticeMinutes: 120,
+        cancellableNow: true,
+      },
+      cancellation: null,
+      disputes: [],
     },
     ...overrides,
   };
@@ -308,10 +309,11 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     );
 
     expect(screen.getByText("İptal önizlemesi")).toBeVisible();
-    expect(screen.getByText("Kesinti").closest("div")).toHaveTextContent("Kesinti₺0,00");
-    expect(screen.getByText("İşverene iade").closest("div")).toHaveTextContent("İşverene iade₺1.400,00");
-    expect(screen.getByText("Kesinti oranı").closest("div")).toHaveTextContent("Kesinti oranı%0");
+    await user.click(screen.getByText("İptal önizlemesi"));
     expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
+    expect(screen.getByText(/çalışmadan çekilmiş olursun/i)).toBeVisible();
+    expect(screen.queryByText("Kesinti")).toBeNull();
+    expect(screen.queryByText("İşverene iade")).toBeNull();
     expect(screen.getByText("Uyuşmazlık aç")).toBeVisible();
     expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
 
@@ -328,11 +330,36 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
         paymentStatus: "RELEASED_TO_WORKER",
         completedAt: "2026-09-12T18:02:00Z",
       },
-      cancellationPreview: null,
+      resolution: {
+        cancellationPreview: null,
+        cancellation: null,
+        disputes: [],
+      },
     });
     rerender(<WorkDetailScreen key="completed" initialDetail={completed} action={action} locate={located} />);
     expect(screen.queryByText("İptal önizlemesi")).toBeNull();
     expect(screen.queryByText("Uyuşmazlık aç")).toBeNull();
     expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
+  });
+
+  it("açık uyuşmazlık varken çalışana ikinci uyuşmazlık formu göstermez", () => {
+    const activeDispute = workDetail({
+      resolution: {
+        ...workDetail().resolution,
+        disputes: [{
+          id: "dispute-1",
+          status: "UNDER_REVIEW",
+          reason: "Çalışma süresi yanlış",
+          resolution: null,
+          resolutionNote: null,
+          createdAt: "2026-09-06T10:00:00Z",
+          resolvedAt: null,
+        }],
+      },
+    });
+
+    render(<WorkDetailScreen initialDetail={activeDispute} action={vi.fn()} locate={located} />);
+
+    expect(screen.queryByRole("button", { name: "Uyuşmazlığı gönder" })).toBeNull();
   });
 });
