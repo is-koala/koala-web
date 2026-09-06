@@ -1,0 +1,157 @@
+import "server-only";
+
+import type {
+  AssignmentDispute,
+  AssignmentResolution,
+  CancellationPreview,
+  CancellationRecord,
+  DisputeResolution,
+  DisputeStatus,
+  RefundStatus,
+} from "@/assignments/resolution";
+import { backendPaths } from "@/server/contract";
+import { apiRequest } from "@/server/session/session";
+
+type CancellationPreviewDto = {
+  feeRate: string | number;
+  feeAmount: string | number;
+  refundAmount: string | number;
+  noticeMinutes: number;
+  cancellableNow: boolean;
+};
+
+type CancellationDto = {
+  id: string;
+  cancelledByParty?: string | null;
+  reason?: string | null;
+  feeRate: string | number;
+  feeAmount: string | number;
+  refundAmount: string | number;
+  noticeMinutes: number;
+  cancelledAt: string;
+  refundStatus?: string | null;
+  refundCompletedAt?: string | null;
+};
+
+type AssignmentDisputeDto = {
+  id: string;
+  status?: string | null;
+  reason?: string | null;
+  resolution?: string | null;
+  resolutionNote?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+};
+
+/**
+ * İptal, iade ve uyuşmazlık yaşam döngüsünü tek bir dar atama görünümünde toplar.
+ * Çağıran ekran backend uçlarını veya durum dönüştürme ayrıntılarını bilmez.
+ */
+export async function readAssignmentResolution(
+  assignmentId: string,
+  assignmentStatus: string,
+): Promise<AssignmentResolution> {
+  const [cancellationPreview, cancellation, disputes] = await Promise.all([
+    canPreviewCancellation(assignmentStatus)
+      ? apiRequest<CancellationPreviewDto>(
+          `${backendPaths.jobAssignments}/${assignmentId}/cancellation-preview`,
+          { cache: "no-store" },
+        ).then(toCancellationPreview)
+      : Promise.resolve(null),
+    assignmentStatus === "CANCELLED"
+      ? apiRequest<CancellationDto>(
+          `${backendPaths.jobAssignments}/${assignmentId}/cancellation`,
+          { cache: "no-store" },
+        ).then(toCancellationRecord)
+      : Promise.resolve(null),
+    apiRequest<readonly AssignmentDisputeDto[]>(
+      `${backendPaths.jobAssignments}/${assignmentId}/disputes`,
+      { cache: "no-store" },
+    ).then((items) => items.map(toAssignmentDispute)),
+  ]);
+
+  return { cancellationPreview, cancellation, disputes };
+}
+
+export async function cancelAssignment(assignmentId: string, reason: string): Promise<void> {
+  await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/cancel`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+export async function createAssignmentDispute(
+  assignmentId: string,
+  reason: string,
+): Promise<void> {
+  await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/disputes`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+function toCancellationPreview(dto: CancellationPreviewDto): CancellationPreview {
+  return {
+    feeRate: String(dto.feeRate),
+    feeAmount: String(dto.feeAmount),
+    refundAmount: String(dto.refundAmount),
+    noticeMinutes: dto.noticeMinutes,
+    cancellableNow: dto.cancellableNow,
+  };
+}
+
+function toCancellationRecord(dto: CancellationDto): CancellationRecord {
+  return {
+    id: dto.id,
+    cancelledByParty:
+      dto.cancelledByParty === "EMPLOYER" || dto.cancelledByParty === "WORKER"
+        ? dto.cancelledByParty
+        : "UNKNOWN",
+    reason: dto.reason?.trim() || "Neden belirtilmedi",
+    feeRate: String(dto.feeRate),
+    feeAmount: String(dto.feeAmount),
+    refundAmount: String(dto.refundAmount),
+    noticeMinutes: dto.noticeMinutes,
+    cancelledAt: dto.cancelledAt,
+    refundStatus: toRefundStatus(dto.refundStatus),
+    refundCompletedAt: dto.refundCompletedAt ?? null,
+  };
+}
+
+function toAssignmentDispute(dto: AssignmentDisputeDto): AssignmentDispute {
+  return {
+    id: dto.id,
+    status: toDisputeStatus(dto.status),
+    reason: dto.reason?.trim() || "Neden belirtilmedi",
+    resolution: toDisputeResolution(dto.resolution),
+    resolutionNote: dto.resolutionNote?.trim() || null,
+    createdAt: dto.createdAt,
+    resolvedAt: dto.resolvedAt ?? null,
+  };
+}
+
+function canPreviewCancellation(status: string): boolean {
+  return status === "CONFIRMED" || status === "IN_PROGRESS";
+}
+
+function toRefundStatus(value: string | null | undefined): RefundStatus | null {
+  if (value == null) return null;
+  return value === "PENDING" || value === "COMPLETED" || value === "FAILED"
+    ? value
+    : "UNKNOWN";
+}
+
+function toDisputeStatus(value: string | null | undefined): DisputeStatus {
+  return value === "OPEN" || value === "UNDER_REVIEW" || value === "RESOLVED"
+    ? value
+    : "UNKNOWN";
+}
+
+function toDisputeResolution(value: string | null | undefined): DisputeResolution {
+  if (value == null) return null;
+  return value === "RELEASE_TO_WORKER" ||
+    value === "REFUND_EMPLOYER" ||
+    value === "DISMISSED"
+    ? value
+    : null;
+}

@@ -43,12 +43,16 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
       checkOutAt: "2026-09-11T10:30:00Z",
       minutes: 90,
     }],
-    cancellationPreview: {
-      feeRate: "0",
-      feeAmount: "0",
-      refundAmount: "1400",
-      noticeMinutes: 120,
-      cancellableNow: true,
+    resolution: {
+      cancellationPreview: {
+        feeRate: "0",
+        feeAmount: "0",
+        refundAmount: "1400",
+        noticeMinutes: 120,
+        cancellableNow: true,
+      },
+      cancellation: null,
+      disputes: [],
     },
     ...overrides,
   };
@@ -328,7 +332,11 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
         paymentStatus: "RELEASED_TO_WORKER",
         completedAt: "2026-09-12T18:02:00Z",
       },
-      cancellationPreview: null,
+      resolution: {
+        cancellationPreview: null,
+        cancellation: null,
+        disputes: [],
+      },
     });
     rerender(<WorkDetailScreen key="completed" initialDetail={completed} action={action} locate={located} />);
     expect(screen.queryByText("İptal önizlemesi")).toBeNull();

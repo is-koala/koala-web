@@ -1,7 +1,6 @@
 import "server-only";
 
 import type {
-  CancellationPreview,
   CheckpointKind,
   WorkAssignment,
   WorkDetail,
@@ -14,6 +13,9 @@ import {
   type AssignmentDto,
   type AssignmentPageDto,
 } from "@/server/assignments/backend-contract";
+import { readAssignmentResolution } from "@/server/assignments/resolution";
+
+export { cancelAssignment, createAssignmentDispute } from "@/server/assignments/resolution";
 
 type JobDetailDto = {
   description?: string | null;
@@ -30,14 +32,6 @@ type WorkSessionDto = {
   minutes?: number | null;
 };
 
-type CancellationPreviewDto = {
-  feeRate: string | number;
-  feeAmount: string | number;
-  refundAmount: string | number;
-  noticeMinutes: number;
-  cancellableNow: boolean;
-};
-
 const detailPageSize = 100;
 
 /**
@@ -50,18 +44,13 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
   const assignment = await findOwnedAssignment(assignmentId);
   if (!assignment) return null;
 
-  const [job, sessionDtos, cancellation] = await Promise.all([
+  const [job, sessionDtos, resolution] = await Promise.all([
     apiRequest<JobDetailDto>(`/jobs/${assignment.job.id}`, { cache: "no-store" }),
     apiRequest<readonly WorkSessionDto[]>(
       `${backendPaths.jobAssignments}/${assignmentId}/work-sessions`,
       { cache: "no-store" },
     ),
-    shouldReadCancellationPreview(assignment.status)
-      ? apiRequest<CancellationPreviewDto>(
-          `${backendPaths.jobAssignments}/${assignmentId}/cancellation-preview`,
-          { cache: "no-store" },
-        )
-      : Promise.resolve(null),
+    readAssignmentResolution(assignmentId, assignment.status),
   ]);
 
   const displayAddress = job.address?.displayAddress?.trim();
@@ -74,7 +63,7 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
     fullAddress:
       job.addressPrecision === "EXACT" && displayAddress ? displayAddress : null,
     sessions: sessionDtos.map(toWorkSession),
-    cancellationPreview: cancellation ? toCancellationPreview(cancellation) : null,
+    resolution,
   };
 }
 
@@ -86,23 +75,6 @@ export async function checkpoint(
   await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/${kind}`, {
     method: "POST",
     ...(point ? { body: point } : {}),
-  });
-}
-
-export async function cancelAssignment(assignmentId: string, reason: string): Promise<void> {
-  await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/cancel`, {
-    method: "POST",
-    body: { reason },
-  });
-}
-
-export async function createAssignmentDispute(
-  assignmentId: string,
-  reason: string,
-): Promise<void> {
-  await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/disputes`, {
-    method: "POST",
-    body: { reason },
   });
 }
 
@@ -148,20 +120,6 @@ function toWorkSession(dto: WorkSessionDto): WorkSession {
     checkOutAt: dto.checkOutAt ?? null,
     minutes: dto.minutes ?? null,
   };
-}
-
-function toCancellationPreview(dto: CancellationPreviewDto): CancellationPreview {
-  return {
-    feeRate: String(dto.feeRate),
-    feeAmount: String(dto.feeAmount),
-    refundAmount: String(dto.refundAmount),
-    noticeMinutes: dto.noticeMinutes,
-    cancellableNow: dto.cancellableNow,
-  };
-}
-
-function shouldReadCancellationPreview(status: string) {
-  return status === "CONFIRMED" || status === "IN_PROGRESS";
 }
 
 function cleanText(value: string | null | undefined): string | null {

@@ -16,7 +16,7 @@ export function WorkSecondaryActions({
   pending: boolean;
   onCommand: (command: WorkDetailCommand, notice?: string) => void;
 }) {
-  const preview = detail.cancellationPreview;
+  const preview = detail.resolution.cancellationPreview;
   const canReview = detail.assignment.status === "COMPLETED";
   const showDispute = canOpenDispute(detail);
   if (!preview?.cancellableNow && !showDispute && !canReview) return null;

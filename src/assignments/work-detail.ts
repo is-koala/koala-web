@@ -1,4 +1,7 @@
 import type { WorkerAssignment } from "@/assignments/contract";
+import type { AssignmentResolution } from "@/assignments/resolution";
+
+export type { CancellationPreview } from "@/assignments/resolution";
 
 export type WorkAssignment = WorkerAssignment & {
   assignedAt: string | null;
@@ -10,14 +13,6 @@ export type WorkSession = {
   checkInAt: string;
   checkOutAt: string | null;
   minutes: number | null;
-};
-
-export type CancellationPreview = {
-  feeRate: string;
-  feeAmount: string;
-  refundAmount: string;
-  noticeMinutes: number;
-  cancellableNow: boolean;
 };
 
 /**
@@ -33,7 +28,7 @@ export type WorkDetail = {
   dressCode: string | null;
   fullAddress: string | null;
   sessions: readonly WorkSession[];
-  cancellationPreview: CancellationPreview | null;
+  resolution: AssignmentResolution;
 };
 
 export type CheckpointKind = "check-in" | "check-out";

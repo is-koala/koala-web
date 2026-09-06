@@ -8,6 +8,7 @@ const enterShell = vi.hoisted(() => vi.fn());
 const readEmployerAssignment = vi.hoisted(() => vi.fn());
 const readPaymentDetailsForAssignment = vi.hoisted(() => vi.fn());
 const readEmployerPaymentRequirements = vi.hoisted(() => vi.fn());
+const readAssignmentResolution = vi.hoisted(() => vi.fn());
 const viewerGates = vi.hoisted(() => vi.fn());
 const shellGate = vi.hoisted(() => vi.fn());
 const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"); }));
@@ -18,6 +19,11 @@ vi.mock("@/server/payments/payments", () => ({
   readPaymentDetailsForAssignment,
 }));
 vi.mock("@/server/payments/preflight", () => ({ readEmployerPaymentRequirements }));
+vi.mock("@/server/assignments/resolution", () => ({
+  readAssignmentResolution,
+  cancelAssignment: vi.fn(),
+  createAssignmentDispute: vi.fn(),
+}));
 vi.mock("@/server/session/gates", () => ({ viewerGates }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
 vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
@@ -62,6 +68,19 @@ describe("işveren atama ayrıntısı", () => {
       attempts: [{ id: "attempt-1", status: "FAILED" }],
       resolution: "failed",
       hasActiveDispute: true,
+    });
+    readAssignmentResolution.mockResolvedValue({
+      cancellationPreview: null,
+      cancellation: null,
+      disputes: [{
+        id: "dispute-1",
+        status: "UNDER_REVIEW",
+        reason: "Süre kaydı yanlış",
+        resolution: null,
+        resolutionNote: null,
+        createdAt: "2026-09-06T10:00:00Z",
+        resolvedAt: null,
+      }],
     });
   });
 

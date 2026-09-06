@@ -2,7 +2,9 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { ShellGate } from "@/app/(uygulama)/shell";
+import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
 import { formatAssignmentDate } from "@/components/assignment-presenters";
+import { EmployerResolutionActions } from "@/components/employer-resolution-actions";
 import {
   DisputeEscrowNotice,
   EmployerAssignmentPayment,
@@ -18,8 +20,11 @@ import {
   readPaymentDetailsForAssignment,
 } from "@/server/payments/payments";
 import { readEmployerPaymentRequirements } from "@/server/payments/preflight";
+import { readAssignmentResolution } from "@/server/assignments/resolution";
 import { viewerGates } from "@/server/session/gates";
 import { enterShell, type Viewer } from "@/server/session/viewer";
+
+import { employerResolutionAction } from "./actions";
 
 type EmployerAssignmentPageProps = {
   params: Promise<{ assignmentId: string }>;
@@ -76,7 +81,12 @@ export async function EmployerAssignmentContent({
   const loaded = await Promise.all([
     readPaymentDetailsForAssignment(assignment),
     readEmployerPaymentRequirements(viewerGates(viewer), assignment),
-  ]).then(([reconciliation, requirements]) => ({ reconciliation, requirements }))
+    readAssignmentResolution(assignment.id, assignment.status),
+  ]).then(([reconciliation, requirements, resolution]) => ({
+    reconciliation,
+    requirements,
+    resolution,
+  }))
     .catch((error: unknown) => {
       unstable_rethrow(error);
       return { failure: failureView(error) };
@@ -87,6 +97,7 @@ export async function EmployerAssignmentContent({
 
   const query = await searchParams;
   const showPaymentResult = query.paymentReturn === "1";
+  const currency = assignment.pricing?.currency ?? "TRY";
 
   return (
     <section className="app-panel employer-assignment-detail">
@@ -125,6 +136,14 @@ export async function EmployerAssignmentContent({
       )}
 
       <EmployerAssignmentPayment assignment={assignment} requirements={loaded.requirements} />
+      <AssignmentResolutionPanel resolution={loaded.resolution} currency={currency} />
+      <EmployerResolutionActions
+        assignmentStatus={assignment.status}
+        paymentStatus={assignment.paymentStatus}
+        resolution={loaded.resolution}
+        currency={currency}
+        action={employerResolutionAction.bind(null, assignment.id)}
+      />
     </section>
   );
 }

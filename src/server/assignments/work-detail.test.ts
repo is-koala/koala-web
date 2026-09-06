@@ -107,7 +107,8 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         refundAmount: 1400,
         noticeMinutes: 120,
         cancellableNow: true,
-      })));
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await readWorkDetail(assignmentId);
@@ -141,12 +142,16 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         checkOutAt: null,
         minutes: null,
       }],
-      cancellationPreview: {
-        feeRate: "0",
-        feeAmount: "0",
-        refundAmount: "1400",
-        noticeMinutes: 120,
-        cancellableNow: true,
+      resolution: {
+        cancellationPreview: {
+          feeRate: "0",
+          feeAmount: "0",
+          refundAmount: "1400",
+          noticeMinutes: 120,
+          cancellableNow: true,
+        },
+        cancellation: null,
+        disputes: [],
       },
     });
 
@@ -156,6 +161,7 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
       `https://api.example.test/jobs/${jobId}`,
       `https://api.example.test/job-assignments/${assignmentId}/work-sessions`,
       `https://api.example.test/job-assignments/${assignmentId}/cancellation-preview`,
+      `https://api.example.test/job-assignments/${assignmentId}/disputes`,
     ]);
     expect(JSON.stringify(result)).not.toContain("checkInLatitude");
   });
@@ -168,13 +174,14 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         addressPrecision: "DISTRICT",
         address: null,
       })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
       .mockResolvedValueOnce(jsonResponse(200, envelope([])));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await readWorkDetail(assignmentId);
 
     expect(result?.fullAddress).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("cancellation-preview"))).toBe(false);
   });
 
