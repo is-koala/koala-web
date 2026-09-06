@@ -154,6 +154,51 @@ describe("mesajlaşma arayüzü", () => {
     expect(within(links[0]!).getByLabelText("2 okunmamış mesaj")).toBeVisible();
   });
 
+  it("ilk REST görüntüsü transaction yarışında konuşmayı içermiyorsa yeniden okur", async () => {
+    const realtime = new FakeRealtime();
+    const newConversationId = "55555555-5555-4555-8555-555555555555";
+    const newConversation: ConversationSummary = {
+      ...conversationPage().content[0]!,
+      id: newConversationId,
+      displayName: "Bora Kaya",
+      lastMessageAt: "2026-09-06T09:00:00Z",
+      lastMessageBody: "Eski özet",
+      unreadCount: 0,
+    };
+    const loadPage = vi.fn()
+      .mockResolvedValueOnce({ ok: true, page: conversationPage() })
+      .mockResolvedValueOnce({
+        ok: true,
+        page: {
+          ...conversationPage(),
+          content: [newConversation, ...conversationPage().content],
+          totalElements: 2,
+        },
+      });
+    render(
+      <ConversationList
+        initialPage={conversationPage()}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={realtime}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        loadPage={loadPage}
+      />,
+    );
+
+    await waitFor(() => expect(realtime.personalListeners).toHaveLength(1));
+    act(() => realtime.emitPersonal({
+      ...event("MESSAGE", {
+        ...message("Commit sonrası görünür", otherId),
+        sentAt: "2026-09-06T12:00:00Z",
+      }),
+      conversationId: newConversationId,
+    }));
+
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Commit sonrası görünür")).toBeVisible();
+  });
+
   it("REST doğrulaması tamamlanmadan konuşma topic'ine abone olmaz ve kopyayı tekilleştirir", async () => {
     const realtime = new FakeRealtime();
     let allowAccess!: () => void;

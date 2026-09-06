@@ -54,6 +54,7 @@ export function ConversationList({
   }, [conversations]);
 
   useEffect(() => {
+    let active = true;
     const release = retainRealtimeClient(client);
     const removeState = client.onStateChange(setConnection);
     const removeMessages = client.listenToMessages((event) => {
@@ -68,21 +69,7 @@ export function ConversationList({
           pendingUnknownMessages.current.set(missingId, pending);
           if (refreshingConversationIds.current.has(missingId)) return;
           refreshingConversationIds.current.add(missingId);
-          void loadPage(0).then((result) => {
-            if (!result.ok) return;
-            const refreshedIds = new Set(result.page.content.map((conversation) => conversation.id));
-            const missingConversation = result.page.content.find((conversation) => conversation.id === missingId);
-            if (!missingConversation) return;
-            const pendingMessages = [...(pendingUnknownMessages.current.get(missingId)?.values() ?? [])];
-            setConversations((current) => [
-              ...result.page.content.map((conversation) =>
-                conversation.id === missingId
-                  ? updateConversationFromRefetch(conversation, pendingMessages, viewerId)
-                  : conversation,
-              ),
-              ...current.filter((conversation) => !refreshedIds.has(conversation.id)),
-            ].sort(byNewest));
-          }).finally(() => {
+          void surfaceUnknownConversation(missingId).finally(() => {
             refreshingConversationIds.current.delete(missingId);
             pendingUnknownMessages.current.delete(missingId);
           });
@@ -102,6 +89,29 @@ export function ConversationList({
         ));
       }
     });
+
+    async function surfaceUnknownConversation(missingId: string) {
+      for (let attempt = 0; attempt < 6 && active; attempt += 1) {
+        const result = await loadPage(0);
+        if (!active || !result.ok) return;
+        const missingConversation = result.page.content.find((conversation) => conversation.id === missingId);
+        if (missingConversation) {
+          const refreshedIds = new Set(result.page.content.map((conversation) => conversation.id));
+          const pendingMessages = [...(pendingUnknownMessages.current.get(missingId)?.values() ?? [])];
+          setConversations((current) => [
+            ...result.page.content.map((conversation) =>
+              conversation.id === missingId
+                ? updateConversationFromRefetch(conversation, pendingMessages, viewerId)
+                : conversation,
+            ),
+            ...current.filter((conversation) => !refreshedIds.has(conversation.id)),
+          ].sort(byNewest));
+          return;
+        }
+        await waitForCommittedConversation(attempt);
+      }
+    }
+
     const controller = new AbortController();
     const presenceDisposers: Array<() => void> = [];
     const counterpartIds = presenceKey ? presenceKey.split(",") : [];
@@ -116,6 +126,7 @@ export function ConversationList({
       ).then((dispose) => presenceDisposers.push(dispose)).catch(() => undefined);
     });
     return () => {
+      active = false;
       controller.abort();
       presenceDisposers.forEach((dispose) => dispose());
       removeMessages();
@@ -260,4 +271,8 @@ function shortDate(value: string) {
     month: "short",
     timeZone: "Europe/Istanbul",
   }).format(new Date(value));
+}
+
+function waitForCommittedConversation(attempt: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, 50 * (2 ** attempt)));
 }
