@@ -57,6 +57,15 @@ describe("kabuk rota kaydı", () => {
     });
   });
 
+  it("başvurularım bölümünü hazır iş arayan rotası olarak bildirir", () => {
+    expect(sectionAt("worker", ["basvurularim"])).toEqual({
+      href: "/panel/basvurularim",
+      label: "Başvurularım",
+      requires: [],
+      status: "ready",
+    });
+  });
+
   it("her bölüm kendi kabuğunun kökü altında kalır", () => {
     for (const shell of Object.values(appShells)) {
       for (const section of shell.sections) {
