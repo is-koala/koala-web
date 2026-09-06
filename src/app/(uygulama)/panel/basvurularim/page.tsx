@@ -1,5 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 
+import { ShellGate } from "@/app/(uygulama)/shell";
 import type { ApplicationFilter } from "@/applications/contract";
 import { ApplicationList } from "@/components/application-list";
 import { ErrorState } from "@/components/states";
@@ -11,11 +12,19 @@ import { withdrawApplicationAction } from "./actions";
 
 const filters = new Set<ApplicationFilter>(["ALL", "APPLIED", "ACCEPTED", "REJECTED", "WITHDRAWN"]);
 
-export default async function Page({
-  searchParams,
-}: {
+type ApplicationsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+};
+
+export default function Page({ searchParams }: ApplicationsPageProps) {
+  return (
+    <ShellGate shell="worker" href="/panel/basvurularim">
+      <ApplicationsPage searchParams={searchParams} />
+    </ShellGate>
+  );
+}
+
+export async function ApplicationsPage({ searchParams }: ApplicationsPageProps) {
   const context = await enterShell();
   if (context.failure !== null || context.viewer === null) return null;
 
