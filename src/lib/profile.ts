@@ -42,16 +42,21 @@ export type Education = {
 
 export type AcademicReference = { id: string; name: string };
 
-export type NotificationCategory =
-  | "ACCOUNT_SECURITY"
-  | "APPLICATION_UPDATES"
-  | "IDENTITY_VERIFICATION"
-  | "MARKETINGS"
-  | "COMPANY_UPDATES"
-  | "JOB_ALERTS"
-  | "NEWSLETTER";
+export const notificationCategoryValues = [
+  "ACCOUNT_SECURITY",
+  "APPLICATION_UPDATES",
+  "IDENTITY_VERIFICATION",
+  "MARKETINGS",
+  "COMPANY_UPDATES",
+  "JOB_ALERTS",
+  "NEWSLETTER",
+] as const;
 
-export type NotificationChannel = "EMAIL" | "PUSH" | "IN_APP";
+export type NotificationCategory = (typeof notificationCategoryValues)[number];
+
+export const notificationChannelValues = ["EMAIL", "PUSH", "IN_APP"] as const;
+
+export type NotificationChannel = (typeof notificationChannelValues)[number];
 
 export type NotificationPreference = {
   category: NotificationCategory;
@@ -131,7 +136,7 @@ export const gradeTypeOptions: readonly { value: GradeType; label: string }[] = 
   { value: "GRADUATE", label: "Mezun" },
 ];
 
-export const notificationCategoryLabels: Record<NotificationCategory, string> = {
+export const notificationCategoryLabels = {
   ACCOUNT_SECURITY: "Hesap güvenliği",
   APPLICATION_UPDATES: "Başvuru güncellemeleri",
   IDENTITY_VERIFICATION: "Kimlik doğrulama",
@@ -139,13 +144,13 @@ export const notificationCategoryLabels: Record<NotificationCategory, string> = 
   COMPANY_UPDATES: "Şirket güncellemeleri",
   JOB_ALERTS: "İş alarmları",
   NEWSLETTER: "Bülten",
-};
+} satisfies Record<NotificationCategory, string>;
 
-export const notificationChannelLabels: Record<NotificationChannel, string> = {
+export const notificationChannelLabels = {
   EMAIL: "E-posta",
   PUSH: "Anlık bildirim",
   IN_APP: "Uygulama içi",
-};
+} satisfies Record<NotificationChannel, string>;
 
 function hasText(value: string | null): boolean {
   return Boolean(value?.trim());

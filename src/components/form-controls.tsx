@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import { ErrorState } from "@/components/states";
@@ -16,20 +17,60 @@ export function FormAlert({ state }: { state: FormState }) {
   return <ErrorState errorCode={state.errorCode} status={state.httpStatus} />;
 }
 
-export type TextFieldProps = {
+type FieldPresentation = {
   /** Aynı formdan birden çok örnek çizildiğinde etiket bağını benzersiz tutar. */
   id?: string;
   /** Backend DTO alan adıyla aynı: `details[]` eşlemesi böyle karşılık buluyor. */
   name: string;
   label: string;
+  hint?: string;
+  error?: string;
+};
+
+type FieldAccessibility = {
+  id: string;
+  "aria-invalid": true | undefined;
+  "aria-describedby": string | undefined;
+};
+
+function FieldShell({
+  id,
+  label,
+  hint,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  children: (accessibility: FieldAccessibility) => ReactNode;
+}) {
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      {children({
+        id,
+        "aria-invalid": error ? true : undefined,
+        "aria-describedby": describedBy,
+      })}
+      {hint ? <p className="field-hint" id={hintId}>{hint}</p> : null}
+      <FieldError id={errorId} message={error} />
+    </div>
+  );
+}
+
+export type TextFieldProps = FieldPresentation & {
   type?: "text" | "email" | "password";
   /** Mobil klavyeyi alana göre açar; `type` tek başına her tarayıcıda yetmiyor. */
   inputMode?: "text" | "email";
   autoComplete?: string;
   required?: boolean;
   defaultValue?: string;
-  hint?: string;
-  error?: string;
   minLength?: number;
   maxLength?: number;
   pattern?: string;
@@ -51,34 +92,170 @@ export function TextField({
   pattern,
 }: TextFieldProps) {
   const fieldId = id ?? name;
-  const hintId = hint ? `${fieldId}-hint` : undefined;
-  const errorId = error ? `${fieldId}-error` : undefined;
-  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className="field">
-      <label htmlFor={fieldId}>{label}</label>
-      <input
-        id={fieldId}
-        name={name}
-        type={type}
-        inputMode={inputMode}
-        autoComplete={autoComplete}
-        required={required}
-        defaultValue={defaultValue}
-        minLength={minLength}
-        maxLength={maxLength}
-        pattern={pattern}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-      />
-      {hint && (
-        <p className="field-hint" id={hintId}>
-          {hint}
-        </p>
+    <FieldShell id={fieldId} label={label} hint={hint} error={error}>
+      {(accessibility) => (
+        <input
+          {...accessibility}
+          name={name}
+          type={type}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
+          required={required}
+          defaultValue={defaultValue}
+          minLength={minLength}
+          maxLength={maxLength}
+          pattern={pattern}
+        />
       )}
-      <FieldError id={errorId} message={error} />
-    </div>
+    </FieldShell>
+  );
+}
+
+export type TextareaFieldProps = FieldPresentation & {
+  defaultValue: string;
+  rows: number;
+  maxLength?: number;
+};
+
+export function TextareaField({
+  id,
+  name,
+  label,
+  defaultValue,
+  rows,
+  hint,
+  error,
+  maxLength,
+}: TextareaFieldProps) {
+  return (
+    <FieldShell id={id ?? name} label={label} hint={hint} error={error}>
+      {(accessibility) => (
+        <textarea
+          {...accessibility}
+          name={name}
+          defaultValue={defaultValue}
+          rows={rows}
+          maxLength={maxLength}
+        />
+      )}
+    </FieldShell>
+  );
+}
+
+export type InputFieldProps = FieldPresentation & {
+  type: "date" | "number";
+  defaultValue: string;
+  required?: boolean;
+  min?: string;
+  max?: string;
+  step?: string;
+};
+
+export function InputField({
+  id,
+  name,
+  label,
+  type,
+  defaultValue,
+  required = true,
+  hint,
+  error,
+  min,
+  max,
+  step,
+}: InputFieldProps) {
+  return (
+    <FieldShell id={id ?? name} label={label} hint={hint} error={error}>
+      {(accessibility) => (
+        <input
+          {...accessibility}
+          name={name}
+          type={type}
+          defaultValue={defaultValue}
+          required={required}
+          min={min}
+          max={max}
+          step={step}
+        />
+      )}
+    </FieldShell>
+  );
+}
+
+export type SelectFieldProps = FieldPresentation & {
+  options: readonly { value: string; label: string }[];
+  placeholder: string;
+  defaultValue?: string;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
+  required?: boolean;
+  disabled?: boolean;
+};
+
+export function SelectField({
+  id,
+  name,
+  label,
+  options,
+  placeholder,
+  defaultValue,
+  value,
+  onChange,
+  required = true,
+  disabled = false,
+  hint,
+  error,
+}: SelectFieldProps) {
+  return (
+    <FieldShell id={id ?? name} label={label} hint={hint} error={error}>
+      {(accessibility) => (
+        <select
+          {...accessibility}
+          name={name}
+          defaultValue={value === undefined ? defaultValue : undefined}
+          value={value}
+          onChange={onChange}
+          required={required}
+          disabled={disabled}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      )}
+    </FieldShell>
+  );
+}
+
+export type FileFieldProps = FieldPresentation & {
+  accept: string;
+  required?: boolean;
+};
+
+export function FileField({
+  id,
+  name,
+  label,
+  accept,
+  required = true,
+  hint,
+  error,
+}: FileFieldProps) {
+  return (
+    <FieldShell id={id ?? name} label={label} hint={hint} error={error}>
+      {(accessibility) => (
+        <input
+          {...accessibility}
+          name={name}
+          type="file"
+          accept={accept}
+          required={required}
+        />
+      )}
+    </FieldShell>
   );
 }
 
@@ -91,7 +268,7 @@ export function CheckboxField({
   name: string;
   value: string;
   required?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const id = `${name}-${value}`;
   return (
@@ -111,7 +288,7 @@ export function DoneNotice({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="state-card" role="status">

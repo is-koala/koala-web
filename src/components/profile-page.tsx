@@ -1,14 +1,9 @@
 import Image from "next/image";
 
-import {
-  EducationCreator,
-  EducationEditor,
-  ExperienceCreator,
-  ExperienceEditor,
-  NotificationPreferencesForm,
-  ProfileDetailsForm,
-  ProfilePictureForm,
-} from "@/components/profile-forms";
+import { ProfileDetailsForm, ProfilePictureForm } from "@/components/profile/details-forms";
+import { EducationCreator, EducationEditor } from "@/components/profile/education-forms";
+import { ExperienceCreator, ExperienceEditor } from "@/components/profile/experience-forms";
+import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form";
 import { ErrorState } from "@/components/states";
 import {
   employmentTypeOptions,
@@ -154,6 +149,13 @@ export function ProfilePageView({
             ))}
           </div>
         )}
+        {profile.educations.map((education) => (
+          <EducationEditor
+            key={`editor-${education.id}`}
+            education={education}
+            universities={universities.status === "ready" ? universities.data : []}
+          />
+        ))}
         {universities.status === "error" ? (
           <ErrorState errorCode={universities.errorCode} status={universities.httpStatus} />
         ) : universities.data.length === 0 ? (
@@ -162,16 +164,7 @@ export function ProfilePageView({
             message="Üniversite kataloğu dolduğunda eğitim kaydı ekleyebilirsin."
           />
         ) : (
-          <>
-            {profile.educations.map((education) => (
-              <EducationEditor
-                key={`editor-${education.id}`}
-                education={education}
-                universities={universities.data}
-              />
-            ))}
-            <EducationCreator universities={universities.data} />
-          </>
+          <EducationCreator universities={universities.data} />
         )}
       </section>
 
