@@ -31,6 +31,14 @@ export type TextFieldProps = {
   minLength?: number;
   maxLength?: number;
   pattern?: string;
+  /**
+   * Denetimli kullanım. Adres formunda alanlar aramadan gelen adayla
+   * dışarıdan doldurulabiliyor; `defaultValue` bir kez okunduğu için o
+   * yazma ekrana hiç yansımazdı.
+   */
+  value?: string;
+  onValueChange?: (value: string) => void;
+  onBlur?: () => void;
 };
 
 export function TextField({
@@ -46,6 +54,9 @@ export function TextField({
   minLength,
   maxLength,
   pattern,
+  value,
+  onValueChange,
+  onBlur,
 }: TextFieldProps) {
   const hintId = hint ? `${name}-hint` : undefined;
   const errorId = error ? `${name}-error` : undefined;
@@ -61,7 +72,13 @@ export function TextField({
         inputMode={inputMode}
         autoComplete={autoComplete}
         required={required}
-        defaultValue={defaultValue}
+        defaultValue={value === undefined ? defaultValue : undefined}
+        value={value}
+        // Denetimli değer değiştirici olmadan gelirse React her tuşta uyarır;
+        // niyet zaten salt okunur bir alandır.
+        readOnly={value !== undefined && !onValueChange}
+        onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
+        onBlur={onBlur}
         minLength={minLength}
         maxLength={maxLength}
         pattern={pattern}
