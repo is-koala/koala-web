@@ -13,9 +13,20 @@ const notFound = vi.hoisted(() =>
   }),
 );
 
+const jobLifecycleActions = vi.hoisted(() =>
+  vi.fn((props: { status: string; action: unknown }) => {
+    void props;
+    return null;
+  }),
+);
+
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchJobDetail }));
-vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/components/job-lifecycle-actions", () => ({
+  JobLifecycleActions: jobLifecycleActions,
+}));
 
 const jobId = "4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99";
 
@@ -110,4 +121,45 @@ describe("yayımlanmış ilan sayfası", () => {
     expect(screen.getByText("Bu ilanın fiyat dökümü okunamadı.")).toBeVisible();
     expect(screen.queryByRole("group", { name: "Kilitlenen fiyat" })).toBeNull();
   });
+
+  it("kapatma ve iptali ilanın güncel durumuyla birlikte yüzeye çıkarır", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(jobLifecycleActions).toHaveBeenCalled();
+    const props = jobLifecycleActions.mock.calls[0][0];
+    expect(props.status).toBe("OPEN");
+    expect(typeof props.action).toBe("function");
+  });
+
+  it("eylemleri 'yakında' diye erteleyen metni artık taşımaz", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.queryByText(/yakında ekleniyor/)).toBeNull();
+  });
+
+  it("backend enum'undaki her durumu adlandırır", async () => {
+    // `JobStatus` beş değer taşıyor; `IN_PROGRESS` sayfada etiketsiz kalırsa
+    // kullanıcı durumunun okunamadığını sanır.
+    fetchJobDetail.mockResolvedValue(jobDetail("IN_PROGRESS"));
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByText("İş sürüyor")).toBeVisible();
+  });
 });
+
+function jobDetail(status: string) {
+  return {
+    id: jobId,
+    title: "Hafta sonu garson",
+    status,
+    salaryType: "DAILY",
+    startDateTime: "2026-10-10T09:00",
+    endDateTime: "2026-10-11T18:00",
+    pricing,
+  };
+}

@@ -437,6 +437,16 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .price-line { display: flex; justify-content: space-between; gap: 20px; margin: 0 0 10px; }
 .price-line:last-child { margin-bottom: 0; border-top: 1px solid var(--line); padding-top: 12px; font-size: 1.05rem; }
 .price-freeze { margin: 0; font-size: .88rem; font-weight: 750; color: var(--brand-accent); }
+
+/* İlanın durum geçişleri. Geri alınamaz iki eylem, mümkün olmayanın yerinde
+   nedeni; bu yüzden liste maddesi düğme yerine metin de taşıyabiliyor. */
+.job-lifecycle { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 26px; }
+.job-lifecycle h2 { font-size: clamp(1.2rem, 2.6vw, 1.6rem); margin: 0 0 14px; }
+.job-lifecycle > .form-warning, .job-lifecycle > .form-notice { margin-bottom: 18px; }
+.job-lifecycle-list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 22px; }
+.job-lifecycle-list li { display: grid; gap: 10px; justify-items: start; }
+.job-lifecycle-list p { margin: 0; }
+.form-notice { background: #eef7f0; border: 1px solid #bcdcc4; border-radius: 16px; padding: 16px; margin: 0; font-size: .9rem; }
 .job-detail { padding: clamp(52px, 8vw, 100px) 0 110px; }
 .job-detail-hero { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .75fr); gap: clamp(36px, 7vw, 90px); align-items: end; padding-bottom: clamp(42px, 7vw, 76px); border-bottom: 1px solid var(--line); }
 .job-detail-hero .eyebrow, .job-application-card .eyebrow { margin-bottom: 12px; }

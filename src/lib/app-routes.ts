@@ -54,7 +54,9 @@ export const newIndividualJobPath = "/isveren/ilan/yeni";
  *
  * Menüde yok, çünkü bir liste maddesi değil bir kaydın adresi; kapıları da
  * yok — ilanı zaten açmış kullanıcı onu görebilmeli. Kapatma ve iptal
- * eylemleri buraya is-koala/koala-web#34 ile geliyor.
+ * eylemleri de burada duruyor ve kendi kapılarını taşımıyor: yetkiyi
+ * `JobManager.requireJobEditor` ilanın kaydından okuyor, yetkisiz kullanıcı
+ * ilanı zaten göremiyor.
  */
 export function publishedJobPath(jobId: string): string {
   return `/isveren/ilan/${encodeURIComponent(jobId)}`;

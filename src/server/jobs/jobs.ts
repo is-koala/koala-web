@@ -91,7 +91,36 @@ export function createIndividualJob(
 }
 
 export function fetchJobDetail(jobId: string): Promise<JobDetail> {
-  return apiRequest<JobDetail>(`${backendPaths.jobs}/${encodeURIComponent(jobId)}`);
+  return apiRequest<JobDetail>(jobPath(jobId));
+}
+
+/**
+ * `POST /jobs/{jobId}/close` — yeni başvuruyu durdurur.
+ *
+ * Yanıt `SuccessResult`, yani zarfın `data` alanı yok; çağıran bir değer
+ * beklemesin diye dönüş `void`. Durum geçişinin kuralı burada tekrar
+ * edilmiyor: `JobManager.closeJob` yalnız `OPEN` durumundan geçiyor ve
+ * reddini 409 `JOB_NOT_OPEN` ile bildiriyor.
+ */
+export async function closeJob(jobId: string): Promise<void> {
+  await apiRequest(`${jobPath(jobId)}/close`, { method: "POST" });
+}
+
+/**
+ * `POST /jobs/{jobId}/cancel` — ilanı geçersiz kılar ve başvuranlara bildirim
+ * gönderir.
+ *
+ * Kapatmadan ayrı bir uç, çünkü ayrı bir geçiş: devam eden bir atama varsa
+ * backend 409 `JOB_HAS_LIVE_ASSIGNMENT` döndürüyor ve o koşul istemciden
+ * görünmüyor (`JobDetailDto.hiredCount` başka bir durum kümesini sayıyor).
+ */
+export async function cancelJob(jobId: string): Promise<void> {
+  await apiRequest(`${jobPath(jobId)}/cancel`, { method: "POST" });
+}
+
+/** Kimlik tarayıcıdan geliyor; yola konmadan kaçırılır. */
+function jobPath(jobId: string): string {
+  return `${backendPaths.jobs}/${encodeURIComponent(jobId)}`;
 }
 
 type JobDetailDto = {
