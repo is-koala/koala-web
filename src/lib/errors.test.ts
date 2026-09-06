@@ -85,6 +85,73 @@ describe("API hata sunumu", () => {
   });
 });
 
+describe("şirket yetkilisi hataları", () => {
+  it("son yöneticiyi çıkarma reddini ne yapılacağını söyleyerek anlatır", () => {
+    // Aile metni ("Bu kayıt başka bir duruma geçmiş olabilir") burada
+    // yanlış: kayıt değişmedi, kural gereği bu çıkarma hiç yapılamaz ve
+    // kullanıcının atacağı somut bir adım var.
+    expect(errorPresentation("COMPANY_LAST_ADMIN_CANNOT_BE_REMOVED", 409)).toEqual({
+      title: "Son yöneticiyi çıkaramazsın",
+      message:
+        "Şirkette en az bir yönetici kalmalı. Önce başka birini yönetici olarak davet et, sonra bu kişiyi çıkarabilirsin.",
+      action: "none",
+    });
+  });
+
+  it("şirket 404'ünü iki nedeni ayırmadan anlatır", () => {
+    // Sözleşme bunu bilerek ayırt edilemez bırakıyor: `requireCompanyAdmin`
+    // ve `removeContact`'in "bu kişi yetkili değil" dalı aynı kodu taşıyor,
+    // ve üyesi olunmayan şirket ile var olmayan şirket bayt bayt aynı yanıtı
+    // veriyor (is-koala/koala-backend#85). Metin bir nedeni seçseydi
+    // sözleşmenin kapattığı bilgiyi ekranda geri açardı.
+    const presentation = errorPresentation("USER_NOT_ASSOCIATED_WITH_COMPANY", 404);
+
+    expect(presentation).toEqual({
+      title: "Bu işlemi yapamıyoruz",
+      message:
+        "Şirket bulunamadı, yöneticisi olmayabilirsin ya da çıkarmak istediğin kişi artık yetkili değil. Sayfayı yenileyip listeyi kontrol et.",
+      action: "retry",
+    });
+  });
+
+  it("aynı kodu farklı HTTP durumunda da aynı metinle karşılar", () => {
+    // Dallanma `errorCode` ile yapılıyor, durum koduyla değil: uç düzeltmeden
+    // önce 403 döndürüyordu ve duruma bakan bir metin, eski bir dağıtımda
+    // sessizce başka bir şey söylerdi.
+    expect(errorPresentation("USER_NOT_ASSOCIATED_WITH_COMPANY", 403)).toEqual(
+      errorPresentation("USER_NOT_ASSOCIATED_WITH_COMPANY", 404),
+    );
+  });
+
+  it("davet 404'ünü backend'in belgelediği cümleyle karşılar", () => {
+    // Aynı cümle Swagger'da ve `company.contact.invitation.not.found`
+    // metninde yazılı; "yok" ile "senin değil" tek bir ekranda buluşuyor.
+    expect(errorPresentation("COMPANY_CONTACT_INVITATION_NOT_FOUND", 404)).toEqual({
+      title: "Davet bulunamadı",
+      message: "Davet bulunamadı ya da size ait değil.",
+      action: "home",
+    });
+  });
+});
+
+describe("davet sözleşmesinin hata aileleri", () => {
+  it("üyelik reddini artık 404 ailesinde tutar", () => {
+    // Uç düzeltmeden önce `ForbiddenException` ile 403 dönüyordu; şimdi
+    // `ResourceNotFoundException`. Aile "forbidden" kalsaydı, metni yazılı
+    // olmayan bir kardeş uç kullanıcıyı "farklı bir hesapla giriş yap"
+    // diye yanlış yere gönderirdi.
+    expect(backendErrorFamilies.USER_NOT_ASSOCIATED_WITH_COMPANY).toBe("notFound");
+  });
+
+  it("zaten yetkili ve zaten bekleyen davet çakışmalarını çakışma ailesine koyar", () => {
+    // İkisi de `ConflictException` → 409. `USER_ALREADY_A_CONTACT` önceden
+    // `ValidationException` idi ve "Bilgileri kontrol et" derdi; düzeltilecek
+    // bir alan yok, kişi gerçekten zaten yetkili.
+    expect(backendErrorFamilies.USER_ALREADY_A_CONTACT).toBe("conflict");
+    expect(backendErrorFamilies.COMPANY_CONTACT_INVITATION_ALREADY_PENDING).toBe("conflict");
+  });
+});
+
 describe("kapı metinleri", () => {
   it("kimlik kapısını nedeniyle ve gidilecek yolla anlatır", () => {
     // Aile metni ("Bilgileri kontrol et") burada yanlış olurdu: düzeltilecek

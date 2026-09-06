@@ -18,6 +18,13 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
     ["/panel", "/giris?next=%2Fpanel"],
     ["/panel/profil", "/giris?next=%2Fpanel%2Fprofil"],
     ["/panel/islerim", "/giris?next=%2Fpanel%2Fislerim"],
+    // Şirkete bağlı derin rota da kabuğun kapısının arkasında: kimliği yola
+    // koyan bir adres kapının dışında kalırsa `GET /users/me` çağrılmadan
+    // sayfa çizilir.
+    [
+      "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer",
+      "/giris?next=%2Fisveren%2Fsirket%2Faaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa%2Fyetkililer",
+    ],
   ];
 
   for (const [path, destination] of targets) {
@@ -35,7 +42,14 @@ test("girişten sonra kullanıcı bıraktığı kabuk adresine döner", async ({
 });
 
 test("kabuk adresleri indekslenmez", async ({ request }) => {
-  for (const path of ["/isveren", "/isveren/ilanlar", "/panel", "/panel/profil", "/panel/islerim"]) {
+  for (const path of [
+    "/isveren",
+    "/isveren/ilanlar",
+    "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer",
+    "/panel",
+    "/panel/profil",
+    "/panel/islerim",
+  ]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["x-robots-tag"], path).toContain("noindex");
     expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
