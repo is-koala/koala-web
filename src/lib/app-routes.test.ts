@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appShells, sectionAt } from "./app-routes";
+import { appShells, newIndividualJobPath, publishedJobPath, sectionAt } from "./app-routes";
 import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
 
@@ -9,6 +9,7 @@ describe("kabuk rota kaydı", () => {
     expect(appShells.employer.sections.map((section) => section.label)).toEqual([
       "Şirketim",
       "İlanlarım",
+      "Yeni ilan",
       "Başvurular",
       "Atamalar",
       "Mesajlar",
@@ -38,6 +39,24 @@ describe("kabuk rota kaydı", () => {
     // bunu kimse fark etmez: menü çalışmaya devam eder.
     expect(Object.values(appShells).map((shell) => shell.root).sort()).toEqual(
       [...privateRouteTrees].sort(),
+    );
+  });
+
+  it("bireysel ilan formunu işveren rolü kapısının arkasına yazar", () => {
+    // Rol kayıt anında yazılıyor ve geri alınamıyor (`AuthManager.java:157`);
+    // kimlik ise doğrulanabilir bir eksik, bu yüzden formun kendi kapısı
+    // değil kabuğun şeridi ve yayımlama düğmesi onu taşır.
+    expect(sectionAt("employer", ["ilan", "yeni"])).toEqual({
+      href: newIndividualJobPath,
+      label: "Yeni ilan",
+      requires: ["employerRole"],
+      status: "ready",
+    });
+  });
+
+  it("yayımlanan ilanın adresini kimliğinden kurar", () => {
+    expect(publishedJobPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/ilan/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99",
     );
   });
 
@@ -101,6 +120,8 @@ describe("kabuk rota kaydı", () => {
     // hatasını var olmayan bir bölüm gibi gösterirdi.
     expect(sectionAt("employer", ["bilinmeyen"])).toBeUndefined();
     expect(sectionAt("employer", ["ilanlar", "yeni"])).toBeUndefined();
+    // Form `/isveren/ilan/yeni`; `/isveren/ilan` tek başına bir bölüm değil.
+    expect(sectionAt("employer", ["ilan"])).toBeUndefined();
   });
 
   it("bir kabuğun bölümünü öbür kabukta tanımaz", () => {

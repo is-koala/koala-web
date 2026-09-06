@@ -5,6 +5,11 @@ const emptyCopy = {
   applications: ["Henüz başvuru yok", "Başvurular burada listelenecek."],
   messages: ["Henüz mesaj yok", "Konuşmaların başladığında burada görünecek."],
   assignments: ["Henüz atama yok", "Kabul edilen işler burada görünecek."],
+  jobCategories: ["İş kategorisi bulunamadı", "Kategoriler yüklenemedi; sayfayı yenilemeyi dene."],
+  priceQuote: [
+    "Fiyat henüz hesaplanmadı",
+    "Çalışana ödenecek ücreti girdiğinde Koala hizmet bedelini ve işveren toplamını burada gösteririz.",
+  ],
   addressSuggestions: [
     "Eşleşen adres bulunamadı",
     "Sokak ya da mahalle adını farklı yazmayı deneyebilirsin.",
