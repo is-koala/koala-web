@@ -66,6 +66,19 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.getByText(/işçinin atamayı onaylaması gerekiyor/i)).toBeVisible();
   });
 
+  it("atama REFUNDED olduğunda sağlayıcı tamamlanmasını değil iade sürecini anlatır", () => {
+    render(
+      <EmployerAssignmentPayment
+        assignment={{ ...assignment, paymentStatus: "REFUNDED" }}
+        requirements={{ advisories: [], blocked: [] }}
+      />,
+    );
+
+    expect(screen.getAllByText("İade sürecinde")).not.toHaveLength(0);
+    expect(screen.getByText("Bu atama için iade süreci başlatıldı.")).toBeVisible();
+    expect(screen.queryByText("Bu atamanın ödemesi iade edildi.")).toBeNull();
+  });
+
   it("bireysel işverenin kimlik numarası ve adres eksiklerini eylemin yanında açıklar", () => {
     render(
       <EmployerAssignmentPayment
@@ -122,9 +135,9 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.getByRole("status")).toHaveTextContent("işçiye aktarıldı");
     expect(screen.queryByText(/emanete alındı/i)).toBeNull();
 
-    rerender(<PaymentResultNotice resolution="refunded" />);
-    expect(screen.getByRole("status")).toHaveTextContent("iade edildi");
-    expect(screen.queryByText(/emanete alındı/i)).toBeNull();
+    rerender(<PaymentResultNotice resolution="pending" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Ödeme sonucunu bekliyoruz");
+    expect(screen.queryByText(/iade edildi/i)).toBeNull();
   });
 
   it("sağlayıcı ayrıntısı yerine BFF'in güvenli Türkçe yönlendirmesini gösterir", () => {

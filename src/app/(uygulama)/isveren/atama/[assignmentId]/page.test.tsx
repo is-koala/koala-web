@@ -116,4 +116,17 @@ describe("işveren atama ayrıntısı", () => {
     expect(screen.getByText("Fatura adresin eksik").closest('[role="status"]')).not.toBeNull();
     expect(screen.getByText("Kimlik numaran hesabında kayıtlı değil").closest('[role="alert"]')).not.toBeNull();
   });
+
+  it("REFUNDED atamada sağlayıcı sonucu kesinleşmiş gibi sıradaki adım yazmaz", async () => {
+    readPaymentResolutionForAssignment.mockResolvedValue("pending");
+
+    render(await EmployerAssignmentContent({
+      assignment: { ...assignment, paymentStatus: "REFUNDED" },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(screen.getByText("Ödeme iade sürecinde.")).toBeVisible();
+    expect(screen.queryByText("Ödeme iade edildi.")).toBeNull();
+  });
 });

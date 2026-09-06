@@ -305,7 +305,7 @@ describe("işveren ödeme BFF sözleşmesi", () => {
 
   it.each([
     ["RELEASED_TO_WORKER", "released"],
-    ["REFUNDED", "refunded"],
+    ["REFUNDED", "pending"],
   ])("%s durumunu emanette sonucu ile karıştırmaz", async (paymentStatus, resolution) => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, envelope(assignmentPage([{

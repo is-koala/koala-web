@@ -11,7 +11,7 @@ const filters = [
   ["HELD_IN_ESCROW", "Emanette"],
   ["RELEASED_TO_WORKER", "Aktarılan"],
   ["FAILED", "Başarısız"],
-  ["REFUNDED", "İade edilen"],
+  ["REFUNDED", "İade sürecinde"],
 ] as const;
 
 export function EmployerPaymentsOverview({

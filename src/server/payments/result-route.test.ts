@@ -41,7 +41,7 @@ it("oturumsuz poll isteğini backend'e çıkmadan reddeder", async () => {
 it("finansal sonucu açmadan yalnız pending veya resolved döndürür", async () => {
   readPaymentReconciliation
     .mockResolvedValueOnce({ assignment: { id: assignmentId }, resolution: "pending" })
-    .mockResolvedValueOnce({ assignment: { id: assignmentId }, resolution: "refunded" });
+    .mockResolvedValueOnce({ assignment: { id: assignmentId }, resolution: "released" });
 
   await expect(readPaymentResultPoll(assignmentId)).resolves.toEqual({
     status: 200,

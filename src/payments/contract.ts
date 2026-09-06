@@ -55,7 +55,7 @@ export type PaymentSession = {
   readonly pricing: PricingBreakdown;
 };
 
-export type PaymentResolution = "held" | "released" | "refunded" | "failed" | "pending";
+export type PaymentResolution = "held" | "released" | "failed" | "pending";
 
 export type PaymentReconciliation = {
   readonly assignment: EmployerAssignment | null;

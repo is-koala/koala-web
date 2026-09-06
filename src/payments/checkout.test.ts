@@ -57,9 +57,13 @@ describe("ödeme durumu sunumu", () => {
     expect(paymentAttemptLabel("VERIFY_PENDING")).toBe("Sonuç doğrulanıyor");
   });
 
-  it("emanet, aktarım ve iadeyi tek typed metadata haritasında ayrı tutar", () => {
+  it("genel iade durumunu sağlayıcı tamamlanmasını iddia etmeden süreç olarak sunar", () => {
     expect(paymentStatusPresentation("HELD_IN_ESCROW")).toMatchObject({ resolution: "held" });
     expect(paymentStatusPresentation("RELEASED_TO_WORKER")).toMatchObject({ resolution: "released" });
-    expect(paymentStatusPresentation("REFUNDED")).toMatchObject({ resolution: "refunded" });
+    expect(paymentStatusPresentation("REFUNDED")).toEqual({
+      label: "İade sürecinde",
+      tone: "neutral",
+      resolution: "pending",
+    });
   });
 });

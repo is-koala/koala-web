@@ -52,3 +52,13 @@ it("sayfalama sınırına gelince finansal özeti tam toplam diye sunmaz", () =>
   expect(screen.getByRole("heading", { name: "Listelenen atamalarda tahsil edilen" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "Toplam tahsil edilen" })).toBeNull();
 });
+
+it("REFUNDED filtresini tamamlanmış iade değil devam eden süreç olarak adlandırır", () => {
+  render(<EmployerPaymentsOverview assignments={[
+    { ...base, paymentStatus: "REFUNDED" },
+  ]} filter="REFUNDED" totalsComplete />);
+
+  expect(screen.getByRole("link", { name: "İade sürecinde" })).toBeVisible();
+  expect(screen.queryByRole("link", { name: "İade edilen" })).toBeNull();
+  expect(screen.getByText("İade sürecinde", { selector: ".payment-status" })).toBeVisible();
+});

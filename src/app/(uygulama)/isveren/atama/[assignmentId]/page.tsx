@@ -153,7 +153,7 @@ function nextPaymentStep(assignmentStatus: string, paymentStatus: string): strin
       : "İşçinin atamayı onaylamasını bekle.";
   }
   if (paymentStatus === "RELEASED_TO_WORKER") return "Para işçiye aktarıldı.";
-  if (paymentStatus === "REFUNDED") return "Ödeme iade edildi.";
+  if (paymentStatus === "REFUNDED") return "Ödeme iade sürecinde.";
   if (assignmentStatus === "IN_PROGRESS") return "İş tamamlandığında atamayı tamamlandı olarak işaretle.";
   if (assignmentStatus === "COMPLETED") return "Para işçiye aktarılmak üzere işleniyor.";
   return "İşçinin girişini bekliyor.";

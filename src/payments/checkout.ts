@@ -39,7 +39,7 @@ const paymentStatuses: Readonly<Record<PaymentStatus, PaymentStatusPresentation>
   HELD_IN_ESCROW: { label: "Emanette", tone: "positive", resolution: "held" },
   RELEASED_TO_WORKER: { label: "İşçiye aktarıldı", tone: "positive", resolution: "released" },
   FAILED: { label: "Başarısız", tone: "negative", resolution: "failed" },
-  REFUNDED: { label: "İade edildi", tone: "neutral", resolution: "refunded" },
+  REFUNDED: { label: "İade sürecinde", tone: "neutral", resolution: "pending" },
   UNKNOWN: { label: "Durum güncelleniyor", tone: "neutral", resolution: "pending" },
 };
 
@@ -69,12 +69,6 @@ const paymentResults: Readonly<Record<PaymentResolution, {
     body: "Atamanın ücreti emanetten çıktı ve işçiye aktarıldı.",
     role: "status",
     tone: "positive",
-  },
-  refunded: {
-    title: "Ödeme iade edildi",
-    body: "Atamanın ödemesi işverene iade edildi.",
-    role: "status",
-    tone: "neutral",
   },
   failed: {
     title: "Ödeme tamamlanamadı",

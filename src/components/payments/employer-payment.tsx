@@ -219,7 +219,7 @@ function paymentDisabledReason(assignment: EmployerAssignment): string {
     return "Bu atamanın ücreti işçiye aktarıldı.";
   }
   if (assignment.paymentStatus === "REFUNDED") {
-    return "Bu atamanın ödemesi iade edildi.";
+    return "Bu atama için iade süreci başlatıldı.";
   }
   return "Ödeme durumu doğrulanmadan yeni bir ödeme başlatılamaz.";
 }

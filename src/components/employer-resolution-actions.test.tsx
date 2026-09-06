@@ -35,7 +35,7 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.getByRole("button", { name: "Uyuşmazlık aç" })).toBeVisible();
   });
 
-  it("açık uyuşmazlık varken ikinci uyuşmazlık formu açmaz", () => {
+  it("açık uyuşmazlık varken iptal ve ikinci uyuşmazlık formlarını açmaz", () => {
     render(<EmployerResolutionActions
       assignmentStatus="CONFIRMED"
       paymentStatus="HELD_IN_ESCROW"
@@ -55,6 +55,7 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
       action={vi.fn()}
     />);
 
+    expect(screen.queryByRole("button", { name: "Atamayı iptal et" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Uyuşmazlık aç" })).toBeNull();
     expect(screen.getByText(/mevcut uyuşmazlık sonuçlanana kadar/i)).toBeVisible();
   });

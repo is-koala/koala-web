@@ -68,7 +68,7 @@ export function canOpenAssignmentDispute(input: {
   resolution: AssignmentResolution;
 }): boolean {
   return input.paymentStatus === "HELD_IN_ESCROW" &&
-    ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(input.assignmentStatus) &&
+    ["CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(input.assignmentStatus) &&
     !hasActiveDispute(input.resolution);
 }
 
@@ -77,5 +77,6 @@ export function canCancelAssignment(input: {
   resolution: AssignmentResolution;
 }): boolean {
   return (input.assignmentStatus === "CONFIRMED" || input.assignmentStatus === "IN_PROGRESS") &&
-    input.resolution.cancellationPreview?.cancellableNow === true;
+    input.resolution.cancellationPreview?.cancellableNow === true &&
+    !hasActiveDispute(input.resolution);
 }
