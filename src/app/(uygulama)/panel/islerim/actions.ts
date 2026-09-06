@@ -2,39 +2,42 @@
 
 import { unstable_rethrow } from "next/navigation";
 
-import type { AssignmentResponseState } from "@/assignments/contract";
-import { failureView } from "@/server/form";
+import type {
+  AssignmentAcceptanceState,
+  AssignmentResponseState,
+} from "@/assignments/contract";
+import { isUuid } from "@/lib/identifiers";
+import { failureView, textField } from "@/server/form";
 import {
+  readAssignmentAddress,
   readWorkerAssignments,
   respondToWorkerAssignment,
 } from "@/server/assignments/assignments";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
-const uuidPattern =
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
-/**
- * Atama cevabının sunucu sınırı.
- *
- * Başarılı POST'un dar yanıtı liste görünümünü kurmaya yetmez. Bu nedenle
- * durumu istemcide tahmin etmez, aynı çalışan listesini yeniden okuyup tek
- * turda geri yollar.
- */
 export async function respondAssignmentAction(
   state: AssignmentResponseState,
   formData: FormData,
 ): Promise<AssignmentResponseState> {
   await requireSessionForCurrentPath();
 
-  const assignmentId = stringField(formData, "assignmentId");
-  const decision = stringField(formData, "decision");
-  if (!uuidPattern.test(assignmentId) || (decision !== "accept" && decision !== "reject")) {
+  const decision = textField(formData, "decision");
+  const targetPage = pageField(formData, decision === "page" ? "targetPage" : "currentPage");
+  if (targetPage === null) {
     return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
   }
 
   try {
+    if (decision === "page") {
+      return { status: "done", assignments: await readWorkerAssignments(targetPage) };
+    }
+
+    const assignmentId = textField(formData, "assignmentId");
+    if (!isUuid(assignmentId) || (decision !== "accept" && decision !== "reject")) {
+      return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+    }
     await respondToWorkerAssignment(assignmentId, decision === "accept");
-    return { status: "done", assignments: await readWorkerAssignments() };
+    return { status: "done", assignments: await readWorkerAssignments(targetPage) };
   } catch (error) {
     unstable_rethrow(error);
     const failure = failureView(error);
@@ -49,7 +52,28 @@ export async function respondAssignmentAction(
   }
 }
 
-function stringField(formData: FormData, name: string): string {
-  const value = formData.get(name);
-  return typeof value === "string" ? value : "";
+export async function readAssignmentAcceptanceAction(
+  assignmentId: string,
+  jobId: string,
+): Promise<AssignmentAcceptanceState> {
+  await requireSessionForCurrentPath();
+  if (!isUuid(assignmentId) || !isUuid(jobId)) {
+    return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+  }
+
+  try {
+    return { status: "done", fullAddress: await readAssignmentAddress(jobId) };
+  } catch (error) {
+    unstable_rethrow(error);
+    const failure = failureView(error);
+    return { status: "error", errorCode: failure.errorCode, httpStatus: failure.httpStatus };
+  }
+}
+
+function pageField(formData: FormData, name: string): number | null {
+  const raw = textField(formData, name);
+  if (raw === "") return 0;
+  if (!/^\d+$/.test(raw)) return null;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) ? value : null;
 }

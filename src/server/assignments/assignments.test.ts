@@ -7,7 +7,11 @@ import {
   requestHeaders,
 } from "../../../tests/support/session-cookies";
 
-import { readWorkerAssignments, respondToWorkerAssignment } from "./assignments";
+import {
+  readAssignmentAddress,
+  readWorkerAssignments,
+  respondToWorkerAssignment,
+} from "./assignments";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
@@ -81,6 +85,7 @@ describe("çalışan atamaları BFF sözleşmesi", () => {
       content: [
         {
           id: assignmentId,
+          jobId: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
           title: "Etkinlik görevlisi",
           position: "Karşılama",
           categoryName: "Etkinlik",
@@ -104,10 +109,42 @@ describe("çalışan atamaları BFF sözleşmesi", () => {
     });
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://api.example.test/users/me/assignments?asEmployer=false",
+      "https://api.example.test/users/me/assignments?asEmployer=false&page=0&size=20",
     );
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "GET" });
     expect(result.content[0]).not.toHaveProperty("address");
+  });
+
+  it("istenen sayfayı backend'e taşır", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({ ...assignmentPage([]), page: 2, first: false })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await readWorkerAssignments(2);
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.example.test/users/me/assignments?asEmployer=false&page=2&size=20",
+    );
+  });
+
+  it("kabul özeti için yalnız yetkili ilan detayındaki kesin adresi taşır", async () => {
+    const jobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({
+        id: jobId,
+        addressPrecision: "EXACT",
+        address: {
+          displayAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4, Kadıköy, İstanbul",
+        },
+      })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readAssignmentAddress(jobId)).resolves.toBe(
+      "Caferağa Mahallesi, Moda Caddesi No: 12/4, Kadıköy, İstanbul",
+    );
+    expect(fetchMock.mock.calls[0][0]).toBe(`https://api.example.test/jobs/${jobId}`);
   });
 
   it("atamaya kabul veya ret boolean'ı dışında alan göndermeden cevap verir", async () => {

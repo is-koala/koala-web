@@ -12,6 +12,7 @@ import { apiRequest } from "@/server/session/session";
 type MyAssignmentDto = {
   id: string;
   job: {
+    id: string;
     title: string;
     position?: string | null;
     category?: { name?: string | null } | null;
@@ -54,9 +55,18 @@ const paymentStatuses = new Set<PaymentStatus>([
   "REFUNDED",
 ]);
 
-/** `GET /users/me/assignments?asEmployer=false`. */
-export async function readWorkerAssignments(): Promise<WorkerAssignmentPage> {
-  const page = await apiRequest<AssignmentPageDto | null>(backendPaths.workerAssignments);
+type AssignmentJobDetailDto = {
+  addressPrecision?: string | null;
+  address?: { displayAddress?: string | null } | null;
+};
+
+export async function readWorkerAssignments(
+  pageNumber = 0,
+  pageSize = 20,
+): Promise<WorkerAssignmentPage> {
+  const page = await apiRequest<AssignmentPageDto | null>(
+    `${backendPaths.workerAssignments}&page=${pageNumber}&size=${pageSize}`,
+  );
   if (page === null) return emptyPage;
 
   return {
@@ -70,7 +80,15 @@ export async function readWorkerAssignments(): Promise<WorkerAssignmentPage> {
   };
 }
 
-/** `POST /job-assignments/{assignmentId}/respond`. */
+export async function readAssignmentAddress(jobId: string): Promise<string> {
+  const job = await apiRequest<AssignmentJobDetailDto>(`/jobs/${jobId}`);
+  const displayAddress = job.address?.displayAddress?.trim();
+  if (job.addressPrecision !== "EXACT" || !displayAddress) {
+    throw new Error("Assignment address is unavailable");
+  }
+  return displayAddress;
+}
+
 export async function respondToWorkerAssignment(
   assignmentId: string,
   accepted: boolean,
@@ -86,6 +104,7 @@ function toWorkerAssignment(dto: MyAssignmentDto): WorkerAssignment {
 
   return {
     id: dto.id,
+    jobId: dto.job.id,
     title: dto.job.title,
     position: dto.job.position ?? null,
     categoryName: dto.job.category?.name ?? null,

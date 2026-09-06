@@ -23,6 +23,7 @@ export type PaymentStatus =
  */
 export type WorkerAssignment = {
   id: string;
+  jobId: string;
   title: string;
   position: string | null;
   categoryName: string | null;
@@ -64,3 +65,12 @@ export type AssignmentResponseAction = (
   state: AssignmentResponseState,
   formData: FormData,
 ) => Promise<AssignmentResponseState>;
+
+export type AssignmentAcceptanceState =
+  | { status: "done"; fullAddress: string }
+  | { status: "error"; errorCode: string; httpStatus: number };
+
+export type AssignmentAcceptanceAction = (
+  assignmentId: string,
+  jobId: string,
+) => Promise<AssignmentAcceptanceState>;

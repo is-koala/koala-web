@@ -12,6 +12,7 @@ import { AssignmentList } from "./assignment-list";
 
 const baseAssignment: WorkerAssignment = {
   id: "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+  jobId: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
   title: "Etkinlik görevlisi",
   position: "Karşılama",
   categoryName: "Etkinlik",
@@ -39,10 +40,18 @@ function pageOf(...content: WorkerAssignment[]): WorkerAssignmentPage {
 }
 
 const unusedAction: AssignmentResponseAction = async () => ({ status: "idle" });
+const detailAction = vi.fn(async () => ({
+  status: "done" as const,
+  fullAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4, Kadıköy, İstanbul",
+}));
 
 describe("çalışan atama listesi", () => {
   it("onay bekleyen işi belirgin bir bölgede tarih, ücret ve kabul/ret ile gösterir", () => {
-    render(<AssignmentList initialPage={pageOf(baseAssignment)} respondAction={unusedAction} />);
+    render(<AssignmentList
+      initialPage={pageOf(baseAssignment)}
+      respondAction={unusedAction}
+      acceptanceAction={detailAction}
+    />);
 
     const pending = screen.getByRole("region", { name: "Onayını bekleyen işler" });
     expect(within(pending).getByText("Etkinlik görevlisi")).toBeVisible();
@@ -59,6 +68,7 @@ describe("çalışan atama listesi", () => {
       <AssignmentList
         initialPage={pageOf({ ...baseAssignment, status: "CONFIRMED" })}
         respondAction={unusedAction}
+        acceptanceAction={detailAction}
       />,
     );
 
@@ -73,6 +83,7 @@ describe("çalışan atama listesi", () => {
       <AssignmentList
         initialPage={pageOf({ ...baseAssignment, status: "REJECTED" })}
         respondAction={unusedAction}
+        acceptanceAction={detailAction}
       />,
     );
 
@@ -86,12 +97,64 @@ describe("çalışan atama listesi", () => {
       status: "done",
       assignments: pageOf({ ...baseAssignment, status: "CONFIRMED" }),
     }));
-    render(<AssignmentList initialPage={pageOf(baseAssignment)} respondAction={respondAction} />);
+    render(<AssignmentList
+      initialPage={pageOf(baseAssignment)}
+      respondAction={respondAction}
+      acceptanceAction={detailAction}
+    />);
 
     await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    expect(await screen.findByRole("dialog", { name: "İşi kabul et" })).toHaveTextContent(
+      "Caferağa Mahallesi, Moda Caddesi No: 12/4, Kadıköy, İstanbul",
+    );
+    expect(respondAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
     expect(await screen.findByText("Onaylandı")).toBeVisible();
     expect(screen.getByText("İşverenin ödemesi bekleniyor.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Kabul et" })).toBeNull();
+  });
+
+  it("mutation sonrası boş sayfayı boş durumla gösterir", async () => {
+    const user = userEvent.setup();
+    const respondAction = vi.fn<AssignmentResponseAction>(async () => ({
+      status: "done",
+      assignments: pageOf(),
+    }));
+    render(<AssignmentList
+      initialPage={pageOf(baseAssignment)}
+      respondAction={respondAction}
+      acceptanceAction={detailAction}
+    />);
+
+    await user.click(screen.getByRole("button", { name: "Reddet" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Henüz atama yok");
+  });
+
+  it("sonraki sayfayı action üzerinden erişilebilir kılar", async () => {
+    const user = userEvent.setup();
+    const nextPage = {
+      ...pageOf({ ...baseAssignment, id: "4b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e", title: "İkinci sayfa" }),
+      page: 1,
+      first: false,
+    };
+    const firstPage = { ...pageOf(baseAssignment), totalPages: 2, last: false };
+    const respondAction = vi.fn<AssignmentResponseAction>(async () => ({
+      status: "done",
+      assignments: nextPage,
+    }));
+    render(<AssignmentList
+      initialPage={firstPage}
+      respondAction={respondAction}
+      acceptanceAction={detailAction}
+    />);
+
+    await user.click(screen.getByRole("button", { name: "Sonraki sayfa" }));
+
+    expect(await screen.findByText("İkinci sayfa")).toBeVisible();
+    const submitted = respondAction.mock.calls[0][1];
+    expect(submitted.get("decision")).toBe("page");
+    expect(submitted.get("targetPage")).toBe("1");
   });
 });

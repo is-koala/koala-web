@@ -6,7 +6,7 @@ import { readWorkerAssignments } from "@/server/assignments/assignments";
 import { failureView } from "@/server/form";
 import { enterShell } from "@/server/session/viewer";
 
-import { respondAssignmentAction } from "./actions";
+import { readAssignmentAcceptanceAction, respondAssignmentAction } from "./actions";
 
 export default async function Page() {
   const context = await enterShell();
@@ -39,7 +39,11 @@ export default async function Page() {
       {assignments.content.length === 0 ? (
         <EmptyState kind="assignments" />
       ) : (
-        <AssignmentList initialPage={assignments} respondAction={respondAssignmentAction} />
+        <AssignmentList
+          initialPage={assignments}
+          respondAction={respondAssignmentAction}
+          acceptanceAction={readAssignmentAcceptanceAction}
+        />
       )}
     </section>
   );
