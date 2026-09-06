@@ -70,10 +70,10 @@ export type AccountSettingsData = {
   sessions: readonly AccountSession[];
 };
 
-export async function loadAccountSettings(): Promise<AccountSettingsData> {
+export async function loadAccountSettings(notificationPage = 0): Promise<AccountSettingsData> {
   const [bankAccounts, notifications, preferences, sessions] = await Promise.all([
     listBankAccounts(),
-    listNotifications(),
+    listNotifications(notificationPage),
     getNotificationPreferences(),
     listSessions(),
   ]);
@@ -112,8 +112,9 @@ export async function updatePassword(change: PasswordChange): Promise<void> {
   await apiRequest(backendPaths.changePassword, { method: "PUT", body: change });
 }
 
-export async function listNotifications(): Promise<NotificationFeed> {
-  return apiRequest<NotificationFeed>(backendPaths.notifications);
+export async function listNotifications(page = 0): Promise<NotificationFeed> {
+  const path = page > 0 ? `${backendPaths.notifications}?page=${page}` : backendPaths.notifications;
+  return apiRequest<NotificationFeed>(path);
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {

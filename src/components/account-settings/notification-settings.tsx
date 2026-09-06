@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { SettingsAction } from "@/app/(uygulama)/hesap-actions";
 import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form";
 import { notificationCategoryLabel, type NotificationPreference } from "@/lib/profile";
@@ -70,6 +72,26 @@ function NotificationCenter({
           ))}
         </ul>
       )}
+      {!feed.notifications.first || !feed.notifications.last ? (
+        <nav className="compact-actions" aria-label="Bildirim sayfaları">
+          {!feed.notifications.first ? (
+            <Link
+              className="button button-secondary button-small"
+              href={`?bildirimSayfasi=${feed.notifications.page}#bildirimler`}
+            >
+              Daha yeni bildirimler
+            </Link>
+          ) : null}
+          {!feed.notifications.last ? (
+            <Link
+              className="button button-secondary button-small"
+              href={`?bildirimSayfasi=${feed.notifications.page + 2}#bildirimler`}
+            >
+              Daha eski bildirimler
+            </Link>
+          ) : null}
+        </nav>
+      ) : null}
     </section>
   );
 }

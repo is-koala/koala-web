@@ -7,6 +7,7 @@ import {
   deleteBankAccount,
   loadAccountSettings,
   listBankAccounts,
+  listNotifications,
   selectPrimaryBankAccount,
 } from "./settings";
 
@@ -136,7 +137,7 @@ describe("hesap ayarları banka sözleşmesi", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(loadAccountSettings()).resolves.toEqual({
+    await expect(loadAccountSettings(1)).resolves.toEqual({
       bankAccounts: [],
       notifications: feed,
       preferences: [],
@@ -153,7 +154,7 @@ describe("hesap ayarları banka sözleşmesi", () => {
     });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "https://api.example.test/users/me/bank-accounts",
-      "https://api.example.test/users/me/notifications",
+      "https://api.example.test/users/me/notifications?page=1",
       "https://api.example.test/users/me/notification-preferences",
       "https://api.example.test/users/me/sessions",
     ]);
@@ -161,5 +162,21 @@ describe("hesap ayarları banka sözleşmesi", () => {
       expect(new Headers(init.headers).get("Authorization")).toBe("Bearer access-placeholder");
       expect(new Headers(init.headers).get("X-Device-Id")).toBe(deviceId);
     }
+  });
+
+  it("eski bildirimler için istenen backend sayfasını okur", async () => {
+    const secondPage = {
+      notifications: {
+        content: [], page: 1, size: 20, totalElements: 21, totalPages: 2, first: false, last: true,
+      },
+      unreadCount: 0,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(secondPage)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listNotifications(1)).resolves.toEqual(secondPage);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.example.test/users/me/notifications?page=1",
+    );
   });
 });

@@ -15,6 +15,7 @@ import {
   updateContactAction,
   updatePasswordAction,
 } from "./hesap-actions";
+import { listNotifications } from "@/server/account-settings/settings";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const rawIban = "TR330006100519786457841326";
@@ -261,6 +262,58 @@ describe("hesap ayarları action'ları", () => {
       `https://api.example.test/users/me/sessions/${sessionId}`,
       "https://api.example.test/users/me/sessions",
     ]);
+  });
+
+  it("ikinci sayfadaki tekil okuma işleminden sonra backend refetch'i kalıcı durumu getirir", async () => {
+    const notification = {
+      id: notificationId,
+      channel: "IN_APP",
+      category: "APPLICATION_UPDATES",
+      subject: "Eski vardiya hatırlatması",
+      body: "Vardiya ayrıntılarını gözden geçir.",
+      targetType: "JOB_ASSIGNMENT",
+      targetId: "5c5e3b10-77f4-41c2-ac33-bc1403879e39",
+      status: "SENT",
+      sentAt: "2026-09-05T11:30:00Z",
+      readAt: null,
+    };
+    const page = (readAt: string | null) => ({
+      notifications: {
+        content: [{ ...notification, readAt }],
+        page: 1,
+        size: 20,
+        totalElements: 21,
+        totalPages: 2,
+        first: false,
+        last: true,
+      },
+      unreadCount: readAt ? 0 : 1,
+    });
+    const readAt = "2026-09-06T17:00:00Z";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page(null))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(null)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page(readAt))));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listNotifications(1)).resolves.toMatchObject({
+      notifications: { content: [{ id: notificationId, readAt: null }] },
+    });
+    await expect(
+      markNotificationReadAction({ status: "idle" }, fields({ notificationId })),
+    ).resolves.toEqual({ status: "done" });
+    await expect(listNotifications(1)).resolves.toMatchObject({
+      notifications: { content: [{ id: notificationId, readAt }] },
+    });
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.example.test/users/me/notifications?page=1",
+      `https://api.example.test/users/me/notifications/${notificationId}/read`,
+      "https://api.example.test/users/me/notifications?page=1",
+    ]);
+    expect(revalidatePath).toHaveBeenCalledWith("/panel/hesap");
+    expect(revalidatePath).toHaveBeenCalledWith("/isveren/hesap");
   });
 
 });

@@ -140,6 +140,60 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(within(center).getByRole("button", { name: "Tümünü okundu işaretle" })).toBeVisible();
   });
 
+  it("ilk sayfadan daha eski bildirim sayfasına erişim verir", () => {
+    renderSettings({
+      data: {
+        ...data,
+        notifications: {
+          ...data.notifications,
+          notifications: {
+            ...data.notifications.notifications,
+            totalElements: 21,
+            totalPages: 2,
+            last: false,
+          },
+        },
+      },
+    });
+
+    expect(screen.getByRole("link", { name: "Daha eski bildirimler" })).toHaveAttribute(
+      "href",
+      "?bildirimSayfasi=2#bildirimler",
+    );
+  });
+
+  it("ikinci sayfadaki eski bildirimi gösterip yeni bildirimlere dönüş verir", () => {
+    renderSettings({
+      data: {
+        ...data,
+        notifications: {
+          unreadCount: 1,
+          notifications: {
+            content: [
+              {
+                ...data.notifications.notifications.content[0],
+                id: "ec481881-caa5-4407-9d23-71163e186fe8",
+                subject: "Eski vardiya hatırlatması",
+              },
+            ],
+            page: 1,
+            size: 20,
+            totalElements: 21,
+            totalPages: 2,
+            first: false,
+            last: true,
+          },
+        },
+      },
+    });
+
+    expect(screen.getByText("Eski vardiya hatırlatması")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Daha yeni bildirimler" })).toHaveAttribute(
+      "href",
+      "?bildirimSayfasi=1#bildirimler",
+    );
+  });
+
   it("bilinmeyen bildirim kategorisini backend enum'u yerine nötr Türkçe gösterir", () => {
     renderSettings({
       data: {

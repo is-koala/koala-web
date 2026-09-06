@@ -33,13 +33,17 @@ const actions: AccountSettingsActions = {
   revokeOtherSessions: revokeOtherSessionsAction,
 };
 
-export async function AccountPage() {
+type AccountPageProps = {
+  searchParams?: Promise<{ bildirimSayfasi?: string | string[] }>;
+};
+
+export async function AccountPage({ searchParams }: AccountPageProps = {}) {
   const { viewer } = await enterShell();
   if (viewer === null) return null;
 
   let data: AccountSettingsData;
   try {
-    data = await loadAccountSettings();
+    data = await loadAccountSettings(await notificationPageFrom(searchParams));
   } catch (error) {
     const failure = failureView(error);
     return (
@@ -63,6 +67,13 @@ export async function AccountPage() {
       actions={actions}
     />
   );
+}
+
+async function notificationPageFrom(searchParams: AccountPageProps["searchParams"]): Promise<number> {
+  const value = (await searchParams)?.bildirimSayfasi;
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) return 0;
+  const page = Number(value);
+  return Number.isSafeInteger(page) ? page - 1 : 0;
 }
 
 export function AccountLoading() {
