@@ -245,6 +245,20 @@ describe("kapı sözlüğünün bütünlüğü", () => {
     );
   });
 
+  it("ilan geçişlerinin üç çakışmasını çakışma aile metnine düşürmez", () => {
+    // Üçü de `conflict` ailesinde ve aile metni ("Bu kayıt başka bir duruma
+    // geçmiş olabilir") burada kullanıcıyı yanıltırdı: iki durumda kayıt
+    // gerçekten başka bir duruma geçmiş, üçüncüsünde ise ilan olduğu yerde
+    // duruyor ve engel başka bir kayıtta.
+    expect(errorPresentation("JOB_NOT_OPEN", 409).title).toBe("Bu ilan artık yayında değil");
+    expect(errorPresentation("JOB_NOT_CANCELLABLE", 409).title).toBe("Bu ilan iptal edilemiyor");
+
+    const live = errorPresentation("JOB_HAS_LIVE_ASSIGNMENT", 409);
+    expect(live.title).toBe("İlanda devam eden bir atama var");
+    // Kabul maddesi: kullanıcı "atamanın kendi iptal akışı" yönüne gitmeli.
+    expect(live.message).toContain("atamayı kendi iptal akışından");
+  });
+
   it("kapının gösterdiği yol gerçekten var olan bir rota", () => {
     // Var olmayan bir adrese yollayan kapı, kapı olmamasından kötü: kullanıcı
     // eksiğini öğrenip 404'e düşer.

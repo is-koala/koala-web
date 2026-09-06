@@ -1,5 +1,6 @@
 import type { FormAction } from "@/lib/form-state";
 import type { JobDetail, SalaryType } from "@/jobs/contract";
+import { jobApplicationsClosedReason } from "@/jobs/lifecycle";
 
 import { JobApplicationForm } from "./job-application-form";
 
@@ -20,6 +21,10 @@ const monthNames = [
 
 export function JobDetailView({ job, applyAction }: { job: JobDetail; applyAction: FormAction }) {
   const employer = job.companyName ?? job.employerName;
+  // Backend başvuru alırken ilanın durumuna bakmıyor; kapatılmış bir ilana
+  // doğrudan bağlantıyla gelen kişiye çalışan bir form göstermek, işverenin
+  // kapattığı ilana başvuru düşürmek olurdu.
+  const applicationsClosed = jobApplicationsClosedReason(job.status);
 
   return (
     <article className="job-detail">
@@ -63,9 +68,19 @@ export function JobDetailView({ job, applyAction }: { job: JobDetail; applyActio
 
         <aside className="job-application-card" aria-labelledby="application-title">
           <p className="eyebrow">Başvuru</p>
-          <h2 id="application-title">Bu işte çalışmak ister misin?</h2>
-          <p>Başvurunu işverene ilet; durumunu Başvurularım sayfasından takip et.</p>
-          <JobApplicationForm action={applyAction} />
+          {applicationsClosed === null ? (
+            <>
+              <h2 id="application-title">Bu işte çalışmak ister misin?</h2>
+              <p>Başvurunu işverene ilet; durumunu Başvurularım sayfasından takip et.</p>
+              <JobApplicationForm action={applyAction} />
+            </>
+          ) : (
+            <>
+              <h2 id="application-title">Bu ilan başvuruya kapalı</h2>
+              <p>{applicationsClosed}</p>
+              <p className="muted">Benzer ilanları iş ilanları sayfasından bulabilirsin.</p>
+            </>
+          )}
         </aside>
       </div>
     </article>
