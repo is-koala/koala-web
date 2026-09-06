@@ -51,7 +51,7 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
         {
           id: "c1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
           jobAssignmentId: "d1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
-          amount: 250,
+          amount: "250.00",
           currency: "TRY",
           status: "PROVIDER_PENDING",
           failureReason: " ",
@@ -76,7 +76,7 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
       {
         id: "c1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
         assignmentId: "d1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
-        amount: "250",
+        amount: "250.00",
         currency: "TRY",
         status: "UNKNOWN",
         failureReason: null,

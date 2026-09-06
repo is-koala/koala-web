@@ -5,7 +5,7 @@ export type PayoutStatus =
   | "FAILED"
   | "UNKNOWN";
 
-/** İşçinin göreceği ödeme çıkışı; işveren fiyatı ve hizmet bedeli taşımaz. */
+/** İşveren fiyatı ve hizmet bedeli çalışanın kazanç sınırına sızmasın diye ayrı bir modeldir. */
 export type WorkerPayout = {
   id: string;
   assignmentId: string;

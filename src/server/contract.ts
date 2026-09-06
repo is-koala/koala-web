@@ -77,7 +77,6 @@ export const sessionCookies = {
   addressSearchSessions: "/locations/address-search-sessions",
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
-  /** `GET /users/me/payouts` — işçinin ödeme çıkışları, yeniden eskiye düz liste. */
   currentUserPayouts: "/users/me/payouts",
   forgotPassword: "/auth/forgot-password",
   /**

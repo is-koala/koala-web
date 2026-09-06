@@ -33,9 +33,9 @@ describe("kazanç listesi", () => {
 
     const completed = screen.getByTestId("completed-total");
     const pending = screen.getByTestId("pending-total");
-    expect(completed).toHaveTextContent("₺1.250,00");
-    expect(pending).toHaveTextContent("₺100,20");
-    expect(pending).not.toHaveTextContent("₺900,20");
+    expect(completed).toHaveTextContent("1.250,00 ₺");
+    expect(pending).toHaveTextContent("100,20 ₺");
+    expect(pending).not.toHaveTextContent("900,20 ₺");
   });
 
   it("her durumu insan dilinde gösterir ve yalnız tamamlanana ödendi der", () => {
@@ -75,9 +75,18 @@ describe("kazanç listesi", () => {
     );
   });
 
+  it("sağlayıcı nedeni geldiyse durum kodundan bağımsız yardım sunar", () => {
+    render(<EarningsList payouts={[
+      payout({ status: "PROCESSING", failureReason: "Banka yanıtı bekleniyor" }),
+    ]} />);
+
+    expect(screen.getByText("Banka yanıtı bekleniyor")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Destekten yardım al" })).toBeVisible();
+  });
+
   it("uyuşmazlık sürerken aktarımın beklendiğini açıklar", () => {
     render(<EarningsList payouts={[payout({ status: "PROCESSING" })]} />);
 
-    expect(screen.getByText(/Açık bir uyuşmazlık varsa para aktarımı/)).toBeVisible();
+    expect(screen.getByText(/uyuşmazlık çözülene kadar bekler/)).toBeVisible();
   });
 });

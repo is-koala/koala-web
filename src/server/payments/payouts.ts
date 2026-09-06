@@ -7,7 +7,7 @@ import { apiRequest } from "@/server/session/session";
 type PayoutDto = {
   id: string;
   jobAssignmentId: string;
-  amount: string | number;
+  amount: string;
   currency: string;
   status: string;
   failureReason?: string | null;
@@ -22,7 +22,7 @@ const payoutStatuses = new Set<PayoutStatus>([
   "FAILED",
 ]);
 
-/** Backend'in yeniden eskiye sıraladığı ödeme çıkışlarını aynı sırayla taşır. */
+/** Aynı zaman damgalı kayıtları istemcide yeniden sıralayıp kararsızlaştırmamak için sunucu sırası korunur. */
 export async function readWorkerPayouts(): Promise<readonly WorkerPayout[]> {
   const payouts = await apiRequest<readonly PayoutDto[] | null>(backendPaths.currentUserPayouts, {
     cache: "no-store",
@@ -35,7 +35,7 @@ function projectPayout(dto: PayoutDto): WorkerPayout {
   return {
     id: dto.id,
     assignmentId: dto.jobAssignmentId,
-    amount: String(dto.amount),
+    amount: dto.amount,
     currency: dto.currency,
     status: payoutStatuses.has(dto.status as PayoutStatus)
       ? (dto.status as PayoutStatus)

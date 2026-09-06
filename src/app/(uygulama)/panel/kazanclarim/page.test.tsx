@@ -8,10 +8,12 @@ import Page, { EarningsPage } from "./page";
 const enterShell = vi.hoisted(() => vi.fn());
 const readWorkerPayouts = vi.hoisted(() => vi.fn());
 const shellGate = vi.hoisted(() => vi.fn());
+const earningsRefresh = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/payments/payouts", () => ({ readWorkerPayouts }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
+vi.mock("@/components/earnings-refresh", () => ({ EarningsRefresh: earningsRefresh }));
 
 describe("Kazançlarım sayfası durumları", () => {
   beforeEach(() => {
@@ -51,7 +53,8 @@ describe("Kazançlarım sayfası durumları", () => {
     render(await EarningsPage());
 
     expect(screen.getByRole("heading", { name: "Kazançlarım" })).toBeVisible();
-    expect(screen.getByTestId("completed-total")).toHaveTextContent("₺1.250,00");
+    expect(earningsRefresh).toHaveBeenCalled();
+    expect(screen.getByTestId("completed-total")).toHaveTextContent("1.250,00 ₺");
   });
 
   it("backend hatasını ham mesaj yerine koduyla gösterir", async () => {

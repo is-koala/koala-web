@@ -2,6 +2,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { EarningsList } from "@/components/earnings-list";
+import { EarningsRefresh } from "@/components/earnings-refresh";
 import { EmptyState, ErrorState } from "@/components/states";
 import { failureView } from "@/server/form";
 import { readWorkerPayouts } from "@/server/payments/payouts";
@@ -32,6 +33,7 @@ export async function EarningsPage() {
 
   return (
     <section className="app-panel earnings-page">
+      <EarningsRefresh />
       <p className="eyebrow">Çalışan paneli</p>
       <h1>Kazançlarım</h1>
       <p className="lede">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { formatMoney } from "@/components/assignment-presenters";
+import { formatMoney, sumMoney } from "@/lib/money";
 import type { PayoutStatus, WorkerPayout } from "@/payments/payouts";
 
 const payoutStatusLabel: Readonly<Record<PayoutStatus, string>> = {
@@ -37,7 +37,7 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
         <strong>Ödemen güvende tutulur.</strong>
         <p>
           İşverenin ödediği çalışan ücreti iş tamamlanana kadar Koala’da tutulur.
-          Açık bir uyuşmazlık varsa para aktarımı sonuçlanana kadar bekler.
+          Açık bir uyuşmazlık varsa para aktarımı uyuşmazlık çözülene kadar bekler.
         </p>
       </aside>
 
@@ -53,7 +53,7 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
             <time dateTime={payout.completedAt ?? payout.createdAt}>
               {formatPayoutDate(payout.completedAt ?? payout.createdAt)}
             </time>
-            {payout.status === "FAILED" ? (
+            {payout.failureReason || payout.status === "FAILED" ? (
               <div className="payout-failure">
                 <p>{payout.failureReason ?? "Aktarım tamamlanamadı."}</p>
                 <Link className="text-link" href="/iletisim">Destekten yardım al</Link>
@@ -76,7 +76,7 @@ function MoneyTotal({
 }: {
   testId: string;
   label: string;
-  totals: ReadonlyMap<string, string>;
+  totals: ReadonlyMap<string, readonly string[]>;
 }) {
   return (
     <div data-testid={testId}>
@@ -89,44 +89,25 @@ function MoneyTotal({
 function totalsFor(
   payouts: readonly WorkerPayout[],
   include: (payout: WorkerPayout) => boolean,
-): ReadonlyMap<string, string> {
-  const totals = new Map<string, string>();
+): ReadonlyMap<string, readonly string[]> {
+  const totals = new Map<string, string[]>();
   for (const payout of payouts) {
     if (!include(payout)) continue;
-    const minorUnits = toMinorUnits(payout.amount);
-    if (minorUnits === null) continue;
-    totals.set(payout.currency, addUnsignedIntegers(totals.get(payout.currency) ?? "0", minorUnits));
+    const amounts = totals.get(payout.currency) ?? [];
+    amounts.push(payout.amount);
+    totals.set(payout.currency, amounts);
   }
   return totals;
 }
 
-function toMinorUnits(amount: string): string | null {
-  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(amount.trim());
-  if (!match) return null;
-  return `${match[1]}${(match[2] ?? "").padEnd(2, "0")}`.replace(/^0+(?=\d)/, "");
-}
-
-function formatTotals(totals: ReadonlyMap<string, string>): string {
+function formatTotals(totals: ReadonlyMap<string, readonly string[]>): string {
   if (totals.size === 0) return formatMoney("0.00", "TRY");
   return [...totals]
-    .map(([currency, minorUnits]) => formatMoney(fromMinorUnits(minorUnits), currency))
+    .map(([currency, amounts]) => {
+      const total = sumMoney(amounts);
+      return total === null ? "—" : formatMoney(total, currency);
+    })
     .join(" · ");
-}
-
-function fromMinorUnits(amount: string): string {
-  const padded = amount.padStart(3, "0");
-  return `${padded.slice(0, -2)}.${padded.slice(-2)}`;
-}
-
-function addUnsignedIntegers(left: string, right: string): string {
-  let carry = 0;
-  let result = "";
-  for (let offset = 1; offset <= Math.max(left.length, right.length); offset += 1) {
-    const sum = Number(left.at(-offset) ?? 0) + Number(right.at(-offset) ?? 0) + carry;
-    result = `${sum % 10}${result}`;
-    carry = Math.floor(sum / 10);
-  }
-  return `${carry || ""}${result}`.replace(/^0+(?=\d)/, "");
 }
 
 function formatPayoutDate(value: string): string {

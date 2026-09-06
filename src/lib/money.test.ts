@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoney } from "./money";
+import { formatMoney, sumMoney } from "./money";
 
 describe("para biçimlendirme", () => {
   it("binlik ayracını nokta, kuruş ayracını virgül yapar", () => {
@@ -28,5 +28,15 @@ describe("para biçimlendirme", () => {
     // Ham değeri göstermek, kuruş uydurmaktan iyidir.
     expect(formatMoney("0.075", "TRY")).toBe("0.075");
     expect(formatMoney("", "TRY")).toBe("");
+  });
+
+  it("sunucu tutarlarını Number sınırına girmeden kesin toplar", () => {
+    expect(sumMoney(["9007199254740993.99", "0.01", "6.00"])).toBe(
+      "9007199254741000.00",
+    );
+  });
+
+  it("geçersiz bir tutar varsa yanlış toplam üretmez", () => {
+    expect(sumMoney(["100.00", "bozuk"])).toBeNull();
   });
 });
