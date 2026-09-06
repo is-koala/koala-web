@@ -146,6 +146,11 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Yönlendirme güvenlik kontrolünden geçmedi. Kartından ödeme alınmadı.",
     action: "retry",
   },
+  PAYMENT_ATTEMPT_IN_PROGRESS: {
+    title: "Ödeme sonucu bekleniyor",
+    message: "Devam eden ödeme denemesi kesinleşmeden yeni bir ödeme başlatılamaz.",
+    action: "none",
+  },
   // Adres ağ geçidinin kodları `validation` ve `external` ailelerine düşüyor;
   // aile metinleri ("Bilgileri kontrol et") burada yanlış olurdu, çünkü
   // kullanıcının düzeltebileceği bir alan yok ya da yapılacak iş farklı.

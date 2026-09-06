@@ -6,13 +6,14 @@ import type { Viewer } from "@/server/session/viewer";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const readEmployerAssignment = vi.hoisted(() => vi.fn());
+const readPaymentAttempts = vi.hoisted(() => vi.fn());
 const readEmployerPaymentRequirements = vi.hoisted(() => vi.fn());
 const fetchPriceQuote = vi.hoisted(() => vi.fn());
 const viewerGates = vi.hoisted(() => vi.fn());
 const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"); }));
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
-vi.mock("@/server/payments/payments", () => ({ readEmployerAssignment }));
+vi.mock("@/server/payments/payments", () => ({ readEmployerAssignment, readPaymentAttempts }));
 vi.mock("@/server/payments/preflight", () => ({ readEmployerPaymentRequirements }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchPriceQuote }));
 vi.mock("@/server/session/gates", () => ({ viewerGates }));
@@ -50,18 +51,35 @@ beforeEach(() => {
   readEmployerPaymentRequirements.mockResolvedValue({
     advisories: ["individualBillingAddress"], blocked: ["identityNumber"],
   });
-  fetchPriceQuote.mockResolvedValue(pricing);
+  readPaymentAttempts.mockResolvedValue([]);
+  fetchPriceQuote.mockRejectedValue(new Error("quote endpoint must not be called"));
 });
 
-it("ödeme öncesinde backend fiyat teklifini ve eksik ön koşulları kipleriyle gösterir", async () => {
+it("ödeme öncesinde atamanın sabit fiyat özetiyle eksik ön koşulları gösterir", async () => {
   render(await CheckoutContent({ assignment, viewer }));
 
-  expect(fetchPriceQuote).toHaveBeenCalledWith("1500.50");
+  expect(fetchPriceQuote).not.toHaveBeenCalled();
+  expect(screen.getByText("1.500,50 ₺")).toBeVisible();
+  expect(screen.getByText("112,54 ₺")).toBeVisible();
   expect(screen.getByText("1.613,04 ₺")).toBeVisible();
+  expect(screen.getByText("2026-09-v1")).toBeVisible();
   expect(screen.getByText("Kimlik numaran hesabında kayıtlı değil")).toBeVisible();
   expect(screen.getByText("Fatura adresin eksik")).toBeVisible();
   expect(screen.getByRole("button", { name: "Iyzico ile güvenli öde" })).toBeDisabled();
 });
+
+it.each(["INITIATED", "IN_REVIEW"])(
+  "%s denemesi kesinleşmeden ödeme düğmesini açık gerekçeyle kapatır",
+  async (status) => {
+    readEmployerPaymentRequirements.mockResolvedValue({ advisories: [], blocked: [] });
+    readPaymentAttempts.mockResolvedValue([{ status }]);
+
+    render(await CheckoutContent({ assignment, viewer }));
+
+    expect(screen.getByRole("button", { name: "Iyzico ile güvenli öde" })).toBeDisabled();
+    expect(screen.getByText(/devam eden ödeme denemenin sonucu bekleniyor/i)).toBeVisible();
+  },
+);
 
 it("şirket adresi eksiğini companyBillingAddress kapısıyla ödeme öncesinde kapatır", async () => {
   readEmployerPaymentRequirements.mockResolvedValue({
@@ -78,4 +96,5 @@ it("ownership bulunamazsa fiyat veya şirket ön kontrolünü başlatmadan notFo
   await expect(CheckoutPage({ params: Promise.resolve({ assignmentId }) })).rejects.toThrow("NEXT_NOT_FOUND");
   expect(fetchPriceQuote).not.toHaveBeenCalled();
   expect(readEmployerPaymentRequirements).not.toHaveBeenCalled();
+  expect(readPaymentAttempts).not.toHaveBeenCalled();
 });

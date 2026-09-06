@@ -206,7 +206,7 @@ function projectPaymentAttempt(dto: PaymentAttemptDto): PaymentAttempt {
     employerTotal: pricing?.employerTotal ?? decimal(dto.totalCharged),
     completedAt: dto.completedAt ?? null,
     createdAt: dto.createdAt ?? "",
-    failureReason: clean(dto.failureReason) ?? "",
+    failureMessage: clean(dto.failureReason) === null ? null : paymentAttemptFailureMessage,
   };
 }
 
@@ -270,3 +270,6 @@ const emptyPage: EmployerAssignmentPage = {
 
 /** Bozuk sayfalama zarfı sonsuz backend turuna dönüşmesin. */
 const maximumAssignmentPages = 100;
+
+const paymentAttemptFailureMessage =
+  "Ödeme sağlayıcısı bu deneme için ek kontrol gerektirdi. Kartını ve banka doğrulamasını kontrol edebilirsin.";

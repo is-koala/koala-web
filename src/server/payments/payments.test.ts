@@ -154,8 +154,11 @@ describe("işveren ödeme BFF sözleşmesi", () => {
       employerTotal: "1613.04",
       completedAt: "2026-09-06T18:05:00Z",
       createdAt: "2026-09-06T18:00:00Z",
-      failureReason: "provider internal detail",
+      failureMessage:
+        "Ödeme sağlayıcısı bu deneme için ek kontrol gerektirdi. Kartını ve banka doğrulamasını kontrol edebilirsin.",
     }]);
+    expect(result[0]).not.toHaveProperty("failureReason");
+    expect(JSON.stringify(result)).not.toContain("provider internal detail");
   });
 
   it("ödeme sonucunu hem atamanın hem denemelerin backend durumundan mutabıklaştırır", async () => {

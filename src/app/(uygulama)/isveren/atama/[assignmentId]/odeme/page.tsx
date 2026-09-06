@@ -8,11 +8,10 @@ import {
 } from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
 import { isUuid } from "@/lib/identifiers";
-import { canStartPayment } from "@/payments/checkout";
+import { canStartPayment, hasUnresolvedPaymentAttempt } from "@/payments/checkout";
 import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
-import { fetchPriceQuote } from "@/server/jobs/jobs";
-import { readEmployerAssignment } from "@/server/payments/payments";
+import { readEmployerAssignment, readPaymentAttempts } from "@/server/payments/payments";
 import { readEmployerPaymentRequirements } from "@/server/payments/preflight";
 import { viewerGates } from "@/server/session/gates";
 import { enterShell, type Viewer } from "@/server/session/viewer";
@@ -63,17 +62,15 @@ export async function CheckoutContent({
   assignment: EmployerAssignment;
   viewer: Viewer;
 }) {
-  const [quoteResult, requirementsResult] = await Promise.all([
-    assignment.pricing
-      ? fetchPriceQuote(assignment.pricing.workerPayout)
-          .then((pricing) => ({ pricing }))
-          .catch((error: unknown) => {
-            unstable_rethrow(error);
-            return { failure: failureView(error) };
-          })
-      : null,
+  const [requirementsResult, attemptsResult] = await Promise.all([
     readEmployerPaymentRequirements(viewerGates(viewer), assignment)
       .then((requirements) => ({ requirements }))
+      .catch((error: unknown) => {
+        unstable_rethrow(error);
+        return { failure: failureView(error) };
+      }),
+    readPaymentAttempts(assignment.id)
+      .then((attempts) => ({ attempts }))
       .catch((error: unknown) => {
         unstable_rethrow(error);
         return { failure: failureView(error) };
@@ -83,8 +80,12 @@ export async function CheckoutContent({
   if ("failure" in requirementsResult) {
     return <ErrorState errorCode={requirementsResult.failure.errorCode} status={requirementsResult.failure.httpStatus} />;
   }
+  if ("failure" in attemptsResult) {
+    return <ErrorState errorCode={attemptsResult.failure.errorCode} status={attemptsResult.failure.httpStatus} />;
+  }
   const eligible = canStartPayment(assignment);
-  const quoteReady = quoteResult !== null && !("failure" in quoteResult);
+  const pricingReady = assignment.pricing !== null;
+  const paymentAttemptInProgress = hasUnresolvedPaymentAttempt(attemptsResult.attempts);
 
   return (
     <section className="app-panel checkout-page">
@@ -113,24 +114,29 @@ export async function CheckoutContent({
 
       <section className="checkout-breakdown" aria-labelledby="checkout-breakdown-title">
         <h2 id="checkout-breakdown-title">Ödeme özeti</h2>
-        {quoteResult === null ? (
+        {assignment.pricing === null ? (
           <div role="status" className="state-card">
             <h3>Fiyat özeti bulunamadı</h3>
             <p>Atama fiyatı backend&apos;den gelmeden ödeme başlatılamaz.</p>
           </div>
-        ) : "failure" in quoteResult ? (
-          <ErrorState errorCode={quoteResult.failure.errorCode} status={quoteResult.failure.httpStatus} />
         ) : (
-          <PaymentBreakdown pricing={quoteResult.pricing} />
+          <PaymentBreakdown pricing={assignment.pricing} />
         )}
       </section>
 
-      {!eligible || !quoteReady ? (
+      {!eligible || !pricingReady || paymentAttemptInProgress ? (
         <div className="payment-disabled-reason">
           <button type="button" className="button button-secondary" disabled>
             Iyzico ile güvenli öde
           </button>
-          {!eligible ? <p>Atama onaylanmadan veya ödeme sonucu belirsizken yeni ödeme başlatılamaz.</p> : null}
+          {paymentAttemptInProgress ? (
+            <p>
+              Devam eden ödeme denemenin sonucu bekleniyor. Sonuç kesinleşmeden yeni bir ödeme
+              başlatılamaz.
+            </p>
+          ) : !eligible ? (
+            <p>Atama onaylanmadan veya ödeme sonucu belirsizken yeni ödeme başlatılamaz.</p>
+          ) : null}
         </div>
       ) : (
         <EmployerPaymentGate requirements={requirementsResult.requirements} action="Iyzico ile güvenli öde">

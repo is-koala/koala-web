@@ -87,6 +87,9 @@ async function checkPaymentResult(
       `/api/payments/${encodeURIComponent(assignmentId)}/result`,
       { cache: "no-store", signal },
     );
+    if (response.redirected) {
+      return { status: "error", errorCode: "AUTHENTICATION_REQUIRED", httpStatus: 401 };
+    }
     const body = await response.json() as Partial<PaymentResultCheck>;
     if (body.status === "pending" || body.status === "resolved") return { status: body.status };
     if (

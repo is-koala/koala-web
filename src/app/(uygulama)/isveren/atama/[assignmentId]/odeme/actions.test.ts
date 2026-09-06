@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createPaymentSession = vi.hoisted(() => vi.fn());
+const readPaymentAttempts = vi.hoisted(() => vi.fn());
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
 
-vi.mock("@/server/payments/payments", () => ({ createPaymentSession }));
+vi.mock("@/server/payments/payments", () => ({ createPaymentSession, readPaymentAttempts }));
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
 vi.mock("next/navigation", () => ({
   redirect,
@@ -27,7 +28,29 @@ describe("ödeme başlatma action'ı", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireSessionForCurrentPath.mockResolvedValue({});
+    readPaymentAttempts.mockResolvedValue([]);
   });
+
+  it.each(["INITIATED", "IN_REVIEW"])(
+    "%s denemesi kesinleşmeden ikinci ödeme oturumu açmaz",
+    async (status) => {
+      readPaymentAttempts.mockResolvedValue([{ status: "FAILED" }, { status }]);
+
+      const result = await startPaymentAction(
+        assignmentId,
+        { status: "idle" },
+        new FormData(),
+      );
+
+      expect(result).toEqual({
+        status: "error",
+        errorCode: "PAYMENT_ATTEMPT_IN_PROGRESS",
+        httpStatus: 409,
+      });
+      expect(createPaymentSession).not.toHaveBeenCalled();
+      expect(redirect).not.toHaveBeenCalled();
+    },
+  );
 
   it("izinli Iyzico adresine sunucuda doğruladıktan sonra yönlendirir", async () => {
     createPaymentSession.mockResolvedValue({
@@ -37,6 +60,8 @@ describe("ödeme başlatma action'ı", () => {
 
     await startPaymentAction(assignmentId, { status: "idle" }, new FormData());
 
+    expect(readPaymentAttempts.mock.invocationCallOrder[0])
+      .toBeLessThan(createPaymentSession.mock.invocationCallOrder[0]);
     expect(redirect).toHaveBeenCalledWith(
       "https://sandbox-payment.iyzipay.com/checkout/token",
     );

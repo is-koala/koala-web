@@ -152,6 +152,14 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
           </div>
           <dl className="payment-attempt-facts">
             <div>
+              <dt>Çalışan ücreti</dt>
+              <dd>{formatMoney(attempt.workerPayout, attempt.currency)}</dd>
+            </div>
+            <div>
+              <dt>Hizmet bedeli</dt>
+              <dd>{formatMoney(attempt.serviceFeeAmount, attempt.currency)}</dd>
+            </div>
+            <div>
               <dt>Toplam</dt>
               <dd>{formatMoney(attempt.employerTotal, attempt.currency)}</dd>
             </div>
@@ -166,9 +174,9 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
                 : "Henüz tamamlanmadı"}</dd>
             </div>
           </dl>
-          {attempt.status === "FAILED" ? (
+          {attempt.failureMessage || attempt.status === "FAILED" ? (
             <p className="payment-failure-note">
-              {attempt.failureReason ||
+              {attempt.failureMessage ||
                 "Ödeme alınmadı. Kartını ve banka doğrulamasını kontrol edip yeniden deneyebilirsin."}
             </p>
           ) : null}

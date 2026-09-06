@@ -3,9 +3,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { PaymentResultWait } from "./payment-result-wait";
 
-const replace = vi.hoisted(() => vi.fn());
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
+const replace = router.replace;
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -61,6 +62,26 @@ it("backend sonucu kesinleşince atama ayrıntısına yalnız doğrulanmış dö
   expect(replace).toHaveBeenCalledWith(
     "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e?paymentReturn=1",
   );
+});
+
+it("poll isteği giriş sayfasına yönlendirilirse HTML yanıtını parse etmeden oturum hatası gösterir", async () => {
+  const json = vi.fn();
+  const fetchMock = vi.fn().mockResolvedValue({ redirected: true, json } as unknown as Response);
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(
+    <PaymentResultWait
+      assignmentId="3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e"
+      initialTone="success"
+    />,
+  );
+
+  await act(async () => vi.advanceTimersByTimeAsync(1_000));
+  expect(screen.getByRole("heading")).toHaveTextContent("Oturum açman gerekiyor");
+  expect(json).not.toHaveBeenCalled();
+  await act(async () => vi.advanceTimersByTimeAsync(7_000));
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(replace).not.toHaveBeenCalled();
 });
 
 it("ekrandan ayrılınca bekleyen kontrol zamanlayıcısını iptal eder", async () => {

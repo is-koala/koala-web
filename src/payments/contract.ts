@@ -39,7 +39,7 @@ export type PaymentAttempt = {
   readonly employerTotal: string;
   readonly completedAt: string | null;
   readonly createdAt: string;
-  readonly failureReason: string;
+  readonly failureMessage: string | null;
 };
 
 export type PaymentAttemptStatus = "INITIATED" | "IN_REVIEW" | "SUCCEEDED" | "FAILED" | "UNKNOWN";

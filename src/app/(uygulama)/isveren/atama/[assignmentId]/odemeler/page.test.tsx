@@ -44,11 +44,13 @@ it("aktif dispute ile başarısızlık nedenini ödeme geçmişinde birlikte gö
     attempts: [{
       id: "attempt-1", status: "FAILED", currency: "TRY", workerPayout: "100.00",
       serviceFeeRate: "0.10", serviceFeeAmount: "10.00", employerTotal: "110.00",
-      completedAt: null, createdAt: "2026-09-06T18:00:00Z", failureReason: "3DS reddedildi",
+      completedAt: null, createdAt: "2026-09-06T18:00:00Z", failureMessage: null,
     }],
   });
 
   render(await PaymentHistoryContent({ assignment }));
   expect(screen.getByText(/emanetten çıkış bekler/i)).toBeVisible();
-  expect(screen.getByText("3DS reddedildi")).toBeVisible();
+  expect(screen.getByText(/kartını ve banka doğrulamasını kontrol edip yeniden deneyebilirsin/i))
+    .toBeVisible();
+  expect(screen.queryByText("3DS reddedildi")).toBeNull();
 });
