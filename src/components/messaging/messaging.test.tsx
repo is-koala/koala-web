@@ -89,6 +89,71 @@ describe("mesajlaşma arayüzü", () => {
     expect(within(links[0]!).getByLabelText("1 okunmamış mesaj")).toBeVisible();
   });
 
+  it("bilinmeyen konuşmanın yenileme sırasında gelen tüm mesajlarını kaybetmeden birleştirir", async () => {
+    const realtime = new FakeRealtime();
+    const newConversationId = "55555555-5555-4555-8555-555555555555";
+    const newConversation: ConversationSummary = {
+      ...conversationPage().content[0]!,
+      id: newConversationId,
+      displayName: "Bora Kaya",
+      lastMessageAt: "2026-09-06T09:00:00Z",
+      lastMessageBody: "Eski özet",
+      unreadCount: 0,
+    };
+    let resolvePage!: (result: {
+      ok: true;
+      page: Page<ConversationSummary>;
+    }) => void;
+    const loadPage = vi.fn(() => new Promise<{
+      ok: true;
+      page: Page<ConversationSummary>;
+    }>((resolve) => { resolvePage = resolve; }));
+    render(
+      <ConversationList
+        initialPage={conversationPage()}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={realtime}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        loadPage={loadPage}
+      />,
+    );
+
+    await waitFor(() => expect(realtime.personalListeners).toHaveLength(1));
+    act(() => {
+      realtime.emitPersonal({
+        ...event("MESSAGE", {
+          ...message("İlk hızlı mesaj", otherId),
+          id: "66666666-6666-4666-8666-666666666666",
+          sentAt: "2026-09-06T12:00:00Z",
+        }),
+        conversationId: newConversationId,
+      });
+      realtime.emitPersonal({
+        ...event("MESSAGE", {
+          ...message("İkinci hızlı mesaj", otherId),
+          id: "77777777-7777-4777-8777-777777777777",
+          sentAt: "2026-09-06T12:01:00Z",
+        }),
+        conversationId: newConversationId,
+      });
+    });
+
+    await act(async () => resolvePage({
+      ok: true,
+      page: {
+        ...conversationPage(),
+        content: [newConversation, ...conversationPage().content],
+        totalElements: 2,
+      },
+    }));
+
+    const links = within(screen.getByRole("list")).getAllByRole("link");
+    expect(loadPage).toHaveBeenCalledTimes(1);
+    expect(within(links[0]!).getByText("İkinci hızlı mesaj")).toBeVisible();
+    expect(within(links[0]!).getByLabelText("2 okunmamış mesaj")).toBeVisible();
+  });
+
   it("REST doğrulaması tamamlanmadan konuşma topic'ine abone olmaz ve kopyayı tekilleştirir", async () => {
     const realtime = new FakeRealtime();
     let allowAccess!: () => void;

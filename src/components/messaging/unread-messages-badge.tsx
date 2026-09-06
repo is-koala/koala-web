@@ -27,27 +27,15 @@ export function UnreadMessagesBadge({
   const [unread, setUnread] = useState<UnreadState>({ total: 0, byConversation: {} });
   const seenMessages = useRef(new Set<string>());
   const initialLoaded = useRef(false);
-  const pendingDeltas = useRef<Record<string, number>>({});
-  const clearedBeforeLoad = useRef(new Set<string>());
+  const eventRevision = useRef(0);
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
 
   useEffect(() => {
     let active = true;
     const release = retainRealtimeClient(client);
-    void loadUnread().then((result) => {
-      if (!active) return;
-      initialLoaded.current = true;
-      if (!result.ok) return;
-      const byConversation = { ...result.state.byConversation };
-      clearedBeforeLoad.current.forEach((id) => { byConversation[id] = 0; });
-      Object.entries(pendingDeltas.current).forEach(([id, count]) => {
-        byConversation[id] = (byConversation[id] ?? 0) + count;
-      });
-      setUnread({
-        total: Object.values(byConversation).reduce((sum, count) => sum + count, 0),
-        byConversation,
-      });
-    });
+    initialLoaded.current = false;
+    eventRevision.current = 0;
+    seenMessages.current.clear();
     const removeMessages = client.listenToMessages((event) => {
       if (!event.conversationId) return;
       if (event.type === "MESSAGE") {
@@ -55,8 +43,7 @@ export function UnreadMessagesBadge({
         if (!message || message.senderId === viewerId || seenMessages.current.has(message.id)) return;
         seenMessages.current.add(message.id);
         if (!initialLoaded.current) {
-          pendingDeltas.current[event.conversationId] =
-            (pendingDeltas.current[event.conversationId] ?? 0) + 1;
+          eventRevision.current += 1;
         }
         setUnread((current) => {
           const nextCount = (current.byConversation[event.conversationId!] ?? 0) + 1;
@@ -68,8 +55,7 @@ export function UnreadMessagesBadge({
       }
       if (event.type === "READ" && event.userId === viewerId) {
         if (!initialLoaded.current) {
-          clearedBeforeLoad.current.add(event.conversationId);
-          pendingDeltas.current[event.conversationId] = 0;
+          eventRevision.current += 1;
         }
         setUnread((current) => {
           const cleared = current.byConversation[event.conversationId!] ?? 0;
@@ -80,6 +66,23 @@ export function UnreadMessagesBadge({
         });
       }
     });
+    void loadStableUnreadState();
+
+    async function loadStableUnreadState() {
+      while (active) {
+        const revision = eventRevision.current;
+        const result = await loadUnread();
+        if (!active) return;
+        if (!result.ok) {
+          initialLoaded.current = true;
+          return;
+        }
+        if (revision !== eventRevision.current) continue;
+        initialLoaded.current = true;
+        setUnread(result.state);
+        return;
+      }
+    }
     return () => {
       active = false;
       removeMessages();

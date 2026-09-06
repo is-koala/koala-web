@@ -59,6 +59,53 @@ describe("üst bar okunmamış rozeti", () => {
     expect(screen.queryByText("3")).toBeNull();
     expect(screen.getByRole("link", { name: "Okunmamış mesaj yok" })).toBeVisible();
   });
+
+  it("ilk REST görüntüsüne zaten giren canlı mesajı ikinci kez saymaz", async () => {
+    const realtime = new BadgeRealtime();
+    let resolveInitial!: (result: {
+      ok: true;
+      state: { total: number; byConversation: Record<string, number> };
+    }) => void;
+    const snapshot: {
+      ok: true;
+      state: { total: number; byConversation: Record<string, number> };
+    } = {
+      ok: true,
+      state: { total: 1, byConversation: { [conversationId]: 1 } },
+    };
+    const loadUnread = vi.fn()
+      .mockImplementationOnce(() => new Promise<typeof snapshot>((resolve) => { resolveInitial = resolve; }))
+      .mockResolvedValueOnce(snapshot);
+    render(
+      <UnreadMessagesBadge
+        viewerId={viewerId}
+        href="/panel/mesajlar"
+        realtimeClient={realtime}
+        loadUnread={loadUnread}
+      />,
+    );
+
+    await waitFor(() => expect(realtime.listener).not.toBeNull());
+    act(() => realtime.emit({
+      type: "MESSAGE",
+      conversationId,
+      userId: otherId,
+      message: {
+        id: "44444444-4444-4444-8444-444444444444",
+        senderId: otherId,
+        body: "REST'e de giren mesaj",
+        sentAt: "2026-09-06T11:00:00Z",
+        readAt: null,
+      },
+      online: null,
+      at: "2026-09-06T11:00:00Z",
+      error: null,
+    }));
+
+    await act(async () => resolveInitial(snapshot));
+    await waitFor(() => expect(loadUnread).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("link", { name: "1 okunmamış mesaj" })).toBeVisible();
+  });
 });
 
 class BadgeRealtime implements RealtimeClient {

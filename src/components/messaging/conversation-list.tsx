@@ -43,6 +43,7 @@ export function ConversationList({
   const [connection, setConnection] = useState<RealtimeConnectionState>({ phase: "idle", mode: "rest" });
   const conversationsRef = useRef(conversations);
   const refreshingConversationIds = useRef(new Set<string>());
+  const pendingUnknownMessages = useRef(new Map<string, Map<string, Message>>());
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
   const presenceKey = [...new Set(conversations.flatMap((conversation) =>
     conversation.counterpartId === null ? [] : [conversation.counterpartId],
@@ -62,6 +63,9 @@ export function ConversationList({
         if (!message) return;
         if (!conversationsRef.current.some((conversation) => conversation.id === event.conversationId)) {
           const missingId = event.conversationId;
+          const pending = pendingUnknownMessages.current.get(missingId) ?? new Map<string, Message>();
+          pending.set(message.id, message);
+          pendingUnknownMessages.current.set(missingId, pending);
           if (refreshingConversationIds.current.has(missingId)) return;
           refreshingConversationIds.current.add(missingId);
           void loadPage(0).then((result) => {
@@ -69,15 +73,19 @@ export function ConversationList({
             const refreshedIds = new Set(result.page.content.map((conversation) => conversation.id));
             const missingConversation = result.page.content.find((conversation) => conversation.id === missingId);
             if (!missingConversation) return;
+            const pendingMessages = [...(pendingUnknownMessages.current.get(missingId)?.values() ?? [])];
             setConversations((current) => [
               ...result.page.content.map((conversation) =>
                 conversation.id === missingId
-                  ? updateConversationFromRefetch(conversation, message, viewerId)
+                  ? updateConversationFromRefetch(conversation, pendingMessages, viewerId)
                   : conversation,
               ),
               ...current.filter((conversation) => !refreshedIds.has(conversation.id)),
             ].sort(byNewest));
-          }).finally(() => refreshingConversationIds.current.delete(missingId));
+          }).finally(() => {
+            refreshingConversationIds.current.delete(missingId);
+            pendingUnknownMessages.current.delete(missingId);
+          });
           return;
         }
         setConversations((current) => current.map((conversation) =>
@@ -230,16 +238,19 @@ function updateConversationFromEvent(
 
 function updateConversationFromRefetch(
   conversation: ConversationSummary,
-  message: Message,
+  messages: Message[],
   viewerId: string,
 ) {
+  const latestMessage = messages.reduce<Message | null>((latest, candidate) =>
+    latest === null || Date.parse(candidate.sentAt) >= Date.parse(latest.sentAt) ? candidate : latest, null);
+  const useLatestMessage = latestMessage !== null
+    && Date.parse(latestMessage.sentAt) >= Date.parse(conversation.lastMessageAt ?? "");
+  const incomingCount = messages.filter((message) => message.senderId !== viewerId).length;
   return {
     ...conversation,
-    lastMessageAt: message.sentAt,
-    lastMessageBody: message.body,
-    unreadCount: message.senderId === viewerId
-      ? conversation.unreadCount
-      : Math.max(1, conversation.unreadCount),
+    lastMessageAt: useLatestMessage ? latestMessage.sentAt : conversation.lastMessageAt,
+    lastMessageBody: useLatestMessage ? latestMessage.body : conversation.lastMessageBody,
+    unreadCount: Math.max(conversation.unreadCount, incomingCount),
   };
 }
 
