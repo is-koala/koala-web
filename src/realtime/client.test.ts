@@ -44,12 +44,12 @@ class FakeWebSocket {
   }
 }
 
-function credential(token: string) {
+function credential(token: string, expiresAt = "2099-09-06T13:01:30Z") {
   return {
     ok: true,
     json: () => Promise.resolve({
       token,
-      expiresAt: "2099-09-06T13:01:30Z",
+      expiresAt,
       webSocketUrl: "wss://api.example.test/ws",
     }),
   } as Response;
@@ -123,6 +123,53 @@ describe("RealtimeClient", () => {
     expect(client.getState()).toEqual({ phase: "reconnecting", mode: "rest", retryInMs: 2_000 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
+    client.stop();
+  });
+
+  it("scoped kimlik dolmadan bağlantıyı yeni kimlikle sessizce kurar", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-06T12:00:00Z"));
+    let credentialCount = 0;
+    const fetchMock = vi.fn(() => Promise.resolve(credential(
+      `scoped-token-${++credentialCount}`,
+      credentialCount === 1 ? "2026-09-06T12:01:30Z" : "2026-09-06T12:03:00Z",
+    )));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createRealtimeClient();
+
+    client.start();
+    await flushPromises();
+    const first = FakeWebSocket.instances[0];
+    first.open();
+    first.receive("CONNECTED\nversion:1.2\n\n\0");
+
+    await vi.advanceTimersByTimeAsync(79_999);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await flushPromises();
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    const second = FakeWebSocket.instances[1];
+    second.open();
+    expect(second.sent[0]).toContain("Authorization:Bearer scoped-token-2");
+    expect(client.getState()).toEqual({ phase: "connecting", mode: "rest" });
+    client.stop();
+  });
+
+  it("socket açılıp STOMP kurulumu tamamlanmazsa timeout ile yeniden dener", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(credential("scoped-token")));
+    const client = createRealtimeClient();
+
+    client.start();
+    await flushPromises();
+    FakeWebSocket.instances[0].open();
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(client.getState()).toEqual({ phase: "reconnecting", mode: "rest", retryInMs: 1_000 });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await flushPromises();
+    expect(FakeWebSocket.instances).toHaveLength(2);
     client.stop();
   });
 
@@ -245,6 +292,34 @@ describe("RealtimeClient", () => {
       vi.fn(),
     )).rejects.toThrow("not found");
 
+    expect(socket.sent.some((frame) => frame.startsWith("SUBSCRIBE"))).toBe(false);
+    client.stop();
+  });
+
+  it("sayfa REST doğrulaması sürerken kapanırsa konuşmaya abone olmaz", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(credential("scoped-token")));
+    const client = createRealtimeClient();
+    client.start();
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive("CONNECTED\nversion:1.2\n\n\0");
+    const controller = new AbortController();
+    let confirmAccess = () => {};
+    const accessConfirmed = new Promise<void>((resolve) => {
+      confirmAccess = resolve;
+    });
+
+    const pending = client.followConversation(
+      "386e3918-8c23-4f6d-9142-a4e04f231fc8",
+      () => accessConfirmed,
+      vi.fn(),
+      controller.signal,
+    );
+    controller.abort();
+    confirmAccess();
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
     expect(socket.sent.some((frame) => frame.startsWith("SUBSCRIBE"))).toBe(false);
     client.stop();
   });

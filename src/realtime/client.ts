@@ -1,3 +1,8 @@
+import { realtimeEventOf, type RealtimeEvent } from "./event-decoder";
+import { framesOf, stompFrame, type StompFrame } from "./stomp-codec";
+
+export type { RealtimeEvent } from "./event-decoder";
+
 export type RealtimeConnectionState =
   | { phase: "idle"; mode: "rest" }
   | { phase: "connecting"; mode: "rest" }
@@ -7,16 +12,6 @@ export type RealtimeConnectionState =
   | { phase: "live"; mode: "realtime" };
 
 export type RealtimeStateListener = (state: RealtimeConnectionState) => void;
-
-export type RealtimeEvent = {
-  type: "MESSAGE" | "TYPING" | "READ" | "PRESENCE" | "ERROR";
-  conversationId: string | null;
-  userId: string | null;
-  message: unknown;
-  online: boolean | null;
-  at: string;
-  error: { destination: string; errorCode: string; message: string } | null;
-};
 
 export type RealtimeEventListener = (event: RealtimeEvent) => void;
 
@@ -30,11 +25,13 @@ export type RealtimeClient = {
     conversationId: string,
     confirmAccess: () => Promise<unknown>,
     listener: RealtimeEventListener,
+    signal?: AbortSignal,
   ): Promise<() => void>;
   followPresence(
     userId: string,
     confirmAccess: () => Promise<unknown>,
     listener: RealtimeEventListener,
+    signal?: AbortSignal,
   ): Promise<() => void>;
   sendTyping(conversationId: string): boolean;
 };
@@ -46,6 +43,9 @@ type RealtimeBootstrap = {
 };
 
 const credentialEndpoint = "/api/realtime-credential";
+const credentialRenewalMarginMs = 10_000;
+const handshakeTimeoutMs = 10_000;
+const maximumTimerDelayMs = 2_147_000_000;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DesiredSubscription = {
@@ -64,6 +64,8 @@ export function createRealtimeClient(): RealtimeClient {
   let socket: WebSocket | null = null;
   let retryAttempt = 0;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let credentialRenewalTimer: ReturnType<typeof setTimeout> | null = null;
+  let handshakeTimer: ReturnType<typeof setTimeout> | null = null;
   let nextSubscriptionId = 1;
   const listeners = new Set<RealtimeStateListener>();
   const desiredSubscriptions = new Map<string, DesiredSubscription>();
@@ -89,11 +91,21 @@ export function createRealtimeClient(): RealtimeClient {
           ["Authorization", `Bearer ${bootstrap.token}`],
         ]));
         bootstrap.token = "";
+        handshakeTimer = setTimeout(() => {
+          handshakeTimer = null;
+          if (started && socket === nextSocket && state.phase !== "live") {
+            nextSocket.close(1002, "STOMP handshake timeout");
+          }
+        }, handshakeTimeoutMs);
       };
       nextSocket.onmessage = (event) => {
         if (!started || socket !== nextSocket) return;
         if (typeof event.data !== "string") return;
-        framesOf(event.data).forEach((frame) => receiveFrame(frame, nextSocket));
+        framesOf(event.data).forEach((frame) => receiveFrame(
+          frame,
+          nextSocket,
+          bootstrap.expiresAt,
+        ));
       };
       nextSocket.onerror = () => {
         if (!started || socket !== nextSocket) return;
@@ -101,6 +113,7 @@ export function createRealtimeClient(): RealtimeClient {
       };
       nextSocket.onclose = () => {
         if (socket !== nextSocket) return;
+        cancelConnectionTimers();
         socket = null;
         desiredSubscriptions.forEach((subscription) => {
           subscription.subscriptionId = null;
@@ -139,9 +152,17 @@ export function createRealtimeClient(): RealtimeClient {
     retryTimer = null;
   }
 
+  function cancelConnectionTimers() {
+    if (credentialRenewalTimer) clearTimeout(credentialRenewalTimer);
+    if (handshakeTimer) clearTimeout(handshakeTimer);
+    credentialRenewalTimer = null;
+    handshakeTimer = null;
+  }
+
   function closeSocket(sendDisconnect: boolean) {
     const current = socket;
     socket = null;
+    cancelConnectionTimers();
     if (!current) return;
     if (sendDisconnect && current.readyState === WebSocket.OPEN) {
       current.send(stompFrame("DISCONNECT"));
@@ -151,6 +172,26 @@ export function createRealtimeClient(): RealtimeClient {
     current.onclose = null;
     current.onerror = null;
     current.close();
+  }
+
+  function scheduleCredentialRenewal(currentSocket: WebSocket, expiresAt: string) {
+    const delay = Math.max(0, Math.min(
+      Date.parse(expiresAt) - Date.now() - credentialRenewalMarginMs,
+      maximumTimerDelayMs,
+    ));
+    credentialRenewalTimer = setTimeout(() => {
+      credentialRenewalTimer = null;
+      if (!started || socket !== currentSocket) return;
+      generation += 1;
+      closeSocket(false);
+      if (!navigator.onLine) {
+        publish({ phase: "offline", mode: "rest" });
+      } else if (document.visibilityState === "hidden") {
+        publish({ phase: "paused", mode: "rest" });
+      } else {
+        void connect(generation);
+      }
+    }, delay);
   }
 
   function handleOffline() {
@@ -202,10 +243,13 @@ export function createRealtimeClient(): RealtimeClient {
     };
   }
 
-  function receiveFrame(frame: StompFrame, currentSocket: WebSocket) {
+  function receiveFrame(frame: StompFrame, currentSocket: WebSocket, credentialExpiresAt: string) {
     if (frame.command === "CONNECTED") {
+      if (handshakeTimer) clearTimeout(handshakeTimer);
+      handshakeTimer = null;
       retryAttempt = 0;
       publish({ phase: "live", mode: "realtime" });
+      scheduleCredentialRenewal(currentSocket, credentialExpiresAt);
       desiredSubscriptions.forEach((subscription, destination) => {
         activateSubscription(destination, subscription);
       });
@@ -289,19 +333,23 @@ export function createRealtimeClient(): RealtimeClient {
     listenToMessages(listener) {
       return addSubscription("/user/queue/messages", listener);
     },
-    async followConversation(conversationId, confirmAccess, listener) {
+    async followConversation(conversationId, confirmAccess, listener, signal) {
       if (!uuidPattern.test(conversationId)) {
         throw new Error("Konuşma kimliği geçerli değil.");
       }
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       // REST okuması yetki kanıtıdır. Reddedilirse wire seviyesinde hiçbir
       // SUBSCRIBE üretilmez ve backend'in bağlantıyı koruyan hata yolu bile
       // gereksiz yere çalıştırılmaz.
       await confirmAccess();
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       return addSubscription(`/topic/conversations/${conversationId}`, listener);
     },
-    async followPresence(userId, confirmAccess, listener) {
+    async followPresence(userId, confirmAccess, listener, signal) {
       if (!uuidPattern.test(userId)) throw new Error("Kullanıcı kimliği geçerli değil.");
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       await confirmAccess();
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       return addSubscription(`/topic/presence/${userId}`, listener);
     },
     sendTyping(conversationId) {
@@ -349,89 +397,4 @@ function isBootstrap(value: unknown): value is RealtimeBootstrap {
   } catch {
     return false;
   }
-}
-
-function stompFrame(command: string, headers: readonly (readonly [string, string])[] = []) {
-  const lines = [command, ...headers.map(([name, value]) => `${name}:${escapeHeader(value)}`)];
-  return `${lines.join("\n")}\n\n\0`;
-}
-
-function escapeHeader(value: string) {
-  return value.replaceAll("\\", "\\\\").replaceAll("\r", "\\r")
-    .replaceAll("\n", "\\n").replaceAll(":", "\\c");
-}
-
-type StompFrame = {
-  command: string;
-  headers: Map<string, string>;
-  body: string;
-};
-
-function framesOf(payload: string): StompFrame[] {
-  return payload
-    .replaceAll("\r\n", "\n")
-    .split("\0")
-    .map((value) => value.replace(/^\n+/, ""))
-    .filter((value) => value.length > 0)
-    .map(parseFrame)
-    .filter((frame): frame is StompFrame => frame !== null);
-}
-
-function parseFrame(raw: string): StompFrame | null {
-  const separator = raw.indexOf("\n\n");
-  const head = separator >= 0 ? raw.slice(0, separator) : raw;
-  const body = separator >= 0 ? raw.slice(separator + 2) : "";
-  const [command, ...headerLines] = head.split("\n");
-  if (!command) return null;
-
-  const headers = new Map<string, string>();
-  headerLines.forEach((line) => {
-    const colon = line.indexOf(":");
-    if (colon <= 0) return;
-    headers.set(line.slice(0, colon), unescapeHeader(line.slice(colon + 1)));
-  });
-  return { command, headers, body };
-}
-
-function unescapeHeader(value: string) {
-  return value.replace(/\\([crn\\])/g, (_, escaped: string) => {
-    if (escaped === "c") return ":";
-    if (escaped === "r") return "\r";
-    if (escaped === "n") return "\n";
-    return "\\";
-  });
-}
-
-const eventTypes = new Set<RealtimeEvent["type"]>([
-  "MESSAGE", "TYPING", "READ", "PRESENCE", "ERROR",
-]);
-
-function realtimeEventOf(body: string): RealtimeEvent | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(body);
-  } catch {
-    return null;
-  }
-  if (typeof value !== "object" || value === null) return null;
-  const candidate = value as Partial<RealtimeEvent>;
-  if (typeof candidate.type !== "string" ||
-      !eventTypes.has(candidate.type as RealtimeEvent["type"])) {
-    return null;
-  }
-  if (typeof candidate.at !== "string") return null;
-  if (!(candidate.conversationId === null || typeof candidate.conversationId === "string")) {
-    return null;
-  }
-  if (!(candidate.userId === null || typeof candidate.userId === "string")) return null;
-  if (!(candidate.online === null || typeof candidate.online === "boolean")) return null;
-  if (!(candidate.error === null || isRealtimeError(candidate.error))) return null;
-  return candidate as RealtimeEvent;
-}
-
-function isRealtimeError(value: unknown): value is NonNullable<RealtimeEvent["error"]> {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<NonNullable<RealtimeEvent["error"]>>;
-  return typeof candidate.destination === "string" &&
-    typeof candidate.errorCode === "string" && typeof candidate.message === "string";
 }

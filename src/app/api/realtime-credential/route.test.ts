@@ -89,7 +89,7 @@ describe("POST /api/realtime-credential", () => {
     expect(response.status).toBe(503);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const body = await response.text();
-    expect(body).toBe('{"error":"realtime_unavailable"}');
+    expect(body).toBe('{"errorCode":"REALTIME_UNAVAILABLE","httpStatus":503}');
     expect(body).not.toContain("scoped-stomp-token");
     expect(body).not.toContain("main-access-token");
   });
