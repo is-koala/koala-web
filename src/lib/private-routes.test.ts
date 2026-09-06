@@ -23,7 +23,7 @@ const blocked = (path: string) => privateDisallowRules.some((rule) => disallows(
 
 describe("arama motorlarına kapalı rotalar", () => {
   it("kabuk köklerini ve altındaki her yolu robots.txt'te kapatır", () => {
-    for (const path of ["/isveren", "/isveren/ilanlar", "/isveren/ilan/yeni", "/panel", "/panel/islerim"]) {
+    for (const path of ["/isveren", "/isveren/ilanlar", "/isveren/ilan/yeni", "/panel", "/panel/islerim", "/panel/profil"]) {
       expect(blocked(path)).toBe(true);
     }
   });

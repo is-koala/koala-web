@@ -59,16 +59,22 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
     expect(direct).toEqual([]);
   });
 
-  it("GET /users/me'yi yalnız kabuğun bağlam okuyucusu ister", () => {
+  it("GET /users/me'yi yalnız kabuk okur; profil modülü bu kaynağa yalnız PATCH yazar", () => {
     // Kabuk profili bir kez okuyup `React.cache()` ile paylaşıyor. İkinci bir
     // çağıran, her sayfa render'ına ikinci bir tur ekler.
     const callers = sourceFiles(sourceRoot).filter((file) =>
       /backendPaths\.usersMe|["'`]\/users\/me["'`]/.test(readFileSync(file, "utf8")),
     );
 
+    const profileModule = path.join(sourceRoot, "server", "profile", "profile.ts");
+
     expect(callers).toEqual([
       path.join(sourceRoot, "server", "contract.ts"),
+      profileModule,
       path.join(sourceRoot, "server", "session", "viewer.ts"),
     ]);
+    expect(readFileSync(profileModule, "utf8")).toContain(
+      'apiRequest("/users/me", { method: "PATCH", body: input })',
+    );
   });
 });

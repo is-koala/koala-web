@@ -102,6 +102,11 @@ const workerShell: AppShell = {
   description: "Başvurularını, işlerini ve kazançlarını buradan takip edersin.",
   sections: [
     {
+      href: "/panel/profil",
+      label: "Profilim",
+      status: "ready",
+    },
+    {
       href: "/panel/islerim",
       label: "İşlerim",
       status: "planned",

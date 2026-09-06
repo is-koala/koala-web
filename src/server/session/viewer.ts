@@ -5,6 +5,7 @@ import { cache } from "react";
 
 import { ApiError } from "@/server/api/errors";
 import { backendPaths, unauthorizedStatus, unexpectedError } from "@/server/contract";
+import type { Education, Experience } from "@/lib/profile";
 
 import { requireSessionForCurrentPath } from "./guard";
 import { currentPathLoginRedirect } from "./login-redirect";
@@ -39,9 +40,22 @@ export type ViewerCompany = {
  * türetilecek.
  */
 export type Viewer = {
+  id: string;
   firstName: string;
+  lastName: string;
   /** Kabuğun başlığında görünen ad; ad soyad boşsa e-postaya düşer. */
   displayName: string;
+  email: string;
+  phoneNumber: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  profilePictureUrl: string | null;
+  jobTitle: string | null;
+  about: string | null;
+  qualifications: string | null;
+  interests: string | null;
+  experiences: readonly Experience[];
+  educations: readonly Education[];
   /** JSON'da `isEmployer`; Java alan adı `employer` okunmaz. */
   isEmployer: boolean;
   identityVerified: boolean;
@@ -127,9 +141,20 @@ const unusableProfile: ViewerFailure = { status: 0, errorCode: unexpectedError }
 
 /** Backend zarfının içinden gelen ham gövde. */
 type UserMeResponse = {
+  id?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
+  phoneNumber?: string | null;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  profilePictureUrl?: string | null;
+  jobTitle?: string | null;
+  about?: string | null;
+  qualifications?: string | null;
+  interests?: string | null;
+  experiences?: readonly Experience[] | null;
+  educations?: readonly Education[] | null;
   isEmployer?: boolean;
   identityVerified?: boolean;
   maskedTcIdentityNumber?: string | null;
@@ -143,8 +168,21 @@ function toViewer(response: UserMeResponse): Viewer {
   const email = response.email ?? "";
 
   return {
+    id: response.id ?? "",
     firstName,
+    lastName,
     displayName: `${firstName} ${lastName}`.trim() || email,
+    email,
+    phoneNumber: response.phoneNumber ?? "",
+    emailVerified: response.emailVerified === true,
+    phoneVerified: response.phoneVerified === true,
+    profilePictureUrl: response.profilePictureUrl ?? null,
+    jobTitle: response.jobTitle ?? null,
+    about: response.about ?? null,
+    qualifications: response.qualifications ?? null,
+    interests: response.interests ?? null,
+    experiences: (response.experiences ?? []).map(toExperience),
+    educations: (response.educations ?? []).map(toEducation),
     isEmployer: response.isEmployer === true,
     identityVerified: response.identityVerified === true,
     hasIdentityNumber: Boolean(response.maskedTcIdentityNumber),
@@ -155,5 +193,34 @@ function toViewer(response: UserMeResponse): Viewer {
       role: company.role ?? "",
       approved: company.approved === true,
     })),
+  };
+}
+
+function toExperience(experience: Experience): Experience {
+  return {
+    id: experience.id,
+    title: experience.title,
+    companyName: experience.companyName ?? null,
+    employmentType: experience.employmentType ?? null,
+    cityName: experience.cityName ?? null,
+    startDate: experience.startDate,
+    endDate: experience.endDate ?? null,
+    description: experience.description ?? null,
+  };
+}
+
+function toEducation(education: Education): Education {
+  return {
+    id: education.id,
+    universityId: education.universityId,
+    universityName: education.universityName,
+    facultyId: education.facultyId,
+    facultyName: education.facultyName,
+    departmentId: education.departmentId,
+    departmentName: education.departmentName,
+    type: education.type,
+    gpa: education.gpa,
+    startDate: education.startDate,
+    endDate: education.endDate ?? null,
   };
 }
