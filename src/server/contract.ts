@@ -64,7 +64,8 @@ export const sessionCookies = {
 } as const;
 
 /**
- * `AuthController`, `LegalController`, `UsersController`, `JobAssignmentsController`,
+ * `AuthController`, `LegalController`, `UsersController`, `JobsController`,
+ * `JobAssignmentsController`, `PaymentsController`, `EmployerToolsController`,
  * `AddressSearchController` ve `ReferenceDataController` uçları; backend'de
  * context-path yok.
  *
@@ -77,12 +78,34 @@ export const sessionCookies = {
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
   forgotPassword: "/auth/forgot-password",
+  /**
+   * `POST /users/me/jobs` — bireysel ilan; yanıt `IndividualJobDto`.
+   *
+   * Adı `usersMe...` ile başlamıyor, bilerek: `server-only.test.ts` kabuğun
+   * tek `GET /users/me` çağrısını o önekle arıyor ve bu bambaşka bir uç.
+   * Aynı yol `GET` ile creator bazlı ilan listesini de veriyor (#33).
+   */
+  individualJobs: "/users/me/jobs",
   jobAssignments: "/job-assignments",
+  /** `GET /reference/job-categories`; `requiresInsurance` bayrağını taşıyor. */
+  jobCategories: "/reference/job-categories",
+  /**
+   * `GET /jobs/{jobId}` — `JobDetailDto`. Yayımlanmış ilanın donmuş fiyat
+   * snapshot'ı `pricing` alanında bu uçtan okunuyor.
+   */
+  jobs: "/jobs",
+  /** `GET /users/me/job-templates` — `EmployerToolsController.java:101-102`. */
+  jobTemplates: "/users/me/job-templates",
   login: "/auth/login",
   logout: "/auth/logout",
   bankAccounts: "/users/me/bank-accounts",
   changePassword: "/users/me/password",
   notifications: "/users/me/notifications",
+  /**
+   * `POST /payment-quotes`. İlan öncesi fiyat dökümü; aynı hesap ilan
+   * yayımlanırken `pricingService.snapshot(job)` ile tekrar yapılıp kilitlenir.
+   */
+  paymentQuotes: "/payment-quotes",
   refreshToken: "/auth/refresh-token",
   referenceCities: "/reference/cities",
   referenceCountries: "/reference/countries",

@@ -46,6 +46,20 @@ export type AppSection = ReadySection | PlannedSection;
 
 export type AppShellId = "employer" | "worker";
 
+/** Bireysel ilan açma formu; kayıtta bir bölüm olarak da bildirilir. */
+export const newIndividualJobPath = "/isveren/ilan/yeni";
+
+/**
+ * Yayımlanmış bir ilanın sayfası.
+ *
+ * Menüde yok, çünkü bir liste maddesi değil bir kaydın adresi; kapıları da
+ * yok — ilanı zaten açmış kullanıcı onu görebilmeli. Kapatma ve iptal
+ * eylemleri buraya is-koala/koala-web#34 ile geliyor.
+ */
+export function publishedJobPath(jobId: string): string {
+  return `/isveren/ilan/${encodeURIComponent(jobId)}`;
+}
+
 export type AppShell = {
   readonly id: AppShellId;
   /** Kabuğun kökü; `private-routes.ts` içindeki ağaç girdisiyle aynı olmalı. */
@@ -97,6 +111,17 @@ const employerShell: AppShell = {
       requires: ["identityVerification"],
       status: "planned",
       note: "İlan açma ve yönetim ekranları henüz açılmadı.",
+    },
+    {
+      href: newIndividualJobPath,
+      label: "Yeni ilan",
+      // `JobManager.java:105-114` gövdeye hiç bakmadan iki koşul arıyor. Rol
+      // engelleyici kip: kayıt anında yazılıp geri alınamadığı için form hiç
+      // çizilmez. Kimlik kapısı kabuk düzeyinde şerit olarak duruyor ve
+      // yayımlama düğmesini eylemin kendi kapısı kapatıyor — form doldurulup
+      // doğrulama beklenebilsin diye.
+      requires: ["employerRole"],
+      status: "ready",
     },
     {
       href: "/isveren/basvurular",

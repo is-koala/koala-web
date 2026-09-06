@@ -62,6 +62,28 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Koala'nın güncel sürümünü kullanmak için sayfayı yenile.",
     action: "retry",
   },
+  // Bireysel ilanın üç reddi. Üçü de aile metnine düşseydi ("Bilgileri kontrol
+  // et" / "Bu işlem için yetkin yok") kullanıcı ne yapması gerektiğini
+  // okuyamazdı: yapılacak iş her birinde farklı ve hiçbiri alanları gözden
+  // geçirmek değil.
+  JOB_INDIVIDUAL_JOB_CANNOT_REQUIRE_INSURANCE: {
+    title: "Bu kategori bireysel ilanla açılamıyor",
+    message:
+      "Seçtiğin işte sigorta zorunlu. Sigorta yükümlülüğü işverene ait olduğu için bu iş yalnızca şirket ilanı olarak açılabiliyor.",
+    action: "none",
+  },
+  JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED: {
+    title: "Kimliğini doğrulaman gerekiyor",
+    message:
+      "İlanı yayımlayabilmen için önce kimliğini doğrulamalısın. Doğrulamayı şimdilik Koala uygulamasından tamamlayabilirsin.",
+    action: "none",
+  },
+  JOB_USER_IS_NOT_EMPLOYER: {
+    title: "Bu hesap işveren hesabı değil",
+    message:
+      "İşveren olup olmadığın kayıt sırasında seçiliyor ve bugün değiştirilemiyor. İlan açmak için işveren olarak yeni bir hesap açman gerekiyor.",
+    action: "home",
+  },
   // Adres ağ geçidinin kodları `validation` ve `external` ailelerine düşüyor;
   // aile metinleri ("Bilgileri kontrol et") burada yanlış olurdu, çünkü
   // kullanıcının düzeltebileceği bir alan yok ya da yapılacak iş farklı.

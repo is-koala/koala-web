@@ -134,6 +134,9 @@ export type TextareaFieldProps = FieldPresentation & {
   defaultValue: string;
   rows: number;
   maxLength?: number;
+  /** Denetimli kullanım; taslağı dışarıda tutan formlar için (bkz. `TextField`). */
+  value?: string;
+  onValueChange?: (value: string) => void;
 };
 
 export function TextareaField({
@@ -145,6 +148,8 @@ export function TextareaField({
   hint,
   error,
   maxLength,
+  value,
+  onValueChange,
 }: TextareaFieldProps) {
   return (
     <FieldShell id={id ?? name} label={label} hint={hint} error={error}>
@@ -152,7 +157,10 @@ export function TextareaField({
         <textarea
           {...accessibility}
           name={name}
-          defaultValue={defaultValue}
+          defaultValue={value === undefined ? defaultValue : undefined}
+          value={value}
+          readOnly={value !== undefined && !onValueChange}
+          onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
           rows={rows}
           maxLength={maxLength}
         />
@@ -162,12 +170,16 @@ export function TextareaField({
 }
 
 export type InputFieldProps = FieldPresentation & {
-  type: "date" | "number";
+  /** `datetime-local` saat dilimi taşımaz; backend karşılığı `LocalDateTime`. */
+  type: "date" | "datetime-local" | "number";
   defaultValue: string;
   required?: boolean;
   min?: string;
   max?: string;
   step?: string;
+  /** Denetimli kullanım; taslağı dışarıda tutan formlar için (bkz. `TextField`). */
+  value?: string;
+  onValueChange?: (value: string) => void;
 };
 
 export function InputField({
@@ -182,6 +194,8 @@ export function InputField({
   min,
   max,
   step,
+  value,
+  onValueChange,
 }: InputFieldProps) {
   return (
     <FieldShell id={id ?? name} label={label} hint={hint} error={error}>
@@ -190,7 +204,10 @@ export function InputField({
           {...accessibility}
           name={name}
           type={type}
-          defaultValue={defaultValue}
+          defaultValue={value === undefined ? defaultValue : undefined}
+          value={value}
+          readOnly={value !== undefined && !onValueChange}
+          onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
           required={required}
           min={min}
           max={max}
