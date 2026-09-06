@@ -86,9 +86,16 @@ describe("kabuk rota kaydı", () => {
   it("iki kabuk da arama motorlarına kapalı ağaçlarda kayıtlı", () => {
     // Kayıt ile `private-routes.ts` ayrışırsa kabuk indekslenebilir kalır ve
     // bunu kimse fark etmez: menü çalışmaya devam eder.
-    expect(Object.values(appShells).map((shell) => shell.root).sort()).toEqual(
-      [...privateRouteTrees].sort(),
-    );
+    //
+    // Kapsama denetimi, eşitlik değil: kapalı ağaçlar kabuk köklerinden
+    // ibaret değil. `/davet` bir kabuk değil ama aynı üç başlığı taşımak
+    // zorunda, çünkü adresi bir davet kimliği taşıyor ve o kimliği bilen
+    // herkes daveti okuyabiliyor. Eşitlik dayatmak, kabuk olmayan her kapalı
+    // adresi ya kayda uydurma bir bölüm olarak sokturur ya da başlıksız
+    // bırakırdı.
+    for (const shell of Object.values(appShells)) {
+      expect(privateRouteTrees, shell.id).toContain(shell.root);
+    }
   });
 
   it("bireysel ilan formunu işveren rolü kapısının arkasına yazar", () => {

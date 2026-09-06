@@ -183,6 +183,30 @@ describe("şirket yetkilisi hataları", () => {
       action: "none",
     });
   });
+
+  it("başkasına ait daveti sahiplik cümlesiyle karşılar", () => {
+    // `CompanyContactInvitationManager.java:93-95` `ForbiddenException` → 403
+    // atıyor; aile metni ("Farklı bir hesapla giriş yapabilirsin") kullanıcıyı
+    // olmayan bir hesabı aramaya gönderirdi.
+    expect(errorPresentation("USER_NOT_ASSOCIATED_WITH_INVITATION", 403)).toEqual({
+      title: "Bu davet sana ait değil",
+      message:
+        "Davet başka bir hesaba gönderilmiş. Daveti bekliyorsan davet edildiğin hesapla giriş yapman gerekiyor.",
+      action: "none",
+    });
+  });
+
+  it("ikinci kez cevaplanan daveti kendi cümlesiyle karşılar", () => {
+    // Aile metni ("Bu kayıt başka bir duruma geçmiş olabilir. Sayfayı
+    // yenileyip yeniden dene") burada yanlış olurdu: yenilemek işe yaramaz,
+    // davet kalıcı olarak cevaplanmış ve geri alınamıyor.
+    expect(errorPresentation("INVITATION_ALREADY_ANSWERED", 409)).toEqual({
+      title: "Bu davet daha önce cevaplanmış",
+      message:
+        "Davet bir kez cevaplanıyor ve kararı geri almanın bir yolu yok. Güncel durumu sayfayı yenileyerek görebilirsin.",
+      action: "retry",
+    });
+  });
 });
 
 describe("davet sözleşmesinin hata aileleri", () => {
@@ -192,6 +216,14 @@ describe("davet sözleşmesinin hata aileleri", () => {
     // olmayan bir kardeş uç kullanıcıyı "farklı bir hesapla giriş yap"
     // diye yanlış yere gönderirdi.
     expect(backendErrorFamilies.USER_NOT_ASSOCIATED_WITH_COMPANY).toBe("notFound");
+  });
+
+  it("başkasına ait davetin reddini forbidden ailesinde tutar", () => {
+    // `answerToInvitation` bunu `ForbiddenException` ile atıyor (403), ama
+    // Swagger 404 diye belgeliyor. Kod haritada hiç yoksa `errorPresentation`
+    // durum koduna düşer ve belgeye göre yazılmış bir 404 sessizce "Aradığın
+    // içerik bulunamadı" derdi.
+    expect(backendErrorFamilies.USER_NOT_ASSOCIATED_WITH_INVITATION).toBe("forbidden");
   });
 
   it("zaten yetkili ve zaten bekleyen davet çakışmalarını çakışma ailesine koyar", () => {

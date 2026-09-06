@@ -191,6 +191,33 @@ const exactErrors: Record<string, ErrorPresentation> = {
     action: "home",
   },
   /**
+   * Davet başkasının.
+   *
+   * `forbidden` aile metni ("Farklı bir hesapla giriş yapabilir veya ana
+   * sayfaya dönebilirsin") kullanıcıyı var olmayan bir hesabı aramaya
+   * gönderirdi: davet gerçekten başka birine gitmiş ve bu hesapla
+   * kabul edilemez.
+   */
+  USER_NOT_ASSOCIATED_WITH_INVITATION: {
+    title: "Bu davet sana ait değil",
+    message:
+      "Davet başka bir hesaba gönderilmiş. Daveti bekliyorsan davet edildiğin hesapla giriş yapman gerekiyor.",
+    action: "none",
+  },
+  /**
+   * Davet ikinci kez cevaplanamaz.
+   *
+   * `conflict` aile metni "sayfayı yenileyip yeniden dene" diyor; burada
+   * yenilemek işe yaramaz — karar kalıcı ve geri alma ucu yok. Yine de
+   * `retry`: kullanıcının görebileceği tek yeni bilgi davetin güncel durumu.
+   */
+  INVITATION_ALREADY_ANSWERED: {
+    title: "Bu davet daha önce cevaplanmış",
+    message:
+      "Davet bir kez cevaplanıyor ve kararı geri almanın bir yolu yok. Güncel durumu sayfayı yenileyerek görebilirsin.",
+    action: "retry",
+  },
+  /**
    * Şirket kurmanın kimlik reddi (`CompanyManager.java:103-105`).
    *
    * Kapı formu zaten önden kapatıyor; bu metin kapının bayatladığı ya da
