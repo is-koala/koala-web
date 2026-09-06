@@ -1,6 +1,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/identifiers";
@@ -17,6 +18,7 @@ export async function runProfileMutation(
     revalidatePath(profilePath);
     return { status: "done" };
   } catch (error) {
+    unstable_rethrow(error);
     return failureState(error);
   }
 }
