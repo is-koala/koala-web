@@ -36,6 +36,21 @@ describe("arama motorlarına kapalı rotalar", () => {
     expect(blocked("/")).toBe(false);
   });
 
+  it("davet adreslerini ağaç olarak kapatır", () => {
+    /*
+     * Davet adresi bir kimlik taşıyor ve o kimlik daveti cevaplamaya yetiyor:
+     * `getInvitationById` sahiplik denetimi yapmıyor. Adres arama motoruna,
+     * `Referrer` başlığına ve önbelleğe hiç girmemeli — `next.config.ts`
+     * üç başlığı da bu listeden basıyor.
+     *
+     * Tek satırlık bir `Disallow: /davet` alt yolları kapatırdı ama başlık
+     * kalıbı kapatmazdı; ağaç iki satıra açılıyor.
+     */
+    expect(blocked("/davet")).toBe(true);
+    expect(blocked("/davet/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")).toBe(true);
+    expect(privateHeaderSources).toContain("/davet/:path*");
+  });
+
   it("hesap akışlarının tek tek yolları kapalı kalır", () => {
     for (const path of ["/giris", "/cikis", "/kayit", "/payment/result"]) {
       expect(blocked(path)).toBe(true);

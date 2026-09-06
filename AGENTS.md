@@ -55,8 +55,8 @@ src/app/
 ```
 
 Rota adları Türkçe ve kalıcıdır: `/hesap-dogrula`, `/sifre-belirle`,
-`/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`. Bunlar e-postalara
-gömülecek; **değiştirmek eski e-postaları kırar.**
+`/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`, `/davet/{invitationId}`.
+Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
 
 `(uygulama)` altındaki iki kabuk oturum ister ve arama motorlarına kapalıdır:
 
@@ -69,7 +69,15 @@ gömülecek; **değiştirmek eski e-postaları kırar.**
 - Kabuk kökleri `src/lib/private-routes.ts` içindeki `privateRouteTrees`
   listesinde durur. `/isveren` tanıtım sayfası `/isverenler`'in **öneki**:
   robots.txt eşleşmesi önek temelli olduğu için ağaç `/isveren$` ve `/isveren/`
-  olarak iki satıra açılır.
+  olarak iki satıra açılır. Liste kabuklardan **ibaret değil**: kabuk altında
+  olmayan ama adresi bir sır taşıyan rotalar da oraya girer — `/davet` bir
+  davet kimliği taşıyor ve `GET /contact-invitations/{id}` sahiplik denetimi
+  yapmadığı için o kimliği bilen herkes daveti okuyabiliyor.
+  `next.config.ts` bu listeden `X-Robots-Tag`, `Referrer-Policy: no-referrer`
+  ve `Cache-Control: no-store` basıyor; üçüncüsü yalnız `next start` ile
+  görülür, `next dev` her dinamik yanıtın üzerine kendi
+  `no-cache, must-revalidate` başlığını yazıyor, bu yüzden Playwright
+  koşuları ona bakamaz.
 - `loading.tsx`, yanındaki `page.tsx` `notFound()` çağırıyorsa konulamaz —
   kabuk kökünde de, bölümün kendi klasöründe de. Segment bir Suspense sınırıyla
   sarıldığında sayfa askıya girer girmez kabuk erken akıtılır, HTTP durumu
@@ -92,6 +100,16 @@ gömülecek; **değiştirmek eski e-postaları kırar.**
   kalıcı bir şerit (kimlik, fatura adresi); `blocking` eylemi devre dışı
   bırakıp gerekçeyi yanına yazar. Kip kapının kendi özelliği, çağıranın
   seçimi değil.
+- **Kip yalnız `requires` ile bildirilen kapıları böler.** `gateRequirements`
+  bir kabuğun ya da bölümün listesini kipine göre şeride ve engele ayırıyor.
+  Bir **eylemin** kendi kararı (`viewerGates(...).individualJob`,
+  `.companyCreation`) böyle bölünmüyor: kapalıysa `blockedBy` listesinin
+  tamamı o eylemi kapatır, kipe bakılmadan. `/isveren/ilan/yeni` ve
+  `/isveren/sirket/yeni` ikisi de bunu yapıyor — kimlik kabuk düzeyinde
+  `advisory` bir şerit ama backend ilan yayımlamayı ve şirket kurmayı kesin
+  olarak reddettiği için eylemin kendisi `EmployerGate` ile kapanıyor. Şirket
+  formunda `children` hiç çizilmiyor, çünkü form tek kullanımlık bir adres
+  kanıtı taşıyor ve doldurulup reddedilmesi o kanıtı yakar.
 - **Şirket onayı kapısı bir ürün kuralı, güvenlik sınırı değil.**
   `company.isApproved()` koala-backend'in iş mantığında hiç okunmuyor;
   onaylanmamış şirket API'den ilan açabiliyor. Kapı istemcide duruyor ve
