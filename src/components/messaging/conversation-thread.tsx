@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   confirmConversationAccessAction,
@@ -17,6 +17,7 @@ import type {
   Page,
   SendMessageResult,
 } from "@/messaging/contract";
+import { errorPresentation } from "@/lib/errors";
 import { messageFromRealtime } from "@/messaging/realtime";
 import {
   appendMessage,
@@ -31,6 +32,8 @@ import {
 } from "@/messaging/thread-state";
 import type { RealtimeClient, RealtimeConnectionState, RealtimeEvent } from "@/realtime/client";
 import { retainRealtimeClient, sharedRealtimeClient } from "@/realtime/shared-client";
+
+import { ConnectionStatus } from "./connection-status";
 
 type Props = {
   conversation: ConversationSummary;
@@ -67,11 +70,30 @@ export function ConversationThread({
   const [olderPage, setOlderPage] = useState(initialMessages.page);
   const [hasOlder, setHasOlder] = useState(!initialMessages.last);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderLoadError, setOlderLoadError] = useState<{ errorCode: string; status: number } | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentAt = useRef(0);
   const pendingCounter = useRef(0);
+  const historyRef = useRef<HTMLDivElement>(null);
+  const initialScrollPositioned = useRef(false);
+  const lastScrollTop = useRef(0);
+  const pendingScrollAnchor = useRef<{ height: number; top: number } | null>(null);
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
   const composerLocked = blocked || conversation.closed;
+
+  useLayoutEffect(() => {
+    const history = historyRef.current;
+    if (!history) return;
+    const anchor = pendingScrollAnchor.current;
+    if (anchor) {
+      history.scrollTop = anchor.top + history.scrollHeight - anchor.height;
+      pendingScrollAnchor.current = null;
+    } else if (!initialScrollPositioned.current) {
+      history.scrollTop = history.scrollHeight;
+      initialScrollPositioned.current = true;
+    }
+    lastScrollTop.current = history.scrollTop;
+  }, [thread.messages]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -177,12 +199,31 @@ export function ConversationThread({
   async function loadPrevious() {
     if (!hasOlder || loadingOlder) return;
     setLoadingOlder(true);
+    setOlderLoadError(null);
     const result = await loadOlder(conversation.id, olderPage + 1);
     setLoadingOlder(false);
-    if (!result.ok) return;
-    setThread((current) => prependMessages(current, result.page.content));
+    if (!result.ok) {
+      setOlderLoadError({ errorCode: result.errorCode, status: result.status });
+      return;
+    }
+    const history = historyRef.current;
+    if (history) {
+      pendingScrollAnchor.current = { height: history.scrollHeight, top: history.scrollTop };
+    }
+    setThread((current) => {
+      const next = prependMessages(current, result.page.content);
+      if (next === current) pendingScrollAnchor.current = null;
+      return next;
+    });
     setOlderPage(result.page.page);
     setHasOlder(!result.page.last);
+  }
+
+  function handleHistoryScroll(event: React.UIEvent<HTMLDivElement>) {
+    const history = event.currentTarget;
+    const movedUp = history.scrollTop < lastScrollTop.current;
+    lastScrollTop.current = history.scrollTop;
+    if (movedUp && history.scrollTop < 40) void loadPrevious();
   }
 
   return (
@@ -199,13 +240,17 @@ export function ConversationThread({
         </div>
       </header>
 
-      <div className="message-history" onScroll={(event) => {
-        if (event.currentTarget.scrollTop < 40) void loadPrevious();
-      }}>
+      <div ref={historyRef} className="message-history" onScroll={handleHistoryScroll}>
         {hasOlder ? (
           <button className="load-older" type="button" onClick={loadPrevious} disabled={loadingOlder}>
             {loadingOlder ? "Eski mesajlar yükleniyor…" : "Eski mesajları yükle"}
           </button>
+        ) : null}
+        {olderLoadError ? (
+          <div className="older-load-error" role="alert">
+            <p>{errorPresentation(olderLoadError.errorCode, olderLoadError.status).message}</p>
+            <button type="button" onClick={loadPrevious}>Tekrar dene</button>
+          </div>
         ) : null}
         {thread.messages.length === 0 ? (
           <p className="thread-empty">İlk mesajı göndererek konuşmayı başlatabilirsin.</p>
@@ -282,15 +327,6 @@ function MessageGroups({
       </div>
     );
   });
-}
-
-function ConnectionStatus({ state }: { state: RealtimeConnectionState }) {
-  const text = state.phase === "live"
-    ? "Canlı"
-    : state.phase === "reconnecting" || state.phase === "connecting"
-      ? "Yeniden bağlanıyor"
-      : "REST ile güncel";
-  return <span className={`connection-status connection-${state.phase}`}>{text}</span>;
 }
 
 function longDate(value: string) {

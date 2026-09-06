@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   confirmPresenceAccessAction,
   loadConversationsAction,
 } from "@/app/(uygulama)/messaging-actions";
-import type { ConversationSummary, Page } from "@/messaging/contract";
+import type { ConversationSummary, Message, Page } from "@/messaging/contract";
 import { messageFromRealtime } from "@/messaging/realtime";
 import type { RealtimeClient, RealtimeConnectionState, RealtimeEvent } from "@/realtime/client";
 import { retainRealtimeClient, sharedRealtimeClient } from "@/realtime/shared-client";
+
+import { ConnectionStatus } from "./connection-status";
 
 type Props = {
   initialPage: Page<ConversationSummary>;
@@ -39,10 +41,16 @@ export function ConversationList({
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [connection, setConnection] = useState<RealtimeConnectionState>({ phase: "idle", mode: "rest" });
+  const conversationsRef = useRef(conversations);
+  const refreshingConversationIds = useRef(new Set<string>());
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
   const presenceKey = [...new Set(conversations.flatMap((conversation) =>
     conversation.counterpartId === null ? [] : [conversation.counterpartId],
   ))].sort().join(",");
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   useEffect(() => {
     const release = retainRealtimeClient(client);
@@ -52,16 +60,29 @@ export function ConversationList({
       if (event.type === "MESSAGE") {
         const message = messageFromRealtime(event.message);
         if (!message) return;
+        if (!conversationsRef.current.some((conversation) => conversation.id === event.conversationId)) {
+          const missingId = event.conversationId;
+          if (refreshingConversationIds.current.has(missingId)) return;
+          refreshingConversationIds.current.add(missingId);
+          void loadPage(0).then((result) => {
+            if (!result.ok) return;
+            const refreshedIds = new Set(result.page.content.map((conversation) => conversation.id));
+            const missingConversation = result.page.content.find((conversation) => conversation.id === missingId);
+            if (!missingConversation) return;
+            setConversations((current) => [
+              ...result.page.content.map((conversation) =>
+                conversation.id === missingId
+                  ? updateConversationFromRefetch(conversation, message, viewerId)
+                  : conversation,
+              ),
+              ...current.filter((conversation) => !refreshedIds.has(conversation.id)),
+            ].sort(byNewest));
+          }).finally(() => refreshingConversationIds.current.delete(missingId));
+          return;
+        }
         setConversations((current) => current.map((conversation) =>
           conversation.id === event.conversationId
-            ? {
-                ...conversation,
-                lastMessageAt: message.sentAt,
-                lastMessageBody: message.body,
-                unreadCount: message.senderId === viewerId
-                  ? conversation.unreadCount
-                  : conversation.unreadCount + 1,
-              }
+            ? updateConversationFromEvent(conversation, message, viewerId)
             : conversation,
         ).sort(byNewest));
       }
@@ -95,7 +116,7 @@ export function ConversationList({
     };
     // Yeni sayfa eklendiğinde presence abonelikleri yeni karşı taraflar için
     // tekrar kurulur; RealtimeClient aynı destination'ı wire'da tekilleştirir.
-  }, [client, confirmPresence, presenceKey, viewerId]);
+  }, [client, confirmPresence, loadPage, presenceKey, viewerId]);
 
   async function loadNextPage() {
     setLoadingMore(true);
@@ -168,15 +189,6 @@ export function ConversationList({
   );
 }
 
-export function ConnectionStatus({ state }: { state: RealtimeConnectionState }) {
-  const text = state.phase === "live"
-    ? "Canlı"
-    : state.phase === "reconnecting" || state.phase === "connecting"
-      ? "Yeniden bağlanıyor"
-      : "REST ile güncel";
-  return <span className={`connection-status connection-${state.phase}`}>{text}</span>;
-}
-
 function Avatar({ name, online }: { name: string; online: boolean | null }) {
   return (
     <span className="message-avatar" aria-hidden="true">
@@ -199,6 +211,36 @@ function updatePresence(
 
 function byNewest(left: ConversationSummary, right: ConversationSummary) {
   return Date.parse(right.lastMessageAt ?? "") - Date.parse(left.lastMessageAt ?? "");
+}
+
+function updateConversationFromEvent(
+  conversation: ConversationSummary,
+  message: Message,
+  viewerId: string,
+) {
+  return {
+    ...conversation,
+    lastMessageAt: message.sentAt,
+    lastMessageBody: message.body,
+    unreadCount: message.senderId === viewerId
+      ? conversation.unreadCount
+      : conversation.unreadCount + 1,
+  };
+}
+
+function updateConversationFromRefetch(
+  conversation: ConversationSummary,
+  message: Message,
+  viewerId: string,
+) {
+  return {
+    ...conversation,
+    lastMessageAt: message.sentAt,
+    lastMessageBody: message.body,
+    unreadCount: message.senderId === viewerId
+      ? conversation.unreadCount
+      : Math.max(1, conversation.unreadCount),
+  };
 }
 
 function shortDate(value: string) {

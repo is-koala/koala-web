@@ -15,6 +15,14 @@ export function initialThreadState(messages: readonly Message[]): ThreadState {
 
 export function appendMessage(state: ThreadState, message: Message): ThreadState {
   if (state.messages.some((item) => item.id === message.id)) return state;
+  const matchingPending = state.messages.find((item) =>
+    item.delivery === "sending" &&
+    item.senderId === message.senderId &&
+    item.body === message.body,
+  );
+  if (matchingPending?.clientId) {
+    return reconcilePendingMessage(state, matchingPending.clientId, message);
+  }
   return { messages: chronological([...state.messages, asSent(message)]) };
 }
 

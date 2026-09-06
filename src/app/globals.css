@@ -249,6 +249,9 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .thread-presence { margin: 5px 0 0; color: var(--muted); font-size: .8rem; }
 .message-history { min-height: 420px; max-height: min(62vh, 680px); overflow-y: auto; overscroll-behavior: contain; padding: 24px clamp(16px, 4vw, 34px); background: linear-gradient(180deg, #fffaf5, var(--paper)); }
 .load-older { display: block; margin: 0 auto 20px; border: 0; background: transparent; color: var(--brand-accent); font: inherit; font-size: .82rem; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.older-load-error { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 auto 18px; color: var(--brand-accent); font-size: .82rem; text-align: center; }
+.older-load-error p { margin: 0; }
+.older-load-error button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 850; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .thread-empty { color: var(--muted); text-align: center; padding: 80px 20px; }
 .date-separator { display: flex; align-items: center; gap: 12px; margin: 14px 0 18px; color: var(--muted); font-size: .72rem; font-weight: 750; }
 .date-separator::before, .date-separator::after { content: ""; height: 1px; background: var(--line); flex: 1; }
