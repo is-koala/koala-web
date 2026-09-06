@@ -14,7 +14,7 @@ export type ApiErrorInit = {
   errorCategory: string;
   message: string;
   details?: readonly ApiFieldError[];
-  correlationId?: string | null;
+  requestId?: string | null;
   /** Yalnız 426 yanıtında dolu: backend'in beklediği en düşük web sürümü. */
   minimumAppVersion?: string | null;
 };
@@ -31,7 +31,7 @@ export class ApiError extends Error {
   readonly errorCode: string;
   readonly errorCategory: string;
   readonly details: readonly ApiFieldError[];
-  readonly correlationId: string | null;
+  readonly requestId: string | null;
   readonly minimumAppVersion: string | null;
 
   constructor(init: ApiErrorInit) {
@@ -41,7 +41,7 @@ export class ApiError extends Error {
     this.errorCode = init.errorCode;
     this.errorCategory = init.errorCategory;
     this.details = init.details ?? [];
-    this.correlationId = init.correlationId ?? null;
+    this.requestId = init.requestId ?? null;
     this.minimumAppVersion = init.minimumAppVersion ?? null;
   }
 }
