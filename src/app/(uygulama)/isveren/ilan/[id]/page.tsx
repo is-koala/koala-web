@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
+import { jobStatusLabel } from "@/jobs/lifecycle";
 import { isUuid } from "@/lib/identifiers";
 import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/server/api/errors";
@@ -9,6 +11,8 @@ import { notFoundStatus } from "@/server/contract";
 import { failureView } from "@/server/form";
 import { fetchJobDetail, type JobDetail } from "@/server/jobs/jobs";
 import { enterShell } from "@/server/session/viewer";
+
+import { jobLifecycleAction } from "./actions";
 
 export const metadata: Metadata = {
   title: "İlanım",
@@ -23,9 +27,11 @@ export const metadata: Metadata = {
  * kilitliyor, yani bu üç sayı bir daha değişmiyor ve kullanıcının onları
  * yayımdan sonra da görebileceği bir yer olması gerekiyor.
  *
- * Kapatma ve iptal eylemleri burada **yok**; onlar is-koala/koala-web#34'ün
- * işi. Burada `loading.tsx` de yok: bu sayfa `notFound()` çağırıyor ve bir
- * Suspense sınırı HTTP durumunu 200'de kilitlerdi.
+ * Kapatma ve iptal eylemleri de burada: ikisi de ilanın kendi kaydına ait ve
+ * hangisinin mümkün olduğunu ilanın durumu söylüyor.
+ *
+ * Burada `loading.tsx` yok: bu sayfa `notFound()` çağırıyor ve bir Suspense
+ * sınırı HTTP durumunu 200'de kilitlerdi (`AGENTS.md`).
  */
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { viewer } = await enterShell();
@@ -51,7 +57,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     <section className="app-panel">
       <p className="eyebrow">İlanım</p>
       <h1>{job.title}</h1>
-      <p className="lede">{statusLabels[job.status] ?? "Durumu okunamadı"}</p>
+      <p className="lede">{jobStatusLabel(job.status)}</p>
 
       {job.pricing === null ? (
         <p>Bu ilanın fiyat dökümü okunamadı.</p>
@@ -73,17 +79,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       )}
 
       <p className="field-hint">
-        Bu fiyat ilan yayımlandığında kilitlendi ve değişmiyor. İlanı kapatma ve iptal etme
-        seçenekleri buraya yakında ekleniyor.
+        Bu fiyat ilan yayımlandığında kilitlendi ve değişmiyor.
       </p>
+
+      {/*
+        Kimlik `id`'den bağlanıyor, yanıttaki `job.id`'den değil: bu değer
+        yukarıda UUID olarak doğrulandı ve action aynı doğrulamayı tekrar
+        yapıyor.
+      */}
+      <JobLifecycleActions status={job.status} action={jobLifecycleAction.bind(null, id)} />
     </section>
   );
 }
-
-/** `JobStatus`; bilinmeyen bir değer ham hâliyle ekrana basılmaz. */
-const statusLabels: Readonly<Record<string, string>> = {
-  OPEN: "Yayında — başvurulara açık",
-  CLOSED: "Kapatıldı — yeni başvuru alınmıyor",
-  CANCELLED: "İptal edildi",
-  COMPLETED: "Tamamlandı",
-};

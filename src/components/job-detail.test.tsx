@@ -23,6 +23,7 @@ const job: JobDetail = {
   experienceRequired: false,
   location: "Kadıköy, İstanbul",
   addressPrecision: "APPROXIMATE",
+  status: "OPEN",
 };
 
 describe("ilan ayrıntısı", () => {
@@ -36,6 +37,26 @@ describe("ilan ayrıntısı", () => {
     expect(screen.getByText("Yaklaşık konum")).toBeVisible();
     expect(screen.getByText("Sigorta gerekiyor")).toBeVisible();
     expect(screen.getByText("Deneyim şartı yok")).toBeVisible();
+  });
+
+  it("kapatılmış ilanda başvuru formunu hiç çizmez", () => {
+    render(<JobDetailView job={{ ...job, status: "CLOSED" }} applyAction={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "Başvuruyu gönder" })).toBeNull();
+    expect(screen.getByText("Bu ilan kapatıldı ve yeni başvuru almıyor.")).toBeVisible();
+  });
+
+  it("iptal edilmiş ilanda başvuru formunu hiç çizmez", () => {
+    render(<JobDetailView job={{ ...job, status: "CANCELLED" }} applyAction={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "Başvuruyu gönder" })).toBeNull();
+    expect(screen.getByText("Bu ilan iptal edildi ve yeni başvuru almıyor.")).toBeVisible();
+  });
+
+  it("yayındaki ilanda başvuru formunu çizer", () => {
+    render(<JobDetailView job={job} applyAction={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Başvuruyu gönder" })).toBeVisible();
   });
 
   it("backend konum vermediyse gizli adres üretmez", () => {

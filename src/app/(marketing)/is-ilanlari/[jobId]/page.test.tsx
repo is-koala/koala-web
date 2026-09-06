@@ -29,6 +29,7 @@ const job: JobDetail = {
   experienceRequired: false,
   location: "Kadıköy, İstanbul",
   addressPrecision: "APPROXIMATE",
+  status: "OPEN",
 };
 
 describe("ilan ayrıntısı sayfası", () => {
