@@ -23,7 +23,7 @@ export const privateRoutes = [
 ] as const;
 
 /**
- * Kendisiyle birlikte altındaki her yolun kapandığı kabuk kökleri.
+ * Kendisiyle birlikte altındaki her yolun kapandığı ağaçlar.
  *
  * Ayrı bir liste, çünkü iki tüketici bir ağacı iki farklı biçimde yazıyor ve
  * ikisi de tek satırla yanlış yapılabiliyor:
@@ -34,8 +34,16 @@ export const privateRoutes = [
  *   yazmak `/isverenler` tanıtım sayfasını da düşürür. Bu yüzden ağaç iki
  *   satıra açılır: yolun bittiğini söyleyen `/isveren$` ve alt ağacı kapatan
  *   `/isveren/`.
+ *
+ * Liste yalnız oturumlu kabukları saymıyor: `/davet` de burada. Davet adresi
+ * bir kimlik taşıyor ve o kimliği bilen herkes daveti okuyabiliyor
+ * (`getInvitationById` sahiplik denetimi yapmıyor), yani adres arama
+ * motoruna, `Referrer` başlığına ve önbelleğe hiç girmemeli. Kabuk olmadığı
+ * için `app-routes.ts` kaydında karşılığı yok; ağaçların kabuk köklerini
+ * **kapsadığı** ama onlardan ibaret olmadığı `app-routes.test.ts` içinde
+ * yazılı.
  */
-export const privateRouteTrees = ["/isveren", "/panel"] as const;
+export const privateRouteTrees = ["/isveren", "/panel", "/davet"] as const;
 
 /** `next.config.ts` başlık kurallarının kaynak kalıpları. */
 export const privateHeaderSources: readonly string[] = [
