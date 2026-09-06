@@ -47,8 +47,24 @@ export type NotificationPreferenceWrite = {
   enabled: boolean;
 };
 
+export type PendingVerification = {
+  id: string;
+  type: "EMAIL" | "PHONE" | string;
+  sentTo: string;
+};
+
+export type ContactChange = { email: string } | { phoneNumber: string };
+
+type ContactUpdate = {
+  pendingVerifications?: readonly (PendingVerification & { message?: string })[] | null;
+};
+
 export async function updateProfile(input: ProfileUpdate): Promise<void> {
   await apiRequest("/users/me", { method: "PATCH", body: input });
+}
+
+export function requestContactVerification(change: ContactChange): Promise<ContactUpdate> {
+  return apiRequest("/users/me", { method: "PATCH", body: change });
 }
 
 export async function uploadProfilePicture(image: File): Promise<void> {

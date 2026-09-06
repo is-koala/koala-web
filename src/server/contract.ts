@@ -80,11 +80,15 @@ export const sessionCookies = {
   jobAssignments: "/job-assignments",
   login: "/auth/login",
   logout: "/auth/logout",
+  bankAccounts: "/users/me/bank-accounts",
+  changePassword: "/users/me/password",
+  notifications: "/users/me/notifications",
   refreshToken: "/auth/refresh-token",
   referenceCities: "/reference/cities",
   referenceCountries: "/reference/countries",
   realtimeCredential: "/users/me/realtime-credential",
   resetPassword: "/auth/reset-password",
+  sessions: "/users/me/sessions",
   startRegistration: "/auth/start-registration",
   /**
    * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta

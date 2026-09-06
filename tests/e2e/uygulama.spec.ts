@@ -23,6 +23,8 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
       "/isveren/mesajlar/33333333-3333-4333-8333-333333333333",
       "/giris?next=%2Fisveren%2Fmesajlar%2F33333333-3333-4333-8333-333333333333",
     ],
+    ["/panel/hesap", "/giris?next=%2Fpanel%2Fhesap"],
+    ["/isveren/hesap", "/giris?next=%2Fisveren%2Fhesap"],
   ];
 
   for (const [path, destination] of targets) {
@@ -44,10 +46,12 @@ test("kabuk adresleri indekslenmez", async ({ request }) => {
     "/isveren",
     "/isveren/ilanlar",
     "/isveren/mesajlar",
+    "/isveren/hesap",
     "/panel",
     "/panel/profil",
     "/panel/islerim",
     "/panel/mesajlar",
+    "/panel/hesap",
   ]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["x-robots-tag"], path).toContain("noindex");

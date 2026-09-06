@@ -13,7 +13,21 @@ describe("kabuk rota kaydı", () => {
       "Atamalar",
       "Mesajlar",
       "Ödemeler",
+      "Hesap ve ayarlar",
     ]);
+  });
+
+  it("hesap ve ayarları iki kabukta da aynı kalıcı bölüm adıyla açar", () => {
+    expect(sectionAt("worker", ["hesap"])).toEqual({
+      href: "/panel/hesap",
+      label: "Hesap ve ayarlar",
+      status: "ready",
+    });
+    expect(sectionAt("employer", ["hesap"])).toEqual({
+      href: "/isveren/hesap",
+      label: "Hesap ve ayarlar",
+      status: "ready",
+    });
   });
 
   it("profil bölümünü hazır iş arayan rotası olarak bildirir", () => {

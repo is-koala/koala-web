@@ -5,13 +5,14 @@ import { scrubSentryEvent, scrubSentryLog } from "./sentry";
 
 describe("Sentry PII filtresi", () => {
   it("istek, kullanıcı ve serbest metni göndermeden hata tipini korur", () => {
+    const rawIban = "TR330006100519786457841326";
     const event = {
-      message: "ayse@example.com için token=secret",
+      message: `ayse@example.com için token=secret, iban=${rawIban}`,
       request: {
         url: "https://iskoala.com/hesap-dogrula?token=secret",
         headers: { authorization: "Bearer secret" },
         cookies: { session: "secret" },
-        data: { phone: "+905551112233" },
+        data: { phone: "+905551112233", iban: rawIban },
       },
       user: { email: "ayse@example.com", ip_address: "127.0.0.1" },
       extra: { address: "Örnek Sokak 1" },
@@ -31,6 +32,7 @@ describe("Sentry PII filtresi", () => {
     expect(scrubbed.breadcrumbs?.[0]?.message).toBeUndefined();
     expect(JSON.stringify(scrubbed)).not.toContain("secret");
     expect(JSON.stringify(scrubbed)).not.toContain("ayse@example.com");
+    expect(JSON.stringify(scrubbed)).not.toContain(rawIban);
   });
 });
 
