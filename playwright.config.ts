@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const port = process.env.PLAYWRIGHT_PORT ?? "3000";
+const port = process.env.PLAYWRIGHT_PORT ?? "3100";
 const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
@@ -17,6 +17,6 @@ export default defineConfig({
       APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
     },
     url: `${baseURL}/api/health`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 });
