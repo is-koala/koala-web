@@ -15,6 +15,14 @@ describe("kabuk rota kaydı", () => {
     ]);
   });
 
+  it("profil bölümünü hazır iş arayan rotası olarak bildirir", () => {
+    expect(sectionAt("worker", ["profil"])).toEqual({
+      href: "/panel/profil",
+      label: "Profilim",
+      status: "ready",
+    });
+  });
+
   it("her bölüm kendi kabuğunun kökü altında kalır", () => {
     for (const shell of Object.values(appShells)) {
       for (const section of shell.sections) {

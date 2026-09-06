@@ -7,6 +7,10 @@ import { privateHeaderSources } from "./src/lib/private-routes";
 const nextConfig: NextConfig = {
   output: "standalone",
   pageExtensions: ["ts", "tsx", "md", "mdx"],
+  experimental: {
+    // Fotoğrafın 10 MB dosya sınırına multipart başlık/boundary payı eklenir.
+    serverActions: { bodySizeLimit: "11mb" },
+  },
   async redirects() {
     return [
       { source: "/faq", destination: "/sss", statusCode: 301 },

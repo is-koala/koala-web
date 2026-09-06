@@ -8,8 +8,21 @@ import type { Viewer } from "@/server/session/viewer";
 import { AppShell, SectionNotOpen } from "./app-shell";
 
 const viewer: Viewer = {
+  id: "11111111-1111-4111-8111-111111111111",
   firstName: "Ayşe",
+  lastName: "Yıldız",
   displayName: "Ayşe Yıldız",
+  email: "ayse@example.test",
+  phoneNumber: "+905551112233",
+  emailVerified: true,
+  phoneVerified: true,
+  profilePictureUrl: null,
+  jobTitle: null,
+  about: null,
+  qualifications: null,
+  interests: null,
+  experiences: [],
+  educations: [],
   isEmployer: true,
   identityVerified: true,
   hasIdentityNumber: true,

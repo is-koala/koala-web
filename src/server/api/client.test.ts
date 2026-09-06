@@ -109,6 +109,23 @@ describe("BFF API istemcisi", () => {
     expect(headers.get("Authorization")).toBe("Bearer access-token-placeholder");
   });
 
+  it("multipart gövdeyi sınır başlığını bozmadan backend'e aktarır", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { success: true, data: null }));
+    const body = new FormData();
+    body.set("image", new File(["koala"], "profil.webp", { type: "image/webp" }));
+
+    await apiFetch("/users/me/profile-picture", {
+      deviceId,
+      method: "PUT",
+      body,
+      accessToken: "access-token-placeholder",
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBe(body);
+    expect(new Headers(init.headers).has("Content-Type")).toBe(false);
+  });
+
   it("erişim tokenı yokken Authorization başlığı göndermez", async () => {
     const fetchMock = stubFetch(jsonResponse(200, { success: true, data: null }));
 

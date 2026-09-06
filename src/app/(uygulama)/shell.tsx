@@ -54,14 +54,10 @@ export async function ShellHome({ shell }: { shell: AppShellId }) {
       <h1>{viewer ? `Merhaba ${viewer.firstName}` : "Merhaba"}</h1>
       <p className="lede">{definition.description}</p>
 
-      {/*
-        Kabuğun boş durumu. Menü hangi bölümün neden kapalı olduğunu zaten
-        madde madde yazıyor; burada tekrarlamak aynı cümleyi iki kez okutmak
-        olurdu.
-      */}
+      {/* Kabuk kökü, menüdeki hazır ve planlı bölümlere ortak yön verir. */}
       <ShellNotice
         title="Bölümler sırayla açılıyor"
-        message="Şu anda hazır bir bölüm yok. Menüdeki her madde açıldığında tıklanabilir olacak."
+        message="Hazır bölümlere menüden ulaşabilirsin. Diğer maddeler açıldığında tıklanabilir olacak."
       />
     </section>
   );
