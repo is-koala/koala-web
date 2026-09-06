@@ -47,6 +47,32 @@ describe("API hata sunumu", () => {
     });
   });
 
+  it("hizmet alanı dışı adresi 'bilgileri kontrol et' yerine nedeniyle anlatır", () => {
+    // Kod `validation` ailesine düşseydi kullanıcı hangi bilgiyi
+    // düzelteceğini bilemezdi; sınırın dışında düzeltilecek bir alan yok.
+    expect(errorPresentation("ADDRESS_SEARCHCANDIDATE_OUTSIDESERVICEAREA", 400)).toEqual({
+      title: "Bu adres hizmet alanımızın dışında",
+      message: "Koala şu anda yalnızca İstanbul'da hizmet veriyor.",
+      action: "none",
+    });
+  });
+
+  it("adres sağlayıcısı düştüğünde elle devam yolunu gösterir", () => {
+    expect(errorPresentation("ADDRESS_SEARCHPROVIDER_UNAVAILABLE", 502)).toEqual({
+      title: "Adres araması şu anda çalışmıyor",
+      message: "Adres alanlarını elle doldurup devam edebilirsin.",
+      action: "retry",
+    });
+  });
+
+  it("tüketilmiş aday kanıtını yeniden aramaya yönlendirir", () => {
+    expect(errorPresentation("ADDRESS_CANDIDATETOKEN_INVALID", 400)).toEqual({
+      title: "Adres onayının süresi doldu",
+      message: "Adresi yeniden aratıp listeden seçmen gerekiyor.",
+      action: "retry",
+    });
+  });
+
   it("bilinmeyen backend mesajını kullanıcıya göstermez", () => {
     expect(errorPresentation("NEW_INTERNAL_DETAIL", 500)).toEqual({
       title: "Bir sorun oluştu",

@@ -89,6 +89,21 @@ h2 { font-size: clamp(1.45rem, 4vw, 2.65rem); line-height: 1.1; letter-spacing: 
 .consent-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .consent-actions .button { font: inherit; }
 .consent-preferences { margin-top: 50px; padding: 28px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.field select { font: inherit; color: inherit; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; min-height: 50px; padding: 0 16px; width: 100%; }
+.address-form { display: flex; flex-direction: column; gap: 24px; }
+.address-search { display: flex; flex-direction: column; gap: 14px; }
+.address-suggestions { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); overflow: hidden; }
+.address-suggestions li { display: flex; flex-direction: column; gap: 3px; padding: 13px 16px; cursor: pointer; border-top: 1px solid var(--line); }
+.address-suggestions li:first-child { border-top: 0; }
+.address-suggestions li span { color: var(--muted); font-size: .85rem; }
+.address-suggestions li:hover, .address-suggestions li.is-active { background: var(--surface); }
+.address-attribution { font-size: .82rem; }
+.address-reference, .address-position { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.address-reference-fields, .address-position-fields, .address-components { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; }
+.address-position h3 { font-size: 1.1rem; }
+.address-position .button-row { margin-top: 0; }
+.address-view { font-style: normal; }
+.address-view p { margin: 0 0 4px; }
 @media (max-width: 820px) { .nav-links { display: none; } .feature-grid { grid-template-columns: 1fr; } .feature-card { min-height: 230px; } .footer-inner { grid-template-columns: 1fr; } .footer-links { justify-content: flex-start; } }
-@media (max-width: 720px) { .consent-banner { grid-template-columns: 1fr; } .consent-actions { justify-content: flex-start; } }
+@media (max-width: 720px) { .consent-banner { grid-template-columns: 1fr; } .consent-actions { justify-content: flex-start; } .address-reference-fields, .address-position-fields, .address-components { grid-template-columns: 1fr; } }
 @media print { .site-header, .site-footer { display: none !important; } .legal-shell { width: 100%; padding: 0; } body { background: white; color: black; font-size: 11pt; } a { text-decoration: none; } }

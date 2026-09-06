@@ -5,6 +5,10 @@ const emptyCopy = {
   applications: ["Henüz başvuru yok", "Başvurular burada listelenecek."],
   messages: ["Henüz mesaj yok", "Konuşmaların başladığında burada görünecek."],
   assignments: ["Henüz atama yok", "Kabul edilen işler burada görünecek."],
+  addressSuggestions: [
+    "Eşleşen adres bulunamadı",
+    "Sokak ya da mahalle adını farklı yazmayı deneyebilirsin.",
+  ],
 } as const;
 
 export function LoadingState({ label = "Yükleniyor" }: { label?: string }) {

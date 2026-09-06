@@ -63,14 +63,25 @@ export const sessionCookies = {
   deviceId: "koala_did",
 } as const;
 
-/** `AuthController` ve `LegalController` uçları; backend'de context-path yok. */
+/**
+ * `AuthController`, `LegalController`, `AddressSearchController` ve
+ * `ReferenceDataController` uçları; backend'de context-path yok.
+ *
+ * Adres uçlarının kimlik alan parçaları burada değil `@/server/address/gateway`
+ * içinde birleştirilir: kimlikler tarayıcıdan geldiği için yola konmadan önce
+ * UUID olduklarının doğrulanması gerekiyor.
+ */
 export const backendPaths = {
+  addressCandidateReverse: "/locations/address-candidates/reverse",
+  addressSearchSessions: "/locations/address-search-sessions",
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
   forgotPassword: "/auth/forgot-password",
   login: "/auth/login",
   logout: "/auth/logout",
   refreshToken: "/auth/refresh-token",
+  referenceCities: "/reference/cities",
+  referenceCountries: "/reference/countries",
   resetPassword: "/auth/reset-password",
   startRegistration: "/auth/start-registration",
   verifyRegistrationToken: "/auth/verify-registration-token",
