@@ -75,6 +75,10 @@ describe("çalışan atama listesi", () => {
     expect(screen.getByText("Onaylandı")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Atamalar" })).toBeVisible();
     expect(screen.getByText("İşverenin ödemesi bekleniyor.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "İş ayrıntısını aç" })).toHaveAttribute(
+      "href",
+      `/panel/is/${baseAssignment.id}`,
+    );
     expect(screen.queryByRole("button", { name: "Kabul et" })).toBeNull();
   });
 
@@ -88,6 +92,7 @@ describe("çalışan atama listesi", () => {
     );
 
     expect(screen.getByText("Reddedildi")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "İş ayrıntısını aç" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reddet" })).toBeNull();
   });
 

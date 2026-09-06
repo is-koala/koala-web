@@ -37,6 +37,36 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Devam etmek için yeniden giriş yap.",
     action: "login",
   },
+  APPLICANT_IDENTITY_NOT_VERIFIED: {
+    title: "Kimliğini doğrulaman gerekiyor",
+    message: "Başvuru yapmadan önce kimlik doğrulamanı tamamlamalısın.",
+    action: "none",
+  },
+  APPLICANT_ADDRESS_REQUIRED: {
+    title: "Adresini eklemen gerekiyor",
+    message: "Başvuru yapmadan önce hesabına bir adres eklemelisin.",
+    action: "none",
+  },
+  APPLICANT_BANK_ACCOUNT_REQUIRED: {
+    title: "Ödeme hesabını eklemen gerekiyor",
+    message: "Kazancının aktarılabilmesi için bir ödeme hesabı eklemelisin.",
+    action: "none",
+  },
+  JOB_APPLICATION_USER_CANNOT_APPLY_TO_OWN_JOB: {
+    title: "Kendi ilanına başvuramazsın",
+    message: "Yayınladığın bir ilana çalışan olarak başvuru yapılamıyor.",
+    action: "none",
+  },
+  JOB_APPLICATION_CONTACT_USER_CANNOT_APPLY_TO_COMPANY_JOB: {
+    title: "Şirketinin ilanına başvuramazsın",
+    message: "Yetkilisi olduğun şirketin ilanına çalışan olarak başvuru yapılamıyor.",
+    action: "none",
+  },
+  JOB_APPLICATION_USER_ALREADY_APPLIED_TO_JOB: {
+    title: "Bu ilana zaten başvurdun",
+    message: "Başvurunun güncel durumunu Başvurularım sayfasından takip edebilirsin.",
+    action: "none",
+  },
   AUTH_REGISTRATION_TOKEN_EXPIRED: {
     title: "Bağlantının süresi dolmuş",
     message: "Yeni bir kayıt bağlantısı isteyerek yeniden deneyebilirsin.",
@@ -61,6 +91,28 @@ const exactErrors: Record<string, ErrorPresentation> = {
     title: "Sayfayı yenilemen gerekiyor",
     message: "Koala'nın güncel sürümünü kullanmak için sayfayı yenile.",
     action: "retry",
+  },
+  // Bireysel ilanın üç reddi. Üçü de aile metnine düşseydi ("Bilgileri kontrol
+  // et" / "Bu işlem için yetkin yok") kullanıcı ne yapması gerektiğini
+  // okuyamazdı: yapılacak iş her birinde farklı ve hiçbiri alanları gözden
+  // geçirmek değil.
+  JOB_INDIVIDUAL_JOB_CANNOT_REQUIRE_INSURANCE: {
+    title: "Bu kategori bireysel ilanla açılamıyor",
+    message:
+      "Seçtiğin işte sigorta zorunlu. Sigorta yükümlülüğü işverene ait olduğu için bu iş yalnızca şirket ilanı olarak açılabiliyor.",
+    action: "none",
+  },
+  JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED: {
+    title: "Kimliğini doğrulaman gerekiyor",
+    message:
+      "İlanı yayımlayabilmen için önce kimliğini doğrulamalısın. Doğrulamayı şimdilik Koala uygulamasından tamamlayabilirsin.",
+    action: "none",
+  },
+  JOB_USER_IS_NOT_EMPLOYER: {
+    title: "Bu hesap işveren hesabı değil",
+    message:
+      "İşveren olup olmadığın kayıt sırasında seçiliyor ve bugün değiştirilemiyor. İlan açmak için işveren olarak yeni bir hesap açman gerekiyor.",
+    action: "home",
   },
   /**
    * Şirket yetkilisi uçlarının ortak reddi.

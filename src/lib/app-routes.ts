@@ -46,6 +46,20 @@ export type AppSection = ReadySection | PlannedSection;
 
 export type AppShellId = "employer" | "worker";
 
+/** Bireysel ilan açma formu; kayıtta bir bölüm olarak da bildirilir. */
+export const newIndividualJobPath = "/isveren/ilan/yeni";
+
+/**
+ * Yayımlanmış bir ilanın sayfası.
+ *
+ * Menüde yok, çünkü bir liste maddesi değil bir kaydın adresi; kapıları da
+ * yok — ilanı zaten açmış kullanıcı onu görebilmeli. Kapatma ve iptal
+ * eylemleri buraya is-koala/koala-web#34 ile geliyor.
+ */
+export function publishedJobPath(jobId: string): string {
+  return `/isveren/ilan/${encodeURIComponent(jobId)}`;
+}
+
 export type AppShell = {
   readonly id: AppShellId;
   /** Kabuğun kökü; `private-routes.ts` içindeki ağaç girdisiyle aynı olmalı. */
@@ -67,8 +81,8 @@ export type AppShell = {
 /**
  * İşveren kabuğu.
  *
- * Menüdeki her madde bir dalga 5-7 issue'suna karşılık geliyor ve hiçbiri
- * bugün teslim edilmedi; kabuk onların ortak iskeleti olarak önce iniyor.
+ * Menüdeki her madde bir dalga 5-7 issue'suna karşılık geliyor; hazır olanlar
+ * aynı kayıtta bağlantıya dönüşüyor.
  */
 const employerShell: AppShell = {
   id: "employer",
@@ -99,6 +113,17 @@ const employerShell: AppShell = {
       note: "İlan açma ve yönetim ekranları henüz açılmadı.",
     },
     {
+      href: newIndividualJobPath,
+      label: "Yeni ilan",
+      // `JobManager.java:105-114` gövdeye hiç bakmadan iki koşul arıyor. Rol
+      // engelleyici kip: kayıt anında yazılıp geri alınamadığı için form hiç
+      // çizilmez. Kimlik kapısı kabuk düzeyinde şerit olarak duruyor ve
+      // yayımlama düğmesini eylemin kendi kapısı kapatıyor — form doldurulup
+      // doğrulama beklenebilsin diye.
+      requires: ["employerRole"],
+      status: "ready",
+    },
+    {
       href: "/isveren/basvurular",
       label: "Başvurular",
       // Başvuruları görmek kapıya takılmıyor; kabul kararı atama ve ödeme
@@ -118,8 +143,7 @@ const employerShell: AppShell = {
       href: "/isveren/mesajlar",
       label: "Mesajlar",
       requires: [],
-      status: "planned",
-      note: "Web mesajlaşması henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/isveren/odemeler",
@@ -130,6 +154,12 @@ const employerShell: AppShell = {
       requires: ["identityVerification", "identityNumber"],
       status: "planned",
       note: "Ödeme ve emanet özeti henüz açılmadı.",
+    },
+    {
+      href: "/isveren/hesap",
+      label: "Hesap ve ayarlar",
+      requires: [],
+      status: "ready",
     },
   ],
 };
@@ -162,15 +192,13 @@ const workerShell: AppShell = {
       href: "/panel/basvurularim",
       label: "Başvurularım",
       requires: [],
-      status: "planned",
-      note: "Başvuru akışı ve listesi henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/panel/mesajlar",
       label: "Mesajlar",
       requires: [],
-      status: "planned",
-      note: "Web mesajlaşması henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/panel/kazanclarim",
@@ -178,6 +206,12 @@ const workerShell: AppShell = {
       requires: [],
       status: "planned",
       note: "Kazanç listesi henüz açılmadı.",
+    },
+    {
+      href: "/panel/hesap",
+      label: "Hesap ve ayarlar",
+      requires: [],
+      status: "ready",
     },
   ],
 };

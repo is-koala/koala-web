@@ -19,6 +19,7 @@ export type AppShellProps = {
    */
   advisories: readonly GateId[];
   children: React.ReactNode;
+  headerActions?: React.ReactNode;
 };
 
 /**
@@ -34,7 +35,7 @@ export type AppShellProps = {
  * kararını sessizce vermek olurdu; iki kabuk da bugün yalnız adresinden
  * açılıyor.
  */
-export function AppShell({ shell, context, advisories, children }: AppShellProps) {
+export function AppShell({ shell, context, advisories, children, headerActions }: AppShellProps) {
   const { viewer, failure } = context;
 
   return (
@@ -44,6 +45,7 @@ export function AppShell({ shell, context, advisories, children }: AppShellProps
           <Wordmark />
           <span className="app-bar-title">{shell.title}</span>
           <div className="app-bar-actions">
+            {viewer === null ? null : headerActions}
             {viewer === null ? null : <span className="app-bar-user">{viewer.displayName}</span>}
             <Link className="nav-auth-link" href="/cikis">
               Çıkış

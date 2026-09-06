@@ -70,10 +70,14 @@ gömülecek; **değiştirmek eski e-postaları kırar.**
   listesinde durur. `/isveren` tanıtım sayfası `/isverenler`'in **öneki**:
   robots.txt eşleşmesi önek temelli olduğu için ağaç `/isveren$` ve `/isveren/`
   olarak iki satıra açılır.
-- Kabuk kökünde `loading.tsx` yok ve olmamalı: segment bir Suspense sınırıyla
-  sarıldığında kabuk erken akıtılır, HTTP durumu 200'de kilitlenir ve
-  `notFound()` artık 404 döndüremez. Yükleniyor durumu bölümün kendi
-  `page.tsx` dosyasının yanına konur.
+- `loading.tsx`, yanındaki `page.tsx` `notFound()` çağırıyorsa konulamaz —
+  kabuk kökünde de, bölümün kendi klasöründe de. Segment bir Suspense sınırıyla
+  sarıldığında sayfa askıya girer girmez kabuk erken akıtılır, HTTP durumu
+  200'de kilitlenir ve `notFound()` artık 404 döndüremez. Kural yalnız kabuk
+  köküyle sınırlı değil: `notFound()` bir `await`'ten **sonra** çağrılıyorsa
+  bölümün kendi `loading.tsx`'i de aynı sonucu verir.
+  `src/app/route-shape.test.ts` ikisini de zorluyor. Yükleniyor durumu, karar
+  verildikten **sonra** açılan bir iç `Suspense` ile verilir.
 - Yetki kapıları tek katmanda: sözlük `src/lib/gates.ts`, karar
   `src/server/session/gates.ts`, metin `src/lib/errors.ts`
   (`gateNotice`). Kararlar `enterShell()`'in zaten okuduğu `GET /users/me`

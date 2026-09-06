@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { AppShell, SectionNotOpen, ShellNotice } from "@/components/app-shell";
 import { GateBlocks } from "@/components/employer-gate";
+import { UnreadMessagesBadge } from "@/components/messaging/unread-messages-badge";
 import { appShells, sectionAt, type AppShellId } from "@/lib/app-routes";
 import { enterSection, enterShellGates } from "@/server/session/gates";
 import { enterShell } from "@/server/session/viewer";
@@ -38,7 +39,17 @@ export async function ShellLayout({
   const { viewer, failure, advisories } = await enterShellGates(shell);
 
   return (
-    <AppShell shell={appShells[shell]} context={{ viewer, failure }} advisories={advisories}>
+    <AppShell
+      shell={appShells[shell]}
+      context={{ viewer, failure }}
+      advisories={advisories}
+      headerActions={viewer ? (
+        <UnreadMessagesBadge
+          viewerId={viewer.id}
+          href={`${appShells[shell].root}/mesajlar`}
+        />
+      ) : null}
+    >
       {children}
     </AppShell>
   );

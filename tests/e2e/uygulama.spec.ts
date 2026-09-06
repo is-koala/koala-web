@@ -18,6 +18,17 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
     ["/panel", "/giris?next=%2Fpanel"],
     ["/panel/profil", "/giris?next=%2Fpanel%2Fprofil"],
     ["/panel/islerim", "/giris?next=%2Fpanel%2Fislerim"],
+    ["/panel/mesajlar", "/giris?next=%2Fpanel%2Fmesajlar"],
+    [
+      "/isveren/mesajlar/33333333-3333-4333-8333-333333333333",
+      "/giris?next=%2Fisveren%2Fmesajlar%2F33333333-3333-4333-8333-333333333333",
+    ],
+    ["/panel/hesap", "/giris?next=%2Fpanel%2Fhesap"],
+    ["/isveren/hesap", "/giris?next=%2Fisveren%2Fhesap"],
+    [
+      "/panel/is/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+      "/giris?next=%2Fpanel%2Fis%2F3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+    ],
     // Şirkete bağlı derin rota da kabuğun kapısının arkasında: kimliği yola
     // koyan bir adres kapının dışında kalırsa `GET /users/me` çağrılmadan
     // sayfa çizilir.
@@ -45,6 +56,14 @@ test("kabuk adresleri indekslenmez", async ({ request }) => {
   for (const path of [
     "/isveren",
     "/isveren/ilanlar",
+    "/isveren/mesajlar",
+    "/isveren/hesap",
+    "/panel",
+    "/panel/profil",
+    "/panel/islerim",
+    "/panel/mesajlar",
+    "/panel/hesap",
+    "/panel/is/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
     "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer",
     "/panel",
     "/panel/profil",

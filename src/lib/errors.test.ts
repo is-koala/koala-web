@@ -200,6 +200,21 @@ describe("kapı sözlüğünün bütünlüğü", () => {
     expect(unknown).toEqual([]);
   });
 
+  it("bireysel ilanın üç reddini adıyla, aile metnine düşmeden karşılar", () => {
+    // Üçü de aile metniyle ("Bilgileri kontrol et", "Bu işlem için yetkin
+    // yok") anlaşılmaz kalırdı: kullanıcının yapması gereken şey her birinde
+    // farklı ve hiçbiri "bilgileri kontrol etmek" değil.
+    expect(errorPresentation("JOB_INDIVIDUAL_JOB_CANNOT_REQUIRE_INSURANCE", 400).title).toBe(
+      "Bu kategori bireysel ilanla açılamıyor",
+    );
+    expect(errorPresentation("JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED", 400).title).toBe(
+      "Kimliğini doğrulaman gerekiyor",
+    );
+    expect(errorPresentation("JOB_USER_IS_NOT_EMPLOYER", 403).title).toBe(
+      "Bu hesap işveren hesabı değil",
+    );
+  });
+
   it("kapının gösterdiği yol gerçekten var olan bir rota", () => {
     // Var olmayan bir adrese yollayan kapı, kapı olmamasından kötü: kullanıcı
     // eksiğini öğrenip 404'e düşer.

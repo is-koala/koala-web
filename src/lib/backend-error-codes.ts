@@ -228,7 +228,6 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   // `ForbiddenException` → `ResourceNotFoundException` (403 → 404): şirket
   // uçları yetkisizliği "yok" ile aynı yanıtta birleştiriyor.
   "USER_NOT_ASSOCIATED_WITH_COMPANY": "notFound",
-  "USER_NOT_ASSOCIATED_WITH_INVITATION": "forbidden",
   "USER_NOT_AUTHENTICATED": "notFound",
   "USER_NOT_FOUND": "notFound",
   "USER_NOT_FOUND_BY_EMAIL": "notFound",
