@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import type { FormState } from "@/lib/form-state";
+import { isUuid } from "@/lib/identifiers";
 import { removeCompanyContact } from "@/server/company/contacts";
 import { failureState, validationState } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
-import { contactsPath, isCompanyRecordId } from "./paths";
+import { contactsPath } from "./paths";
 
 /**
  * Bir yetkiliyi şirketten çıkarır.
@@ -34,7 +35,7 @@ export async function removeContactAction(
   // İki kimlik de adres çubuğundan ve form gövdesinden geliyor. Uydurulmuş
   // bir değer doğrulanmadan geçseydi kullanıcıya `errorCode` taşımayan bir
   // sunucu hatası dönerdi.
-  if (!isCompanyRecordId(companyId) || !isCompanyRecordId(userId)) {
+  if (!isUuid(companyId) || !isUuid(userId)) {
     return validationState({ record: "Kayıt kimliği geçerli değil." });
   }
 

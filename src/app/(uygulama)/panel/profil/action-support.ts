@@ -3,10 +3,10 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import type { FormState } from "@/lib/form-state";
+import { isUuid } from "@/lib/identifiers";
 import { failureState, textField, validationState } from "@/server/form";
 
 const profilePath = "/panel/profil";
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function runProfileMutation(
@@ -22,7 +22,7 @@ export async function runProfileMutation(
 }
 
 export function isRecordId(value: string): boolean {
-  return uuidPattern.test(value);
+  return isUuid(value);
 }
 
 export function invalidRecord(): FormState {
