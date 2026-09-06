@@ -151,6 +151,39 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Devam eden ödeme denemesi kesinleşmeden yeni bir ödeme başlatılamaz.",
     action: "none",
   },
+  /**
+   * Şirket yetkilisi uçlarının ortak reddi.
+   *
+   * Tek metin, çünkü backend bu kodu bilerek **ayırt edilemez** bırakıyor:
+   * `requireCompanyAdmin` ile `removeContact`'in "bu kişi zaten yetkili
+   * değil" dalı aynı anahtarı taşıyor, ve üyesi olunmayan bir şirketin
+   * yanıtı var olmayan bir şirketinkiyle `errorCode` dahil aynı
+   * (is-koala/koala-backend#85). Metnin bir nedeni seçmesi, sözleşmenin
+   * kapattığı varlık bilgisini ekranda geri açardı.
+   */
+  USER_NOT_ASSOCIATED_WITH_COMPANY: {
+    title: "Bu işlemi yapamıyoruz",
+    message:
+      "Şirket bulunamadı, yöneticisi olmayabilirsin ya da çıkarmak istediğin kişi artık yetkili değil. Sayfayı yenileyip listeyi kontrol et.",
+    action: "retry",
+  },
+  // Aile metni ("Bu kayıt başka bir duruma geçmiş olabilir") burada yanlış
+  // olurdu: kayıt değişmedi, kural gereği bu çıkarma hiç yapılamaz ve
+  // kullanıcının atacağı somut bir adım var.
+  COMPANY_LAST_ADMIN_CANNOT_BE_REMOVED: {
+    title: "Son yöneticiyi çıkaramazsın",
+    message:
+      "Şirkette en az bir yönetici kalmalı. Önce başka birini yönetici olarak davet et, sonra bu kişiyi çıkarabilirsin.",
+    action: "none",
+  },
+  // Backend'in kendi cümlesi: "yok" ile "senin değil" aynı ekranda buluşuyor
+  // (`company.contact.invitation.not.found`, Swagger'daki metnin aynısı).
+  // Daveti okuma ve cevaplama uçlarının ikisi de bu kodu döndürüyor.
+  COMPANY_CONTACT_INVITATION_NOT_FOUND: {
+    title: "Davet bulunamadı",
+    message: "Davet bulunamadı ya da size ait değil.",
+    action: "home",
+  },
   // Adres ağ geçidinin kodları `validation` ve `external` ailelerine düşüyor;
   // aile metinleri ("Bilgileri kontrol et") burada yanlış olurdu, çünkü
   // kullanıcının düzeltebileceği bir alan yok ya da yapılacak iş farklı.
