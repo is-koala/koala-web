@@ -22,6 +22,7 @@ export type SessionRequestOptions = {
   method?: HttpMethod;
   body?: unknown;
   clientIp?: string | null;
+  cache?: RequestCache;
 };
 
 export async function readSession(): Promise<Session> {

@@ -81,6 +81,7 @@ export const sessionCookies = {
   refreshToken: "/auth/refresh-token",
   referenceCities: "/reference/cities",
   referenceCountries: "/reference/countries",
+  realtimeCredential: "/users/me/realtime-credential",
   resetPassword: "/auth/reset-password",
   startRegistration: "/auth/start-registration",
   /**
