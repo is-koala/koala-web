@@ -3,46 +3,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/server/api/errors";
 
 import { redirectTo } from "../../../tests/support/navigation";
+import {
+  cookieStore,
+  envelope,
+  jsonResponse,
+  requestHeaders as testRequestHeaders,
+} from "../../../tests/support/session-cookies";
 
 import { SessionExpiredError } from "./refresh";
 import { apiRequest } from "./session";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 
-const store = vi.hoisted(() => {
-  const values = new Map<string, string>();
+vi.mock("next/headers", async () => {
+  const support = await import("../../../tests/support/session-cookies");
   return {
-    values,
-    set: vi.fn((name: string, value: string) => {
-      values.set(name, value);
-    }),
-    delete: vi.fn((name: string) => {
-      values.delete(name);
-    }),
-    get: (name: string) => (values.has(name) ? { name, value: values.get(name)! } : undefined),
+    cookies: () => Promise.resolve(support.cookieStore),
+    headers: () => Promise.resolve(support.requestHeaders),
   };
 });
-
-const requestHeaders = vi.hoisted(() => new Headers());
-
-vi.mock("next/headers", () => ({
-  cookies: () => Promise.resolve(store),
-  headers: () => Promise.resolve(requestHeaders),
-}));
 vi.mock("next/navigation", async () => ({
   redirect: (await import("../../../tests/support/navigation")).throwingRedirect(),
 }));
-
-function jsonResponse(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-function envelope(data: unknown) {
-  return { success: true, httpStatus: "OK", data };
-}
 
 function unauthorized() {
   return jsonResponse(401, {
@@ -66,19 +48,19 @@ function sessionNotFound() {
 }
 
 function seedSession(tokens: Record<string, string> = {}) {
-  store.values.clear();
-  store.values.set("koala_did", deviceId);
-  for (const [name, value] of Object.entries(tokens)) store.values.set(name, value);
+  cookieStore.values.clear();
+  cookieStore.values.set("koala_did", deviceId);
+  for (const [name, value] of Object.entries(tokens)) cookieStore.values.set(name, value);
 }
 
 describe("BFF oturum katmanı", () => {
   beforeEach(() => {
     vi.stubEnv("API_URL", "https://api.example.test");
     vi.stubEnv("APP_VERSION", "1.4.0");
-    requestHeaders.delete("x-real-ip");
-    requestHeaders.delete("x-koala-path");
-    store.set.mockClear();
-    store.delete.mockClear();
+    testRequestHeaders.delete("x-real-ip");
+    testRequestHeaders.delete("x-koala-path");
+    cookieStore.set.mockClear();
+    cookieStore.delete.mockClear();
     seedSession({ koala_at: "access-placeholder", koala_rt: "refresh-placeholder" });
   });
 
@@ -153,12 +135,12 @@ describe("BFF oturum katmanı", () => {
 
     await apiRequest("/users/me");
 
-    expect(store.set).toHaveBeenCalledWith(
+    expect(cookieStore.set).toHaveBeenCalledWith(
       "koala_at",
       "yeni-access-placeholder",
       expect.objectContaining({ httpOnly: true, secure: true, sameSite: "lax" }),
     );
-    expect(store.set).toHaveBeenCalledWith(
+    expect(cookieStore.set).toHaveBeenCalledWith(
       "koala_rt",
       "yeni-refresh-placeholder",
       expect.objectContaining({ httpOnly: true, secure: true, sameSite: "lax" }),
@@ -215,12 +197,12 @@ describe("BFF oturum katmanı", () => {
     await expect(apiRequest("/users/me")).rejects.toThrowError(
       new Error(redirectTo("/giris")),
     );
-    expect(store.delete).toHaveBeenCalledWith("koala_at");
-    expect(store.delete).toHaveBeenCalledWith("koala_rt");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
   });
 
   it("ingress'in yazdığı istemci IP'sini tek X-Forwarded-For olarak iletir", async () => {
-    requestHeaders.set("x-real-ip", "203.0.113.7");
+    testRequestHeaders.set("x-real-ip", "203.0.113.7");
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(null)));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -231,8 +213,8 @@ describe("BFF oturum katmanı", () => {
   });
 
   it("tarayıcının gönderdiği iletme başlıklarını backend'e taşımaz", async () => {
-    requestHeaders.set("x-forwarded-for", "1.2.3.4");
-    requestHeaders.set("forwarded", "for=1.2.3.4");
+    testRequestHeaders.set("x-forwarded-for", "1.2.3.4");
+    testRequestHeaders.set("forwarded", "for=1.2.3.4");
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(null)));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -241,14 +223,14 @@ describe("BFF oturum katmanı", () => {
     const headers = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
     expect(headers.has("X-Forwarded-For")).toBe(false);
     expect(headers.has("Forwarded")).toBe(false);
-    requestHeaders.delete("x-forwarded-for");
-    requestHeaders.delete("forwarded");
+    testRequestHeaders.delete("x-forwarded-for");
+    testRequestHeaders.delete("forwarded");
   });
 
   it("oturum bittiğinde kullanıcıyı bıraktığı sayfayla birlikte girişe yollar", async () => {
     // Yolu vekil yazar; render sırasında server component kendi adresini
     // okuyamadığı için dönüş hedefinin tek kaynağı bu başlıktır.
-    requestHeaders.set("x-koala-path", "/panel/islerim?filtre=acik");
+    testRequestHeaders.set("x-koala-path", "/panel/islerim?filtre=acik");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(unauthorized()),
@@ -260,7 +242,7 @@ describe("BFF oturum katmanı", () => {
   });
 
   it("dönüş hedefi siteden çıkıyorsa girişe next taşımadan yollar", async () => {
-    requestHeaders.set("x-koala-path", "//kotu.example");
+    testRequestHeaders.set("x-koala-path", "//kotu.example");
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(unauthorized()),
@@ -293,7 +275,7 @@ describe("BFF oturum katmanı", () => {
     // Geçici backend arızası oturumu bitirmez; kullanıcı yeniden denemekle
     // kurtulabilecekken çıkışa zorlanmamalı.
     expect(failure).not.toBeInstanceOf(SessionExpiredError);
-    expect(store.delete).not.toHaveBeenCalled();
+    expect(cookieStore.delete).not.toHaveBeenCalled();
   });
 
   it("yenileme 404 dönerse çerezleri temizler ve girişe yönlendirir", async () => {
@@ -307,8 +289,8 @@ describe("BFF oturum katmanı", () => {
     await expect(apiRequest("/users/me")).rejects.toThrowError(
       new Error(redirectTo("/giris")),
     );
-    expect(store.delete).toHaveBeenCalledWith("koala_at");
-    expect(store.delete).toHaveBeenCalledWith("koala_rt");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
   });
 
   it("yenileme tokenı yokken yenilemeyi denemez", async () => {

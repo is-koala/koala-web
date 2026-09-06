@@ -1,15 +1,47 @@
-export const accountContent = {
-  "hesap-dogrula": {
-    title: "Hesabını tamamla",
-    intro: "E-posta adresin doğrulandı. Hesabını tamamlamak için Koala uygulamasına geç.",
-    destination: "hesap-dogrula",
-  },
-  "sifre-sifirla": {
-    title: "Yeni parolanı belirle",
-    intro: "Yeni parolanı güvenle belirlemek için Koala uygulamasına geç.",
-    destination: "sifre-sifirla",
-  },
+export const registrationContent = {
+  eyebrow: "Koala hesabı",
+  title: "Kayıt ol",
+  intro:
+    "Adını ve e-posta adresini bırak; hesabını açman için doğrulama bağlantısını gönderelim.",
+  sentTitle: "E-postanı kontrol et",
+  sentBody:
+    "Bu adres daha önce kayıtlı değilse doğrulama bağlantısını gönderdik. Bağlantı bir saat geçerli.",
 } as const;
+
+export const setPasswordContent = {
+  eyebrow: "Koala hesabı",
+  title: "Parolanı belirle",
+  intro: "Kaydını tamamlamak için bir parola seç ve sözleşmeleri onayla.",
+  consentsTitle: "Sözleşmeler",
+  rejectedTitle: "Kayıt bağlantısı doğrulanamadı",
+  rejectedBody: "Yeni bir kayıt bağlantısı isteyip yeniden deneyebilirsin.",
+} as const;
+
+export const forgotPasswordContent = {
+  eyebrow: "Parola yardımı",
+  title: "Parolanı mı unuttun?",
+  intro: "E-posta adresini yaz; parolanı yenilemen için bir bağlantı gönderelim.",
+  sentTitle: "E-postanı kontrol et",
+  sentBody: "Bu adres kayıtlıysa parola yenileme bağlantısını gönderdik.",
+} as const;
+
+export const resetPasswordContent = {
+  eyebrow: "Parola yardımı",
+  title: "Yeni parolanı belirle",
+  intro: "Yeni parolan kaydedildiği anda geçerli olur.",
+  sessionWarning:
+    "Parolanı değiştirdiğinde bütün cihazlardaki oturumların kapanır ve Koala'ya yeniden giriş yapman gerekir.",
+  doneTitle: "Parolan güncellendi",
+  doneBody: "Yeni parolanla giriş yapabilirsin.",
+} as const;
+
+export const openInAppContent = {
+  title: "Uygulamada tamamla",
+  body: "Koala uygulaması telefonunda kuruluysa bu işlemi orada da bitirebilirsin.",
+} as const;
+
+/** E-postadan gelen karşılama sayfalarının ortak üst başlığı. */
+export const secureLinkEyebrow = "Koala güvenli bağlantı";
 
 export const invalidLinkContent = {
   title: "Bağlantı geçersiz",

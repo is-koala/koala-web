@@ -19,6 +19,16 @@ export const site = {
  */
 export const loginPath = "/giris";
 
+/**
+ * Kayıt tamamlandıktan sonra kullanıcının bırakılacağı yer.
+ *
+ * Geçici: kalıcı hedef rol seçimi ve ilk kullanım akışı (is-koala/koala-web#17).
+ * Bugün `/is-ilanlari` henüz yok (is-koala/koala-web#19), var olmayan bir
+ * adrese yönlendirmek kayıt akışının son adımını 404'e bağlardı. #17 inince
+ * değişecek tek satır burası; rotanın içine gömülmedi.
+ */
+export const postRegistrationPath = "/";
+
 export const marketingNav = [
   { href: "/is-arayanlar", label: "İş Arayanlar" },
   { href: "/isverenler", label: "İşverenler" },

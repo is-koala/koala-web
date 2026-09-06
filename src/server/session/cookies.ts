@@ -2,7 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-import { secureCookieOptions, sessionCookies } from "@/server/contract";
+import { deviceIdCookieOptions, secureCookieOptions, sessionCookies } from "@/server/contract";
 
 import type { TokenPair } from "./refresh";
 
@@ -17,6 +17,22 @@ export async function writeSessionCookies(pair: TokenPair) {
   await mutateCookies((store) => {
     store.set(sessionCookies.accessToken, pair.token, options);
     store.set(sessionCookies.refreshToken, pair.refreshToken, options);
+  });
+}
+
+/**
+ * Oturumun backend'de bağlandığı cihaz kimliğini çereze geri yazar.
+ *
+ * Vekil kimliği çerez yokken üretir ve bu üretim istekler arası
+ * koordinasyonsuzdur: aynı anda gelen iki gezinme iki ayrı kimlik alır, geç
+ * düşen `Set-Cookie` kazanır. Oturum did1'e bağlanmışken çerez did2 kalırsa
+ * backend oturumu geri dönüşsüz pasifleştirir
+ * (`AUTH_SESSION_NOT_MATCHING_CURRENT_DEVICE`). Oturum kurulduğunda kimliği
+ * yeniden yazmak, geç düşen çerezi bir sonraki istekte düzeltir.
+ */
+export async function writeDeviceIdCookie(deviceId: string) {
+  await mutateCookies((store) => {
+    store.set(sessionCookies.deviceId, deviceId, deviceIdCookieOptions);
   });
 }
 

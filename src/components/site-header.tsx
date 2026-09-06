@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/brand/Wordmark";
+import { SessionNav } from "@/components/session-nav";
 import { marketingNav } from "@/lib/site";
 
 export function SiteHeader() {
@@ -16,7 +17,10 @@ export function SiteHeader() {
             </li>
           ))}
         </ul>
-        <Link className="button button-small" href="/uygulamayi-ac">Uygulamayı aç</Link>
+        <div className="nav-actions">
+          <SessionNav />
+          <Link className="button button-small" href="/uygulamayi-ac">Uygulamayı aç</Link>
+        </div>
       </nav>
     </header>
   );

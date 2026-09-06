@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 
+import { privateRoutes } from "./src/lib/private-routes";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   pageExtensions: ["ts", "tsx", "md", "mdx"],
@@ -11,6 +13,10 @@ const nextConfig: NextConfig = {
       { source: "/contact", destination: "/iletisim", statusCode: 301 },
       { source: "/privacy", destination: "/gizlilik-politikasi", statusCode: 301 },
       { source: "/profile", destination: "/uygulamayi-ac", statusCode: 301 },
+      // Kalıcı: backend kayıt bağlantısını yalnız `/hesap-dogrula` olarak
+      // üretiyor (`AuthLinkManager.REGISTRATION_WEB_PATH`) ve `/sifre-belirle`
+      // adresine giden hiçbir bağlantı yok. Ayrı bir akış açmak yerine
+      // yönlendirme duruyor; silmek eski e-postaları kırardı.
       { source: "/sifre-belirle", destination: "/hesap-dogrula", permanent: true },
       {
         source: "/:path*",
@@ -32,12 +38,7 @@ const nextConfig: NextConfig = {
         has: [{ type: "host", value: "staging.iskoala.com" }],
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
       },
-      { source: "/hesap-dogrula", headers: privateHeaders },
-      { source: "/sifre-belirle", headers: privateHeaders },
-      { source: "/sifre-sifirla", headers: privateHeaders },
-      { source: "/eposta-onayla", headers: privateHeaders },
-      { source: "/uygulamayi-ac", headers: privateHeaders },
-      { source: "/payment/result", headers: privateHeaders },
+      ...privateRoutes.map((source) => ({ source, headers: privateHeaders })),
     ];
   },
 };
