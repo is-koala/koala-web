@@ -83,6 +83,22 @@ describe("API hata sunumu", () => {
       action: "retry",
     });
   });
+
+  it("ödeme reddini backend mesajına ihtiyaç duymadan kullanıcı eylemine çevirir", () => {
+    expect(errorPresentation("JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER", 400)).toEqual({
+      title: "Fatura adresi eksik",
+      message: "Ödeme alınmadı. Fatura adresini tamamladıktan sonra yeniden deneyebilirsin.",
+      action: "none",
+    });
+    expect(errorPresentation("PAYMENT_PROVIDER_UNAVAILABLE", 502)).toEqual({
+      title: "Ödeme sağlayıcısına ulaşılamadı",
+      message: "Kartından ödeme alınmadı. Biraz sonra yeniden deneyebilirsin.",
+      action: "retry",
+    });
+    expect(errorPresentation("PAYMENT_PAGE_URL_REJECTED", 502).title).toBe(
+      "Güvenli ödeme sayfası açılamadı",
+    );
+  });
 });
 
 describe("kapı metinleri", () => {

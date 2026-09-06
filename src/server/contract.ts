@@ -121,6 +121,7 @@ export const sessionCookies = {
    */
   usersMe: "/users/me",
   workerAssignments: "/users/me/assignments?asEmployer=false",
+  employerAssignments: "/users/me/assignments?asEmployer=true",
   verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 

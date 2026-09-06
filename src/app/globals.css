@@ -422,6 +422,59 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .job-application-form .state-card { background: var(--paper); }
 .application-remedy { align-self: flex-start; margin-top: -10px; }
 .job-detail-state { padding: clamp(70px, 12vw, 150px) 0; }
+/* İşveren ödeme akışı. Tutar kartları finansal hiyerarşiyi korur: çalışan
+   ücreti ve hizmet bedeli ayrı, backend'in işveren toplamı en baskın satır. */
+.employer-assignment-detail, .checkout-page, .payment-history-page, .employer-payments-page { display: flex; flex-direction: column; gap: 24px; }
+.employer-assignment-detail > .lede, .checkout-page > .lede, .payment-history-page > .lede, .employer-payments-page > .lede { margin: -14px 0 0; }
+.assignment-detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.assignment-detail-facts > div, .checkout-prerequisites, .checkout-breakdown, .assignment-pricing { padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.assignment-detail-facts dt, .payment-breakdown dt, .payment-attempt-facts dt { color: var(--muted); font-size: .72rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
+.assignment-detail-facts dd, .payment-breakdown dd, .payment-attempt-facts dd { margin: 5px 0 0; font-weight: 800; overflow-wrap: anywhere; }
+.assignment-pricing h2, .checkout-prerequisites h2, .checkout-breakdown h2 { margin-bottom: 16px; font-size: 1.35rem; }
+.checkout-prerequisites ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.checkout-prerequisites p { margin: 0; }
+.payment-breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.payment-breakdown > div { padding: 15px 17px; border-radius: 15px; background: var(--paper); }
+.payment-breakdown .payment-breakdown-total { grid-column: 1 / -1; border: 1px solid #f0bbb3; background: #fff0ed; }
+.payment-breakdown-total dd { color: var(--brand-accent); font-size: 1.3rem; }
+.payment-action-card { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; padding: clamp(22px, 4vw, 32px); border: 1px solid var(--line); border-radius: 24px; background: var(--paper); }
+.payment-action-heading, .payment-attempt-heading { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.payment-action-heading .eyebrow, .payment-attempt-heading .eyebrow { margin-bottom: 6px; }
+.payment-action-heading h2, .payment-attempt-heading h2 { margin: 0; font-size: 1.35rem; }
+.payment-status, .payment-attempt-status { display: inline-flex; width: fit-content; flex: none; padding: 6px 10px; border-radius: 999px; background: var(--surface); color: var(--muted); font-size: .75rem; font-weight: 850; }
+.payment-status-held_in_escrow, .payment-status-released_to_worker, .payment-attempt-status-succeeded { background: #e3f6ec; color: #26714c; }
+.payment-status-pending_collection, .payment-attempt-status-initiated, .payment-attempt-status-in_review { background: #fff4d7; color: #795600; }
+.payment-status-failed, .payment-attempt-status-failed { background: #fff0ed; color: #8c2424; }
+.escrow-note { margin: 0; padding: 15px 17px; border-left: 4px solid var(--brand-accent); border-radius: 12px; background: var(--surface); }
+.payment-disabled-reason, .checkout-submit { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; }
+.payment-disabled-reason p { margin: 0; color: var(--muted); }
+.payment-disabled-reason .button:disabled, .gate-action .button:disabled { cursor: not-allowed; }
+.checkout-submit .state-card { width: 100%; }
+.payment-result-notice { padding: 18px 20px; border: 1px solid #e2c97e; border-left: 5px solid #c48b16; border-radius: 18px; background: #fff8e7; }
+.payment-result-notice h2 { margin-bottom: 5px; font-size: 1.2rem; }
+.payment-result-notice p { margin: 0; }
+.payment-result-success { border-color: #b7dfc9; border-left-color: #2f9564; background: #effbf4; }
+.payment-result-failed { border-color: #ffc8bd; border-left-color: var(--brand-primary); background: #fff0ed; }
+.payment-result-wait { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.payment-result-wait h1, .payment-result-wait .lede, .payment-result-wait p { margin: 0; }
+.payment-wait-pulse { font-weight: 800; color: var(--brand-accent); }
+.payment-attempt-list { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.payment-attempt-card { padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.payment-attempt-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 0; }
+.payment-attempt-facts > div { padding: 13px 15px; border-radius: 13px; background: var(--paper); }
+.payment-failure-note { margin: 16px 0 0; color: #8c2424; font-weight: 700; }
+.payments-overview { display: grid; gap: 24px; }
+.payment-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.payment-summary-card { padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.payment-summary-card h2 { margin-bottom: 8px; font-size: 1rem; }
+.payment-summary-card p { margin: 0; color: var(--brand-accent); font-size: 1.45rem; font-weight: 850; }
+.payment-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.payment-filters a { padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); text-decoration: none; font-size: .82rem; font-weight: 750; }
+.payment-filters a[aria-current="page"] { border-color: var(--brand-accent); background: #fff0ed; color: var(--brand-accent); }
+.payment-overview-list { display: grid; gap: 12px; }
+.payment-overview-card { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px 18px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.payment-overview-card h2 { margin-bottom: 4px; font-size: 1.1rem; }
+.payment-overview-card p { margin: 0; color: var(--muted); font-size: .86rem; }
 @media (max-width: 820px) { .nav-links { display: none; } .feature-grid { grid-template-columns: 1fr; } .feature-card { min-height: 230px; } .footer-inner { grid-template-columns: 1fr; } .footer-links { justify-content: flex-start; } }
 /* Dar ekranda menü kapatılabilir olur; `details` bunu JavaScript olmadan
    yapıyor ve açık başladığı için betik hiç çalışmasa da erişilebilir kalıyor.
@@ -437,4 +490,5 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 @media (max-width: 520px) { .job-detail { padding-top: 44px; } .job-detail-hero h1 { font-size: clamp(2.8rem, 14vw, 4rem); } .job-application-card { margin-inline: -8px; padding: 24px 20px; border-radius: 22px; } .job-application-form .button { width: 100%; } }
 @media (max-width: 860px) { .work-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .work-detail-facts, .work-brief-grid, .cancellation-facts { grid-template-columns: 1fr; } .work-session-panel .section-heading-row { flex-direction: column; gap: 8px; } .work-session-history li { flex-direction: column; gap: 2px; } }
+@media (max-width: 720px) { .assignment-detail-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }
 @media print { .site-header, .site-footer { display: none !important; } .legal-shell { width: 100%; padding: 0; } body { background: white; color: black; font-size: 11pt; } a { text-decoration: none; } }

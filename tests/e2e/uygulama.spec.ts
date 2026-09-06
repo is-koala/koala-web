@@ -25,6 +25,12 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
     ],
     ["/panel/hesap", "/giris?next=%2Fpanel%2Fhesap"],
     ["/isveren/hesap", "/giris?next=%2Fisveren%2Fhesap"],
+    ["/isveren/atamalar", "/giris?next=%2Fisveren%2Fatamalar"],
+    ["/isveren/odemeler", "/giris?next=%2Fisveren%2Fodemeler"],
+    [
+      "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+      "/giris?next=%2Fisveren%2Fatama%2F3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+    ],
     [
       "/panel/is/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
       "/giris?next=%2Fpanel%2Fis%2F3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
@@ -51,6 +57,9 @@ test("kabuk adresleri indekslenmez", async ({ request }) => {
     "/isveren/ilanlar",
     "/isveren/mesajlar",
     "/isveren/hesap",
+    "/isveren/atamalar",
+    "/isveren/odemeler",
+    "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
     "/panel",
     "/panel/profil",
     "/panel/islerim",

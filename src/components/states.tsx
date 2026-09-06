@@ -6,6 +6,10 @@ const emptyCopy = {
   applications: ["Henüz başvuru yok", "Başvurular burada listelenecek."],
   messages: ["Henüz mesaj yok", "Konuşmaların başladığında burada görünecek."],
   assignments: ["Henüz atama yok", "Atamaların burada görünecek."],
+  employerAssignments: [
+    "Henüz işveren ataman yok",
+    "Bir başvuruyu kabul ettiğinde oluşan atamalar burada görünecek.",
+  ],
   jobCategories: ["İş kategorisi bulunamadı", "Kategoriler yüklenemedi; sayfayı yenilemeyi dene."],
   priceQuote: [
     "Fiyat henüz hesaplanmadı",

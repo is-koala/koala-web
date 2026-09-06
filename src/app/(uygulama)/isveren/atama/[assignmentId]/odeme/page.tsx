@@ -1,0 +1,115 @@
+import { notFound, unstable_rethrow } from "next/navigation";
+import { Suspense } from "react";
+
+import { ShellGate } from "@/app/(uygulama)/shell";
+import { EmployerGate } from "@/components/employer-gate";
+import { CheckoutButton } from "@/components/payments/checkout-button";
+import { PaymentBreakdown } from "@/components/payments/employer-payment";
+import { ErrorState, LoadingState } from "@/components/states";
+import { isUuid } from "@/lib/identifiers";
+import { canStartPayment } from "@/payments/checkout";
+import { failureView } from "@/server/form";
+import { fetchPriceQuote } from "@/server/jobs/jobs";
+import { readEmployerAssignment } from "@/server/payments/payments";
+import { viewerGates } from "@/server/session/gates";
+import { enterShell } from "@/server/session/viewer";
+
+import { startPaymentAction } from "./actions";
+
+type CheckoutPageProps = { params: Promise<{ assignmentId: string }> };
+
+export default function Page({ params }: CheckoutPageProps) {
+  return (
+    <ShellGate shell="employer" href="/isveren/atamalar">
+      <Suspense fallback={<LoadingState label="Ödeme özeti yükleniyor" />}>
+        <CheckoutPage params={params} />
+      </Suspense>
+    </ShellGate>
+  );
+}
+
+export async function CheckoutPage({ params }: CheckoutPageProps) {
+  const context = await enterShell();
+  if (context.failure !== null || context.viewer === null) return null;
+
+  const { assignmentId } = await params;
+  if (!isUuid(assignmentId)) notFound();
+
+  const assignmentResult = await readEmployerAssignment(assignmentId)
+    .then((assignment) => ({ assignment }))
+    .catch((error: unknown) => {
+      unstable_rethrow(error);
+      return { failure: failureView(error) };
+    });
+  if ("failure" in assignmentResult) {
+    return <ErrorState errorCode={assignmentResult.failure.errorCode} status={assignmentResult.failure.httpStatus} />;
+  }
+  const { assignment } = assignmentResult;
+  if (assignment === null) notFound();
+
+  const quoteResult = assignment.pricing
+    ? await fetchPriceQuote(assignment.pricing.workerPayout)
+        .then((pricing) => ({ pricing }))
+        .catch((error: unknown) => {
+          unstable_rethrow(error);
+          return { failure: failureView(error) };
+        })
+    : null;
+
+  const individualPayment = viewerGates(context.viewer).individualPayment;
+  const blocked = assignment.employerType === "INDIVIDUAL" && !individualPayment.open
+    ? individualPayment.blockedBy
+    : [];
+  const eligible = canStartPayment(assignment);
+
+  return (
+    <section className="app-panel checkout-page">
+      <p className="eyebrow">Ödeme öncesi kontrol</p>
+      <h1>{assignment.title}</h1>
+      <p className="lede">
+        İşçi: {assignment.workerName || "Bilgi bekleniyor"}. Kart bilgilerini yalnız Iyzico&apos;nun
+        güvenli ödeme sayfasına gireceksin.
+      </p>
+
+      <section className="checkout-prerequisites" aria-labelledby="checkout-prerequisites-title">
+        <h2 id="checkout-prerequisites-title">Ön koşullar</h2>
+        {assignment.employerType === "INDIVIDUAL" ? (
+          <ul>
+            <li>{context.viewer.identityVerified ? "Kimlik doğrulandı" : "Kimlik doğrulaması eksik"}</li>
+            <li>{context.viewer.hasIdentityNumber ? "Kimlik numarası kayıtlı" : "Kimlik numarası eksik"}</li>
+            <li>{context.viewer.hasAddress ? "Fatura adresi kayıtlı" : "Fatura adresi eksik"}</li>
+          </ul>
+        ) : (
+          <p>Şirket yetkin ve şirket fatura adresi ödeme başlatılırken backend tarafından doğrulanır.</p>
+        )}
+      </section>
+
+      <section className="checkout-breakdown" aria-labelledby="checkout-breakdown-title">
+        <h2 id="checkout-breakdown-title">Ödeme özeti</h2>
+        {quoteResult === null ? (
+          <div role="status" className="state-card">
+            <h3>Fiyat özeti bulunamadı</h3>
+            <p>Atama fiyatı backend&apos;den gelmeden ödeme başlatılamaz.</p>
+          </div>
+        ) : "failure" in quoteResult ? (
+          <ErrorState errorCode={quoteResult.failure.errorCode} status={quoteResult.failure.httpStatus} />
+        ) : (
+          <PaymentBreakdown pricing={quoteResult.pricing} />
+        )}
+      </section>
+
+      {!eligible || quoteResult === null || "failure" in (quoteResult ?? { failure: true }) ? (
+        <div className="payment-disabled-reason">
+          <button type="button" className="button button-secondary" disabled>
+            Iyzico ile güvenli öde
+          </button>
+          {!eligible ? <p>Atama onaylanmadan veya ödeme sonucu belirsizken yeni ödeme başlatılamaz.</p> : null}
+        </div>
+      ) : (
+        <EmployerGate blocked={blocked} action="Iyzico ile güvenli öde">
+          <CheckoutButton action={startPaymentAction.bind(null, assignmentId)} />
+        </EmployerGate>
+      )}
+    </section>
+  );
+}

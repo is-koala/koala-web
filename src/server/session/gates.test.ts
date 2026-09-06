@@ -263,7 +263,7 @@ describe("bölümün kapısı", () => {
     };
   }
 
-  it("bölümün bildirdiği kapıları tek bir /users/me çağrısıyla çözer", async () => {
+  it("finansal durum görünümünü kimlik eksiği olsa da açık tutar", async () => {
     // Kabuk profili zaten okuyor; kapı okuyucusu ikinci bir tura çıkarsa her
     // sayfa render'ı iki kez backend'e gider.
     const fetchMock = vi
@@ -275,7 +275,7 @@ describe("bölümün kapısı", () => {
 
     const entry = await enterSection("employer", "/isveren/odemeler");
 
-    expect(entry.blocked).toEqual(["identityNumber"]);
+    expect(entry.blocked).toEqual([]);
     expect(entry.advisories).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
