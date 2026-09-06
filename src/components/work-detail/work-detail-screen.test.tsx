@@ -45,9 +45,6 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
     }],
     resolution: {
       cancellationPreview: {
-        feeRate: "0",
-        feeAmount: "0",
-        refundAmount: "1400",
         noticeMinutes: 120,
         cancellableNow: true,
       },
@@ -312,10 +309,11 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     );
 
     expect(screen.getByText("İptal önizlemesi")).toBeVisible();
-    expect(screen.getByText("Kesinti").closest("div")).toHaveTextContent("Kesinti0,00 ₺");
-    expect(screen.getByText("İşverene iade").closest("div")).toHaveTextContent("İşverene iade1.400,00 ₺");
-    expect(screen.getByText("Kesinti oranı").closest("div")).toHaveTextContent("Kesinti oranı%0");
+    await user.click(screen.getByText("İptal önizlemesi"));
     expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
+    expect(screen.getByText(/çalışmadan çekilmiş olursun/i)).toBeVisible();
+    expect(screen.queryByText("Kesinti")).toBeNull();
+    expect(screen.queryByText("İşverene iade")).toBeNull();
     expect(screen.getByText("Uyuşmazlık aç")).toBeVisible();
     expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
 

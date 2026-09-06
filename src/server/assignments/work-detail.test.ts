@@ -144,9 +144,6 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
       }],
       resolution: {
         cancellationPreview: {
-          feeRate: "0",
-          feeAmount: "0.00",
-          refundAmount: "1400.00",
           noticeMinutes: 120,
           cancellableNow: true,
         },
@@ -164,6 +161,9 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
       `https://api.example.test/job-assignments/${assignmentId}/disputes`,
     ]);
     expect(JSON.stringify(result)).not.toContain("checkInLatitude");
+    expect(JSON.stringify(result?.resolution)).not.toMatch(
+      /feeRate|feeAmount|refundAmount/,
+    );
   });
 
   it("backend kesin adresi artık döndürmüyorsa tarayıcı modeline adres koymaz", async () => {

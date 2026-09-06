@@ -4,9 +4,8 @@ import type { FormEvent } from "react";
 
 import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
 import { canCancelAssignment } from "@/assignments/resolution";
-import { formatMoney } from "@/lib/money";
 
-import { canOpenDispute, formatNotice, formatRate } from "./presenters";
+import { canOpenDispute, formatNotice } from "./presenters";
 
 export function WorkSecondaryActions({
   detail,
@@ -34,11 +33,11 @@ export function WorkSecondaryActions({
           <summary>İptal önizlemesi</summary>
           <div className="work-action-body">
             <dl className="cancellation-facts">
-              <div><dt>Kesinti</dt><dd>{formatMoney(preview.feeAmount, detail.assignment.currency)}</dd></div>
-              <div><dt>İşverene iade</dt><dd>{formatMoney(preview.refundAmount, detail.assignment.currency)}</dd></div>
-              <div><dt>Kesinti oranı</dt><dd>{formatRate(preview.feeRate)}</dd></div>
               <div><dt>Başlangıca kalan</dt><dd>{formatNotice(preview.noticeMinutes)}</dd></div>
             </dl>
+            <p className="muted">
+              Onayladığında bu atamadaki çalışmadan çekilmiş olursun.
+            </p>
             <ActionForm
               label="İptal nedeni"
               button="Atamayı iptal et"

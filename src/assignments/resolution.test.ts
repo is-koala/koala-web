@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { AssignmentResolution } from "./resolution";
-import { canCancelAssignment, canOpenAssignmentDispute } from "./resolution";
+import {
+  canCancelAssignment,
+  canOpenAssignmentDispute,
+  hasActiveDispute,
+} from "./resolution";
 
 const activeDisputeResolution: AssignmentResolution = {
   cancellationPreview: {
@@ -53,6 +57,12 @@ describe("atama sonuçlandırma kapıları", () => {
       assignmentStatus: "CANCELLED",
       paymentStatus: "HELD_IN_ESCROW",
       resolution: cancelledResolution,
+    })).toBe(true);
+  });
+
+  it("tanınmayan uyuşmazlık durumunda finansal kapıları güvenli tarafta tutar", () => {
+    expect(hasActiveDispute({
+      disputes: [{ status: "UNKNOWN" }],
     })).toBe(true);
   });
 });

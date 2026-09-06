@@ -47,6 +47,10 @@ export async function employerResolutionAction(
     };
   } catch (error) {
     unstable_rethrow(error);
-    return { status: "error", ...failureView(error) };
+    const failure = failureView(error);
+    if (failure.httpStatus === 404 || failure.httpStatus === 409) {
+      revalidatePath(`/isveren/atama/${assignmentId}`);
+    }
+    return { status: "error", ...failure };
   }
 }

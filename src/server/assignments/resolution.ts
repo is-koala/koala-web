@@ -8,6 +8,7 @@ import type {
   DisputeResolution,
   DisputeStatus,
   RefundStatus,
+  WorkerAssignmentResolution,
 } from "@/assignments/resolution";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
@@ -71,6 +72,28 @@ export async function readAssignmentResolution(
   ]);
 
   return { cancellationPreview, cancellation, disputes };
+}
+
+/** İşçi istemcisinin bilmesi gerekmeyen işveren finansal alanlarını sunucuda keser. */
+export async function readWorkerAssignmentResolution(
+  assignmentId: string,
+  assignmentStatus: string,
+): Promise<WorkerAssignmentResolution> {
+  const resolution = await readAssignmentResolution(assignmentId, assignmentStatus);
+  return {
+    cancellationPreview: resolution.cancellationPreview && {
+      noticeMinutes: resolution.cancellationPreview.noticeMinutes,
+      cancellableNow: resolution.cancellationPreview.cancellableNow,
+    },
+    cancellation: resolution.cancellation && {
+      id: resolution.cancellation.id,
+      cancelledByParty: resolution.cancellation.cancelledByParty,
+      reason: resolution.cancellation.reason,
+      noticeMinutes: resolution.cancellation.noticeMinutes,
+      cancelledAt: resolution.cancellation.cancelledAt,
+    },
+    disputes: resolution.disputes,
+  };
 }
 
 export async function cancelAssignment(assignmentId: string, reason: string): Promise<void> {

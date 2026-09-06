@@ -11,6 +11,7 @@ import {
   cancelAssignment,
   createAssignmentDispute,
   readAssignmentResolution,
+  readWorkerAssignmentResolution,
 } from "./resolution";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
@@ -120,6 +121,39 @@ describe("atama sonuçlandırma BFF sözleşmesi", () => {
       refundAmount: "1000.00",
     });
     expect(result.cancellationPreview).toBeNull();
+  });
+
+  it("işçi çözüm görünümünden işverenin finansal alanlarını çıkarır", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        id: "cancellation-1",
+        cancelledByParty: "WORKER",
+        reason: "Program değişti",
+        feeRate: "0.075",
+        feeAmount: "75.00",
+        refundAmount: "925.00",
+        noticeMinutes: 60,
+        cancelledAt: "2026-09-06T10:00:00Z",
+        refundStatus: "PENDING",
+        refundCompletedAt: null,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkerAssignmentResolution(assignmentId, "CANCELLED");
+
+    expect(result).toEqual({
+      cancellationPreview: null,
+      cancellation: {
+        id: "cancellation-1",
+        cancelledByParty: "WORKER",
+        reason: "Program değişti",
+        noticeMinutes: 60,
+        cancelledAt: "2026-09-06T10:00:00Z",
+      },
+      disputes: [],
+    });
+    expect(JSON.stringify(result)).not.toMatch(/feeRate|feeAmount|refundAmount|refundStatus/);
   });
 
   it("iptal ve uyuşmazlık komutlarını dar backend gövdeleriyle yollar", async () => {

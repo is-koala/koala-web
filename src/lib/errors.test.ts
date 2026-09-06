@@ -104,6 +104,15 @@ describe("API hata sunumu", () => {
       action: "none",
     });
   });
+
+  it("açık uyuşmazlığın para hareketlerini neden durdurduğunu açıklar", () => {
+    expect(errorPresentation("DISPUTE_BLOCKS_RELEASE", 409)).toEqual({
+      title: "Uyuşmazlık sonuçlanmayı bekliyor",
+      message:
+        "Açık uyuşmazlık sonuçlanana kadar atama iptal edilemez; emanetteki para iade edilmez veya işçiye aktarılmaz.",
+      action: "none",
+    });
+  });
 });
 
 describe("şirket yetkilisi hataları", () => {

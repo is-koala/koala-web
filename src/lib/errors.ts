@@ -151,6 +151,12 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Devam eden ödeme denemesi kesinleşmeden yeni bir ödeme başlatılamaz.",
     action: "none",
   },
+  DISPUTE_BLOCKS_RELEASE: {
+    title: "Uyuşmazlık sonuçlanmayı bekliyor",
+    message:
+      "Açık uyuşmazlık sonuçlanana kadar atama iptal edilemez; emanetteki para iade edilmez veya işçiye aktarılmaz.",
+    action: "none",
+  },
   /**
    * Şirket yetkilisi uçlarının ortak reddi.
    *

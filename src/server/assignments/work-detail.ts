@@ -13,7 +13,7 @@ import {
   type AssignmentDto,
   type AssignmentPageDto,
 } from "@/server/assignments/backend-contract";
-import { readAssignmentResolution } from "@/server/assignments/resolution";
+import { readWorkerAssignmentResolution } from "@/server/assignments/resolution";
 
 export { cancelAssignment, createAssignmentDispute } from "@/server/assignments/resolution";
 
@@ -50,7 +50,7 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
       `${backendPaths.jobAssignments}/${assignmentId}/work-sessions`,
       { cache: "no-store" },
     ),
-    readAssignmentResolution(assignmentId, assignment.status),
+    readWorkerAssignmentResolution(assignmentId, assignment.status),
   ]);
 
   const displayAddress = job.address?.displayAddress?.trim();

@@ -45,6 +45,16 @@ export type AssignmentResolution = {
   disputes: readonly AssignmentDispute[];
 };
 
+/** İşçi tarayıcı modeline işverenin iade/kesinti tutarlarını taşımaz. */
+export type WorkerAssignmentResolution = {
+  cancellationPreview: Pick<CancellationPreview, "noticeMinutes" | "cancellableNow"> | null;
+  cancellation: Pick<
+    CancellationRecord,
+    "id" | "cancelledByParty" | "reason" | "noticeMinutes" | "cancelledAt"
+  > | null;
+  disputes: readonly AssignmentDispute[];
+};
+
 export type ResolutionCommand =
   | { type: "cancel"; reason: string }
   | { type: "dispute"; reason: string };
@@ -54,18 +64,22 @@ export type ResolutionActionState =
   | { status: "done"; message: string }
   | { status: "error"; errorCode: string; httpStatus: number };
 
-export function hasActiveDispute(resolution: AssignmentResolution): boolean {
+type DisputeGateState = {
+  disputes: readonly Pick<AssignmentDispute, "status">[];
+};
+
+export function hasActiveDispute(resolution: DisputeGateState): boolean {
   return resolution.disputes.some((dispute) => isActiveDisputeStatus(dispute.status));
 }
 
 export function isActiveDisputeStatus(status: string | null | undefined): boolean {
-  return status === "OPEN" || status === "UNDER_REVIEW";
+  return status !== "RESOLVED";
 }
 
 export function canOpenAssignmentDispute(input: {
   assignmentStatus: string;
   paymentStatus: string;
-  resolution: AssignmentResolution;
+  resolution: DisputeGateState;
 }): boolean {
   return input.paymentStatus === "HELD_IN_ESCROW" &&
     ["CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(input.assignmentStatus) &&
@@ -74,7 +88,7 @@ export function canOpenAssignmentDispute(input: {
 
 export function canCancelAssignment(input: {
   assignmentStatus: string;
-  resolution: AssignmentResolution;
+  resolution: Pick<WorkerAssignmentResolution, "cancellationPreview" | "disputes">;
 }): boolean {
   return (input.assignmentStatus === "CONFIRMED" || input.assignmentStatus === "IN_PROGRESS") &&
     input.resolution.cancellationPreview?.cancellableNow === true &&

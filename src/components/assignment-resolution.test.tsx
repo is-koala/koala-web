@@ -92,4 +92,22 @@ describe("atama iptal, iade ve uyuşmazlık görünümü", () => {
     expect(screen.getByText("İşverene iade")).toBeVisible();
     expect(screen.getByText("İşverene iade edildi.")).toBeVisible();
   });
+
+  it("tanınmayan uyuşmazlık durumunda emanet kapısını fail-closed anlatır", () => {
+    render(<AssignmentResolutionPanel currency="TRY" resolution={{
+      ...empty,
+      disputes: [{
+        id: "future-status",
+        status: "UNKNOWN",
+        reason: "Durum sağlayıcıdan doğrulanıyor",
+        resolution: null,
+        resolutionNote: null,
+        createdAt: "2026-09-06T10:00:00Z",
+        resolvedAt: null,
+      }],
+    }} />);
+
+    expect(screen.getByText(/emanetteki para donduruldu/i)).toBeVisible();
+    expect(screen.getByText("Durum bekleniyor")).toBeVisible();
+  });
 });

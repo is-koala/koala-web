@@ -9,6 +9,7 @@ import {
   type AssignmentResolution,
   type ResolutionActionState,
 } from "@/assignments/resolution";
+import { errorPresentation } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
 
 type ResolutionAction = (
@@ -43,7 +44,9 @@ export function EmployerResolutionActions({
 
       {state.status === "done" ? <p role="status" className="work-location-notice">{state.message}</p> : null}
       {state.status === "error" ? (
-        <p role="alert" className="form-warning">{resolutionErrorMessage(state.errorCode)}</p>
+        <p role="alert" className="form-warning">
+          {resolutionErrorMessage(state.errorCode, state.httpStatus)}
+        </p>
       ) : null}
 
       {canCancel && preview ? (
@@ -125,10 +128,10 @@ function ReasonForm({
   );
 }
 
-function resolutionErrorMessage(errorCode: string): string {
+function resolutionErrorMessage(errorCode: string, httpStatus: number): string {
   if (errorCode === "VALIDATION_FAILED") return "Geçerli bir gerekçe yazın.";
   if (errorCode === "CANCELLATION_ALREADY_CANCELLED") return "Bu atama zaten iptal edildi.";
   if (errorCode === "DISPUTE_ALREADY_OPEN") return "Bu atamada zaten açık bir uyuşmazlık var.";
   if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") return "Atama bulunamadı veya erişim yetkiniz yok.";
-  return "İşlem tamamlanamadı. Güncel durumu kontrol edip yeniden deneyin.";
+  return errorPresentation(errorCode, httpStatus).message;
 }

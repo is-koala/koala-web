@@ -1,5 +1,5 @@
 import type { WorkerAssignment } from "@/assignments/contract";
-import type { AssignmentResolution } from "@/assignments/resolution";
+import type { WorkerAssignmentResolution } from "@/assignments/resolution";
 
 export type { CancellationPreview } from "@/assignments/resolution";
 
@@ -28,7 +28,7 @@ export type WorkDetail = {
   dressCode: string | null;
   fullAddress: string | null;
   sessions: readonly WorkSession[];
-  resolution: AssignmentResolution;
+  resolution: WorkerAssignmentResolution;
 };
 
 export type CheckpointKind = "check-in" | "check-out";

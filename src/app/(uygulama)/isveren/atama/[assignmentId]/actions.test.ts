@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/server/api/errors";
+
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
 const cancelAssignment = vi.hoisted(() => vi.fn());
 const createAssignmentDispute = vi.hoisted(() => vi.fn());
@@ -52,5 +54,25 @@ describe("işveren atama sonuçlandırma action'ı", () => {
     await expect(employerResolutionAction("../jobs", { status: "idle" }, form))
       .resolves.toEqual({ status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 });
     expect(cancelAssignment).not.toHaveBeenCalled();
+  });
+
+  it("durum yarışında hata kodunu koruyup atama görünümünü yeniler", async () => {
+    cancelAssignment.mockRejectedValueOnce(new ApiError({
+      status: 409,
+      errorCode: "DISPUTE_BLOCKS_RELEASE",
+      errorCategory: "DATA_CONFLICT",
+      message: "ham backend mesajı",
+    }));
+    const form = new FormData();
+    form.set("operation", "cancel");
+    form.set("reason", "Plan değişti");
+
+    await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
+      .resolves.toEqual({
+        status: "error",
+        errorCode: "DISPUTE_BLOCKS_RELEASE",
+        httpStatus: 409,
+      });
+    expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
   });
 });

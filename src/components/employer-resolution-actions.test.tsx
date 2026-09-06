@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AssignmentResolution } from "@/assignments/resolution";
@@ -71,5 +72,29 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
 
     fireEvent.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
     expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeVisible();
+  });
+
+  it("yarışta açılan uyuşmazlığın parayı neden durdurduğunu açıklar", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({
+      status: "error" as const,
+      errorCode: "DISPUTE_BLOCKS_RELEASE",
+      httpStatus: 409,
+    }));
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={action}
+    />);
+
+    await user.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
+    await user.type(screen.getByLabelText("İptal nedeni"), "Plan değişti");
+    await user.click(screen.getByRole("button", { name: "Atamayı iptal et" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Açık uyuşmazlık sonuçlanana kadar atama iptal edilemez",
+    );
   });
 });

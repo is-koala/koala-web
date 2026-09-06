@@ -4,6 +4,7 @@ import {
   type AssignmentResolution,
   type CancellationRecord,
   type RefundStatus,
+  type WorkerAssignmentResolution,
 } from "@/assignments/resolution";
 import { formatMoney } from "@/lib/money";
 
@@ -21,32 +22,102 @@ export function AssignmentResolutionPanel({
     <section className="assignment-resolution" aria-labelledby="assignment-resolution-title">
       <h2 id="assignment-resolution-title">İptal, iade ve uyuşmazlık</h2>
 
-      {activeDispute ? (
-        <p role="status" className="escrow-note dispute-escrow-note">
-          Bu atamada açık bir uyuşmazlık var. İnceleme sonuçlanana kadar emanetteki
-          para donduruldu; işçiye aktarılmaz veya iade edilmez.
-        </p>
-      ) : null}
+      {activeDispute ? <ActiveDisputeNotice /> : null}
 
-      {!hasRecords ? (
-        <div className="state-card assignment-resolution-empty">
-          <h3>Henüz iptal veya uyuşmazlık kaydı yok</h3>
-          <p>Bu atamayla ilgili sonuçlandırma hareketleri burada görünecek.</p>
-        </div>
-      ) : null}
+      {!hasRecords ? <EmptyResolution /> : null}
 
       {resolution.cancellation ? (
         <CancellationSummary cancellation={resolution.cancellation} currency={currency} />
       ) : null}
 
-      {resolution.disputes.length > 0 ? (
-        <ol className="assignment-resolution-list" aria-label="Uyuşmazlık geçmişi">
-          {resolution.disputes.map((dispute) => (
-            <DisputeSummary key={dispute.id} dispute={dispute} />
-          ))}
-        </ol>
-      ) : null}
+      {resolution.disputes.length > 0 ? <DisputeList disputes={resolution.disputes} /> : null}
     </section>
+  );
+}
+
+export function WorkerAssignmentResolutionPanel({
+  resolution,
+}: {
+  resolution: WorkerAssignmentResolution;
+}) {
+  const hasRecords = resolution.cancellation !== null || resolution.disputes.length > 0;
+  const activeDispute = hasActiveDispute(resolution);
+
+  return (
+    <section className="assignment-resolution" aria-labelledby="assignment-resolution-title">
+      <h2 id="assignment-resolution-title">İptal ve uyuşmazlık</h2>
+      {activeDispute ? <ActiveDisputeNotice /> : null}
+      {!hasRecords ? <EmptyResolution /> : null}
+      {resolution.cancellation ? (
+        <WorkerCancellationSummary cancellation={resolution.cancellation} />
+      ) : null}
+      {resolution.disputes.length > 0 ? <DisputeList disputes={resolution.disputes} /> : null}
+    </section>
+  );
+}
+
+function WorkerCancellationSummary({
+  cancellation,
+}: {
+  cancellation: NonNullable<WorkerAssignmentResolution["cancellation"]>;
+}) {
+  return (
+    <article className="assignment-resolution-card">
+      <div className="assignment-resolution-heading">
+        <div>
+          <p className="eyebrow">Atama iptali</p>
+          <h3>Atama sona erdi</h3>
+        </div>
+        <CancellationPartyLabel party={cancellation.cancelledByParty} />
+      </div>
+      <p>{cancellation.reason}</p>
+      <p>
+        <strong>İptal zamanı:</strong>{" "}
+        <time dateTime={cancellation.cancelledAt}>{formatDate(cancellation.cancelledAt)}</time>
+      </p>
+    </article>
+  );
+}
+
+function ActiveDisputeNotice() {
+  return (
+    <p role="status" className="escrow-note dispute-escrow-note">
+      Bu atamada açık bir uyuşmazlık var. İnceleme sonuçlanana kadar emanetteki
+      para donduruldu; işçiye aktarılmaz veya iade edilmez.
+    </p>
+  );
+}
+
+function EmptyResolution() {
+  return (
+    <div className="state-card assignment-resolution-empty">
+      <h3>Henüz iptal veya uyuşmazlık kaydı yok</h3>
+      <p>Bu atamayla ilgili sonuçlandırma hareketleri burada görünecek.</p>
+    </div>
+  );
+}
+
+function DisputeList({ disputes }: { disputes: readonly AssignmentDispute[] }) {
+  return (
+    <ol className="assignment-resolution-list" aria-label="Uyuşmazlık geçmişi">
+      {disputes.map((dispute) => <DisputeSummary key={dispute.id} dispute={dispute} />)}
+    </ol>
+  );
+}
+
+function CancellationPartyLabel({
+  party,
+}: {
+  party: CancellationRecord["cancelledByParty"];
+}) {
+  return (
+    <span className="payment-status payment-status-neutral">
+      {party === "EMPLOYER"
+        ? "İşveren iptal etti"
+        : party === "WORKER"
+          ? "İşçi çekildi"
+          : "Atama iptal edildi"}
+    </span>
   );
 }
 
@@ -65,13 +136,7 @@ function CancellationSummary({
           <p className="eyebrow">Atama iptali</p>
           <h3>{refundLabel(cancellation.refundStatus, hasRefund)}</h3>
         </div>
-        <span className="payment-status payment-status-neutral">
-          {cancellation.cancelledByParty === "EMPLOYER"
-            ? "İşveren iptal etti"
-            : cancellation.cancelledByParty === "WORKER"
-              ? "İşçi çekildi"
-              : "Atama iptal edildi"}
-        </span>
+        <CancellationPartyLabel party={cancellation.cancelledByParty} />
       </div>
       <p>{cancellation.reason}</p>
       <dl className="cancellation-facts">
