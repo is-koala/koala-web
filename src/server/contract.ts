@@ -63,7 +63,7 @@ export const sessionCookies = {
   deviceId: "koala_did",
 } as const;
 
-/** `AuthController` ve `LegalController` uçları; backend'de context-path yok. */
+/** `AuthController`, `LegalController` ve `UsersController` uçları; backend'de context-path yok. */
 export const backendPaths = {
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
@@ -73,6 +73,13 @@ export const backendPaths = {
   refreshToken: "/auth/refresh-token",
   resetPassword: "/auth/reset-password",
   startRegistration: "/auth/start-registration",
+  /**
+   * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta
+   * taşıyor — `isEmployer`, `identityVerified`, `maskedTcIdentityNumber`,
+   * `address` ve `companies[].approved` — bu yüzden şirket onayı için ikinci
+   * bir tur gerekmiyor.
+   */
+  usersMe: "/users/me",
   verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 

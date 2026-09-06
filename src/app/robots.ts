@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { publicEnvironment } from "@/lib/env";
-import { privateRoutes } from "@/lib/private-routes";
+import { privateDisallowRules } from "@/lib/private-routes";
 
 export default function robots(): MetadataRoute.Robots {
   const { siteUrl } = publicEnvironment();
@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: [...privateRoutes],
+      disallow: [...privateDisallowRules],
     },
     sitemap: new URL("/sitemap.xml", siteUrl).toString(),
   };

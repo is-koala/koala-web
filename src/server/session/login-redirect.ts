@@ -1,6 +1,9 @@
 import "server-only";
 
+import { headers } from "next/headers";
+
 import { loginPath } from "@/lib/site";
+import { requestPathHeader } from "@/server/contract";
 
 /**
  * Giriş sonrası kullanıcıyı bıraktığı yere döndürür. Yalnız site içi mutlak
@@ -15,6 +18,30 @@ import { loginPath } from "@/lib/site";
 export function loginRedirect(nextPath: string): string {
   const safe = sameSitePath(nextPath);
   return safe ? `${loginPath}?next=${encodeURIComponent(safe)}` : loginPath;
+}
+
+/**
+ * Render edilen sayfanın yolu.
+ *
+ * Server component'ler — layout'lar dahil — kendi adreslerini okuyamaz. Yolu
+ * `src/proxy.ts` her isteğe yazıyor ve tarayıcıdan gelen aynı adlı başlığın
+ * üzerine geçiyor, yani kullanıcı kendi dönüş hedefini uyduramıyor.
+ */
+export async function currentRequestPath(): Promise<string> {
+  const requestHeaders = await headers();
+  return requestHeaders.get(requestPathHeader) ?? "";
+}
+
+/**
+ * Oturum render ortasında geçersizleştiğinde gidilecek giriş adresi.
+ *
+ * Üç çağıranı var — kabuk kapısı, oturumlu çağrının yenileme yolu ve profil
+ * okuyucusu — ve üçü de kullanıcıyı aynı yere bırakmak zorunda. Ayrı ayrı
+ * yazılsalardı biri dönüş hedefini taşımayı unuttuğunda kullanıcı sessizce
+ * ana sayfaya düşerdi.
+ */
+export async function currentPathLoginRedirect(): Promise<string> {
+  return loginRedirect(await currentRequestPath());
 }
 
 /** Çözümde kullanılan, gerçekte var olmayan origin. */

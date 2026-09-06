@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+
+import { privateDisallowRules, privateHeaderSources, privateRouteTrees } from "./private-routes";
+
+/**
+ * robots.txt eşleşme kuralının bağımsız uygulaması.
+ *
+ * Kural dosyadan değil, protokolden alındı: `Disallow` değeri **önek** olarak
+ * eşleşir, `*` herhangi bir diziyi, sondaki `$` yolun bitişini karşılar. Kodun
+ * ürettiği listeyi kendi mantığıyla yeniden hesaplayan bir test, listenin
+ * yanlış olduğu durumda da geçerdi; bu yüzden beklenti tarayıcının okuduğu
+ * anlamdan türetiliyor.
+ */
+function disallows(rule: string, path: string): boolean {
+  const anchored = rule.endsWith("$");
+  const pattern = (anchored ? rule.slice(0, -1) : rule)
+    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, ".*");
+  return new RegExp(`^${pattern}${anchored ? "$" : ""}`).test(path);
+}
+
+const blocked = (path: string) => privateDisallowRules.some((rule) => disallows(rule, path));
+
+describe("arama motorlarına kapalı rotalar", () => {
+  it("kabuk köklerini ve altındaki her yolu robots.txt'te kapatır", () => {
+    for (const path of ["/isveren", "/isveren/ilanlar", "/isveren/ilan/yeni", "/panel", "/panel/islerim"]) {
+      expect(blocked(path)).toBe(true);
+    }
+  });
+
+  it("aynı önekle başlayan tanıtım sayfasını indekslenebilir bırakır", () => {
+    // `/isveren` bir önek olarak yazılırsa `/isverenler` de düşer; tanıtım
+    // sayfası arama sonuçlarından kaybolur ve bunu kimse fark etmez.
+    expect(blocked("/isverenler")).toBe(false);
+    expect(blocked("/is-arayanlar")).toBe(false);
+    expect(blocked("/")).toBe(false);
+  });
+
+  it("hesap akışlarının tek tek yolları kapalı kalır", () => {
+    for (const path of ["/giris", "/cikis", "/kayit", "/payment/result"]) {
+      expect(blocked(path)).toBe(true);
+    }
+  });
+
+  it("başlık kuralı her kabuk kökü için alt yolları da kapsar", () => {
+    for (const root of privateRouteTrees) {
+      expect(privateHeaderSources).toContain(root);
+      expect(privateHeaderSources).toContain(`${root}/:path*`);
+    }
+    expect(privateHeaderSources).toContain("/giris");
+    expect(privateHeaderSources).not.toContain("/isverenler");
+  });
+});

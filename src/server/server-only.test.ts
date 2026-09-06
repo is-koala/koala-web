@@ -37,3 +37,38 @@ describe("server-only sınırı", () => {
     expect(sources.some((source) => source.includes("NEXT_PUBLIC_API"))).toBe(false);
   });
 });
+
+describe("oturumlu backend çağrısının tek kapısı", () => {
+  it("ham istemciyi yalnız oturumsuz uçlar ve oturum katmanı içe aktarır", () => {
+    // `apiFetch` token taşımaz ve 401'de yenilemez. Oturumlu bir çağrı onu
+    // doğrudan kullanırsa yenileme o yol için sessizce devre dışı kalır ve
+    // kullanıcı süresi dolmuş bir tokenla hata ekranına düşer. Listedekiler
+    // ya tokensız uçlar (giriş, kayıt, parola, yasal metinler) ya da
+    // yenilemenin kendisi.
+    const allowed = [
+      path.join(sourceRoot, "server", "session", "session.ts"),
+      path.join(sourceRoot, "server", "session", "refresh.ts"),
+      path.join(sourceRoot, "server", "auth"),
+      path.join(sourceRoot, "server", "legal"),
+    ];
+
+    const direct = sourceFiles(sourceRoot)
+      .filter((file) => !allowed.some((prefix) => file.startsWith(prefix)))
+      .filter((file) => /from "@\/server\/api\/client"/.test(readFileSync(file, "utf8")));
+
+    expect(direct).toEqual([]);
+  });
+
+  it("GET /users/me'yi yalnız kabuğun bağlam okuyucusu ister", () => {
+    // Kabuk profili bir kez okuyup `React.cache()` ile paylaşıyor. İkinci bir
+    // çağıran, her sayfa render'ına ikinci bir tur ekler.
+    const callers = sourceFiles(sourceRoot).filter((file) =>
+      /backendPaths\.usersMe|["'`]\/users\/me["'`]/.test(readFileSync(file, "utf8")),
+    );
+
+    expect(callers).toEqual([
+      path.join(sourceRoot, "server", "contract.ts"),
+      path.join(sourceRoot, "server", "session", "viewer.ts"),
+    ]);
+  });
+});

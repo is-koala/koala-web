@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
-import { privateRoutes } from "./src/lib/private-routes";
+import { privateHeaderSources } from "./src/lib/private-routes";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
         has: [{ type: "host", value: "staging.iskoala.com" }],
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }],
       },
-      ...privateRoutes.map((source) => ({ source, headers: privateHeaders })),
+      ...privateHeaderSources.map((source) => ({ source, headers: privateHeaders })),
     ];
   },
 };
