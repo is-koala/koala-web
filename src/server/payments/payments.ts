@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AssignmentStatus, PaymentStatus } from "@/assignments/contract";
+import { isActiveDisputeStatus } from "@/assignments/resolution";
 import type { PricingBreakdown } from "@/lib/job-posting";
 import type {
   EmployerAssignment,
@@ -10,9 +11,13 @@ import type {
   PaymentAttempt,
   PaymentAttemptStatus,
   PaymentReconciliation,
+  PaymentResolution,
   PaymentSession,
 } from "@/payments/contract";
-import { paymentStatusPresentation } from "@/payments/checkout";
+import {
+  hasUnresolvedPaymentAttempt,
+  paymentStatusPresentation,
+} from "@/payments/checkout";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -62,7 +67,6 @@ const paymentAttemptStatuses = new Set<PaymentAttemptStatus>([
   "SUCCEEDED",
   "FAILED",
 ]);
-const activeDisputeStatuses = new Set(["OPEN", "UNDER_REVIEW"]);
 
 export async function readEmployerAssignments(
   pageNumber = 0,
@@ -100,10 +104,10 @@ type PaymentAttemptDto = {
   id?: string | null;
   status?: string | null;
   currency?: string | null;
-  workerPayout?: string | number | null;
-  commissionRate?: string | number | null;
-  commissionAmount?: string | number | null;
-  totalCharged?: string | number | null;
+  workerPayout?: string | null;
+  commissionRate?: string | null;
+  commissionAmount?: string | null;
+  totalCharged?: string | null;
   pricing?: Partial<PricingBreakdown> | null;
   failureReason?: string | null;
   completedAt?: string | null;
@@ -133,8 +137,7 @@ export async function readAssignmentHasActiveDispute(assignmentId: string): Prom
     `${backendPaths.jobAssignments}/${encodeURIComponent(assignmentId)}/disputes`,
     { cache: "no-store" },
   );
-  return (disputes ?? []).some((dispute) =>
-    dispute.status ? activeDisputeStatuses.has(dispute.status) : false);
+  return (disputes ?? []).some((dispute) => isActiveDisputeStatus(dispute.status));
 }
 
 export async function readEmployerAssignment(
@@ -149,16 +152,26 @@ export async function readEmployerAssignment(
   return null;
 }
 
-export async function readAllEmployerAssignments(): Promise<readonly EmployerAssignment[]> {
+export async function readAllEmployerAssignments(): Promise<{
+  readonly assignments: readonly EmployerAssignment[];
+  readonly totalsComplete: boolean;
+}> {
   const first = await readEmployerAssignments(0, 100);
   const content = [...first.content];
   const pages = Math.min(first.totalPages, maximumAssignmentPages);
+  let reachedLastPage = first.last;
   for (let pageNumber = 1; pageNumber < pages; pageNumber += 1) {
     const page = await readEmployerAssignments(pageNumber, 100);
     content.push(...page.content);
-    if (page.last) break;
+    if (page.last) {
+      reachedLastPage = true;
+      break;
+    }
   }
-  return content;
+  return {
+    assignments: content,
+    totalsComplete: reachedLastPage || first.totalPages <= maximumAssignmentPages,
+  };
 }
 
 /** Dönüş URL'sinin iddiasını değil, yetkili assignment/payment/dispute görünümlerini okur. */
@@ -184,14 +197,34 @@ export async function readPaymentDetailsForAssignment(
   return paymentReconciliation(assignment, attempts, hasActiveDispute);
 }
 
+/** Atama ayrıntısının uyuşmazlık görünümünü tekrar okumadan ödeme sonucunu çözer. */
+export async function readPaymentResolutionForAssignment(
+  assignment: EmployerAssignment,
+): Promise<PaymentResolution> {
+  return paymentResolution(assignment, await readPaymentAttempts(assignment.id));
+}
+
 function paymentReconciliation(
   assignment: EmployerAssignment,
   attempts: readonly PaymentAttempt[],
   hasActiveDispute: boolean,
 ): PaymentReconciliation {
-  const resolution = paymentStatusPresentation(assignment.paymentStatus).resolution;
+  return {
+    assignment,
+    attempts,
+    resolution: paymentResolution(assignment, attempts),
+    hasActiveDispute,
+  };
+}
 
-  return { assignment, attempts, resolution, hasActiveDispute };
+function paymentResolution(
+  assignment: EmployerAssignment,
+  attempts: readonly PaymentAttempt[],
+): PaymentResolution {
+  const latestAttempt = attempts.at(0);
+  return latestAttempt && hasUnresolvedPaymentAttempt([latestAttempt])
+    ? "pending"
+    : paymentStatusPresentation(assignment.paymentStatus).resolution;
 }
 
 function projectPaymentAttempt(dto: PaymentAttemptDto): PaymentAttempt {
@@ -200,10 +233,10 @@ function projectPaymentAttempt(dto: PaymentAttemptDto): PaymentAttempt {
     id: dto.id ?? "",
     status: known(dto.status, paymentAttemptStatuses),
     currency: pricing?.currency ?? dto.currency ?? "",
-    workerPayout: pricing?.workerPayout ?? decimal(dto.workerPayout),
-    serviceFeeRate: pricing?.serviceFeeRate ?? decimal(dto.commissionRate),
-    serviceFeeAmount: pricing?.serviceFeeAmount ?? decimal(dto.commissionAmount),
-    employerTotal: pricing?.employerTotal ?? decimal(dto.totalCharged),
+    workerPayout: pricing?.workerPayout ?? decimal(dto.workerPayout, "paymentAttempt.workerPayout"),
+    serviceFeeRate: pricing?.serviceFeeRate ?? decimal(dto.commissionRate, "paymentAttempt.commissionRate"),
+    serviceFeeAmount: pricing?.serviceFeeAmount ?? decimal(dto.commissionAmount, "paymentAttempt.commissionAmount"),
+    employerTotal: pricing?.employerTotal ?? decimal(dto.totalCharged, "paymentAttempt.totalCharged"),
     completedAt: dto.completedAt ?? null,
     createdAt: dto.createdAt ?? "",
     failureMessage: clean(dto.failureReason) === null ? null : paymentAttemptFailureMessage,
@@ -254,8 +287,12 @@ function clean(value: string | null | undefined): string | null {
   return value?.trim() || null;
 }
 
-function decimal(value: string | number | null | undefined): string {
-  return value === null || value === undefined ? "" : String(value);
+function decimal(value: unknown, field: string): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value !== "string") {
+    throw new Error(`${field} must be an exact decimal string`);
+  }
+  return value;
 }
 
 const emptyPage: EmployerAssignmentPage = {

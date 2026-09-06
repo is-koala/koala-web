@@ -3,6 +3,7 @@
 import type { FormEvent } from "react";
 
 import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
+import { canCancelAssignment } from "@/assignments/resolution";
 import { formatMoney } from "@/lib/money";
 
 import { canOpenDispute, formatNotice, formatRate } from "./presenters";
@@ -17,14 +18,18 @@ export function WorkSecondaryActions({
   onCommand: (command: WorkDetailCommand, notice?: string) => void;
 }) {
   const preview = detail.resolution.cancellationPreview;
+  const canCancel = canCancelAssignment({
+    assignmentStatus: detail.assignment.status,
+    resolution: detail.resolution,
+  });
   const canReview = detail.assignment.status === "COMPLETED";
   const showDispute = canOpenDispute(detail);
-  if (!preview?.cancellableNow && !showDispute && !canReview) return null;
+  if (!canCancel && !showDispute && !canReview) return null;
 
   return (
     <section className="work-detail-section work-secondary-actions" aria-labelledby="other-actions-heading">
       <h2 id="other-actions-heading">Diğer işlemler</h2>
-      {preview?.cancellableNow ? (
+      {canCancel && preview ? (
         <details>
           <summary>İptal önizlemesi</summary>
           <div className="work-action-body">

@@ -53,3 +53,29 @@ export type ResolutionActionState =
   | { status: "idle" }
   | { status: "done"; message: string }
   | { status: "error"; errorCode: string; httpStatus: number };
+
+export function hasActiveDispute(resolution: AssignmentResolution): boolean {
+  return resolution.disputes.some((dispute) => isActiveDisputeStatus(dispute.status));
+}
+
+export function isActiveDisputeStatus(status: string | null | undefined): boolean {
+  return status === "OPEN" || status === "UNDER_REVIEW";
+}
+
+export function canOpenAssignmentDispute(input: {
+  assignmentStatus: string;
+  paymentStatus: string;
+  resolution: AssignmentResolution;
+}): boolean {
+  return input.paymentStatus === "HELD_IN_ESCROW" &&
+    ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(input.assignmentStatus) &&
+    !hasActiveDispute(input.resolution);
+}
+
+export function canCancelAssignment(input: {
+  assignmentStatus: string;
+  resolution: AssignmentResolution;
+}): boolean {
+  return (input.assignmentStatus === "CONFIRMED" || input.assignmentStatus === "IN_PROGRESS") &&
+    input.resolution.cancellationPreview?.cancellableNow === true;
+}

@@ -12,7 +12,7 @@ export type WorkerPayout = {
   amount: string;
   currency: string;
   status: PayoutStatus;
-  failureReason: string | null;
+  failureMessage: string | null;
   completedAt: string | null;
   createdAt: string;
 };

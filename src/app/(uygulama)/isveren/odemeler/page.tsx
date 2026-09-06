@@ -32,7 +32,7 @@ export async function EmployerPaymentsPage({ searchParams }: EmployerPaymentsPag
   if (context.failure !== null || context.viewer === null) return null;
 
   const result = await readAllEmployerAssignments()
-    .then((assignments) => ({ assignments }))
+    .then((collection) => ({ collection }))
     .catch((error: unknown) => {
       unstable_rethrow(error);
       return { failure: failureView(error) };
@@ -51,10 +51,14 @@ export async function EmployerPaymentsPage({ searchParams }: EmployerPaymentsPag
       <p className="lede">
         Tahsil edilen, emanette bekleyen ve işçiye aktarılan ödemeleri atamalarıyla birlikte gör.
       </p>
-      {result.assignments.length === 0 ? (
+      {result.collection.assignments.length === 0 ? (
         <EmptyState kind="employerAssignments" />
       ) : (
-        <EmployerPaymentsOverview assignments={result.assignments} filter={filter} />
+        <EmployerPaymentsOverview
+          assignments={result.collection.assignments}
+          filter={filter}
+          totalsComplete={result.collection.totalsComplete}
+        />
       )}
     </section>
   );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { formatMoney } from "@/lib/money";
+import { formatMoney, sumMoney } from "@/lib/money";
 import type { EmployerAssignment } from "@/payments/contract";
 
 import { PaymentStatusBadge } from "./employer-payment";
@@ -17,9 +17,11 @@ const filters = [
 export function EmployerPaymentsOverview({
   assignments,
   filter,
+  totalsComplete,
 }: {
   assignments: readonly EmployerAssignment[];
   filter: string;
+  totalsComplete: boolean;
 }) {
   const visible = filter === "all"
     ? assignments
@@ -32,8 +34,16 @@ export function EmployerPaymentsOverview({
 
   return (
     <div className="payments-overview">
+      {!totalsComplete ? (
+        <p role="status" className="state-card">
+          Bu özet yalnız listelenen atamaları kapsar; tam toplam değildir.
+        </p>
+      ) : null}
       <div className="payment-summary-grid">
-        <SummaryCard title="Toplam tahsil edilen" totals={collected} />
+        <SummaryCard
+          title={totalsComplete ? "Toplam tahsil edilen" : "Listelenen atamalarda tahsil edilen"}
+          totals={collected}
+        />
         <SummaryCard title="Emanette bekleyen" totals={held} />
       </div>
 
@@ -79,42 +89,34 @@ export function EmployerPaymentsOverview({
   );
 }
 
-function SummaryCard({ title, totals }: { title: string; totals: ReadonlyMap<string, bigint> }) {
+function SummaryCard({
+  title,
+  totals,
+}: {
+  title: string;
+  totals: ReadonlyMap<string, readonly string[]>;
+}) {
   return (
     <section className="payment-summary-card">
       <h2>{title}</h2>
       {totals.size === 0 ? (
         <p>0,00 ₺</p>
-      ) : [...totals].map(([currency, minor]) => (
-        <p key={currency}>{formatMoney(decimalFromMinor(minor), currency)}</p>
-      ))}
+      ) : [...totals].map(([currency, amounts]) => {
+        const total = sumMoney(amounts);
+        return <p key={currency}>{total === null ? "—" : formatMoney(total, currency)}</p>;
+      })}
     </section>
   );
 }
 
 /** Backend tutarlarını ikili kayan noktaya çevirmeden yalnız özet için toplar. */
-function moneyTotals(assignments: readonly EmployerAssignment[]): ReadonlyMap<string, bigint> {
-  const totals = new Map<string, bigint>();
+function moneyTotals(assignments: readonly EmployerAssignment[]): ReadonlyMap<string, readonly string[]> {
+  const totals = new Map<string, string[]>();
   for (const assignment of assignments) {
     if (!assignment.pricing) continue;
-    const minor = minorUnits(assignment.pricing.employerTotal);
-    if (minor === null) continue;
-    totals.set(
-      assignment.pricing.currency,
-      (totals.get(assignment.pricing.currency) ?? BigInt(0)) + minor,
-    );
+    const amounts = totals.get(assignment.pricing.currency) ?? [];
+    amounts.push(assignment.pricing.employerTotal);
+    totals.set(assignment.pricing.currency, amounts);
   }
   return totals;
-}
-
-function minorUnits(value: string): bigint | null {
-  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value);
-  if (!match) return null;
-  return BigInt(match[1]) * BigInt(100) + BigInt(`${match[2] ?? ""}00`.slice(0, 2));
-}
-
-function decimalFromMinor(value: bigint): string {
-  const whole = value / BigInt(100);
-  const fraction = String(value % BigInt(100)).padStart(2, "0");
-  return `${whole}.${fraction}`;
 }

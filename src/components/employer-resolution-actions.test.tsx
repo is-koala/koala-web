@@ -58,4 +58,17 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.queryByRole("button", { name: "Uyuşmazlık aç" })).toBeNull();
     expect(screen.getByText(/mevcut uyuşmazlık sonuçlanana kadar/i)).toBeVisible();
   });
+
+  it("backend önizlemesi izin veriyorsa devam eden atamayı da iptal ettirir", () => {
+    render(<EmployerResolutionActions
+      assignmentStatus="IN_PROGRESS"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={vi.fn()}
+    />);
+
+    fireEvent.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeVisible();
+  });
 });

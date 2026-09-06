@@ -14,7 +14,7 @@ function payout(overrides: Partial<WorkerPayout>): WorkerPayout {
     amount: "1000.10",
     currency: "TRY",
     status: "COMPLETED",
-    failureReason: null,
+    failureMessage: null,
     completedAt: "2026-09-05T11:00:00Z",
     createdAt: "2026-09-05T10:30:00Z",
     ...overrides,
@@ -53,18 +53,19 @@ describe("kazanç listesi", () => {
     expect(screen.getAllByText("Ödendi")).toHaveLength(1);
   });
 
-  it("başarısız çıkışın nedenini, destek yolunu ve atama bağlantısını korur", () => {
+  it("başarısız çıkışın güvenli açıklamasını, destek yolunu ve atama bağlantısını korur", () => {
     render(<EarningsList payouts={[
       payout({
         status: "FAILED",
-        failureReason: "IBAN sahibi eşleşmedi",
+        failureMessage: "Banka aktarımı tamamlanamadı. Ödeme hesabını kontrol edip destekten yardım alabilirsin.",
         completedAt: null,
       }),
     ]} />);
 
     const row = screen.getByRole("listitem");
     expect(within(row).getByText("Aktarılamadı")).toBeVisible();
-    expect(within(row).getByText("IBAN sahibi eşleşmedi")).toBeVisible();
+    expect(within(row).getByText(/Banka aktarımı tamamlanamadı/)).toBeVisible();
+    expect(within(row).queryByText("IBAN sahibi eşleşmedi")).toBeNull();
     expect(within(row).getByRole("link", { name: "İşi görüntüle" })).toHaveAttribute(
       "href",
       `/panel/is/${assignmentId}`,
@@ -77,10 +78,13 @@ describe("kazanç listesi", () => {
 
   it("sağlayıcı nedeni geldiyse durum kodundan bağımsız yardım sunar", () => {
     render(<EarningsList payouts={[
-      payout({ status: "PROCESSING", failureReason: "Banka yanıtı bekleniyor" }),
+      payout({
+        status: "PROCESSING",
+        failureMessage: "Banka aktarımının güncel durumu doğrulanıyor. Biraz sonra yeniden kontrol edebilirsin.",
+      }),
     ]} />);
 
-    expect(screen.getByText("Banka yanıtı bekleniyor")).toBeVisible();
+    expect(screen.getByText(/güncel durumu doğrulanıyor/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Destekten yardım al" })).toBeVisible();
   });
 

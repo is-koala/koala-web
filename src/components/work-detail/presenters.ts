@@ -4,6 +4,7 @@ import type {
   WorkSession,
 } from "@/assignments/work-detail";
 import type { LocationCapture } from "@/assignments/geolocation";
+import { canOpenAssignmentDispute } from "@/assignments/resolution";
 import { errorPresentation } from "@/lib/errors";
 
 export function openSession(detail: WorkDetail): WorkSession | null {
@@ -20,10 +21,11 @@ export function canCheckIn(detail: WorkDetail): boolean {
 }
 
 export function canOpenDispute(detail: WorkDetail): boolean {
-  return (
-    detail.assignment.paymentStatus === "HELD_IN_ESCROW" &&
-    ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(detail.assignment.status)
-  );
+  return canOpenAssignmentDispute({
+    assignmentStatus: detail.assignment.status,
+    paymentStatus: detail.assignment.paymentStatus,
+    resolution: detail.resolution,
+  });
 }
 
 export function totalMinutes(sessions: readonly WorkSession[]): number {

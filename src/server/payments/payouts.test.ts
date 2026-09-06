@@ -62,14 +62,16 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(readWorkerPayouts()).resolves.toEqual([
+    const result = await readWorkerPayouts();
+
+    expect(result).toEqual([
       {
         id: "a1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
         assignmentId: "b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
         amount: "1000.10",
         currency: "TRY",
         status: "FAILED",
-        failureReason: "IBAN sahibi eşleşmedi",
+        failureMessage: "Banka aktarımı tamamlanamadı. Ödeme hesabını kontrol edip destekten yardım alabilirsin.",
         completedAt: null,
         createdAt: "2026-09-05T10:30:00Z",
       },
@@ -79,11 +81,12 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
         amount: "250.00",
         currency: "TRY",
         status: "UNKNOWN",
-        failureReason: null,
+        failureMessage: null,
         completedAt: null,
         createdAt: "2026-09-04T08:00:00Z",
       },
     ]);
+    expect(JSON.stringify(result)).not.toContain("IBAN sahibi eşleşmedi");
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.example.test/users/me/payouts");
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "GET", cache: "no-store" });
   });
@@ -92,5 +95,19 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(null))));
 
     await expect(readWorkerPayouts()).resolves.toEqual([]);
+  });
+
+  it("sayısal payout tutarını kesin para sözleşmesi diye kabul etmez", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope([{
+      id: "a1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+      jobAssignmentId: "b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+      amount: 9007199254740994,
+      currency: "TRY",
+      status: "COMPLETED",
+      createdAt: "2026-09-05T10:30:00Z",
+    }]))));
+
+    await expect(readWorkerPayouts())
+      .rejects.toThrow("payout.amount must be an exact decimal string");
   });
 });

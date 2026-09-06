@@ -37,10 +37,18 @@ it("backend toplamlarını kuruş kaybetmeden ödeme ve emanet özetinde toplar"
       paymentStatus: "RELEASED_TO_WORKER",
       pricing: { ...base.pricing!, employerTotal: "6.00" },
     },
-  ]} filter="all" />);
+  ]} filter="all" totalsComplete />);
 
   expect(screen.getByText("9.007.199.254.741.000,00 ₺")).toBeVisible();
   expect(within(screen.getByRole("heading", { name: "Emanette bekleyen" }).parentElement!)
     .getByText("9.007.199.254.740.994,00 ₺")).toBeVisible();
   expect(screen.getByText("İşçiye aktarıldı")).toBeVisible();
+});
+
+it("sayfalama sınırına gelince finansal özeti tam toplam diye sunmaz", () => {
+  render(<EmployerPaymentsOverview assignments={[base]} filter="all" totalsComplete={false} />);
+
+  expect(screen.getByRole("status")).toHaveTextContent("tam toplam değildir");
+  expect(screen.getByRole("heading", { name: "Listelenen atamalarda tahsil edilen" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "Toplam tahsil edilen" })).toBeNull();
 });

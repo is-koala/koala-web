@@ -42,6 +42,8 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.getByText("1.500,50 ₺")).toBeVisible();
     expect(screen.getByText("112,54 ₺")).toBeVisible();
     expect(screen.getByText("1.613,04 ₺")).toBeVisible();
+    expect(screen.getByText("İşveren toplamı")).toBeVisible();
+    expect(screen.queryByText("Ödeyeceğin toplam")).toBeNull();
     expect(screen.getByText("0.075")).toBeVisible();
     expect(screen.getByText("2026-09-v1")).toBeVisible();
   });

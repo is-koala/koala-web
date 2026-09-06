@@ -35,7 +35,7 @@ export function PaymentBreakdown({ pricing }: { pricing: PricingBreakdown }) {
         <dd>{pricing.serviceFeeRate}</dd>
       </div>
       <div className="payment-breakdown-total">
-        <dt>Ödeyeceğin toplam</dt>
+        <dt>İşveren toplamı</dt>
         <dd>{formatMoney(pricing.employerTotal, pricing.currency)}</dd>
       </div>
       <div>

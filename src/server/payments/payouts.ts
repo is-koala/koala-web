@@ -32,16 +32,30 @@ export async function readWorkerPayouts(): Promise<readonly WorkerPayout[]> {
 
 function projectPayout(dto: PayoutDto): WorkerPayout {
   const reason = dto.failureReason?.trim();
+  const status = payoutStatuses.has(dto.status as PayoutStatus)
+    ? (dto.status as PayoutStatus)
+    : "UNKNOWN";
   return {
     id: dto.id,
     assignmentId: dto.jobAssignmentId,
-    amount: dto.amount,
+    amount: exactDecimal(dto.amount),
     currency: dto.currency,
-    status: payoutStatuses.has(dto.status as PayoutStatus)
-      ? (dto.status as PayoutStatus)
-      : "UNKNOWN",
-    failureReason: reason || null,
+    status,
+    failureMessage: reason ? safeFailureMessage(status) : null,
     completedAt: dto.completedAt ?? null,
     createdAt: dto.createdAt,
   };
+}
+
+function safeFailureMessage(status: PayoutStatus): string {
+  return status === "FAILED"
+    ? "Banka aktarımı tamamlanamadı. Ödeme hesabını kontrol edip destekten yardım alabilirsin."
+    : "Banka aktarımının güncel durumu doğrulanıyor. Biraz sonra yeniden kontrol edebilirsin.";
+}
+
+function exactDecimal(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new Error("payout.amount must be an exact decimal string");
+  }
+  return value;
 }

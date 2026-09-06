@@ -13,9 +13,9 @@ import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
 type CancellationPreviewDto = {
-  feeRate: string | number;
-  feeAmount: string | number;
-  refundAmount: string | number;
+  feeRate: string;
+  feeAmount: string;
+  refundAmount: string;
   noticeMinutes: number;
   cancellableNow: boolean;
 };
@@ -24,9 +24,9 @@ type CancellationDto = {
   id: string;
   cancelledByParty?: string | null;
   reason?: string | null;
-  feeRate: string | number;
-  feeAmount: string | number;
-  refundAmount: string | number;
+  feeRate: string;
+  feeAmount: string;
+  refundAmount: string;
   noticeMinutes: number;
   cancelledAt: string;
   refundStatus?: string | null;
@@ -92,9 +92,9 @@ export async function createAssignmentDispute(
 
 function toCancellationPreview(dto: CancellationPreviewDto): CancellationPreview {
   return {
-    feeRate: String(dto.feeRate),
-    feeAmount: String(dto.feeAmount),
-    refundAmount: String(dto.refundAmount),
+    feeRate: exactDecimal(dto.feeRate, "cancellationPreview.feeRate"),
+    feeAmount: exactDecimal(dto.feeAmount, "cancellationPreview.feeAmount"),
+    refundAmount: exactDecimal(dto.refundAmount, "cancellationPreview.refundAmount"),
     noticeMinutes: dto.noticeMinutes,
     cancellableNow: dto.cancellableNow,
   };
@@ -108,9 +108,9 @@ function toCancellationRecord(dto: CancellationDto): CancellationRecord {
         ? dto.cancelledByParty
         : "UNKNOWN",
     reason: dto.reason?.trim() || "Neden belirtilmedi",
-    feeRate: String(dto.feeRate),
-    feeAmount: String(dto.feeAmount),
-    refundAmount: String(dto.refundAmount),
+    feeRate: exactDecimal(dto.feeRate, "cancellation.feeRate"),
+    feeAmount: exactDecimal(dto.feeAmount, "cancellation.feeAmount"),
+    refundAmount: exactDecimal(dto.refundAmount, "cancellation.refundAmount"),
     noticeMinutes: dto.noticeMinutes,
     cancelledAt: dto.cancelledAt,
     refundStatus: toRefundStatus(dto.refundStatus),
@@ -154,4 +154,11 @@ function toDisputeResolution(value: string | null | undefined): DisputeResolutio
     value === "DISMISSED"
     ? value
     : null;
+}
+
+function exactDecimal(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`${field} must be an exact decimal string`);
+  }
+  return value;
 }

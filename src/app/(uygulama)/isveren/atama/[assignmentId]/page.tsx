@@ -6,7 +6,6 @@ import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
 import { formatAssignmentDate } from "@/components/assignment-presenters";
 import { EmployerResolutionActions } from "@/components/employer-resolution-actions";
 import {
-  DisputeEscrowNotice,
   EmployerAssignmentPayment,
   PaymentBreakdown,
   PaymentResultNotice,
@@ -17,7 +16,7 @@ import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
 import {
   readEmployerAssignment,
-  readPaymentDetailsForAssignment,
+  readPaymentResolutionForAssignment,
 } from "@/server/payments/payments";
 import { readEmployerPaymentRequirements } from "@/server/payments/preflight";
 import { readAssignmentResolution } from "@/server/assignments/resolution";
@@ -79,11 +78,11 @@ export async function EmployerAssignmentContent({
   searchParams: EmployerAssignmentPageProps["searchParams"];
 }) {
   const loaded = await Promise.all([
-    readPaymentDetailsForAssignment(assignment),
+    readPaymentResolutionForAssignment(assignment),
     readEmployerPaymentRequirements(viewerGates(viewer), assignment),
     readAssignmentResolution(assignment.id, assignment.status),
-  ]).then(([reconciliation, requirements, resolution]) => ({
-    reconciliation,
+  ]).then(([paymentResolution, requirements, resolution]) => ({
+    paymentResolution,
     requirements,
     resolution,
   }))
@@ -105,8 +104,7 @@ export async function EmployerAssignmentContent({
       <h1>{assignment.title}</h1>
       <p className="lede">{assignment.workerName || "İşçi bilgisi bekleniyor"}</p>
 
-      {showPaymentResult ? <PaymentResultNotice resolution={loaded.reconciliation.resolution} /> : null}
-      <DisputeEscrowNotice hasActiveDispute={loaded.reconciliation.hasActiveDispute} />
+      {showPaymentResult ? <PaymentResultNotice resolution={loaded.paymentResolution} /> : null}
 
       <dl className="assignment-detail-facts">
         <div>

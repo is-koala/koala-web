@@ -102,9 +102,9 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         },
       ])))
       .mockResolvedValueOnce(jsonResponse(200, envelope({
-        feeRate: 0,
-        feeAmount: 0,
-        refundAmount: 1400,
+        feeRate: "0",
+        feeAmount: "0.00",
+        refundAmount: "1400.00",
         noticeMinutes: 120,
         cancellableNow: true,
       })))
@@ -145,8 +145,8 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
       resolution: {
         cancellationPreview: {
           feeRate: "0",
-          feeAmount: "0",
-          refundAmount: "1400",
+          feeAmount: "0.00",
+          refundAmount: "1400.00",
           noticeMinutes: 120,
           cancellableNow: true,
         },

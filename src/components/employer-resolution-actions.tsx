@@ -2,9 +2,12 @@
 
 import { useActionState } from "react";
 
-import type {
-  AssignmentResolution,
-  ResolutionActionState,
+import {
+  canCancelAssignment,
+  canOpenAssignmentDispute,
+  hasActiveDispute,
+  type AssignmentResolution,
+  type ResolutionActionState,
 } from "@/assignments/resolution";
 import { formatMoney } from "@/lib/money";
 
@@ -28,14 +31,9 @@ export function EmployerResolutionActions({
 }) {
   const [state, submit, pending] = useActionState(action, { status: "idle" });
   const preview = resolution.cancellationPreview;
-  const canCancel = assignmentStatus === "CONFIRMED" && preview?.cancellableNow === true;
-  const activeDispute = resolution.disputes.some(
-    (dispute) => dispute.status === "OPEN" || dispute.status === "UNDER_REVIEW",
-  );
-  const canDispute =
-    paymentStatus === "HELD_IN_ESCROW" &&
-    ["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(assignmentStatus) &&
-    !activeDispute;
+  const canCancel = canCancelAssignment({ assignmentStatus, resolution });
+  const activeDispute = hasActiveDispute(resolution);
+  const canDispute = canOpenAssignmentDispute({ assignmentStatus, paymentStatus, resolution });
 
   if (!canCancel && !canDispute && !activeDispute) return null;
 

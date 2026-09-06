@@ -6,7 +6,7 @@ import type { Viewer } from "@/server/session/viewer";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const readEmployerAssignment = vi.hoisted(() => vi.fn());
-const readPaymentDetailsForAssignment = vi.hoisted(() => vi.fn());
+const readPaymentResolutionForAssignment = vi.hoisted(() => vi.fn());
 const readEmployerPaymentRequirements = vi.hoisted(() => vi.fn());
 const readAssignmentResolution = vi.hoisted(() => vi.fn());
 const viewerGates = vi.hoisted(() => vi.fn());
@@ -16,7 +16,7 @@ const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/payments/payments", () => ({
   readEmployerAssignment,
-  readPaymentDetailsForAssignment,
+  readPaymentResolutionForAssignment,
 }));
 vi.mock("@/server/payments/preflight", () => ({ readEmployerPaymentRequirements }));
 vi.mock("@/server/assignments/resolution", () => ({
@@ -63,12 +63,7 @@ describe("işveren atama ayrıntısı", () => {
     readEmployerPaymentRequirements.mockResolvedValue({
       advisories: ["individualBillingAddress"], blocked: ["identityNumber"],
     });
-    readPaymentDetailsForAssignment.mockResolvedValue({
-      assignment,
-      attempts: [{ id: "attempt-1", status: "FAILED" }],
-      resolution: "failed",
-      hasActiveDispute: true,
-    });
+    readPaymentResolutionForAssignment.mockResolvedValue("failed");
     readAssignmentResolution.mockResolvedValue({
       cancellationPreview: null,
       cancellation: null,
@@ -96,7 +91,7 @@ describe("işveren atama ayrıntısı", () => {
     await expect(EmployerAssignmentPage({
       params: Promise.resolve({ assignmentId }), searchParams: Promise.resolve({}),
     })).rejects.toThrow("NEXT_NOT_FOUND");
-    expect(readPaymentDetailsForAssignment).not.toHaveBeenCalled();
+    expect(readPaymentResolutionForAssignment).not.toHaveBeenCalled();
   });
 
   it("bozuk kimlikte ownership backend'ine çıkmadan notFound üretir", async () => {
@@ -115,7 +110,8 @@ describe("işveren atama ayrıntısı", () => {
 
     expect(screen.getByRole("heading", { name: "Ödeme tamamlanamadı" })).toBeVisible();
     expect(screen.queryByText("Ödeme doğrulandı")).toBeNull();
-    expect(screen.getByText(/emanetten çıkış bekler/i)).toBeVisible();
+    expect(screen.getByText(/emanetteki para donduruldu/i)).toBeVisible();
+    expect(screen.getAllByText(/açık bir uyuşmazlık var/i)).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Ödemeye geç" })).toBeDisabled();
     expect(screen.getByText("Fatura adresin eksik").closest('[role="status"]')).not.toBeNull();
     expect(screen.getByText("Kimlik numaran hesabında kayıtlı değil").closest('[role="alert"]')).not.toBeNull();

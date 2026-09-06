@@ -1,8 +1,9 @@
-import type {
-  AssignmentDispute,
-  AssignmentResolution,
-  CancellationRecord,
-  RefundStatus,
+import {
+  hasActiveDispute,
+  type AssignmentDispute,
+  type AssignmentResolution,
+  type CancellationRecord,
+  type RefundStatus,
 } from "@/assignments/resolution";
 import { formatMoney } from "@/lib/money";
 
@@ -14,9 +15,7 @@ export function AssignmentResolutionPanel({
   currency: string;
 }) {
   const hasRecords = resolution.cancellation !== null || resolution.disputes.length > 0;
-  const activeDispute = resolution.disputes.some(
-    (dispute) => dispute.status === "OPEN" || dispute.status === "UNDER_REVIEW",
-  );
+  const activeDispute = hasActiveDispute(resolution);
 
   return (
     <section className="assignment-resolution" aria-labelledby="assignment-resolution-title">
@@ -58,12 +57,13 @@ function CancellationSummary({
   cancellation: CancellationRecord;
   currency: string;
 }) {
+  const hasRefund = !isZeroAmount(cancellation.refundAmount);
   return (
     <article className="assignment-resolution-card">
       <div className="assignment-resolution-heading">
         <div>
           <p className="eyebrow">Atama iptali</p>
-          <h3>{refundLabel(cancellation.refundStatus, cancellation.refundAmount)}</h3>
+          <h3>{refundLabel(cancellation.refundStatus, hasRefund)}</h3>
         </div>
         <span className="payment-status payment-status-neutral">
           {cancellation.cancelledByParty === "EMPLOYER"
@@ -87,12 +87,14 @@ function CancellationSummary({
           <dt>İptal zamanı</dt>
           <dd><time dateTime={cancellation.cancelledAt}>{formatDate(cancellation.cancelledAt)}</time></dd>
         </div>
-        <div>
-          <dt>İade tamamlanma</dt>
-          <dd>{cancellation.refundCompletedAt
-            ? <time dateTime={cancellation.refundCompletedAt}>{formatDate(cancellation.refundCompletedAt)}</time>
-            : "Henüz tamamlanmadı"}</dd>
-        </div>
+        {hasRefund ? (
+          <div>
+            <dt>İade tamamlanma</dt>
+            <dd>{cancellation.refundCompletedAt
+              ? <time dateTime={cancellation.refundCompletedAt}>{formatDate(cancellation.refundCompletedAt)}</time>
+              : "Henüz tamamlanmadı"}</dd>
+          </div>
+        ) : null}
       </dl>
     </article>
   );
@@ -117,8 +119,8 @@ function DisputeSummary({ dispute }: { dispute: AssignmentDispute }) {
   );
 }
 
-function refundLabel(status: RefundStatus | null, refundAmount: string): string {
-  if (/^-?0+(?:\.0+)?$/.test(refundAmount.trim())) return "İade gerekmiyor";
+function refundLabel(status: RefundStatus | null, hasRefund: boolean): string {
+  if (!hasRefund) return "İade gerekmiyor";
   switch (status) {
     case null:
       return "İade talebi alındı";
@@ -131,6 +133,10 @@ function refundLabel(status: RefundStatus | null, refundAmount: string): string 
     default:
       return "İade durumu bekleniyor";
   }
+}
+
+function isZeroAmount(value: string): boolean {
+  return /^-?0+(?:\.0+)?$/.test(value.trim());
 }
 
 function disputeStatusLabel(status: AssignmentDispute["status"]): string {

@@ -45,7 +45,7 @@ describe("Kazançlarım sayfası durumları", () => {
       amount: "1250.00",
       currency: "TRY",
       status: "COMPLETED",
-      failureReason: null,
+      failureMessage: null,
       completedAt: "2026-09-05T11:00:00Z",
       createdAt: "2026-09-05T10:30:00Z",
     }]);

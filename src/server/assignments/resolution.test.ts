@@ -42,9 +42,9 @@ describe("atama sonuçlandırma BFF sözleşmesi", () => {
   it("iptal edilebilir atamada kesinti önizlemesiyle açık uyuşmazlığı tek görünümde toplar", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, envelope({
-        feeRate: 0.075,
-        feeAmount: 75,
-        refundAmount: 925,
+        feeRate: "0.075",
+        feeAmount: "75.00",
+        refundAmount: "925.00",
         noticeMinutes: 60,
         cancellableNow: true,
       })))
@@ -62,8 +62,8 @@ describe("atama sonuçlandırma BFF sözleşmesi", () => {
     await expect(readAssignmentResolution(assignmentId, "CONFIRMED")).resolves.toEqual({
       cancellationPreview: {
         feeRate: "0.075",
-        feeAmount: "75",
-        refundAmount: "925",
+        feeAmount: "75.00",
+        refundAmount: "925.00",
         noticeMinutes: 60,
         cancellableNow: true,
       },
@@ -80,15 +80,31 @@ describe("atama sonuçlandırma BFF sözleşmesi", () => {
     });
   });
 
+  it("sayısal iptal tutarını kesin para sözleşmesi diye kabul etmez", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        feeRate: "0.075",
+        feeAmount: 75,
+        refundAmount: "925.00",
+        noticeMinutes: 60,
+        cancellableNow: true,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readAssignmentResolution(assignmentId, "CONFIRMED"))
+      .rejects.toThrow("cancellationPreview.feeAmount must be an exact decimal string");
+  });
+
   it("iptal edilen atamada gerçek iade yaşam döngüsünü taşır", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, envelope({
         id: "cancellation-1",
         cancelledByParty: "EMPLOYER",
         reason: "Plan değişti",
-        feeRate: 0,
-        feeAmount: 0,
-        refundAmount: 1000,
+        feeRate: "0",
+        feeAmount: "0.00",
+        refundAmount: "1000.00",
         noticeMinutes: 240,
         cancelledAt: "2026-09-06T10:00:00Z",
         refundStatus: "PENDING",
@@ -101,7 +117,7 @@ describe("atama sonuçlandırma BFF sözleşmesi", () => {
 
     expect(result.cancellation).toMatchObject({
       refundStatus: "PENDING",
-      refundAmount: "1000",
+      refundAmount: "1000.00",
     });
     expect(result.cancellationPreview).toBeNull();
   });

@@ -53,9 +53,9 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
             <time dateTime={payout.completedAt ?? payout.createdAt}>
               {formatPayoutDate(payout.completedAt ?? payout.createdAt)}
             </time>
-            {payout.failureReason || payout.status === "FAILED" ? (
+            {payout.failureMessage || payout.status === "FAILED" ? (
               <div className="payout-failure">
-                <p>{payout.failureReason ?? "Aktarım tamamlanamadı."}</p>
+                <p>{payout.failureMessage ?? "Aktarım tamamlanamadı. Destekten yardım alabilirsin."}</p>
                 <Link className="text-link" href="/iletisim">Destekten yardım al</Link>
               </div>
             ) : null}

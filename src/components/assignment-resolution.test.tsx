@@ -59,6 +59,8 @@ describe("atama iptal, iade ve uyuşmazlık görünümü", () => {
 
     expect(screen.getByText("İade gerekmiyor")).toBeVisible();
     expect(screen.queryByText("İade talebi alındı")).toBeNull();
+    expect(screen.queryByText("İade tamamlanma")).toBeNull();
+    expect(screen.queryByText("Henüz tamamlanmadı")).toBeNull();
   });
 
   it("açık uyuşmazlıkta emanetin donduğunu ve sonuçlanan kararı gösterir", () => {

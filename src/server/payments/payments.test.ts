@@ -9,6 +9,7 @@ import {
 
 import {
   createPaymentSession,
+  readAllEmployerAssignments,
   readEmployerPaymentCompany,
   readPaymentDetailsForAssignment,
   readEmployerAssignments,
@@ -101,6 +102,28 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     });
   });
 
+  it("güvenlik sayfa sınırına gelince atama koleksiyonunu eksik diye işaretler", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const page = Number(new URL(String(input)).searchParams.get("page"));
+      return Promise.resolve(jsonResponse(200, envelope({
+        content: page === 0 ? [backendAssignment] : [],
+        page,
+        size: 100,
+        totalElements: 10_001,
+        totalPages: 101,
+        first: page === 0,
+        last: false,
+      })));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readAllEmployerAssignments()).resolves.toMatchObject({
+      assignments: [{ id: assignmentId }],
+      totalsComplete: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(100);
+  });
+
   it("ödeme oturumunu yalnız atama kimliğiyle başlatır ve tokenı tarayıcı modeline çıkarmaz", async () => {
     const session = {
       paymentPageUrl: "https://sandbox-payment.iyzipay.com/checkout/token",
@@ -161,6 +184,23 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     expect(JSON.stringify(result)).not.toContain("provider internal detail");
   });
 
+  it("sayısal ödeme denemesi tutarını kesin para sözleşmesi diye kabul etmez", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope([{
+      id: "2f1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f61",
+      status: "FAILED",
+      currency: "TRY",
+      workerPayout: 9007199254740994,
+      commissionRate: "0.075",
+      commissionAmount: "112.54",
+      totalCharged: "1613.04",
+      createdAt: "2026-09-06T18:00:00Z",
+    }])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readPaymentAttempts(assignmentId))
+      .rejects.toThrow("paymentAttempt.workerPayout must be an exact decimal string");
+  });
+
   it("ödeme sonucunu hem atamanın hem denemelerin backend durumundan mutabıklaştırır", async () => {
     const settledAssignment = {
       ...backendAssignment,
@@ -189,6 +229,31 @@ describe("işveren ödeme BFF sözleşmesi", () => {
       assignment: { id: assignmentId, paymentStatus: "HELD_IN_ESCROW" },
       resolution: "held",
       hasActiveDispute: false,
+    });
+  });
+
+  it("atama önceki hatayı taşısa da en yeni ödeme denemesi sonuçlanmadıysa bekler", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(assignmentPage([{
+        ...backendAssignment,
+        paymentStatus: "FAILED",
+      }]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([{
+        id: "attempt-retry",
+        status: "IN_REVIEW",
+        pricing: backendAssignment.pricing,
+        createdAt: "2026-09-06T19:00:00Z",
+      }, {
+        id: "attempt-failed",
+        status: "FAILED",
+        pricing: backendAssignment.pricing,
+        createdAt: "2026-09-06T18:00:00Z",
+      }])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readPaymentReconciliation(assignmentId)).resolves.toMatchObject({
+      resolution: "pending",
+      attempts: [{ status: "IN_REVIEW" }, { status: "FAILED" }],
     });
   });
 

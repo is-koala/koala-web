@@ -343,4 +343,25 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     expect(screen.queryByText("Uyuşmazlık aç")).toBeNull();
     expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
   });
+
+  it("açık uyuşmazlık varken çalışana ikinci uyuşmazlık formu göstermez", () => {
+    const activeDispute = workDetail({
+      resolution: {
+        ...workDetail().resolution,
+        disputes: [{
+          id: "dispute-1",
+          status: "UNDER_REVIEW",
+          reason: "Çalışma süresi yanlış",
+          resolution: null,
+          resolutionNote: null,
+          createdAt: "2026-09-06T10:00:00Z",
+          resolvedAt: null,
+        }],
+      },
+    });
+
+    render(<WorkDetailScreen initialDetail={activeDispute} action={vi.fn()} locate={located} />);
+
+    expect(screen.queryByRole("button", { name: "Uyuşmazlığı gönder" })).toBeNull();
+  });
 });
