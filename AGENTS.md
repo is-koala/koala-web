@@ -111,7 +111,7 @@ yok. Bu sayfalar o iki boşluğu da kapatıyor — URL'leri kalıcı kabul et.
 
 ## Görsel doğrulama
 
-`npm run build` ve `next lint` yeşil olması **derlendiği** anlamına gelir,
+`npm run build` ve `npm run lint` yeşil olması **derlendiği** anlamına gelir,
 doğru göründüğü anlamına gelmez. Görsel değişiklik yaptıysan bunu ekranda
 doğrulamadığını **açıkça söyle** ve nelere bakılması gerektiğini yaz.
 
@@ -125,7 +125,19 @@ Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
 
 Değişiklikler ayrı feature branch'te küçük Conventional Commit'lerle
 gönderilir ve PR açılır. Doğrudan `main` dalına push edilmez; başlık İngilizce imperative,
-gövde `Refs #NN` taşır. CI geçmeden merge yok ve `git add .` kullanılmaz.
+gövde `Refs #NN` taşır ve `git add .` kullanılmaz.
+
+**Kalite kapısı yerelde koşulur.** `.github/workflows/ci.yml` duruyor ama
+faturalandırma yüzünden hiç çalışmıyor: her koşu saniyeler içinde log'suz
+başarısız oluyor. Yani "CI yeşil" diye bakılacak bir yer yok; kapıyı
+gönderen çalıştırır ve dördü de yeşil olmadan PR açılmaz:
+
+```
+npm run lint && npm run typecheck && npm test && npm run build
+```
+
+`npm run build` `.env.local` istiyor; `.env.example` kopyalanıp `API_URL`
+yerel bir değere çevrilir (dosya Git'e girmez).
 
 ## Sır yönetimi
 
