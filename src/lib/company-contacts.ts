@@ -1,3 +1,5 @@
+import { canManageCompany } from "./company";
+
 /**
  * Şirket yetkililerinin istemci tarafı kuralları.
  *
@@ -49,13 +51,13 @@ export function membershipRole(
 /**
  * Yetkili davet etme ve çıkarma yetkisi.
  *
- * Tanınan tek değere bağlı, "ADMIN değilse STAFF'tır" varsayımına değil:
- * sözleşmeden kaldırılmış `MANAGER` gibi bir değer ya da yanıttaki bir
- * sapma, yetkiyi sessizce açmamalı. Backend'de karşılığı
- * `CompanyManager.requireCompanyAdmin`.
+ * Kuralı kendisi yazmıyor, `canManageCompany`'yi çağırıyor: backend'de dört
+ * davet ucunun da şirket ayarlarının da önünde **aynı** kapı duruyor
+ * (`CompanyManager.requireCompanyAdmin`). İki kopya, biri sıkılaştırıldığında
+ * diğerinin sessizce gevşek kalması demekti.
  */
 export function canManageContacts(role: string | null | undefined): boolean {
-  return role === "ADMIN";
+  return canManageCompany(role);
 }
 
 /** `SafeUserDto`. E-posta taşımıyor: onay metni adla kurulmak zorunda. */

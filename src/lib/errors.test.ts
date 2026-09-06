@@ -162,6 +162,51 @@ describe("şirket yetkilisi hataları", () => {
       action: "home",
     });
   });
+
+  it("şirket kurmanın kimlik reddini doğrulama yoluna bağlar", () => {
+    // `CompanyManager.java:103-105` bunu 400 ile döndürüyor ve aile metni
+    // "Bilgileri kontrol et" olurdu: formda düzeltilecek bir alan yok,
+    // yapılacak iş kimlik doğrulamak.
+    const presentation = errorPresentation("USER_MUST_VERIFY_IDENTITY", 400);
+
+    expect(presentation.title).toBe("Kimliğini doğrulaman gerekiyor");
+    expect(presentation.message).toContain("Koala uygulamasından");
+    expect(presentation.action).toBe("none");
+  });
+
+  it("tanınmayan şirket türünü alan seçimine bağlar", () => {
+    // `CompanyManager.java:94-97` enum'a çeviremediği değeri 400 ile
+    // reddediyor; kullanıcının yapacağı iş listeden yeniden seçmek.
+    expect(errorPresentation("COMPANY_TYPE_INVALID", 400)).toEqual({
+      title: "Şirket türü tanınmadı",
+      message: "Listedeki şirket türlerinden birini seçip yeniden dene.",
+      action: "none",
+    });
+  });
+
+  it("başkasına ait daveti sahiplik cümlesiyle karşılar", () => {
+    // `CompanyContactInvitationManager.java:93-95` `ForbiddenException` → 403
+    // atıyor; aile metni ("Farklı bir hesapla giriş yapabilirsin") kullanıcıyı
+    // olmayan bir hesabı aramaya gönderirdi.
+    expect(errorPresentation("USER_NOT_ASSOCIATED_WITH_INVITATION", 403)).toEqual({
+      title: "Bu davet sana ait değil",
+      message:
+        "Davet başka bir hesaba gönderilmiş. Daveti bekliyorsan davet edildiğin hesapla giriş yapman gerekiyor.",
+      action: "none",
+    });
+  });
+
+  it("ikinci kez cevaplanan daveti kendi cümlesiyle karşılar", () => {
+    // Aile metni ("Bu kayıt başka bir duruma geçmiş olabilir. Sayfayı
+    // yenileyip yeniden dene") burada yanlış olurdu: yenilemek işe yaramaz,
+    // davet kalıcı olarak cevaplanmış ve geri alınamıyor.
+    expect(errorPresentation("INVITATION_ALREADY_ANSWERED", 409)).toEqual({
+      title: "Bu davet daha önce cevaplanmış",
+      message:
+        "Davet bir kez cevaplanıyor ve kararı geri almanın bir yolu yok. Güncel durumu sayfayı yenileyerek görebilirsin.",
+      action: "retry",
+    });
+  });
 });
 
 describe("davet sözleşmesinin hata aileleri", () => {
@@ -171,6 +216,14 @@ describe("davet sözleşmesinin hata aileleri", () => {
     // olmayan bir kardeş uç kullanıcıyı "farklı bir hesapla giriş yap"
     // diye yanlış yere gönderirdi.
     expect(backendErrorFamilies.USER_NOT_ASSOCIATED_WITH_COMPANY).toBe("notFound");
+  });
+
+  it("başkasına ait davetin reddini forbidden ailesinde tutar", () => {
+    // `answerToInvitation` bunu `ForbiddenException` ile atıyor (403), ama
+    // Swagger 404 diye belgeliyor. Kod haritada hiç yoksa `errorPresentation`
+    // durum koduna düşer ve belgeye göre yazılmış bir 404 sessizce "Aradığın
+    // içerik bulunamadı" derdi.
+    expect(backendErrorFamilies.USER_NOT_ASSOCIATED_WITH_INVITATION).toBe("forbidden");
   });
 
   it("zaten yetkili ve zaten bekleyen davet çakışmalarını çakışma ailesine koyar", () => {
