@@ -42,7 +42,7 @@ export async function employerResolutionAction(
     return {
       status: "done",
       message: operation === "cancel"
-        ? "Atama iptal edildi. İade talebi alındı."
+        ? "Atama iptal edildi. Güncel iade durumu sayfada gösteriliyor."
         : "Uyuşmazlık kaydınız alındı.",
     };
   } catch (error) {
@@ -50,4 +50,3 @@ export async function employerResolutionAction(
     return { status: "error", ...failureView(error) };
   }
 }
-

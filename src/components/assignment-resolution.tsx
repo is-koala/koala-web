@@ -63,7 +63,7 @@ function CancellationSummary({
       <div className="assignment-resolution-heading">
         <div>
           <p className="eyebrow">Atama iptali</p>
-          <h3>{refundLabel(cancellation.refundStatus)}</h3>
+          <h3>{refundLabel(cancellation.refundStatus, cancellation.refundAmount)}</h3>
         </div>
         <span className="payment-status payment-status-neutral">
           {cancellation.cancelledByParty === "EMPLOYER"
@@ -117,7 +117,8 @@ function DisputeSummary({ dispute }: { dispute: AssignmentDispute }) {
   );
 }
 
-function refundLabel(status: RefundStatus | null): string {
+function refundLabel(status: RefundStatus | null, refundAmount: string): string {
+  if (/^-?0+(?:\.0+)?$/.test(refundAmount.trim())) return "İade gerekmiyor";
   switch (status) {
     case null:
       return "İade talebi alındı";

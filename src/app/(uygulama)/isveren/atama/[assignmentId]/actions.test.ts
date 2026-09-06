@@ -29,7 +29,7 @@ describe("işveren atama sonuçlandırma action'ı", () => {
     form.set("reason", "  Plan değişti  ");
 
     await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
-      .resolves.toEqual({ status: "done", message: "Atama iptal edildi. İade talebi alındı." });
+      .resolves.toEqual({ status: "done", message: "Atama iptal edildi. Güncel iade durumu sayfada gösteriliyor." });
     expect(cancelAssignment).toHaveBeenCalledWith(assignmentId, "Plan değişti");
     expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
   });
@@ -54,4 +54,3 @@ describe("işveren atama sonuçlandırma action'ı", () => {
     expect(cancelAssignment).not.toHaveBeenCalled();
   });
 });
-

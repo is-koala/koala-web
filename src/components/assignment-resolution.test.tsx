@@ -40,6 +40,27 @@ describe("atama iptal, iade ve uyuşmazlık görünümü", () => {
     expect(screen.getByText("Plan değişti")).toBeVisible();
   });
 
+  it("sıfır tutarlı iptali iade talebi gibi sunmaz", () => {
+    render(<AssignmentResolutionPanel currency="TRY" resolution={{
+      ...empty,
+      cancellation: {
+        id: "cancellation-2",
+        cancelledByParty: "EMPLOYER",
+        reason: "Ödeme alınmadı",
+        feeRate: "0",
+        feeAmount: "0.00",
+        refundAmount: "0.00",
+        noticeMinutes: 60,
+        cancelledAt: "2026-09-06T10:00:00Z",
+        refundStatus: null,
+        refundCompletedAt: null,
+      },
+    }} />);
+
+    expect(screen.getByText("İade gerekmiyor")).toBeVisible();
+    expect(screen.queryByText("İade talebi alındı")).toBeNull();
+  });
+
   it("açık uyuşmazlıkta emanetin donduğunu ve sonuçlanan kararı gösterir", () => {
     render(<AssignmentResolutionPanel currency="TRY" resolution={{
       ...empty,
