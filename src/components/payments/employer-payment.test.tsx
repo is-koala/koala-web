@@ -97,10 +97,15 @@ describe("işveren ödeme sunumu", () => {
       employerTotal: "1613.04",
       completedAt: null,
       createdAt: "2026-09-06T18:00:00Z",
-      failureReason: "",
+      failureMessage: null,
     }]} />);
 
     expect(screen.getByText("Sonuç doğrulanıyor")).toBeVisible();
+    expect(screen.getByText("Çalışan ücreti")).toBeVisible();
+    expect(screen.getByText("Hizmet bedeli")).toBeVisible();
+    expect(screen.getByText("Toplam")).toBeVisible();
+    expect(screen.getByText("1.500,50 ₺")).toBeVisible();
+    expect(screen.getByText("112,54 ₺")).toBeVisible();
     expect(screen.getByText("1.613,04 ₺")).toBeVisible();
   });
 
@@ -120,7 +125,7 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.queryByText(/emanete alındı/i)).toBeNull();
   });
 
-  it("başarısız denemenin backend açıklamasını geçmişte korur", () => {
+  it("sağlayıcı ayrıntısı yerine BFF'in güvenli Türkçe yönlendirmesini gösterir", () => {
     render(<PaymentHistory attempts={[{
       id: "attempt-1",
       status: "FAILED",
@@ -131,10 +136,30 @@ describe("işveren ödeme sunumu", () => {
       employerTotal: "1613.04",
       completedAt: "2026-09-06T18:05:00Z",
       createdAt: "2026-09-06T18:00:00Z",
-      failureReason: "3DS doğrulaması tamamlanmadı",
+      failureMessage:
+        "Ödeme sağlayıcısı bu deneme için ek kontrol gerektirdi. Kartını ve banka doğrulamasını kontrol edebilirsin.",
     }]} />);
 
-    expect(screen.getByText("3DS doğrulaması tamamlanmadı")).toBeVisible();
+    expect(screen.getByText(/ödeme sağlayıcısı bu deneme için ek kontrol gerektirdi/i)).toBeVisible();
+    expect(screen.queryByText(/provider internal detail/i)).toBeNull();
+  });
+
+  it("başarısız denemede sağlayıcı ayrıntısı yoksa güvenli genel yönlendirmeye düşer", () => {
+    render(<PaymentHistory attempts={[{
+      id: "attempt-1",
+      status: "FAILED",
+      currency: "TRY",
+      workerPayout: "1500.50",
+      serviceFeeRate: "0.075",
+      serviceFeeAmount: "112.54",
+      employerTotal: "1613.04",
+      completedAt: "2026-09-06T18:05:00Z",
+      createdAt: "2026-09-06T18:00:00Z",
+      failureMessage: null,
+    }]} />);
+
+    expect(screen.getByText(/kartını ve banka doğrulamasını kontrol edip yeniden deneyebilirsin/i))
+      .toBeVisible();
   });
 
   it("aktif uyuşmazlığın emanetten çıkışı durdurduğunu açıklar", () => {

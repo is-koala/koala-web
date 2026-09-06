@@ -98,6 +98,11 @@ describe("API hata sunumu", () => {
     expect(errorPresentation("PAYMENT_PAGE_URL_REJECTED", 502).title).toBe(
       "Güvenli ödeme sayfası açılamadı",
     );
+    expect(errorPresentation("PAYMENT_ATTEMPT_IN_PROGRESS", 409)).toEqual({
+      title: "Ödeme sonucu bekleniyor",
+      message: "Devam eden ödeme denemesi kesinleşmeden yeni bir ödeme başlatılamaz.",
+      action: "none",
+    });
   });
 });
 

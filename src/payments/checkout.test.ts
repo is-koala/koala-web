@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  hasUnresolvedPaymentAttempt,
   isAllowedPaymentPageUrl,
   paymentAttemptLabel,
   paymentStatusLabel,
   paymentStatusPresentation,
 } from "./checkout";
+
+describe("yeniden ödeme başlatma kapısı", () => {
+  it.each(["INITIATED", "IN_REVIEW"] as const)(
+    "%s denemesi kesinleşmeden yeni checkout açılmasına izin vermez",
+    (status) => {
+      expect(hasUnresolvedPaymentAttempt([{ status }])).toBe(true);
+    },
+  );
+
+  it("yalnız tamamlanmış veya bilinmeyen denemeler kaldığında checkout'u kilitlemez", () => {
+    expect(hasUnresolvedPaymentAttempt([
+      { status: "FAILED" },
+      { status: "SUCCEEDED" },
+      { status: "UNKNOWN" },
+    ])).toBe(false);
+  });
+
+  it("kesinleşmemiş deneme listenin ortasında olsa da checkout'u kilitler", () => {
+    expect(hasUnresolvedPaymentAttempt([
+      { status: "FAILED" },
+      { status: "IN_REVIEW" },
+      { status: "SUCCEEDED" },
+    ])).toBe(true);
+  });
+});
 
 describe("Iyzico ödeme sayfası doğrulaması", () => {
   it("yalnız HTTPS kullanan iki kanonik Iyzico ana makinesini kabul eder", () => {

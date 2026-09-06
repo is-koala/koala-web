@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import { isUuid } from "@/lib/identifiers";
 import { failureView } from "@/server/form";
 import { readSession } from "@/server/session/session";
@@ -29,6 +31,7 @@ export async function readPaymentResultPoll(
       body: { status: reconciliation.resolution === "pending" ? "pending" : "resolved" },
     };
   } catch (error) {
+    unstable_rethrow(error);
     const failure = failureView(error);
     return { status: failure.httpStatus || 500, body: { status: "error", ...failure } };
   }

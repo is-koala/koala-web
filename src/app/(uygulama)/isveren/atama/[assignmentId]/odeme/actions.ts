@@ -3,8 +3,8 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { isUuid } from "@/lib/identifiers";
-import { isAllowedPaymentPageUrl } from "@/payments/checkout";
-import { createPaymentSession } from "@/server/payments/payments";
+import { hasUnresolvedPaymentAttempt, isAllowedPaymentPageUrl } from "@/payments/checkout";
+import { createPaymentSession, readPaymentAttempts } from "@/server/payments/payments";
 import { failureView } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
@@ -27,6 +27,14 @@ export async function startPaymentAction(
 
   let paymentPageUrl: string;
   try {
+    const attempts = await readPaymentAttempts(assignmentId);
+    if (hasUnresolvedPaymentAttempt(attempts)) {
+      return {
+        status: "error",
+        errorCode: "PAYMENT_ATTEMPT_IN_PROGRESS",
+        httpStatus: 409,
+      };
+    }
     const session = await createPaymentSession(assignmentId);
     paymentPageUrl = session.paymentPageUrl;
   } catch (error) {

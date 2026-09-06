@@ -96,6 +96,12 @@ export function canStartPayment(assignment: {
     (assignment.paymentStatus === "PENDING_COLLECTION" || assignment.paymentStatus === "FAILED");
 }
 
+export function hasUnresolvedPaymentAttempt(
+  attempts: readonly { status: PaymentAttemptStatus }[],
+): boolean {
+  return attempts.some(({ status }) => status === "INITIATED" || status === "IN_REVIEW");
+}
+
 export function paymentStatusPresentation(status: string): PaymentStatusPresentation {
   return status in paymentStatuses
     ? paymentStatuses[status as PaymentStatus]
