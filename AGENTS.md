@@ -51,11 +51,34 @@ src/app/
   (marketing)/     tanıtım sayfaları — statik üretilir, SEO önemli
   (legal)/         yasal metinler — mobil uygulama da bunlara link verir
   (account)/       e-posta karşılama akışları — sunucu tarafı
+  (uygulama)/      oturumlu kabuklar — /isveren ve /panel
 ```
 
 Rota adları Türkçe ve kalıcıdır: `/hesap-dogrula`, `/sifre-belirle`,
 `/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`. Bunlar e-postalara
 gömülecek; **değiştirmek eski e-postaları kırar.**
+
+`(uygulama)` altındaki iki kabuk oturum ister ve arama motorlarına kapalıdır:
+
+- Kabuk layout'u `enterShell()` çağırır — önce `requireSessionForCurrentPath()`
+  kapısı, sonra `React.cache()` ile paylaşılan `GET /users/me`. Kabuğun
+  **altındaki her sayfa da** aynı çağrıyı yapar; kapı ucuz, profil paylaşılıyor
+  ve sayfa kapısını layout'tan miras almıyor.
+- Menü ve "henüz açılmadı" ekranları tek bir kayıttan çizilir:
+  `src/lib/app-routes.ts`. Yeni bir bölüm önce oraya yazılır.
+- Kabuk kökleri `src/lib/private-routes.ts` içindeki `privateRouteTrees`
+  listesinde durur. `/isveren` tanıtım sayfası `/isverenler`'in **öneki**:
+  robots.txt eşleşmesi önek temelli olduğu için ağaç `/isveren$` ve `/isveren/`
+  olarak iki satıra açılır.
+- Kabuk kökünde `loading.tsx` yok ve olmamalı: segment bir Suspense sınırıyla
+  sarıldığında kabuk erken akıtılır, HTTP durumu 200'de kilitlenir ve
+  `notFound()` artık 404 döndüremez. Yükleniyor durumu bölümün kendi
+  `page.tsx` dosyasının yanına konur.
+- **Rol değiştirici yok ve karar verilmeden eklenmez.** "Web'de rol
+  değiştirilebilir mi?" sorusu ürün sahibinde (is-koala/koala-web#25).
+  `isEmployer` yalnız kayıt anında yazılıyor, değiştirecek bir backend ucu
+  yok, ve iki kabuk da bugün role göre değil yalnız oturuma göre kapalı.
+  Giriş sonrası hedef de bu yüzden `/` (`src/lib/site.ts`).
 
 ## Yasal metinler
 

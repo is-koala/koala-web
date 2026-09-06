@@ -24,10 +24,12 @@ export const loginPath = "/giris";
 /**
  * Kayıt tamamlandıktan sonra kullanıcının bırakılacağı yer.
  *
- * Geçici: kalıcı hedef rol seçimi ve ilk kullanım akışı (is-koala/koala-web#17).
- * Bugün `/is-ilanlari` henüz yok (is-koala/koala-web#19), var olmayan bir
- * adrese yönlendirmek kayıt akışının son adımını 404'e bağlardı. #17 inince
- * değişecek tek satır burası; rotanın içine gömülmedi.
+ * Hâlâ `/`, ama artık gidilecek bir yer olmadığı için değil: `/isveren` ve
+ * `/panel` kabukları is-koala/koala-web#25 ile açıldı. Bekleyen şey **hangisi**
+ * sorusunun cevabı. Üç seçenek de hedefin `isEmployer`'a bakmasını istiyor, ama
+ * birinde bu aynı zamanda `/isveren`'i iş arayana tamamen kapatan sert bir kapı
+ * anlamına geliyor; karar verilmeden yazılacak bir hedef, o kapıyı da sessizce
+ * seçmiş olurdu. Karar #25'e yorum olarak düşecek ve değişecek tek satır burası.
  */
 export const postRegistrationPath = "/";
 

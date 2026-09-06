@@ -2,7 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 
-import { loginRedirect } from "./login-redirect";
+import { currentRequestPath, loginRedirect } from "./login-redirect";
 import { readSession, type Session } from "./session";
 
 /**
@@ -18,4 +18,15 @@ export async function requireSession(currentPath: string): Promise<Session> {
     redirect(loginRedirect(currentPath));
   }
   return session;
+}
+
+/**
+ * Aynı kapı, adresini kendisi bulan hâli.
+ *
+ * Kabuk layout'u hangi sayfanın altında çizildiğini bilmiyor: server
+ * component'ler kendi adreslerini okuyamaz. Yol vekilin yazdığı başlıktan
+ * gelir; başlık hiç yoksa `loginRedirect` hedefsiz giriş adresine düşer.
+ */
+export async function requireSessionForCurrentPath(): Promise<Session> {
+  return requireSession(await currentRequestPath());
 }

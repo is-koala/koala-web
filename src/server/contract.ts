@@ -64,14 +64,13 @@ export const sessionCookies = {
 } as const;
 
 /**
- * `AuthController`, `LegalController`, `AddressSearchController` ve
- * `ReferenceDataController` uçları; backend'de context-path yok.
+ * `AuthController`, `LegalController`, `UsersController`, `AddressSearchController`
+ * ve `ReferenceDataController` uçları; backend'de context-path yok.
  *
  * Adres uçlarının kimlik alan parçaları burada değil `@/server/address/gateway`
  * içinde birleştirilir: kimlikler tarayıcıdan geldiği için yola konmadan önce
  * UUID olduklarının doğrulanması gerekiyor.
- */
-export const backendPaths = {
+ */export const backendPaths = {
   addressCandidateReverse: "/locations/address-candidates/reverse",
   addressSearchSessions: "/locations/address-search-sessions",
   agreements: "/legal/agreements",
@@ -84,6 +83,13 @@ export const backendPaths = {
   referenceCountries: "/reference/countries",
   resetPassword: "/auth/reset-password",
   startRegistration: "/auth/start-registration",
+  /**
+   * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta
+   * taşıyor — `isEmployer`, `identityVerified`, `maskedTcIdentityNumber`,
+   * `address` ve `companies[].approved` — bu yüzden şirket onayı için ikinci
+   * bir tur gerekmiyor.
+   */
+  usersMe: "/users/me",
   verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 
