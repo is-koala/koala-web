@@ -34,6 +34,7 @@ export type ApiCaller = {
 export type ApiRequestOptions = ApiCaller & {
   method?: HttpMethod;
   body?: unknown;
+  cache?: RequestCache;
 };
 
 type BackendEnvelope = {
@@ -93,6 +94,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions): Pro
     method: options.method ?? "GET",
     headers,
     body: requestBody,
+    cache: options.cache,
   });
 
   const body = await readBody(response);
