@@ -242,6 +242,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     expect(await screen.findByText("Toplam 1 sa 7 dk")).toBeVisible();
     expect(screen.getByText("1 sa 7 dk")).toBeVisible();
     expect(screen.queryByRole("timer")).toBeNull();
+    expect(screen.getByRole("button", { name: "İşe giriş yap" })).toBeVisible();
   });
 
   it("odak ve görünürlük dönüşlerinde sunucuyu yeniler; kaybolan tam adresi tutmaz", async () => {

@@ -13,7 +13,8 @@ export function openSession(detail: WorkDetail): WorkSession | null {
 export function canCheckIn(detail: WorkDetail): boolean {
   return (
     openSession(detail) === null &&
-    detail.assignment.status === "CONFIRMED" &&
+    (detail.assignment.status === "CONFIRMED" ||
+      detail.assignment.status === "IN_PROGRESS") &&
     detail.assignment.paymentStatus === "HELD_IN_ESCROW"
   );
 }

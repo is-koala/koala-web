@@ -1,20 +1,6 @@
-import type { AssignmentStatus, PaymentStatus } from "@/assignments/contract";
+import type { WorkerAssignment } from "@/assignments/contract";
 
-export type WorkAssignment = {
-  id: string;
-  jobId: string;
-  title: string;
-  position: string | null;
-  categoryName: string | null;
-  companyName: string | null;
-  cityName: string | null;
-  districtName: string | null;
-  startsAt: string;
-  endsAt: string;
-  status: AssignmentStatus;
-  paymentStatus: PaymentStatus;
-  workerPayout: string;
-  currency: string;
+export type WorkAssignment = WorkerAssignment & {
   assignedAt: string | null;
   completedAt: string | null;
 };

@@ -1,10 +1,6 @@
 import "server-only";
 
 import type {
-  AssignmentStatus,
-  PaymentStatus,
-} from "@/assignments/contract";
-import type {
   CancellationPreview,
   CheckpointKind,
   WorkAssignment,
@@ -13,34 +9,11 @@ import type {
 } from "@/assignments/work-detail";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
-
-type AssignmentDto = {
-  id: string;
-  job: {
-    id: string;
-    title: string;
-    position?: string | null;
-    category?: { name?: string | null } | null;
-    companyName?: string | null;
-    cityName?: string | null;
-    districtName?: string | null;
-    startDateTime: string;
-    endDateTime: string;
-  };
-  status: string;
-  paymentStatus: string;
-  assignmentDateTime?: string | null;
-  actualCompletionDateTime?: string | null;
-  workerPayout?: string | number | null;
-  pricing?: { workerPayout?: string | number | null; currency?: string | null } | null;
-};
-
-type AssignmentPageDto = {
-  content: readonly AssignmentDto[];
-  page: number;
-  totalPages: number;
-  last: boolean;
-};
+import {
+  projectWorkerAssignment,
+  type AssignmentDto,
+  type AssignmentPageDto,
+} from "@/server/assignments/backend-contract";
 
 type JobDetailDto = {
   description?: string | null;
@@ -65,21 +38,6 @@ type CancellationPreviewDto = {
   cancellableNow: boolean;
 };
 
-const assignmentStatuses = new Set<AssignmentStatus>([
-  "PENDING_CONFIRMATION",
-  "CONFIRMED",
-  "IN_PROGRESS",
-  "COMPLETED",
-  "REJECTED",
-  "CANCELLED",
-]);
-const paymentStatuses = new Set<PaymentStatus>([
-  "PENDING_COLLECTION",
-  "HELD_IN_ESCROW",
-  "RELEASED_TO_WORKER",
-  "FAILED",
-  "REFUNDED",
-]);
 const detailPageSize = 100;
 
 /**
@@ -176,22 +134,8 @@ async function findOwnedAssignment(assignmentId: string): Promise<AssignmentDto 
 }
 
 function toWorkAssignment(dto: AssignmentDto): WorkAssignment {
-  const payout = dto.pricing?.workerPayout ?? dto.workerPayout ?? "";
   return {
-    id: dto.id,
-    jobId: dto.job.id,
-    title: dto.job.title,
-    position: cleanText(dto.job.position),
-    categoryName: cleanText(dto.job.category?.name),
-    companyName: cleanText(dto.job.companyName),
-    cityName: cleanText(dto.job.cityName),
-    districtName: cleanText(dto.job.districtName),
-    startsAt: dto.job.startDateTime,
-    endsAt: dto.job.endDateTime,
-    status: assignmentStatus(dto.status),
-    paymentStatus: paymentStatus(dto.paymentStatus),
-    workerPayout: String(payout),
-    currency: dto.pricing?.currency ?? "",
+    ...projectWorkerAssignment(dto),
     assignedAt: dto.assignmentDateTime ?? null,
     completedAt: dto.actualCompletionDateTime ?? null,
   };
@@ -214,16 +158,6 @@ function toCancellationPreview(dto: CancellationPreviewDto): CancellationPreview
     noticeMinutes: dto.noticeMinutes,
     cancellableNow: dto.cancellableNow,
   };
-}
-
-function assignmentStatus(value: string): AssignmentStatus {
-  return assignmentStatuses.has(value as AssignmentStatus)
-    ? (value as AssignmentStatus)
-    : "UNKNOWN";
-}
-
-function paymentStatus(value: string): PaymentStatus {
-  return paymentStatuses.has(value as PaymentStatus) ? (value as PaymentStatus) : "UNKNOWN";
 }
 
 function shouldReadCancellationPreview(status: string) {
