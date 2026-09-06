@@ -312,8 +312,8 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     );
 
     expect(screen.getByText("İptal önizlemesi")).toBeVisible();
-    expect(screen.getByText("Kesinti").closest("div")).toHaveTextContent("Kesinti₺0,00");
-    expect(screen.getByText("İşverene iade").closest("div")).toHaveTextContent("İşverene iade₺1.400,00");
+    expect(screen.getByText("Kesinti").closest("div")).toHaveTextContent("Kesinti0,00 ₺");
+    expect(screen.getByText("İşverene iade").closest("div")).toHaveTextContent("İşverene iade1.400,00 ₺");
     expect(screen.getByText("Kesinti oranı").closest("div")).toHaveTextContent("Kesinti oranı%0");
     expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
     expect(screen.getByText("Uyuşmazlık aç")).toBeVisible();

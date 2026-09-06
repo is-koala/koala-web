@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 
 import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
-import { formatMoney } from "@/components/assignment-presenters";
+import { formatMoney } from "@/lib/money";
 
 import { canOpenDispute, formatNotice, formatRate } from "./presenters";
 
