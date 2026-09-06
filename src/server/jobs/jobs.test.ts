@@ -58,12 +58,33 @@ describe("ilan ayrıntısı ve başvuru BFF sözleşmesi", () => {
       experienceRequired: false,
       location: "Kadıköy, İstanbul",
       addressPrecision: "APPROXIMATE",
+      status: "OPEN",
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`https://api.example.test/jobs/${jobId}`);
     expect(init).toMatchObject({ method: "GET", cache: "no-store" });
     expect(init.headers).toBeInstanceOf(Headers);
+  });
+
+  it("ilanın durumunu başvuru yüzeyine taşır", async () => {
+    // Başvuru formunun çizilip çizilmeyeceğine ilanın durumu karar veriyor;
+    // alan modele girmezse kapatılmış ilan da başvuru almaya devam eder.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({ ...jobDetailDto(), status: "CANCELLED" })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readJobDetail(jobId)).resolves.toMatchObject({ status: "CANCELLED" });
+  });
+
+  it("durum alanı hiç gelmezse ilanı kapalı saymaz", async () => {
+    const dto = jobDetailDto();
+    delete (dto as { status?: unknown }).status;
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(dto)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readJobDetail(jobId)).resolves.toMatchObject({ status: "UNKNOWN" });
   });
 
   it("başvuru gövdesinde yalnız dolu notu taşır", async () => {
