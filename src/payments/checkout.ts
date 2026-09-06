@@ -3,8 +3,10 @@ import type { PaymentStatus } from "@/assignments/contract";
 import type { PaymentAttemptStatus, PaymentResolution } from "./contract";
 
 const allowedPaymentHosts = new Set([
-  "payment.iyzipay.com",
-  "sandbox-payment.iyzipay.com",
+  "api.iyzipay.com",
+  "cpp.iyzipay.com",
+  "sandbox-api.iyzipay.com",
+  "sandbox-cpp.iyzipay.com",
 ]);
 
 /** Sağlayıcı URL'si tarayıcıyı uygulamadan çıkaran bir güven sınırıdır. */
@@ -44,6 +46,7 @@ const paymentStatuses: Readonly<Record<PaymentStatus, PaymentStatusPresentation>
 const paymentAttempts: Readonly<Record<PaymentAttemptStatus, Omit<PaymentStatusPresentation, "resolution">>> = {
   INITIATED: { label: "Sonuç bekleniyor", tone: "warning" },
   IN_REVIEW: { label: "İnceleniyor", tone: "warning" },
+  VERIFY_PENDING: { label: "Sonuç doğrulanıyor", tone: "warning" },
   SUCCEEDED: { label: "Başarılı", tone: "positive" },
   FAILED: { label: "Başarısız", tone: "negative" },
   UNKNOWN: { label: "Sonuç doğrulanıyor", tone: "neutral" },
@@ -99,7 +102,12 @@ export function canStartPayment(assignment: {
 export function hasUnresolvedPaymentAttempt(
   attempts: readonly { status: PaymentAttemptStatus }[],
 ): boolean {
-  return attempts.some(({ status }) => status === "INITIATED" || status === "IN_REVIEW");
+  return attempts.some(({ status }) =>
+    status === "INITIATED" ||
+    status === "IN_REVIEW" ||
+    status === "VERIFY_PENDING" ||
+    status === "UNKNOWN"
+  );
 }
 
 export function paymentStatusPresentation(status: string): PaymentStatusPresentation {

@@ -64,6 +64,7 @@ const employerTypes = new Set<EmployerType>(["INDIVIDUAL", "COMPANY"]);
 const paymentAttemptStatuses = new Set<PaymentAttemptStatus>([
   "INITIATED",
   "IN_REVIEW",
+  "VERIFY_PENDING",
   "SUCCEEDED",
   "FAILED",
 ]);

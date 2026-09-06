@@ -11,8 +11,10 @@ payment attempts; callback query parameters are never treated as financial truth
 - Verify that `${FRONTEND_URL}/payment/result` reaches this Next.js application and
   is not rewritten to a localized route.
 - Keep the web and backend deployments paired when changing the public origin.
-- Confirm that checkout sessions return an HTTPS URL whose exact hostname is
-  `sandbox-payment.iyzipay.com` in staging and `payment.iyzipay.com` in production.
+- Confirm that checkout sessions return an HTTPS URL whose exact hostname is an
+  iyzico Checkout Form host. Current official examples use
+  `sandbox-cpp.iyzipay.com` or `sandbox-api.iyzipay.com`; production accepts only
+  their exact `cpp.iyzipay.com` and `api.iyzipay.com` counterparts.
 
 ## Sandbox acceptance run
 

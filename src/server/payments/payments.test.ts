@@ -126,7 +126,7 @@ describe("işveren ödeme BFF sözleşmesi", () => {
 
   it("ödeme oturumunu yalnız atama kimliğiyle başlatır ve tokenı tarayıcı modeline çıkarmaz", async () => {
     const session = {
-      paymentPageUrl: "https://sandbox-payment.iyzipay.com/checkout/token",
+      paymentPageUrl: "https://sandbox-cpp.iyzipay.com?token=token&lang=tr",
       token: "provider-secret-token",
       pricing: backendAssignment.pricing,
     };

@@ -31,7 +31,7 @@ describe("ödeme başlatma action'ı", () => {
     readPaymentAttempts.mockResolvedValue([]);
   });
 
-  it.each(["INITIATED", "IN_REVIEW"])(
+  it.each(["INITIATED", "IN_REVIEW", "VERIFY_PENDING", "UNKNOWN"])(
     "%s denemesi kesinleşmeden ikinci ödeme oturumu açmaz",
     async (status) => {
       readPaymentAttempts.mockResolvedValue([{ status: "FAILED" }, { status }]);
@@ -54,7 +54,7 @@ describe("ödeme başlatma action'ı", () => {
 
   it("izinli Iyzico adresine sunucuda doğruladıktan sonra yönlendirir", async () => {
     createPaymentSession.mockResolvedValue({
-      paymentPageUrl: "https://sandbox-payment.iyzipay.com/checkout/token",
+      paymentPageUrl: "https://sandbox-cpp.iyzipay.com?token=token&lang=tr",
       pricing,
     });
 
@@ -63,7 +63,7 @@ describe("ödeme başlatma action'ı", () => {
     expect(readPaymentAttempts.mock.invocationCallOrder[0])
       .toBeLessThan(createPaymentSession.mock.invocationCallOrder[0]);
     expect(redirect).toHaveBeenCalledWith(
-      "https://sandbox-payment.iyzipay.com/checkout/token",
+      "https://sandbox-cpp.iyzipay.com?token=token&lang=tr",
     );
   });
 

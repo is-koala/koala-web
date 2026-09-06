@@ -42,7 +42,13 @@ export type PaymentAttempt = {
   readonly failureMessage: string | null;
 };
 
-export type PaymentAttemptStatus = "INITIATED" | "IN_REVIEW" | "SUCCEEDED" | "FAILED" | "UNKNOWN";
+export type PaymentAttemptStatus =
+  | "INITIATED"
+  | "IN_REVIEW"
+  | "VERIFY_PENDING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "UNKNOWN";
 
 export type PaymentSession = {
   readonly paymentPageUrl: string;
