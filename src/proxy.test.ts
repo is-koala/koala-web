@@ -17,6 +17,11 @@ function setCookieFor(response: Response, name: string) {
     .find((cookie) => cookie.startsWith(`${name}=`));
 }
 
+/** Tarayıcının çereze yazacağı ham değer. */
+function storedValueOf(setCookie: string | undefined) {
+  return setCookie?.split(";")[0]?.split("=")[1] ?? "";
+}
+
 describe("BFF cihaz kimliği vekili", () => {
   it("cookie yoksa cihaz kimliği üretir ve HttpOnly çerezde saklar", () => {
     const response = proxy(request());
@@ -40,12 +45,51 @@ describe("BFF cihaz kimliği vekili", () => {
     );
   });
 
+  it("isteğin yolunu SSR'ın okuyabilmesi için ileri taşır", () => {
+    const incoming = request("/panel/islerim?filtre=acik");
+
+    proxy(incoming);
+
+    expect(incoming.headers.get("x-koala-path")).toBe("/panel/islerim?filtre=acik");
+  });
+
+  it("tarayıcının gönderdiği yol başlığını üzerine yazar", () => {
+    const incoming = request("/panel", { headers: { "x-koala-path": "//kotu.example" } });
+
+    proxy(incoming);
+
+    expect(incoming.headers.get("x-koala-path")).toBe("/panel");
+  });
+
   it("geçerli kimlik varsa korur ve yeniden yazmaz", () => {
     const existing = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 
     const response = proxy(request("/", { headers: { cookie: `koala_did=${existing}` } }));
 
     expect(setCookieFor(response, "koala_did")).toBeUndefined();
+  });
+
+  it("ardışık SSR ve action çağrıları aynı cihaz kimliğini taşır", () => {
+    const navigation = request("/panel");
+    const navigationResponse = proxy(navigation);
+    // Tarayıcının saklayacağı değer ham Set-Cookie'den okunur: SSR'ın gördüğü
+    // kimlikle tarayıcıya yazılan aynı olmazsa zincir daha ilk adımda kopar.
+    const stored = storedValueOf(setCookieFor(navigationResponse, "koala_did"));
+
+    const action = request("/panel", {
+      method: "POST",
+      headers: {
+        cookie: `koala_did=${stored}`,
+        origin: "https://iskoala.com",
+        host: "iskoala.com",
+      },
+    });
+    const actionResponse = proxy(action);
+
+    expect(stored).toMatch(backendDeviceIdPattern);
+    expect(navigation.cookies.get("koala_did")?.value).toBe(stored);
+    // Action yeni kimlik üretseydi backend oturumu pasifleştirirdi.
+    expect(setCookieFor(actionResponse, "koala_did")).toBeUndefined();
   });
 
   it("backend kalıbına uymayan kimliği yenisiyle değiştirir", () => {

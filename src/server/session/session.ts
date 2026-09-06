@@ -3,12 +3,12 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { loginPath } from "@/lib/site";
 import { apiFetch, type ApiCaller, type HttpMethod } from "@/server/api/client";
 import { isUnauthorized } from "@/server/api/errors";
-import { ingressClientIpHeader, sessionCookies } from "@/server/contract";
+import { ingressClientIpHeader, requestPathHeader, sessionCookies } from "@/server/contract";
 
 import { clearSessionCookies, writeSessionCookies } from "./cookies";
+import { loginRedirect } from "./login-redirect";
 import { refreshTokenPair, SessionExpiredError } from "./refresh";
 
 export type Session = {
@@ -69,6 +69,16 @@ async function ingressClientIp() {
   return requestHeaders.get(ingressClientIpHeader);
 }
 
+/**
+ * Render sırasında oturum biterse kullanıcı giriş sonrası buraya döner.
+ * Server component kendi adresini okuyamaz; yolu `src/proxy.ts` isteğe yazar
+ * ve `loginRedirect` site dışına çıkan bir değeri zaten hedef saymaz.
+ */
+async function loginRedirectForCurrentPath() {
+  const requestHeaders = await headers();
+  return loginRedirect(requestHeaders.get(requestPathHeader) ?? "");
+}
+
 /** `apiRequest` yenileme tokenının varlığını doğruladıktan sonra çağırır. */
 async function renew(session: Session, refreshToken: string, clientIp: string | null | undefined) {
   try {
@@ -86,7 +96,7 @@ async function renew(session: Session, refreshToken: string, clientIp: string | 
     // Oturum bitti: çerezler temizlenir ve kullanıcı girişe alınır. Render
     // sırasında çerez silinemese bile giriş sayfası onları üzerine yazar.
     await clearSessionCookies();
-    redirect(loginPath);
+    redirect(await loginRedirectForCurrentPath());
   }
 }
 
