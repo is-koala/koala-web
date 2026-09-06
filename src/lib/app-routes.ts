@@ -50,6 +50,38 @@ export type AppShellId = "employer" | "worker";
 export const newIndividualJobPath = "/isveren/ilan/yeni";
 
 /**
+ * Şirket bölümünün girişi; kullanıcının yetkilisi olduğu şirketlere buradan
+ * dallanılır. Kayıtta bir bölüm olarak da bildirilir.
+ */
+export const companySectionPath = "/isveren/sirket";
+
+/**
+ * Şirket oluşturma formu.
+ *
+ * Menüde ayrı bir madde değil ve kayıtta da bir bölüm değil: kullanıcının
+ * hep görmesi gereken kalıcı bir yer değil, "Şirketim" bölümünün içinden
+ * çıkan tek seferlik bir eylem. Kimlik kapısını da bu yüzden bölüm kaydından
+ * değil `companyCreation` kararından okuyor.
+ */
+export const newCompanyPath = `${companySectionPath}/yeni`;
+
+/**
+ * Bir şirketin profili.
+ *
+ * Seçili şirket **rotada** taşınıyor, yerel durumda değil: bir kullanıcı
+ * birden çok şirketin yetkilisi olabiliyor ve iki sekmede iki şirket açıkken
+ * paylaşılan bir bağlantı doğru şirketi açmalı.
+ */
+export function companyProfilePath(companyId: string): string {
+  return `${companySectionPath}/${encodeURIComponent(companyId)}`;
+}
+
+/** Şirketin düzenleme ekranı; yalnız `ADMIN` yetkilisi kaydedebiliyor. */
+export function editCompanyPath(companyId: string): string {
+  return `${companyProfilePath(companyId)}/duzenle`;
+}
+
+/**
  * Yayımlanmış bir ilanın sayfası.
  *
  * Menüde yok, çünkü bir liste maddesi değil bir kaydın adresi; kapıları da
@@ -96,12 +128,15 @@ const employerShell: AppShell = {
   requires: ["identityVerification", "employerRole"],
   sections: [
     {
-      href: "/isveren/sirket",
+      href: companySectionPath,
       label: "Şirketim",
       // `CompanyManager.java:103-105` şirket kurmak için kimlik istiyor.
+      // Kip `advisory`: kimliği doğrulanmamış ama şirketi olan bir kullanıcı
+      // (davetle katılmış olabilir) profilini görebilmeli. Kapı yalnız
+      // **oluşturma** eyleminin önünde kapanıyor ve o karar
+      // `viewerGates(...).companyCreation` içinde.
       requires: ["identityVerification"],
-      status: "planned",
-      note: "Şirket oluşturma ve profil yönetimi henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/isveren/ilanlar",

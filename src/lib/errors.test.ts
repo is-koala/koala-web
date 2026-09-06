@@ -162,6 +162,27 @@ describe("şirket yetkilisi hataları", () => {
       action: "home",
     });
   });
+
+  it("şirket kurmanın kimlik reddini doğrulama yoluna bağlar", () => {
+    // `CompanyManager.java:103-105` bunu 400 ile döndürüyor ve aile metni
+    // "Bilgileri kontrol et" olurdu: formda düzeltilecek bir alan yok,
+    // yapılacak iş kimlik doğrulamak.
+    const presentation = errorPresentation("USER_MUST_VERIFY_IDENTITY", 400);
+
+    expect(presentation.title).toBe("Kimliğini doğrulaman gerekiyor");
+    expect(presentation.message).toContain("Koala uygulamasından");
+    expect(presentation.action).toBe("none");
+  });
+
+  it("tanınmayan şirket türünü alan seçimine bağlar", () => {
+    // `CompanyManager.java:94-97` enum'a çeviremediği değeri 400 ile
+    // reddediyor; kullanıcının yapacağı iş listeden yeniden seçmek.
+    expect(errorPresentation("COMPANY_TYPE_INVALID", 400)).toEqual({
+      title: "Şirket türü tanınmadı",
+      message: "Listedeki şirket türlerinden birini seçip yeniden dene.",
+      action: "none",
+    });
+  });
 });
 
 describe("davet sözleşmesinin hata aileleri", () => {

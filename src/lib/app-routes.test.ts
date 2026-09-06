@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { appShells, newIndividualJobPath, publishedJobPath, sectionAt } from "./app-routes";
+import {
+  appShells,
+  companyProfilePath,
+  companySectionPath,
+  editCompanyPath,
+  newCompanyPath,
+  newIndividualJobPath,
+  publishedJobPath,
+  sectionAt,
+} from "./app-routes";
 import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
 
@@ -92,6 +101,39 @@ describe("kabuk rota kaydı", () => {
       requires: ["employerRole"],
       status: "ready",
     });
+  });
+
+  it("Şirketim bölümünü teslim edilmiş bağlantı olarak kaydeder", () => {
+    // Bölüm `planned` kalsaydı menü maddesi tıklanamaz olur ve `[...section]`
+    // yakalayıcısı gerçek sayfanın önüne "henüz açılmadı" ekranını koyardı.
+    expect(sectionAt("employer", ["sirket"])).toEqual({
+      href: companySectionPath,
+      label: "Şirketim",
+      requires: ["identityVerification"],
+      status: "ready",
+    });
+  });
+
+  it("şirket adreslerini tek yerden, kimliği kaçırarak kurar", () => {
+    // Adresler hem sayfalarda hem Server Action'ların `revalidatePath`
+    // çağrılarında kullanılıyor; iki yerde kurulsalardı yanlış yolu tazeleyen
+    // bir eylem ekranda hiçbir iz bırakmazdı.
+    expect(newCompanyPath).toBe("/isveren/sirket/yeni");
+    expect(companyProfilePath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/sirket/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99",
+    );
+    expect(editCompanyPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/sirket/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/duzenle",
+    );
+    expect(companyProfilePath("a b/../hesap")).toBe("/isveren/sirket/a%20b%2F..%2Fhesap");
+  });
+
+  it("şirket alt adreslerini bölüm saymaz", () => {
+    // `yeni` ve bir şirket kimliği kayıtta bir bölüm değil: `[...section]`
+    // onları tanısaydı gerçek sayfalar inmeden önce "henüz açılmadı" ekranı
+    // çizilirdi ve indikten sonra kayıt sessizce bayatlardı.
+    expect(sectionAt("employer", ["sirket", "yeni"])).toBeUndefined();
+    expect(sectionAt("employer", ["sirket", "4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99"])).toBeUndefined();
   });
 
   it("yayımlanan ilanın adresini kimliğinden kurar", () => {
