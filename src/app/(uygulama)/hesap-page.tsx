@@ -35,7 +35,7 @@ const actions: AccountSettingsActions = {
   revokeOtherSessions: revokeOtherSessionsAction,
 };
 
-type AccountPageProps = {
+export type AccountPageProps = {
   searchParams?: Promise<{ bildirimSayfasi?: string | string[] }>;
 };
 

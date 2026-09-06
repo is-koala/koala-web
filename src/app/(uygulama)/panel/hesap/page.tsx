@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AccountPage } from "../../hesap-page";
+import { AccountPage, type AccountPageProps } from "../../hesap-page";
 import { ShellGate } from "../../shell";
 
 export const metadata: Metadata = {
@@ -8,10 +8,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function Page() {
+export default function Page({ searchParams }: AccountPageProps = {}) {
   return (
     <ShellGate shell="worker" href="/panel/hesap">
-      <AccountPage />
+      <AccountPage searchParams={searchParams} />
     </ShellGate>
   );
 }
