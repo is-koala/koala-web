@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { AppShell, SectionNotOpen, ShellNotice } from "@/components/app-shell";
+import { GateBlocks } from "@/components/employer-gate";
 import { appShells, sectionAt, type AppShellId } from "@/lib/app-routes";
+import { enterSection, enterShellGates } from "@/server/session/gates";
 import { enterShell } from "@/server/session/viewer";
 
 /**
@@ -16,8 +18,15 @@ import { enterShell } from "@/server/session/viewer";
 /**
  * Kabuk layout'unun gövdesi.
  *
- * `enterShell()` önce oturum kapısını açar, sonra bu isteğin profilini okur;
- * ikisinin sırası önemli, bu yüzden tek bir çağrının arkasında duruyor.
+ * `enterShellGates()` önce oturum kapısını açar, sonra bu isteğin profilini
+ * okur ve kabuğun bildirdiği kapıları çözer; üçünün sırası önemli, bu yüzden
+ * tek bir çağrının arkasında duruyor.
+ *
+ * Burada yalnız **kabuk düzeyindeki** kapılar çözülüyor, bölümünkiler değil:
+ * Next bir layout'u kardeş rotalar arasında gezinirken yeniden çalıştırmıyor,
+ * yani adrese bağlı bir karar burada bir gezinme sonra bayatlardı. Kabuğun
+ * kapıları adresten bağımsız — kullanıcı hangi sayfada olursa olsun aynı
+ * eksiği taşıyor.
  */
 export async function ShellLayout({
   shell,
@@ -26,10 +35,10 @@ export async function ShellLayout({
   shell: AppShellId;
   children: React.ReactNode;
 }) {
-  const context = await enterShell();
+  const { viewer, failure, advisories } = await enterShellGates(shell);
 
   return (
-    <AppShell shell={appShells[shell]} context={context}>
+    <AppShell shell={appShells[shell]} context={{ viewer, failure }} advisories={advisories}>
       {children}
     </AppShell>
   );
@@ -45,7 +54,7 @@ export async function ShellLayout({
  * miras almaz.
  */
 export async function ShellHome({ shell }: { shell: AppShellId }) {
-  const { viewer } = await enterShell();
+  const { viewer, blocked } = await enterShellGates(shell);
   const definition = appShells[shell];
 
   return (
@@ -53,6 +62,14 @@ export async function ShellHome({ shell }: { shell: AppShellId }) {
       <p className="eyebrow">{definition.title}</p>
       <h1>{viewer ? `Merhaba ${viewer.firstName}` : "Merhaba"}</h1>
       <p className="lede">{definition.description}</p>
+
+      {/*
+       * Kabuğun engelleyici kapıları kökte yazılı duruyor. Bugün kapatılacak
+       * bir düğme yok — bölümler henüz açılmadı — ama `isEmployer: false` bir
+       * hesabın bireysel ilan açamayacağını ve bunun kayıt anında
+       * kararlaştığını kullanıcı bir bölüme tıklamayı denemeden okumalı.
+       */}
+      <GateBlocks gates={blocked} />
 
       {/* Kabuk kökü, menüdeki hazır ve planlı bölümlere ortak yön verir. */}
       <ShellNotice
@@ -95,4 +112,36 @@ export async function ShellSection({
   if (declared === undefined || declared.status === "ready") notFound();
 
   return <SectionNotOpen section={declared} />;
+}
+
+/**
+ * Bir bölüm sayfasının kapısı.
+ *
+ * Bölümün `requires` listesini çözer ve engelleyici bir kapı varsa sayfanın
+ * kendi içeriğini **hiç çizmez**. Sarmalayıcı olmasının nedeni bu: kapı bir
+ * `if` ile sayfanın içinde okunsaydı, sayfanın veri çağrıları kapıdan önce
+ * başlar ve kullanıcının göremeyeceği bir ekran için backend'e gidilirdi.
+ *
+ * Bölüm sayfaları bunu layout'tan miras almaz, kendileri sarar: Next
+ * layout'ları kardeş rotalar arasında yeniden çalıştırmıyor, yani adrese
+ * bağlı bir kapı layout'ta bir gezinme sonra bayatlar. Kabuğun kuralı da
+ * zaten bu — sayfa kendi kapısını taşır (`AGENTS.md`).
+ *
+ * `href` kayıttaki adresle birebir aynı olmalı; `sectionAt` tanımadığı bir
+ * adres için kapı bildirmez.
+ */
+export async function ShellGate({
+  shell,
+  href,
+  children,
+}: {
+  shell: AppShellId;
+  href: string;
+  children: React.ReactNode;
+}) {
+  const { blocked } = await enterSection(shell, href);
+
+  if (blocked.length > 0) return <GateBlocks gates={blocked} />;
+
+  return <>{children}</>;
 }

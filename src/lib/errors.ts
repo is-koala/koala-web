@@ -1,6 +1,7 @@
 import { serviceAreaNotice } from "@/address/contract";
 
 import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
+import type { GateId } from "./gates";
 
 export type ErrorAction = "login" | "home" | "retry" | "none";
 
@@ -161,4 +162,97 @@ export function errorPresentation(
     message: "İşlemi şu anda tamamlayamadık. Biraz sonra yeniden dene.",
     action: "retry",
   };
+}
+
+/**
+ * Bir kapının ekrandaki hâli.
+ *
+ * `ErrorPresentation`'dan ayrı bir tip, çünkü kaynağı da zamanı da farklı:
+ * `errorPresentation` gelmiş bir backend yanıtını okur, bu ise henüz
+ * yapılmamış bir isteği anlatır. Ortak olan kural aynı — ekrana çıkan metin
+ * backend'in ham mesajı değil, burada yazılı Türkçe.
+ */
+export type GateNotice = {
+  title: string;
+  message: string;
+  /** Kullanıcının kapıyı açmak için gideceği yer; yolu olmayan kapıda `null`. */
+  remedy: { href: string; label: string } | null;
+  /**
+   * Bu kapının önden karşıladığı backend reddi.
+   *
+   * Eşleşme yazılı duruyor ki backend koşulu değişince kapının bayatladığı
+   * görülebilsin. Boş liste "backend bunu hiç denetlemiyor" demek, yani kural
+   * yalnız burada yaşıyor.
+   */
+  errorCodes: readonly string[];
+};
+
+/**
+ * Kimlik doğrulama ve adres düzenleme web'de henüz yok: KYC akışı
+ * is-koala/koala-web#18, adres yazma #28, şirket profili #29 ile geliyor.
+ * O zamana kadar kapı kullanıcıyı boşluğa değil, işi bugün yapabildiği yere —
+ * mobil uygulamaya — bırakır. Bu üç issue indiğinde değişecek tek yer burası.
+ */
+const openAppPath = "/uygulamayi-ac";
+
+const gateNotices: Readonly<Record<GateId, GateNotice>> = {
+  identityVerification: {
+    title: "Kimliğini doğrulaman gerekiyor",
+    message:
+      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Doğrulamayı şimdilik Koala uygulamasından tamamlayabilirsin.",
+    remedy: { href: openAppPath, label: "Uygulamada doğrula" },
+    errorCodes: [
+      "JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED",
+      "USER_MUST_VERIFY_IDENTITY",
+      "APPLICANT_IDENTITY_NOT_VERIFIED",
+    ],
+  },
+  identityNumber: {
+    title: "Kimlik numaran hesabında kayıtlı değil",
+    message:
+      "Ödemeyi başlatabilmemiz için doğrulanmış kimlik numarana ihtiyacımız var. Kimlik doğrulamasını uygulamadan tamamladığında bu bilgi hesabına işlenir.",
+    remedy: { href: openAppPath, label: "Uygulamada tamamla" },
+    errorCodes: ["JOB_ASSIGNMENT_EMPLOYER_IDENTITY_NOT_VERIFIED"],
+  },
+  employerRole: {
+    title: "Bu hesap işveren hesabı değil",
+    message:
+      "İşveren olup olmadığın kayıt sırasında seçiliyor ve bugün değiştirilemiyor. Bireysel ilan açmak için işveren olarak yeni bir hesap açman gerekiyor.",
+    remedy: null,
+    errorCodes: ["JOB_USER_IS_NOT_EMPLOYER"],
+  },
+  companyContact: {
+    title: "Bu şirketin yetkilisi değilsin",
+    message:
+      "İlanı yalnız şirketin yetkili listesindeki kişiler açabilir. Şirket yöneticisinden seni yetkili olarak eklemesini isteyebilirsin.",
+    remedy: null,
+    errorCodes: ["JOB_USER_IS_NOT_A_CONTACT_OF_COMPANY"],
+  },
+  companyApproval: {
+    title: "Şirketin henüz onaylanmadı",
+    message:
+      "Şirket kaydını ekibimiz inceliyor. Onay tamamlandığında şirket adına ilan açabileceksin.",
+    remedy: null,
+    // Backend bu kuralı uygulamıyor: `company.isApproved()` iş mantığının
+    // hiçbir yerinde okunmuyor. Kural yalnız burada yaşıyor.
+    errorCodes: [],
+  },
+  individualBillingAddress: {
+    title: "Fatura adresin eksik",
+    message:
+      "Ödemeyi başlatabilmek için kendi fatura adresine ihtiyacımız var. Adresini şimdilik Koala uygulamasındaki profilinden ekleyebilirsin.",
+    remedy: { href: openAppPath, label: "Adresini uygulamada ekle" },
+    errorCodes: ["JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER"],
+  },
+  companyBillingAddress: {
+    title: "Şirketin fatura adresi eksik",
+    message:
+      "Şirket ilanlarında ödeme senin adresini değil şirketin adresini kullanıyor. Şirket adresini şimdilik Koala uygulamasından düzenleyebilirsin.",
+    remedy: { href: openAppPath, label: "Şirket adresini uygulamada düzenle" },
+    errorCodes: ["JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER"],
+  },
+};
+
+export function gateNotice(gate: GateId): GateNotice {
+  return gateNotices[gate];
 }

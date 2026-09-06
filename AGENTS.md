@@ -74,6 +74,24 @@ gömülecek; **değiştirmek eski e-postaları kırar.**
   sarıldığında kabuk erken akıtılır, HTTP durumu 200'de kilitlenir ve
   `notFound()` artık 404 döndüremez. Yükleniyor durumu bölümün kendi
   `page.tsx` dosyasının yanına konur.
+- Yetki kapıları tek katmanda: sözlük `src/lib/gates.ts`, karar
+  `src/server/session/gates.ts`, metin `src/lib/errors.ts`
+  (`gateNotice`). Kararlar `enterShell()`'in zaten okuduğu `GET /users/me`
+  yanıtından türüyor — ikinci bir tur **yok**. Bir bölüm hangi kapıya
+  ihtiyacı olduğunu `app-routes.ts` içindeki `requires` ile bildirir; liste
+  zorunlu, kapısı olmayan bölüm boş liste yazar. Sayfa kapısını
+  `ShellGate` ile sarar, layout'tan miras almaz: Next layout'ları kardeş
+  rotalar arasında yeniden çalıştırmıyor, yani adrese bağlı bir kapı
+  layout'ta bir gezinme sonra bayatlar.
+- Kapının iki kipi var ve ikisi de arkasındaki eylemi kapatır; ayrıldıkları
+  yer nedenin **nerede** okunduğu. `advisory` kabuğun her sayfasında duran
+  kalıcı bir şerit (kimlik, fatura adresi); `blocking` eylemi devre dışı
+  bırakıp gerekçeyi yanına yazar. Kip kapının kendi özelliği, çağıranın
+  seçimi değil.
+- **Şirket onayı kapısı bir ürün kuralı, güvenlik sınırı değil.**
+  `company.isApproved()` koala-backend'in iş mantığında hiç okunmuyor;
+  onaylanmamış şirket API'den ilan açabiliyor. Kapı istemcide duruyor ve
+  `gateNotice("companyApproval").errorCodes` bunu boş listeyle söylüyor.
 - **Rol değiştirici yok ve karar verilmeden eklenmez.** "Web'de rol
   değiştirilebilir mi?" sorusu ürün sahibinde (is-koala/koala-web#25).
   `isEmployer` yalnız kayıt anında yazılıyor, değiştirecek bir backend ucu

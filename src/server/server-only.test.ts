@@ -78,3 +78,32 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
     );
   });
 });
+
+describe("kapı katmanının gizlilik sınırı", () => {
+  it("kimlik numarasını yalnız daraltmayı yapan modül görür", () => {
+    // Kapıların sorduğu soru "var mı"; ham değeri taşımak hiçbir kapıyı
+    // açmaz ama veriyi log'a, Sentry olayına ve ölçümlemeye açık hâle
+    // getirirdi. Değeri okuyabilecek tek yer, onu boolean'a çeviren yer.
+    const readers = sourceFiles(sourceRoot)
+      .filter((file) => /maskedTcIdentityNumber|tcIdentityNumber/.test(readFileSync(file, "utf8")))
+      // `contract.ts` yalnız yorumda, `/users/me`'nin ne taşıdığını anlatırken anıyor.
+      .filter((file) => file !== path.join(sourceRoot, "server", "contract.ts"));
+
+    expect(readers).toEqual([path.join(sourceRoot, "server", "session", "viewer.ts")]);
+  });
+
+  it("kapı kararları hiçbir yerde log'a ya da ölçümlemeye yazılmaz", () => {
+    // `sendHandoffEvent` kapalı bir olay birliği taşıyor ve `console` yalnız
+    // ölçümleme ucunda; kapı modülleri ikisine de dokunmamalı.
+    const gateModules = [
+      path.join(sourceRoot, "server", "session", "gates.ts"),
+      path.join(sourceRoot, "lib", "gates.ts"),
+      path.join(sourceRoot, "components", "employer-gate.tsx"),
+    ];
+
+    for (const file of gateModules) {
+      const source = readFileSync(file, "utf8");
+      expect(/console\.|captureException|sendHandoffEvent/.test(source), file).toBe(false);
+    }
+  });
+});

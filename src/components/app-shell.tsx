@@ -1,14 +1,23 @@
 import Link from "next/link";
 
 import { Wordmark } from "@/brand/Wordmark";
+import { GateAdvisories } from "@/components/employer-gate";
 import { ErrorState } from "@/components/states";
 import type { AppSection, AppShell as AppShellDefinition } from "@/lib/app-routes";
+import type { GateId } from "@/lib/gates";
 import type { ViewerContext } from "@/server/session/viewer";
 
 export type AppShellProps = {
   shell: AppShellDefinition;
   /** Kapıdan geçmiş isteğin kullanıcı bağlamı; profil çözülemediyse `viewer` boş. */
   context: ViewerContext;
+  /**
+   * Kabuğun bildirdiği ama karşılanmamış advisory kapılar.
+   *
+   * Zorunlu ve boş liste yazılabilir: isteğe bağlı olsaydı yeni bir kabuk
+   * şeridi sessizce düşürürdü ve kimse fark etmezdi.
+   */
+  advisories: readonly GateId[];
   children: React.ReactNode;
 };
 
@@ -25,7 +34,7 @@ export type AppShellProps = {
  * kararını sessizce vermek olurdu; iki kabuk da bugün yalnız adresinden
  * açılıyor.
  */
-export function AppShell({ shell, context, children }: AppShellProps) {
+export function AppShell({ shell, context, advisories, children }: AppShellProps) {
   const { viewer, failure } = context;
 
   return (
@@ -72,6 +81,12 @@ export function AppShell({ shell, context, children }: AppShellProps) {
           {failure === null ? null : (
             <ErrorState errorCode={failure.errorCode} status={failure.status} />
           )}
+          {/*
+           * Şerit sayfanın üstünde ve her sayfada duruyor: kapı bir bölümün
+           * değil kabuğun eksiği, ve kullanıcı onu bulmak için gezinmek
+           * zorunda kalmamalı. Engellemiyor — kabuk kullanılabilir kalıyor.
+           */}
+          <GateAdvisories gates={advisories} />
           {children}
         </main>
       </div>
