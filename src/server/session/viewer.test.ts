@@ -44,6 +44,14 @@ function userMe(overrides: Record<string, unknown> = {}) {
     phoneVerified: false,
     identityVerified: false,
     maskedTcIdentityNumber: null,
+    profilePictureUrl: "https://cdn.example.test/ayse.webp",
+    phoneNumber: "+905551112233",
+    jobTitle: "Barista",
+    about: "Misafir deneyimi alanında çalışıyorum.",
+    qualifications: "Espresso, kasa",
+    interests: "Kafe ve etkinlik işleri",
+    experiences: [],
+    educations: [],
     address: null,
     companies: [],
     ...overrides,
@@ -125,6 +133,65 @@ describe("kabuğun kullanıcı bağlamı", () => {
       { companyId: "c1", companyName: "Koala A.Ş.", role: "ADMIN", approved: true },
       { companyId: "c2", companyName: "Koala Lojistik", role: "STAFF", approved: false },
     ]);
+  });
+
+  it("profil sayfasının gösterdiği özgeçmiş alanlarını aynı /users/me yanıtından daraltır", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          200,
+          envelope(
+            userMe({
+              experiences: [
+                {
+                  id: "11111111-1111-4111-8111-111111111111",
+                  title: "Barista",
+                  companyName: "Koala Kafe",
+                  employmentType: "PART_TIME",
+                  cityName: "İstanbul",
+                  startDate: "2025-01-10",
+                  endDate: null,
+                  description: "Kahve hazırlığı",
+                },
+              ],
+              educations: [
+                {
+                  id: "22222222-2222-4222-8222-222222222222",
+                  universityId: "33333333-3333-4333-8333-333333333333",
+                  universityName: "Koala Üniversitesi",
+                  facultyId: "44444444-4444-4444-8444-444444444444",
+                  facultyName: "İletişim Fakültesi",
+                  departmentId: "55555555-5555-4555-8555-555555555555",
+                  departmentName: "Halkla İlişkiler",
+                  type: "GRADUATE",
+                  gpa: 3.42,
+                  startDate: "2020-09-01",
+                  endDate: "2024-06-15",
+                },
+              ],
+            }),
+          ),
+        ),
+      ),
+    );
+
+    const { viewer } = await loadViewer();
+
+    expect(viewer).toMatchObject({
+      lastName: "Yıldız",
+      email: "ayse@example.test",
+      phoneNumber: "+905551112233",
+      profilePictureUrl: "https://cdn.example.test/ayse.webp",
+      jobTitle: "Barista",
+      qualifications: "Espresso, kasa",
+      interests: "Kafe ve etkinlik işleri",
+    });
+    expect(viewer?.experiences[0]).toMatchObject({ title: "Barista", employmentType: "PART_TIME" });
+    expect(viewer?.educations[0]).toMatchObject({
+      universityName: "Koala Üniversitesi",
+      type: "GRADUATE",
+    });
   });
 
   it("kimlik numarasını ve adresi değer olarak değil, varlık olarak taşır", async () => {

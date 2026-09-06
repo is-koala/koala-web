@@ -17,6 +17,8 @@ export function FormAlert({ state }: { state: FormState }) {
 }
 
 export type TextFieldProps = {
+  /** Aynı formdan birden çok örnek çizildiğinde etiket bağını benzersiz tutar. */
+  id?: string;
   /** Backend DTO alan adıyla aynı: `details[]` eşlemesi böyle karşılık buluyor. */
   name: string;
   label: string;
@@ -34,6 +36,7 @@ export type TextFieldProps = {
 };
 
 export function TextField({
+  id,
   name,
   label,
   type = "text",
@@ -47,15 +50,16 @@ export function TextField({
   maxLength,
   pattern,
 }: TextFieldProps) {
-  const hintId = hint ? `${name}-hint` : undefined;
-  const errorId = error ? `${name}-error` : undefined;
+  const fieldId = id ?? name;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className="field">
-      <label htmlFor={name}>{label}</label>
+      <label htmlFor={fieldId}>{label}</label>
       <input
-        id={name}
+        id={fieldId}
         name={name}
         type={type}
         inputMode={inputMode}

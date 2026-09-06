@@ -79,14 +79,20 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions): Pro
   }
 
   const hasBody = options.body !== undefined;
-  if (hasBody) {
+  const multipartBody = hasBody && options.body instanceof FormData;
+  if (hasBody && !multipartBody) {
     headers.set("Content-Type", "application/json");
   }
+  const requestBody: BodyInit | undefined = multipartBody
+    ? (options.body as FormData)
+    : hasBody
+      ? JSON.stringify(options.body)
+      : undefined;
 
   const response = await fetch(`${apiUrl}${path}`, {
     method: options.method ?? "GET",
     headers,
-    body: hasBody ? JSON.stringify(options.body) : undefined,
+    body: requestBody,
   });
 
   const body = await readBody(response);
