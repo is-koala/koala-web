@@ -67,8 +67,8 @@ export type AppShell = {
 /**
  * İşveren kabuğu.
  *
- * Menüdeki her madde bir dalga 5-7 issue'suna karşılık geliyor ve hiçbiri
- * bugün teslim edilmedi; kabuk onların ortak iskeleti olarak önce iniyor.
+ * Menüdeki her madde bir dalga 5-7 issue'suna karşılık geliyor; hazır olanlar
+ * aynı kayıtta bağlantıya dönüşüyor.
  */
 const employerShell: AppShell = {
   id: "employer",
@@ -130,6 +130,12 @@ const employerShell: AppShell = {
       status: "planned",
       note: "Ödeme ve emanet özeti henüz açılmadı.",
     },
+    {
+      href: "/isveren/hesap",
+      label: "Hesap ve ayarlar",
+      requires: [],
+      status: "ready",
+    },
   ],
 };
 
@@ -176,6 +182,12 @@ const workerShell: AppShell = {
       requires: [],
       status: "planned",
       note: "Kazanç listesi henüz açılmadı.",
+    },
+    {
+      href: "/panel/hesap",
+      label: "Hesap ve ayarlar",
+      requires: [],
+      status: "ready",
     },
   ],
 };

@@ -146,6 +146,12 @@ export const notificationCategoryLabels = {
   NEWSLETTER: "Bülten",
 } satisfies Record<NotificationCategory, string>;
 
+export function notificationCategoryLabel(category: string): string {
+  return Object.hasOwn(notificationCategoryLabels, category)
+    ? notificationCategoryLabels[category as NotificationCategory]
+    : "Diğer bildirim";
+}
+
 export const notificationChannelLabels = {
   EMAIL: "E-posta",
   PUSH: "Anlık bildirim",
