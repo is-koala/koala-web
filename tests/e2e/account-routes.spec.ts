@@ -40,3 +40,38 @@ test("e-posta onayı altı haneli kod akışını anlatır", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "6 haneli kodunu gir" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Uygulamayı aç" })).toHaveAttribute("href", "/uygulamayi-ac");
 });
+
+test("ölçümleme isteği yalnız açık rızadan sonra ve tokensız gider", async ({ page }) => {
+  const analyticsRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/analytics/events")) {
+      analyticsRequests.push(request.postData() ?? "");
+    }
+  });
+
+  await page.goto("/hesap-dogrula?token=secret-token");
+  await expect(page.getByRole("region", { name: "Çerez tercihleri" })).toBeVisible();
+  expect(analyticsRequests).toEqual([]);
+
+  await page.getByRole("button", { name: "Ölçümlemeye izin ver" }).click();
+  await expect.poll(() => analyticsRequests.length).toBe(1);
+  expect(analyticsRequests[0]).toBe(JSON.stringify({ event: "handoff_viewed", platform: "ios" }));
+  expect(analyticsRequests[0]).not.toContain("secret-token");
+});
+
+test("www alan adı ilişkilendirme belgelerini apex'e yönlendirmez", async ({
+  request,
+}) => {
+  for (const path of [
+    "/.well-known/apple-app-site-association",
+    "/.well-known/assetlinks.json",
+  ]) {
+    const response = await request.get(path, {
+      headers: { Host: "www.iskoala.com" },
+      maxRedirects: 0,
+    });
+
+    expect(response.status()).not.toBe(301);
+    expect(response.headers().location).toBeUndefined();
+  }
+});

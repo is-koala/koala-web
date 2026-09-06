@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 import { privateRoutes } from "./src/lib/private-routes";
 
@@ -19,7 +20,7 @@ const nextConfig: NextConfig = {
       // yönlendirme duruyor; silmek eski e-postaları kırardı.
       { source: "/sifre-belirle", destination: "/hesap-dogrula", permanent: true },
       {
-        source: "/:path*",
+        source: "/:path((?!\\.well-known(?:/|$)).*)",
         has: [{ type: "host", value: "www.iskoala.com" }],
         destination: "https://iskoala.com/:path*",
         statusCode: 301,
@@ -44,4 +45,14 @@ const nextConfig: NextConfig = {
 };
 
 const withMDX = createMDX({});
-export default withMDX(nextConfig);
+export default withSentryConfig(withMDX(nextConfig), {
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: true,
+  telemetry: false,
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+    deleteSourcemapsAfterUpload: true,
+  },
+});

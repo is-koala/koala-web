@@ -2,9 +2,12 @@
 
 import QRCode from "qrcode";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { sendHandoffEvent } from "@/analytics/events";
 import { resolvePlatform, type Platform } from "@/handoff/links";
+
+const appOpenSignalDelayMs = 1000;
 
 type OpenInAppProps = {
   deepLink: string;
@@ -27,10 +30,16 @@ export function OpenInApp({
 }: OpenInAppProps) {
   const [clientPlatform, setClientPlatform] = useState<Platform | null>(null);
   const platform = platformOverride ?? clientPlatform;
-  const [stalled, setStalled] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const timer = useRef<number | null>(null);
+  const attempted = useRef(false);
   const settled = useRef(false);
+  const appOpenTimer = useRef<number | null>(null);
+
+  const cancelAppOpenSignal = useCallback(() => {
+    if (appOpenTimer.current === null) return;
+    window.clearTimeout(appOpenTimer.current);
+    appOpenTimer.current = null;
+  }, []);
 
   useEffect(() => {
     const detection = window.setTimeout(() => {
@@ -51,32 +60,36 @@ export function OpenInApp({
   }, [deepLink, platform]);
 
   useEffect(() => {
-    const stopFallback = () => {
+    const recordSuccess = () => {
+      if (!attempted.current || settled.current || !platform) return;
+      appOpenTimer.current = null;
       settled.current = true;
-      if (timer.current !== null) window.clearTimeout(timer.current);
+      sendHandoffEvent("app_opened", platform);
     };
     const onVisibilityChange = () => {
-      if (document.hidden) stopFallback();
+      cancelAppOpenSignal();
+      if (!document.hidden || !attempted.current || settled.current) return;
+      // Mağaza/başka sayfa navigasyonu da belgeyi gizleyebilir. Kısa gecikme
+      // içindeki pagehide bunu iptal eder; yalnız uygulamaya geçiş sinyali kalır.
+      appOpenTimer.current = window.setTimeout(recordSuccess, appOpenSignalDelayMs);
     };
+    const onPageHide = () => cancelAppOpenSignal();
     document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("pagehide", stopFallback);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
+      cancelAppOpenSignal();
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("pagehide", stopFallback);
-      stopFallback();
+      window.removeEventListener("pagehide", onPageHide);
     };
-  }, []);
+  }, [cancelAppOpenSignal, platform]);
 
   const openIosApp = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
+    cancelAppOpenSignal();
     settled.current = false;
-    setStalled(false);
+    attempted.current = true;
+    sendHandoffEvent("deep_link_attempted", "ios");
     navigate(deepLink);
-    timer.current = window.setTimeout(() => {
-      if (settled.current || document.hidden) return;
-      if (storeLink) navigate(storeLink);
-      else setStalled(true);
-    }, 1500);
   };
 
   if (!platform) return <p role="status">Cihaz bilgisi okunuyor…</p>;
@@ -99,10 +112,26 @@ export function OpenInApp({
   if (platform === "android") {
     return (
       <div className="handoff-panel">
-        <a className="button button-primary" href={androidIntentLink ?? deepLink}>
+        <a
+          className="button button-primary"
+          href={androidIntentLink ?? deepLink}
+          onClick={() => {
+            cancelAppOpenSignal();
+            settled.current = false;
+            attempted.current = true;
+            sendHandoffEvent("deep_link_attempted", "android");
+          }}
+        >
           Uygulamada aç
         </a>
-        <StoreAvailability storeLink={androidStoreLink ?? storeLink} />
+        <StoreAvailability
+          storeLink={androidStoreLink ?? storeLink}
+          platform="android"
+          onFallback={() => {
+            cancelAppOpenSignal();
+            settled.current = true;
+          }}
+        />
       </div>
     );
   }
@@ -112,22 +141,41 @@ export function OpenInApp({
       <a className="button button-primary" href={deepLink} onClick={openIosApp}>
         Uygulamada aç
       </a>
-      {stalled && (
-        <p role="status">Uygulama açılmadı. Koala henüz bu mağazada olmayabilir.</p>
-      )}
-      <StoreAvailability storeLink={storeLink} />
+      <StoreAvailability
+        storeLink={storeLink}
+        platform="ios"
+        onFallback={() => {
+          cancelAppOpenSignal();
+          settled.current = true;
+        }}
+      />
     </div>
   );
 }
 
-function StoreAvailability({ storeLink }: { storeLink: string | null }) {
+function StoreAvailability({
+  storeLink,
+  platform,
+  onFallback,
+}: {
+  storeLink: string | null;
+  platform?: Platform;
+  onFallback?: () => void;
+}) {
   if (!storeLink) {
     return (
       <p className="muted">Koala mağazada yayımlandığında burada görünecek.</p>
     );
   }
   return (
-    <a className="text-link" href={storeLink}>
+    <a
+      className="text-link"
+      href={storeLink}
+      onClick={() => {
+        onFallback?.();
+        if (platform) sendHandoffEvent("store_fallback", platform);
+      }}
+    >
       Mağazaya git
     </a>
   );

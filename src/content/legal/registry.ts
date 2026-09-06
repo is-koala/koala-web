@@ -8,7 +8,7 @@ export type AgreementType =
 export type LegalRoute = {
   title: string;
   slug: string;
-  version: "1.0";
+  version: "1.0" | "1.1";
   currentUrl: string;
   versionedUrl: string;
 };

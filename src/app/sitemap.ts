@@ -4,7 +4,7 @@ import { legalCatalog } from "@/content/legal/catalog";
 import { publicEnvironment } from "@/lib/env";
 
 const publicPaths = [
-  "", "/is-arayanlar", "/isverenler", "/nasil-calisir", "/hakkimizda", "/iletisim", "/sss",
+  "", "/is-arayanlar", "/isverenler", "/nasil-calisir", "/hakkimizda", "/iletisim", "/sss", "/hesap-silme",
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {

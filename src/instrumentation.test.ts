@@ -2,22 +2,33 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { register } from "./instrumentation";
 
-describe("sunucu açılış doğrulaması", () => {
-  afterEach(() => vi.unstubAllEnvs());
+const sentry = vi.hoisted(() => ({
+  captureRequestError: vi.fn(),
+  init: vi.fn(),
+}));
 
-  it("eksik yapılandırmayı ilk istekte değil açılışta bildirir", () => {
+vi.mock("@sentry/nextjs", () => sentry);
+
+describe("sunucu açılış doğrulaması", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("eksik yapılandırmayı ilk istekte değil açılışta bildirir", async () => {
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("API_URL", "");
     vi.stubEnv("APP_VERSION", "1.4.0");
 
-    expect(() => register()).toThrow("Zorunlu ortam değişkeni eksik: API_URL");
+    await expect(register()).rejects.toThrow("Zorunlu ortam değişkeni eksik: API_URL");
   });
 
-  it("yapılandırma tamsa açılışı engellemez", () => {
+  it("yapılandırma tamsa açılışı engellemez", async () => {
     vi.stubEnv("NEXT_RUNTIME", "nodejs");
     vi.stubEnv("API_URL", "https://api.iskoala.com");
     vi.stubEnv("APP_VERSION", "1.4.0");
 
-    expect(() => register()).not.toThrow();
+    await expect(register()).resolves.toBeUndefined();
+    expect(sentry.init).toHaveBeenCalledOnce();
   });
 });
