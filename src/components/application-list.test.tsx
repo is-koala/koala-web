@@ -77,6 +77,38 @@ describe("başvurularım listesi", () => {
     expect(submitted.get("page")).toBe("0");
   });
 
+  it("filtre değişince önceki mutation state'ini bırakıp yeni server sayfasını gösterir", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn<ApplicationMutationAction>(async () => ({
+      status: "done",
+      applications: pageOf({ ...application, status: "WITHDRAWN" }),
+    }));
+    const { rerender } = render(
+      <ApplicationList initialPage={pageOf(application)} filter="APPLIED" action={action} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Başvuruyu geri çek" }));
+    await user.click(screen.getByRole("button", { name: "Geri çekmeyi onayla" }));
+    expect(await screen.findByText("Geri çekildi")).toBeVisible();
+
+    rerender(
+      <ApplicationList
+        initialPage={pageOf({
+          ...application,
+          title: "Yeni sunucu sonucu",
+          status: "REJECTED",
+          rejectionReason: "Kontenjan doldu.",
+        })}
+        filter="REJECTED"
+        action={action}
+      />,
+    );
+
+    expect(screen.getByText("Yeni sunucu sonucu")).toBeVisible();
+    expect(screen.getByText("Reddedildi")).toBeVisible();
+    expect(screen.queryByText("Geri çekildi")).toBeNull();
+  });
+
   it("reddedilen başvurunun gerekçesini gösterir ve geri çekme sunmaz", () => {
     render(
       <ApplicationList

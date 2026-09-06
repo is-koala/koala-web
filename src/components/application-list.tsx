@@ -13,15 +13,34 @@ import {
 } from "@/applications/contract";
 import { ErrorState } from "@/components/states";
 
+type ApplicationListProps = {
+  initialPage: WorkerApplicationPage;
+  filter: ApplicationFilter;
+  action: ApplicationMutationAction;
+  requestPage?: number;
+};
+
 export function ApplicationList({
   initialPage,
   filter,
   action,
-}: {
-  initialPage: WorkerApplicationPage;
-  filter: ApplicationFilter;
-  action: ApplicationMutationAction;
-}) {
+  requestPage,
+}: ApplicationListProps) {
+  return (
+    <ApplicationListState
+      key={`${filter}:${requestPage ?? initialPage.page}`}
+      initialPage={initialPage}
+      filter={filter}
+      action={action}
+    />
+  );
+}
+
+function ApplicationListState({
+  initialPage,
+  filter,
+  action,
+}: Omit<ApplicationListProps, "requestPage">) {
   const [state, formAction, isPending] = useActionState(action, idleApplicationMutationState);
   const [withdrawal, setWithdrawal] = useState<WorkerApplication | null>(null);
   const page = state.status === "idle" ? initialPage : (state.applications ?? initialPage);

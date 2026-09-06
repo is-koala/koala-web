@@ -41,6 +41,7 @@ export default async function Page({
       <ApplicationList
         initialPage={result.applications}
         filter={filter}
+        requestPage={page}
         action={withdrawApplicationAction}
       />
     </section>
