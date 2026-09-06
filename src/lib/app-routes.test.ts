@@ -166,6 +166,15 @@ describe("kabuk rota kaydı", () => {
     });
   });
 
+  it("Kazançlarım bölümünü teslim edilmiş çalışan bağlantısı olarak kaydeder", () => {
+    expect(sectionAt("worker", ["kazanclarim"])).toEqual({
+      href: "/panel/kazanclarim",
+      label: "Kazançlarım",
+      requires: [],
+      status: "ready",
+    });
+  });
+
   it("bildirilmemiş yolu tanımaz", () => {
     // Kayıtta olmayan yol gerçek bir 404'tür; "henüz açılmadı" demek yazım
     // hatasını var olmayan bir bölüm gibi gösterirdi.

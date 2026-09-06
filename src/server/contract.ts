@@ -77,6 +77,7 @@ export const sessionCookies = {
   addressSearchSessions: "/locations/address-search-sessions",
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
+  currentUserPayouts: "/users/me/payouts",
   forgotPassword: "/auth/forgot-password",
   /**
    * `POST /users/me/jobs` — bireysel ilan; yanıt `IndividualJobDto`.

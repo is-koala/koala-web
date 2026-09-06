@@ -10,6 +10,7 @@ const emptyCopy = {
     "Henüz işveren ataman yok",
     "Bir başvuruyu kabul ettiğinde oluşan atamalar burada görünecek.",
   ],
+  payouts: ["Henüz bir ödeme almadın.", "Tamamlanan işlerin ödeme çıkışları burada görünecek."],
   jobCategories: ["İş kategorisi bulunamadı", "Kategoriler yüklenemedi; sayfayı yenilemeyi dene."],
   priceQuote: [
     "Fiyat henüz hesaplanmadı",
