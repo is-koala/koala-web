@@ -100,6 +100,7 @@ describe("kabuk rota kaydı", () => {
     expect(sectionAt("worker", ["islerim"])).toEqual({
       href: "/panel/islerim",
       label: "İşlerim",
+      requires: [],
       status: "ready",
     });
   });
