@@ -204,8 +204,7 @@ const workerShell: AppShell = {
       href: "/panel/kazanclarim",
       label: "Kazançlarım",
       requires: [],
-      status: "planned",
-      note: "Kazanç listesi henüz açılmadı.",
+      status: "ready",
     },
     {
       href: "/panel/hesap",
