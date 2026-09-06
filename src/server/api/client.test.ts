@@ -38,7 +38,7 @@ describe("BFF API istemcisi", () => {
         httpStatus: "OK",
         path: "/auth/login",
         timeStamp: "2026-01-01T00:00:00Z",
-        correlationId: "correlation-1",
+        requestId: "request-1",
         data: { token: "access-token-placeholder", refreshToken: "refresh-token-placeholder" },
       }),
     );
@@ -49,7 +49,7 @@ describe("BFF API istemcisi", () => {
     });
   });
 
-  it("hata zarfını kod, kategori, detay ve correlationId taşıyan tipli hataya çevirir", async () => {
+  it("hata zarfını kod, kategori, detay ve requestId taşıyan tipli hataya çevirir", async () => {
     stubFetch(
       jsonResponse(400, {
         success: false,
@@ -57,7 +57,7 @@ describe("BFF API istemcisi", () => {
         httpStatus: "BAD_REQUEST",
         path: "/jobs",
         timeStamp: "2026-01-01T00:00:00Z",
-        correlationId: "correlation-2",
+        requestId: "request-2",
         errorCode: "JOB_SALARY_MIN_VALUE",
         errorCategory: "VALIDATION_FAILED",
         details: [{ field: "salary", message: "Asgari ucretin altinda olamaz." }],
@@ -72,7 +72,7 @@ describe("BFF API istemcisi", () => {
       errorCode: "JOB_SALARY_MIN_VALUE",
       errorCategory: "VALIDATION_FAILED",
       message: "Gonderdigin bilgiler gecerli degil.",
-      correlationId: "correlation-2",
+      requestId: "request-2",
       details: [{ field: "salary", message: "Asgari ucretin altinda olamaz." }],
     });
   });
