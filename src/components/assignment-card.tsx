@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type { WorkerAssignment } from "@/assignments/contract";
 import {
   assignmentStatusLabel,
@@ -91,6 +93,15 @@ export function AssignmentCard({
               Reddet
             </button>
           </form>
+        </div>
+      ) : assignment.status !== "REJECTED" ? (
+        <div className="assignment-actions">
+          <Link
+            className="button button-secondary button-small"
+            href={`/panel/is/${assignment.id}`}
+          >
+            İş ayrıntısını aç
+          </Link>
         </div>
       ) : null}
     </article>
