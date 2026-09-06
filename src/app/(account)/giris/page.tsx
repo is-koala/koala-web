@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { LoginForm } from "@/components/login-form";
 import { returnDestination } from "@/server/session/login-redirect";
@@ -32,6 +33,11 @@ export default async function Page({
       <h1>Giriş yap</h1>
       <p className="lede">E-posta adresin ve parolanla devam et.</p>
       <LoginForm destination={destination} action={loginAction} />
+      <p className="trust-note">
+        <Link className="text-link" href="/sifre-unuttum">Parolamı unuttum</Link>
+        {" · "}
+        Hesabın yok mu? <Link className="text-link" href="/kayit">Kayıt ol</Link>
+      </p>
     </section>
   );
 }

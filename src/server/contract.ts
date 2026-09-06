@@ -63,11 +63,17 @@ export const sessionCookies = {
   deviceId: "koala_did",
 } as const;
 
-/** `AuthController` uçları; backend'de context-path yok, yollar kök altında. */
+/** `AuthController` ve `LegalController` uçları; backend'de context-path yok. */
 export const backendPaths = {
+  agreements: "/legal/agreements",
+  completeRegistration: "/auth/complete-registration",
+  forgotPassword: "/auth/forgot-password",
   login: "/auth/login",
   logout: "/auth/logout",
   refreshToken: "/auth/refresh-token",
+  resetPassword: "/auth/reset-password",
+  startRegistration: "/auth/start-registration",
+  verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 
 /** Erişim tokenı reddedildiğinde backend bu durumu döner. */

@@ -237,4 +237,8 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "TOO_MANY_REQUESTS": "rateLimited",
   "UNAUTHORIZED": "authentication",
   "VALIDATION": "validation",
+  // `GlobalExceptionHandler` alan doğrulamasına kod vermiyor; `ErrorResult`
+  // kodu kategori adına düşürdüğü için zarfa bu dize geliyor. Asıl bilgi
+  // `details[]` içinde, alan bazında.
+  "VALIDATION_FAILED": "validation",
 };

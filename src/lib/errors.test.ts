@@ -36,6 +36,17 @@ describe("API hata sunumu", () => {
     });
   });
 
+  it("alan doğrulaması başarısız olduğunda kontrol mesajı gösterir", () => {
+    // `GlobalExceptionHandler` alan hatalarına özel kod üretmiyor: kod null
+    // geçilince `ErrorResult` onu kategori adına, yani VALIDATION_FAILED'e
+    // düşürüyor. Haritada olmazsa form nötr "Bir sorun oluştu" gösterirdi.
+    expect(errorPresentation("VALIDATION_FAILED", 400)).toEqual({
+      title: "Bilgileri kontrol et",
+      message: "Gönderdiğin bilgilerden bazıları geçerli değil.",
+      action: "none",
+    });
+  });
+
   it("bilinmeyen backend mesajını kullanıcıya göstermez", () => {
     expect(errorPresentation("NEW_INTERNAL_DETAIL", 500)).toEqual({
       title: "Bir sorun oluştu",

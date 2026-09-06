@@ -3,9 +3,8 @@
 import { redirect } from "next/navigation";
 
 import type { FormState } from "@/lib/form-state";
-import { ApiError } from "@/server/api/errors";
 import { signIn } from "@/server/auth/login";
-import { unexpectedError } from "@/server/contract";
+import { failureState, textField } from "@/server/form";
 import { returnDestination } from "@/server/session/login-redirect";
 
 /**
@@ -29,17 +28,4 @@ export async function loginAction(_state: FormState, formData: FormData): Promis
   }
 
   redirect(destination);
-}
-
-function textField(formData: FormData, name: string): string {
-  const value = formData.get(name);
-  return typeof value === "string" ? value : "";
-}
-
-/** Bilinmeyen arıza da kodla taşınır; metin seçimi istemcide yapılır. */
-function failureState(error: unknown): FormState {
-  if (error instanceof ApiError) {
-    return { status: "error", errorCode: error.errorCode, httpStatus: error.status };
-  }
-  return { status: "error", errorCode: unexpectedError, httpStatus: 500 };
 }

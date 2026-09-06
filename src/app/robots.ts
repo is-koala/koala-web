@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { publicEnvironment } from "@/lib/env";
+import { privateRoutes } from "@/lib/private-routes";
 
 export default function robots(): MetadataRoute.Robots {
   const { siteUrl } = publicEnvironment();
@@ -11,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/giris", "/cikis", "/hesap-dogrula", "/sifre-belirle", "/sifre-sifirla", "/eposta-onayla", "/uygulamayi-ac", "/payment/result"],
+      disallow: [...privateRoutes],
     },
     sitemap: new URL("/sitemap.xml", siteUrl).toString(),
   };

@@ -3,9 +3,10 @@ import "server-only";
 import { apiFetch } from "@/server/api/client";
 import { ApiError } from "@/server/api/errors";
 import { backendPaths, notFoundStatus, unauthorizedStatus } from "@/server/contract";
-import { writeDeviceIdCookie, writeSessionCookies } from "@/server/session/cookies";
 import type { TokenPair } from "@/server/session/refresh";
 import { anonymousCaller } from "@/server/session/session";
+
+import { establishSession } from "./session-start";
 
 export type Credentials = {
   email: string;
@@ -52,10 +53,7 @@ export async function signIn(credentials: Credentials): Promise<void> {
     throw collapseCredentialFailure(error);
   }
 
-  await writeSessionCookies(session);
-  // Oturum bu kimliğe bağlandı; çerez başka bir kimlik taşıyorsa backend
-  // sonraki istekte oturumu pasifleştirirdi.
-  await writeDeviceIdCookie(caller.deviceId);
+  await establishSession(session, caller.deviceId);
 }
 
 /**

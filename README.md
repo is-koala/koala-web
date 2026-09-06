@@ -35,9 +35,11 @@ kuralları aynı derleme hattında sunduğu için seçildi. Marka değişkenleri
 | iOS | Otomatik yönlendirme yapılmaz; dokunuştan sonra sayfa görünür kalırsa yaklaşık 1,5 saniyede mağaza yedeği gösterilir. |
 | Masaüstü | Custom scheme denenmez; QR kod ve varsa mağaza bağlantısı gösterilir. |
 
-`/sifre-belirle`, ayrı backend akışı oluşana kadar geçici olarak 308 ile
-`/hesap-dogrula` adresine gider. Bu yönlendirme yeni akışın sahibi tarafından
-ayrılacaktır.
+`/sifre-belirle` kalıcı olarak 308 ile `/hesap-dogrula` adresine gider.
+Backend kayıt bağlantısını yalnız `/hesap-dogrula` olarak üretiyor ve
+`/sifre-belirle` adresine giden hiçbir bağlantı yok; parola belirleme adımı
+`/hesap-dogrula` sayfasının kendisinde tamamlanıyor. Yönlendirme, daha önce
+gönderilmiş e-postalar için duruyor.
 
 ## Dokploy dağıtımı
 
