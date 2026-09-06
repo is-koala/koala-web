@@ -11,6 +11,14 @@ const emptyCopy = {
     "Fiyat henüz hesaplanmadı",
     "Çalışana ödenecek ücreti girdiğinde Koala hizmet bedelini ve işveren toplamını burada gösteririz.",
   ],
+  companyContacts: [
+    "Yetkili listesi boş görünüyor",
+    "Şirketin yetkilileri burada listelenecek.",
+  ],
+  companyInvitations: [
+    "Bekleyen davet yok",
+    "Gönderdiğin ve henüz cevaplanmamış davetler burada görünecek.",
+  ],
   addressSuggestions: [
     "Eşleşen adres bulunamadı",
     "Sokak ya da mahalle adını farklı yazmayı deneyebilirsin.",

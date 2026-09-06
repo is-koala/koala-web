@@ -43,6 +43,9 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "CANCELLATION_ALREADY_CANCELLED": "conflict",
   "CANCELLATION_NOT_A_PARTICIPANT": "notFound",
   "CANCELLATION_NOT_CANCELLABLE": "conflict",
+  // `ConflictException`: `PENDING` bir davet dururken aynı kişiye ikinci
+  // davet gönderilemiyor (is-koala/koala-backend#85).
+  "COMPANY_CONTACT_INVITATION_ALREADY_PENDING": "conflict",
   "COMPANY_CONTACT_INVITATION_NOT_FOUND": "notFound",
   "COMPANY_LAST_ADMIN_CANNOT_BE_REMOVED": "conflict",
   "COMPANY_NOT_FOUND": "notFound",
@@ -206,7 +209,9 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "TIMESHEET_NOT_THE_WORKER": "notFound",
   "TIMESHEET_PAYMENT_NOT_SECURED": "conflict",
   "TOKEN_EXPIRED": "validation",
-  "USER_ALREADY_A_CONTACT": "validation",
+  // `ValidationException` → `ConflictException` (400 → 409): düzeltilecek bir
+  // alan yok, kişi gerçekten zaten yetkili.
+  "USER_ALREADY_A_CONTACT": "conflict",
   "USER_ALREADY_IDENTITY_VERIFIED": "validation",
   "USER_CURRENT_PASSWORD_INCORRECT": "validation",
   "USER_EMAIL_ALREADY_EXISTS": "validation",
@@ -220,7 +225,9 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "USER_LAST_NAME_CANNOT_BE_EMPTY": "validation",
   "USER_MUST_VERIFY_IDENTITY": "validation",
   "USER_NEW_PASSWORD_CANNOT_BE_SAME_AS_CURRENT_PASSWORD": "validation",
-  "USER_NOT_ASSOCIATED_WITH_COMPANY": "forbidden",
+  // `ForbiddenException` → `ResourceNotFoundException` (403 → 404): şirket
+  // uçları yetkisizliği "yok" ile aynı yanıtta birleştiriyor.
+  "USER_NOT_ASSOCIATED_WITH_COMPANY": "notFound",
   "USER_NOT_AUTHENTICATED": "notFound",
   "USER_NOT_FOUND": "notFound",
   "USER_NOT_FOUND_BY_EMAIL": "notFound",
