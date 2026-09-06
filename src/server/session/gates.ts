@@ -109,6 +109,12 @@ export function gateRequirements(
   return { advisories: gatesInMode(unmet, "advisory"), blocked: gatesInMode(unmet, "blocking") };
 }
 
+/** Tek bir eylem kararını sözlükte tanımlı sunum kiplerini koruyarak ayırır. */
+export function gateVerdictRequirements(verdict: GateVerdict): GateRequirements {
+  const unmet = verdict.open ? [] : verdict.blockedBy;
+  return { advisories: gatesInMode(unmet, "advisory"), blocked: gatesInMode(unmet, "blocking") };
+}
+
 /**
  * İlanın açılacağı şirkete göre karar.
  *

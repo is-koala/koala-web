@@ -1,59 +1,81 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import type { EmployerAssignment } from "@/payments/contract";
+import type { Viewer } from "@/server/session/viewer";
+
 const enterShell = vi.hoisted(() => vi.fn());
 const readEmployerAssignment = vi.hoisted(() => vi.fn());
+const readEmployerPaymentRequirements = vi.hoisted(() => vi.fn());
 const fetchPriceQuote = vi.hoisted(() => vi.fn());
 const viewerGates = vi.hoisted(() => vi.fn());
+const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"); }));
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/payments/payments", () => ({ readEmployerAssignment }));
+vi.mock("@/server/payments/preflight", () => ({ readEmployerPaymentRequirements }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchPriceQuote }));
 vi.mock("@/server/session/gates", () => ({ viewerGates }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
 
-import { CheckoutPage } from "./page";
+import { CheckoutContent, CheckoutPage } from "./page";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 const pricing = {
-  pricingVersion: "2026-09-v1",
-  currency: "TRY",
-  workerPayout: "1500.50",
-  serviceFeeRate: "0.075",
-  serviceFeeAmount: "112.54",
-  employerTotal: "1613.04",
+  pricingVersion: "2026-09-v1", currency: "TRY", workerPayout: "1500.50",
+  serviceFeeRate: "0.075", serviceFeeAmount: "112.54", employerTotal: "1613.04",
+};
+const assignment: EmployerAssignment = {
+  id: assignmentId,
+  jobId: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
+  title: "Etkinlik görevlisi", position: "Karşılama", employerType: "INDIVIDUAL",
+  workerName: "Ayşe Yılmaz", cityName: "İstanbul", districtName: "Kadıköy",
+  startsAt: "2026-09-12T09:00:00", endsAt: "2026-09-12T18:00:00",
+  status: "CONFIRMED", paymentStatus: "PENDING_COLLECTION", pricing,
+};
+const viewer: Viewer = {
+  id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",
+  email: "ali@example.test", phoneNumber: "", emailVerified: true, phoneVerified: true,
+  profilePictureUrl: null, jobTitle: null, about: null, qualifications: null, interests: null,
+  experiences: [], educations: [], isEmployer: true, identityVerified: true,
+  hasIdentityNumber: false, hasAddress: false, companies: [],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  enterShell.mockResolvedValue({
-    viewer: { identityVerified: true, hasIdentityNumber: false, hasAddress: false },
-    failure: null,
-  });
-  viewerGates.mockReturnValue({
-    individualPayment: {
-      open: false,
-      blockedBy: ["identityNumber", "individualBillingAddress"],
-    },
-  });
-  readEmployerAssignment.mockResolvedValue({
-    id: assignmentId,
-    title: "Etkinlik görevlisi",
-    workerName: "Ayşe Yılmaz",
-    employerType: "INDIVIDUAL",
-    status: "CONFIRMED",
-    paymentStatus: "PENDING_COLLECTION",
-    pricing,
+  enterShell.mockResolvedValue({ viewer, failure: null });
+  readEmployerAssignment.mockResolvedValue(assignment);
+  viewerGates.mockReturnValue({ individualPayment: { open: false } });
+  readEmployerPaymentRequirements.mockResolvedValue({
+    advisories: ["individualBillingAddress"], blocked: ["identityNumber"],
   });
   fetchPriceQuote.mockResolvedValue(pricing);
 });
 
-it("ödeme öncesinde backend fiyat teklifini ve eksik ön koşulları birlikte gösterir", async () => {
-  render(await CheckoutPage({ params: Promise.resolve({ assignmentId }) }));
+it("ödeme öncesinde backend fiyat teklifini ve eksik ön koşulları kipleriyle gösterir", async () => {
+  render(await CheckoutContent({ assignment, viewer }));
 
   expect(fetchPriceQuote).toHaveBeenCalledWith("1500.50");
   expect(screen.getByText("1.613,04 ₺")).toBeVisible();
   expect(screen.getByText("Kimlik numaran hesabında kayıtlı değil")).toBeVisible();
   expect(screen.getByText("Fatura adresin eksik")).toBeVisible();
   expect(screen.getByRole("button", { name: "Iyzico ile güvenli öde" })).toBeDisabled();
+});
+
+it("şirket adresi eksiğini companyBillingAddress kapısıyla ödeme öncesinde kapatır", async () => {
+  readEmployerPaymentRequirements.mockResolvedValue({
+    advisories: ["companyBillingAddress"], blocked: [],
+  });
+  render(await CheckoutContent({ assignment: { ...assignment, employerType: "COMPANY" }, viewer }));
+
+  expect(screen.getByText("Şirketin fatura adresi eksik")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Iyzico ile güvenli öde" })).toBeDisabled();
+});
+
+it("ownership bulunamazsa fiyat veya şirket ön kontrolünü başlatmadan notFound üretir", async () => {
+  readEmployerAssignment.mockResolvedValue(null);
+  await expect(CheckoutPage({ params: Promise.resolve({ assignmentId }) })).rejects.toThrow("NEXT_NOT_FOUND");
+  expect(fetchPriceQuote).not.toHaveBeenCalled();
+  expect(readEmployerPaymentRequirements).not.toHaveBeenCalled();
 });

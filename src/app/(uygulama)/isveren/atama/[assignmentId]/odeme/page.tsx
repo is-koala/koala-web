@@ -2,18 +2,22 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { ShellGate } from "@/app/(uygulama)/shell";
-import { EmployerGate } from "@/components/employer-gate";
-import { CheckoutButton } from "@/components/payments/checkout-button";
-import { PaymentBreakdown } from "@/components/payments/employer-payment";
+import {
+  EmployerPaymentGate,
+  PaymentBreakdown,
+} from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
 import { isUuid } from "@/lib/identifiers";
 import { canStartPayment } from "@/payments/checkout";
+import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
 import { fetchPriceQuote } from "@/server/jobs/jobs";
 import { readEmployerAssignment } from "@/server/payments/payments";
+import { readEmployerPaymentRequirements } from "@/server/payments/preflight";
 import { viewerGates } from "@/server/session/gates";
-import { enterShell } from "@/server/session/viewer";
+import { enterShell, type Viewer } from "@/server/session/viewer";
 
+import { CheckoutButton } from "@/components/payments/checkout-button";
 import { startPaymentAction } from "./actions";
 
 type CheckoutPageProps = { params: Promise<{ assignmentId: string }> };
@@ -21,13 +25,12 @@ type CheckoutPageProps = { params: Promise<{ assignmentId: string }> };
 export default function Page({ params }: CheckoutPageProps) {
   return (
     <ShellGate shell="employer" href="/isveren/atamalar">
-      <Suspense fallback={<LoadingState label="Ödeme özeti yükleniyor" />}>
-        <CheckoutPage params={params} />
-      </Suspense>
+      <CheckoutPage params={params} />
     </ShellGate>
   );
 }
 
+/** İşveren-scoped ownership doğrulanmadan loading sınırı kurulmaz. */
 export async function CheckoutPage({ params }: CheckoutPageProps) {
   const context = await enterShell();
   if (context.failure !== null || context.viewer === null) return null;
@@ -44,23 +47,44 @@ export async function CheckoutPage({ params }: CheckoutPageProps) {
   if ("failure" in assignmentResult) {
     return <ErrorState errorCode={assignmentResult.failure.errorCode} status={assignmentResult.failure.httpStatus} />;
   }
-  const { assignment } = assignmentResult;
-  if (assignment === null) notFound();
+  if (assignmentResult.assignment === null) notFound();
 
-  const quoteResult = assignment.pricing
-    ? await fetchPriceQuote(assignment.pricing.workerPayout)
-        .then((pricing) => ({ pricing }))
-        .catch((error: unknown) => {
-          unstable_rethrow(error);
-          return { failure: failureView(error) };
-        })
-    : null;
+  return (
+    <Suspense fallback={<LoadingState label="Ödeme özeti yükleniyor" />}>
+      <CheckoutContent assignment={assignmentResult.assignment} viewer={context.viewer} />
+    </Suspense>
+  );
+}
 
-  const individualPayment = viewerGates(context.viewer).individualPayment;
-  const blocked = assignment.employerType === "INDIVIDUAL" && !individualPayment.open
-    ? individualPayment.blockedBy
-    : [];
+export async function CheckoutContent({
+  assignment,
+  viewer,
+}: {
+  assignment: EmployerAssignment;
+  viewer: Viewer;
+}) {
+  const [quoteResult, requirementsResult] = await Promise.all([
+    assignment.pricing
+      ? fetchPriceQuote(assignment.pricing.workerPayout)
+          .then((pricing) => ({ pricing }))
+          .catch((error: unknown) => {
+            unstable_rethrow(error);
+            return { failure: failureView(error) };
+          })
+      : null,
+    readEmployerPaymentRequirements(viewerGates(viewer), assignment)
+      .then((requirements) => ({ requirements }))
+      .catch((error: unknown) => {
+        unstable_rethrow(error);
+        return { failure: failureView(error) };
+      }),
+  ]);
+
+  if ("failure" in requirementsResult) {
+    return <ErrorState errorCode={requirementsResult.failure.errorCode} status={requirementsResult.failure.httpStatus} />;
+  }
   const eligible = canStartPayment(assignment);
+  const quoteReady = quoteResult !== null && !("failure" in quoteResult);
 
   return (
     <section className="app-panel checkout-page">
@@ -75,12 +99,15 @@ export async function CheckoutPage({ params }: CheckoutPageProps) {
         <h2 id="checkout-prerequisites-title">Ön koşullar</h2>
         {assignment.employerType === "INDIVIDUAL" ? (
           <ul>
-            <li>{context.viewer.identityVerified ? "Kimlik doğrulandı" : "Kimlik doğrulaması eksik"}</li>
-            <li>{context.viewer.hasIdentityNumber ? "Kimlik numarası kayıtlı" : "Kimlik numarası eksik"}</li>
-            <li>{context.viewer.hasAddress ? "Fatura adresi kayıtlı" : "Fatura adresi eksik"}</li>
+            <li>{viewer.identityVerified ? "Kimlik doğrulandı" : "Kimlik doğrulaması eksik"}</li>
+            <li>{viewer.hasIdentityNumber ? "Kimlik numarası kayıtlı" : "Kimlik numarası eksik"}</li>
+            <li>{viewer.hasAddress ? "Fatura adresi kayıtlı" : "Fatura adresi eksik"}</li>
           </ul>
+        ) : requirementsResult.requirements.advisories.length === 0 &&
+          requirementsResult.requirements.blocked.length === 0 ? (
+          <p>Şirket yetkin ve şirket fatura adresi doğrulandı.</p>
         ) : (
-          <p>Şirket yetkin ve şirket fatura adresi ödeme başlatılırken backend tarafından doğrulanır.</p>
+          <p>Şirket ödeme koşullarındaki eksikleri aşağıdaki yönlendirmelerden tamamlayabilirsin.</p>
         )}
       </section>
 
@@ -98,7 +125,7 @@ export async function CheckoutPage({ params }: CheckoutPageProps) {
         )}
       </section>
 
-      {!eligible || quoteResult === null || "failure" in (quoteResult ?? { failure: true }) ? (
+      {!eligible || !quoteReady ? (
         <div className="payment-disabled-reason">
           <button type="button" className="button button-secondary" disabled>
             Iyzico ile güvenli öde
@@ -106,9 +133,9 @@ export async function CheckoutPage({ params }: CheckoutPageProps) {
           {!eligible ? <p>Atama onaylanmadan veya ödeme sonucu belirsizken yeni ödeme başlatılamaz.</p> : null}
         </div>
       ) : (
-        <EmployerGate blocked={blocked} action="Iyzico ile güvenli öde">
-          <CheckoutButton action={startPaymentAction.bind(null, assignmentId)} />
-        </EmployerGate>
+        <EmployerPaymentGate requirements={requirementsResult.requirements} action="Iyzico ile güvenli öde">
+          <CheckoutButton action={startPaymentAction.bind(null, assignment.id)} />
+        </EmployerPaymentGate>
       )}
     </section>
   );

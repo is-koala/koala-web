@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { PaymentResultWait } from "./payment-result-wait";
 
@@ -7,39 +7,80 @@ const replace = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 it("bekleyen sonucu üst sınırlı ve backoff sıralı kontrollerden sonra bekleme ekranında bırakır", async () => {
-  const check = vi.fn(async () => ({ status: "pending" as const }));
+  const fetchMock = vi.fn(async () => jsonResponse({ status: "pending" }));
+  vi.stubGlobal("fetch", fetchMock);
 
   render(
     <PaymentResultWait
       assignmentId="3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e"
-      check={check}
-      retryDelaysMs={[0, 0, 0]}
+      initialTone="success"
     />,
   );
 
-  expect(screen.getByRole("status")).toHaveTextContent("Ödeme sonucunu bekliyoruz");
-  await waitFor(() => expect(check).toHaveBeenCalledTimes(3));
-  expect(await screen.findByText(/kontrol süresi doldu/i)).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("Ödeme dönüşü alındı");
+  await act(async () => vi.advanceTimersByTimeAsync(999));
+  expect(fetchMock).not.toHaveBeenCalled();
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await act(async () => vi.advanceTimersByTimeAsync(1_999));
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  await act(async () => vi.advanceTimersByTimeAsync(3_999));
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(screen.getByText(/kontrol süresi doldu/i)).toBeVisible();
   expect(replace).not.toHaveBeenCalled();
 });
 
 it("backend sonucu kesinleşince atama ayrıntısına yalnız doğrulanmış dönüş işaretiyle gider", async () => {
-  const check = vi.fn(async () => ({ status: "resolved" as const }));
+  const fetchMock = vi.fn(async () => jsonResponse({ status: "resolved" }));
+  vi.stubGlobal("fetch", fetchMock);
 
   render(
     <PaymentResultWait
       assignmentId="3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e"
-      check={check}
-      retryDelaysMs={[0]}
+      initialTone="failed"
     />,
   );
 
-  await waitFor(() => {
-    expect(replace).toHaveBeenCalledWith(
-      "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e?paymentReturn=1",
-    );
-  });
+  expect(screen.getByRole("heading")).toHaveTextContent("Ödeme tamamlanamadı bildirimi alındı");
+  await act(async () => vi.advanceTimersByTimeAsync(1_000));
+  expect(replace).toHaveBeenCalledWith(
+    "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e?paymentReturn=1",
+  );
 });
+
+it("ekrandan ayrılınca bekleyen kontrol zamanlayıcısını iptal eder", async () => {
+  const fetchMock = vi.fn(async () => jsonResponse({ status: "pending" }));
+  vi.stubGlobal("fetch", fetchMock);
+  const view = render(
+    <PaymentResultWait
+      assignmentId="3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e"
+      initialTone="success"
+    />,
+  );
+
+  view.unmount();
+  await act(async () => vi.advanceTimersByTimeAsync(7_000));
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+function jsonResponse(body: object): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}

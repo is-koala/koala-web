@@ -3,12 +3,12 @@ import { expect, test } from "@playwright/test";
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 
 for (const status of ["success", "failed"] as const) {
-  test(`${status} iddialı dönüş oturumsuzsa doğrulamadan önce girişe gider`, async ({ request }) => {
+  test(`${status} iddialı mobil dönüş oturumsuzken uygulama aktarımını korur`, async ({ page }) => {
     const path = `/payment/result?status=${status}&assignmentId=${assignmentId}`;
-    const response = await request.get(path, { maxRedirects: 0 });
+    const response = await page.goto(path);
 
-    expect(response.status()).toBe(307);
-    expect(response.headers().location).toBe(`/giris?next=${encodeURIComponent(path)}`);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("link", { name: "Uygulamada aç" })).toBeVisible();
   });
 }
 

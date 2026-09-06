@@ -442,9 +442,9 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .payment-action-heading .eyebrow, .payment-attempt-heading .eyebrow { margin-bottom: 6px; }
 .payment-action-heading h2, .payment-attempt-heading h2 { margin: 0; font-size: 1.35rem; }
 .payment-status, .payment-attempt-status { display: inline-flex; width: fit-content; flex: none; padding: 6px 10px; border-radius: 999px; background: var(--surface); color: var(--muted); font-size: .75rem; font-weight: 850; }
-.payment-status-held_in_escrow, .payment-status-released_to_worker, .payment-attempt-status-succeeded { background: #e3f6ec; color: #26714c; }
-.payment-status-pending_collection, .payment-attempt-status-initiated, .payment-attempt-status-in_review { background: #fff4d7; color: #795600; }
-.payment-status-failed, .payment-attempt-status-failed { background: #fff0ed; color: #8c2424; }
+.payment-status-positive, .payment-attempt-status-positive { background: #e3f6ec; color: #26714c; }
+.payment-status-warning, .payment-attempt-status-warning { background: #fff4d7; color: #795600; }
+.payment-status-negative, .payment-attempt-status-negative { background: #fff0ed; color: #8c2424; }
 .escrow-note { margin: 0; padding: 15px 17px; border-left: 4px solid var(--brand-accent); border-radius: 12px; background: var(--surface); }
 .payment-disabled-reason, .checkout-submit { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; }
 .payment-disabled-reason p { margin: 0; color: var(--muted); }
@@ -453,8 +453,8 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .payment-result-notice { padding: 18px 20px; border: 1px solid #e2c97e; border-left: 5px solid #c48b16; border-radius: 18px; background: #fff8e7; }
 .payment-result-notice h2 { margin-bottom: 5px; font-size: 1.2rem; }
 .payment-result-notice p { margin: 0; }
-.payment-result-success { border-color: #b7dfc9; border-left-color: #2f9564; background: #effbf4; }
-.payment-result-failed { border-color: #ffc8bd; border-left-color: var(--brand-primary); background: #fff0ed; }
+.payment-result-positive { border-color: #b7dfc9; border-left-color: #2f9564; background: #effbf4; }
+.payment-result-negative { border-color: #ffc8bd; border-left-color: var(--brand-primary); background: #fff0ed; }
 .payment-result-wait { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 .payment-result-wait h1, .payment-result-wait .lede, .payment-result-wait p { margin: 0; }
 .payment-wait-pulse { font-weight: 800; color: var(--brand-accent); }

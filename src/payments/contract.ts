@@ -31,7 +31,7 @@ export type EmployerAssignmentPage = {
 
 export type PaymentAttempt = {
   readonly id: string;
-  readonly status: string;
+  readonly status: PaymentAttemptStatus;
   readonly currency: string;
   readonly workerPayout: string;
   readonly serviceFeeRate: string;
@@ -39,17 +39,26 @@ export type PaymentAttempt = {
   readonly employerTotal: string;
   readonly completedAt: string | null;
   readonly createdAt: string;
+  readonly failureReason: string;
 };
+
+export type PaymentAttemptStatus = "INITIATED" | "IN_REVIEW" | "SUCCEEDED" | "FAILED" | "UNKNOWN";
 
 export type PaymentSession = {
   readonly paymentPageUrl: string;
   readonly pricing: PricingBreakdown;
 };
 
-export type PaymentResolution = "succeeded" | "failed" | "pending";
+export type PaymentResolution = "held" | "released" | "refunded" | "failed" | "pending";
 
 export type PaymentReconciliation = {
   readonly assignment: EmployerAssignment | null;
   readonly attempts: readonly PaymentAttempt[];
   readonly resolution: PaymentResolution;
+  readonly hasActiveDispute: boolean;
+};
+
+export type EmployerPaymentCompany = {
+  readonly companyId: string;
+  readonly hasAddress: boolean;
 };

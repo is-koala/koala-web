@@ -1,19 +1,23 @@
 import Link from "next/link";
 
-import { EmployerGate } from "@/components/employer-gate";
+import type { PaymentStatus } from "@/assignments/contract";
+import { GateAdvisories, GateBlocks } from "@/components/employer-gate";
 import type { PricingBreakdown } from "@/lib/job-posting";
-import type { GateId } from "@/lib/gates";
 import { formatMoney } from "@/lib/money";
 import {
   canStartPayment,
   paymentAttemptLabel,
+  paymentAttemptPresentation,
+  paymentResultPresentation,
   paymentStatusLabel,
+  paymentStatusPresentation,
 } from "@/payments/checkout";
 import type {
   EmployerAssignment,
   PaymentAttempt,
   PaymentResolution,
 } from "@/payments/contract";
+import type { GateRequirements } from "@/server/session/gates";
 
 export function PaymentBreakdown({ pricing }: { pricing: PricingBreakdown }) {
   return (
@@ -42,10 +46,11 @@ export function PaymentBreakdown({ pricing }: { pricing: PricingBreakdown }) {
   );
 }
 
-export function PaymentStatusBadge({ status }: { status: string }) {
+export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  const presentation = paymentStatusPresentation(status);
   return (
-    <span className={`payment-status payment-status-${status.toLowerCase()}`}>
-      {paymentStatusLabel(status)}
+    <span className={`payment-status payment-status-${presentation.tone}`}>
+      {presentation.label}
     </span>
   );
 }
@@ -61,10 +66,10 @@ export function EscrowExplanation() {
 
 export function EmployerAssignmentPayment({
   assignment,
-  blocked,
+  requirements,
 }: {
   assignment: EmployerAssignment;
-  blocked: readonly GateId[];
+  requirements: GateRequirements;
 }) {
   const eligible = canStartPayment(assignment);
 
@@ -87,17 +92,38 @@ export function EmployerAssignmentPayment({
           <p>{paymentDisabledReason(assignment)}</p>
         </div>
       ) : (
-        <EmployerGate blocked={blocked} action="Ödemeye geç">
+        <EmployerPaymentGate requirements={requirements} action="Ödemeye geç">
           <Link className="button" href={`/isveren/atama/${encodeURIComponent(assignment.id)}/odeme`}>
             Ödemeye geç
           </Link>
-        </EmployerGate>
+        </EmployerPaymentGate>
       )}
 
       <Link className="text-link" href={`/isveren/atama/${encodeURIComponent(assignment.id)}/odemeler`}>
         Ödeme denemelerini gör
       </Link>
     </section>
+  );
+}
+
+export function EmployerPaymentGate({
+  requirements,
+  action,
+  children,
+}: {
+  requirements: GateRequirements;
+  action: string;
+  children: React.ReactNode;
+}) {
+  if (requirements.advisories.length === 0 && requirements.blocked.length === 0) {
+    return <>{children}</>;
+  }
+  return (
+    <div className="gate-action">
+      <button type="button" className="button button-secondary" disabled>{action}</button>
+      <GateAdvisories gates={requirements.advisories} />
+      <GateBlocks gates={requirements.blocked} />
+    </div>
   );
 }
 
@@ -120,7 +146,7 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
               <p className="eyebrow">Ödeme denemesi</p>
               <h2>{`${attempts.length - index}. deneme`}</h2>
             </div>
-            <span className={`payment-attempt-status payment-attempt-status-${attempt.status.toLowerCase()}`}>
+            <span className={`payment-attempt-status payment-attempt-status-${paymentAttemptPresentation(attempt.status).tone}`}>
               {paymentAttemptLabel(attempt.status)}
             </span>
           </div>
@@ -142,7 +168,8 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
           </dl>
           {attempt.status === "FAILED" ? (
             <p className="payment-failure-note">
-              Ödeme alınmadı. Kartını ve banka doğrulamasını kontrol edip yeniden deneyebilirsin.
+              {attempt.failureReason ||
+                "Ödeme alınmadı. Kartını ve banka doğrulamasını kontrol edip yeniden deneyebilirsin."}
             </p>
           ) : null}
         </li>
@@ -152,27 +179,24 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
 }
 
 export function PaymentResultNotice({ resolution }: { resolution: PaymentResolution }) {
-  if (resolution === "succeeded") {
-    return (
-      <div role="status" className="payment-result-notice payment-result-success">
-        <h2>Ödeme doğrulandı</h2>
-        <p>Ödediğin tutar Koala&apos;da emanete alındı.</p>
-      </div>
-    );
-  }
-  if (resolution === "failed") {
-    return (
-      <div role="alert" className="payment-result-notice payment-result-failed">
-        <h2>Ödeme tamamlanamadı</h2>
-        <p>Ödeme alınmadı. Atamanın koşulları uygunsa yeniden deneyebilirsin.</p>
-      </div>
-    );
-  }
+  const presentation = paymentResultPresentation(resolution);
   return (
-    <div role="status" className="payment-result-notice">
-      <h2>Ödeme sonucunu bekliyoruz</h2>
-      <p>Sonuç kesinleşene kadar yeni bir ödeme başlatma.</p>
+    <div
+      role={presentation.role}
+      className={`payment-result-notice payment-result-${presentation.tone}`}
+    >
+      <h2>{presentation.title}</h2>
+      <p>{presentation.body}</p>
     </div>
+  );
+}
+
+export function DisputeEscrowNotice({ hasActiveDispute }: { hasActiveDispute: boolean }) {
+  if (!hasActiveDispute) return null;
+  return (
+    <p role="status" className="escrow-note dispute-escrow-note">
+      Bu atamada açık bir uyuşmazlık var. İnceleme sonuçlanana kadar emanetten çıkış bekler.
+    </p>
   );
 }
 

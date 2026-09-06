@@ -5,11 +5,14 @@ import type { PricingBreakdown } from "@/lib/job-posting";
 import type {
   EmployerAssignment,
   EmployerAssignmentPage,
+  EmployerPaymentCompany,
   EmployerType,
   PaymentAttempt,
+  PaymentAttemptStatus,
   PaymentReconciliation,
   PaymentSession,
 } from "@/payments/contract";
+import { paymentStatusPresentation } from "@/payments/checkout";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -53,6 +56,13 @@ const paymentStatuses = new Set<PaymentStatus>([
 ]);
 
 const employerTypes = new Set<EmployerType>(["INDIVIDUAL", "COMPANY"]);
+const paymentAttemptStatuses = new Set<PaymentAttemptStatus>([
+  "INITIATED",
+  "IN_REVIEW",
+  "SUCCEEDED",
+  "FAILED",
+]);
+const activeDisputeStatuses = new Set(["OPEN", "UNDER_REVIEW"]);
 
 export async function readEmployerAssignments(
   pageNumber = 0,
@@ -108,6 +118,25 @@ export async function readPaymentAttempts(assignmentId: string): Promise<readonl
   return (attempts ?? []).map(projectPaymentAttempt);
 }
 
+export async function readEmployerPaymentCompany(jobId: string): Promise<EmployerPaymentCompany> {
+  const job = await apiRequest<{
+    company?: { id?: string | null; address?: unknown } | null;
+  } | null>(`${backendPaths.jobs}/${encodeURIComponent(jobId)}`, { cache: "no-store" });
+  return {
+    companyId: job?.company?.id ?? "",
+    hasAddress: job?.company?.address != null,
+  };
+}
+
+export async function readAssignmentHasActiveDispute(assignmentId: string): Promise<boolean> {
+  const disputes = await apiRequest<readonly { status?: string | null }[] | null>(
+    `${backendPaths.jobAssignments}/${encodeURIComponent(assignmentId)}/disputes`,
+    { cache: "no-store" },
+  );
+  return (disputes ?? []).some((dispute) =>
+    dispute.status ? activeDisputeStatuses.has(dispute.status) : false);
+}
+
 export async function readEmployerAssignment(
   assignmentId: string,
 ): Promise<EmployerAssignment | null> {
@@ -132,35 +161,44 @@ export async function readAllEmployerAssignments(): Promise<readonly EmployerAss
   return content;
 }
 
-/** Dönüş URL'sinin iddiasını değil, iki yetkili backend görünümünü okur. */
+/** Dönüş URL'sinin iddiasını değil, yetkili assignment/payment/dispute görünümlerini okur. */
 export async function readPaymentReconciliation(
   assignmentId: string,
 ): Promise<PaymentReconciliation> {
-  const [assignment, attempts] = await Promise.all([
-    readEmployerAssignment(assignmentId),
-    readPaymentAttempts(assignmentId),
+  const assignment = await readEmployerAssignment(assignmentId);
+  if (assignment === null) {
+    return { assignment: null, attempts: [], resolution: "pending", hasActiveDispute: false };
+  }
+  const attempts = await readPaymentAttempts(assignment.id);
+  return paymentReconciliation(assignment, attempts, false);
+}
+
+export async function readPaymentDetailsForAssignment(
+  assignment: EmployerAssignment,
+): Promise<PaymentReconciliation> {
+  const [attempts, hasActiveDispute] = await Promise.all([
+    readPaymentAttempts(assignment.id),
+    readAssignmentHasActiveDispute(assignment.id),
   ]);
 
-  const paymentStatus = assignment?.paymentStatus;
-  const latestAttempt = attempts[0]?.status;
-  const resolution =
-    paymentStatus === "HELD_IN_ESCROW" ||
-    paymentStatus === "RELEASED_TO_WORKER" ||
-    paymentStatus === "REFUNDED" ||
-    latestAttempt === "SUCCEEDED"
-      ? "succeeded"
-      : paymentStatus === "FAILED" || latestAttempt === "FAILED"
-        ? "failed"
-        : "pending";
+  return paymentReconciliation(assignment, attempts, hasActiveDispute);
+}
 
-  return { assignment, attempts, resolution };
+function paymentReconciliation(
+  assignment: EmployerAssignment,
+  attempts: readonly PaymentAttempt[],
+  hasActiveDispute: boolean,
+): PaymentReconciliation {
+  const resolution = paymentStatusPresentation(assignment.paymentStatus).resolution;
+
+  return { assignment, attempts, resolution, hasActiveDispute };
 }
 
 function projectPaymentAttempt(dto: PaymentAttemptDto): PaymentAttempt {
   const pricing = completePricing(dto.pricing);
   return {
     id: dto.id ?? "",
-    status: dto.status ?? "UNKNOWN",
+    status: known(dto.status, paymentAttemptStatuses),
     currency: pricing?.currency ?? dto.currency ?? "",
     workerPayout: pricing?.workerPayout ?? decimal(dto.workerPayout),
     serviceFeeRate: pricing?.serviceFeeRate ?? decimal(dto.commissionRate),
@@ -168,6 +206,7 @@ function projectPaymentAttempt(dto: PaymentAttemptDto): PaymentAttempt {
     employerTotal: pricing?.employerTotal ?? decimal(dto.totalCharged),
     completedAt: dto.completedAt ?? null,
     createdAt: dto.createdAt ?? "",
+    failureReason: clean(dto.failureReason) ?? "",
   };
 }
 

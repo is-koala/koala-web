@@ -5,6 +5,7 @@ import type { EmployerAssignment } from "@/payments/contract";
 
 import {
   EmployerAssignmentPayment,
+  DisputeEscrowNotice,
   PaymentBreakdown,
   PaymentHistory,
   PaymentResultNotice,
@@ -46,7 +47,7 @@ describe("işveren ödeme sunumu", () => {
   });
 
   it("atama ödeme durumunu tanınmayan bir değerle de nötr olarak gösterir", () => {
-    render(<PaymentStatusBadge status={"CHARGEBACK"} />);
+    render(<PaymentStatusBadge status="UNKNOWN" />);
 
     expect(screen.getByText("Durum güncelleniyor")).toBeVisible();
   });
@@ -55,7 +56,7 @@ describe("işveren ödeme sunumu", () => {
     render(
       <EmployerAssignmentPayment
         assignment={{ ...assignment, status: "PENDING_CONFIRMATION" }}
-        blocked={[]}
+        requirements={{ advisories: [], blocked: [] }}
       />,
     );
 
@@ -67,13 +68,18 @@ describe("işveren ödeme sunumu", () => {
     render(
       <EmployerAssignmentPayment
         assignment={assignment}
-        blocked={["identityNumber", "individualBillingAddress"]}
+        requirements={{
+          advisories: ["individualBillingAddress"],
+          blocked: ["identityNumber"],
+        }}
       />,
     );
 
     expect(screen.getByRole("button", { name: "Ödemeye geç" })).toBeDisabled();
     expect(screen.getByText("Kimlik numaran hesabında kayıtlı değil")).toBeVisible();
     expect(screen.getByText("Fatura adresin eksik")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Fatura adresin eksik");
+    expect(screen.getByRole("alert")).toHaveTextContent("Kimlik numaran hesabında kayıtlı değil");
     expect(screen.queryByRole("link", { name: "Ödemeye geç" })).toBeNull();
   });
 
@@ -83,7 +89,7 @@ describe("işveren ödeme sunumu", () => {
 
     rerender(<PaymentHistory attempts={[{
       id: "attempt-1",
-      status: "VERIFY_PENDING",
+      status: "UNKNOWN",
       currency: "TRY",
       workerPayout: "1500.50",
       serviceFeeRate: "0.075",
@@ -91,17 +97,51 @@ describe("işveren ödeme sunumu", () => {
       employerTotal: "1613.04",
       completedAt: null,
       createdAt: "2026-09-06T18:00:00Z",
+      failureReason: "",
     }]} />);
 
     expect(screen.getByText("Sonuç doğrulanıyor")).toBeVisible();
     expect(screen.getByText("1.613,04 ₺")).toBeVisible();
   });
 
-  it("atama dönüş bildirimini yalnız mutabakat sonucundan üretir", () => {
+  it("atama dönüş bildirimini backend'in kesin durumuna göre ayırır", () => {
     const { rerender } = render(<PaymentResultNotice resolution="failed" />);
     expect(screen.getByRole("alert")).toHaveTextContent("Ödeme tamamlanamadı");
 
-    rerender(<PaymentResultNotice resolution="succeeded" />);
-    expect(screen.getByRole("status")).toHaveTextContent("Ödeme doğrulandı");
+    rerender(<PaymentResultNotice resolution="held" />);
+    expect(screen.getByRole("status")).toHaveTextContent("emanete alındı");
+
+    rerender(<PaymentResultNotice resolution="released" />);
+    expect(screen.getByRole("status")).toHaveTextContent("işçiye aktarıldı");
+    expect(screen.queryByText(/emanete alındı/i)).toBeNull();
+
+    rerender(<PaymentResultNotice resolution="refunded" />);
+    expect(screen.getByRole("status")).toHaveTextContent("iade edildi");
+    expect(screen.queryByText(/emanete alındı/i)).toBeNull();
+  });
+
+  it("başarısız denemenin backend açıklamasını geçmişte korur", () => {
+    render(<PaymentHistory attempts={[{
+      id: "attempt-1",
+      status: "FAILED",
+      currency: "TRY",
+      workerPayout: "1500.50",
+      serviceFeeRate: "0.075",
+      serviceFeeAmount: "112.54",
+      employerTotal: "1613.04",
+      completedAt: "2026-09-06T18:05:00Z",
+      createdAt: "2026-09-06T18:00:00Z",
+      failureReason: "3DS doğrulaması tamamlanmadı",
+    }]} />);
+
+    expect(screen.getByText("3DS doğrulaması tamamlanmadı")).toBeVisible();
+  });
+
+  it("aktif uyuşmazlığın emanetten çıkışı durdurduğunu açıklar", () => {
+    const { rerender } = render(<DisputeEscrowNotice hasActiveDispute={false} />);
+    expect(screen.queryByText(/emanetten çıkış/i)).toBeNull();
+
+    rerender(<DisputeEscrowNotice hasActiveDispute />);
+    expect(screen.getByRole("status")).toHaveTextContent("emanetten çıkış bekler");
   });
 });

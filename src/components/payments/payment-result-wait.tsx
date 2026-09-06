@@ -5,38 +5,34 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ErrorState } from "@/components/states";
+import { paymentReturnToneTitle } from "@/payments/checkout";
 
-export type PaymentResultCheck =
+type PaymentResultCheck =
   | { status: "pending" }
   | { status: "resolved" }
   | { status: "error"; errorCode: string; httpStatus: number };
 
-export type PaymentResultCheckAction = () => Promise<PaymentResultCheck>;
-
-const defaultRetryDelays = [1_000, 2_000, 4_000] as const;
+const retryDelaysMs = [1_000, 2_000, 4_000] as const;
 
 export function PaymentResultWait({
   assignmentId,
-  check,
-  retryDelaysMs = defaultRetryDelays,
+  initialTone,
 }: {
   assignmentId: string;
-  check: PaymentResultCheckAction;
-  retryDelaysMs?: readonly number[];
+  initialTone: "success" | "failed";
 }) {
   const router = useRouter();
   const [state, setState] = useState<"checking" | "timed-out" | PaymentResultCheck>("checking");
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function poll() {
       for (const delay of retryDelaysMs) {
-        await wait(delay);
-        if (cancelled) return;
+        if (!(await wait(delay, controller.signal))) return;
 
-        const result = await check();
-        if (cancelled) return;
+        const result = await checkPaymentResult(assignmentId, controller.signal);
+        if (controller.signal.aborted) return;
 
         if (result.status === "resolved") {
           router.replace(`/isveren/atama/${encodeURIComponent(assignmentId)}?paymentReturn=1`);
@@ -48,14 +44,12 @@ export function PaymentResultWait({
         }
       }
 
-      if (!cancelled) setState("timed-out");
+      setState("timed-out");
     }
 
     void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [assignmentId, check, retryDelaysMs, router]);
+    return () => controller.abort();
+  }, [assignmentId, router]);
 
   if (typeof state === "object" && state.status === "error") {
     return <ErrorState errorCode={state.errorCode} status={state.httpStatus} />;
@@ -64,10 +58,10 @@ export function PaymentResultWait({
   return (
     <section className="account-card payment-result-wait" role="status" aria-live="polite">
       <p className="eyebrow">Güvenli ödeme dönüşü</p>
-      <h1>Ödeme sonucunu bekliyoruz</h1>
+      <h1>{paymentReturnToneTitle(initialTone)}</h1>
       <p className="lede">
-        Banka dönüşündeki bilgi sonuç sayılmaz. Koala, atamayı ve ödeme denemesini
-        backend&apos;den doğruluyor.
+        Bu ilk bildirim sonuç sayılmaz. Koala, atamayı ve ödeme denemesini backend&apos;den
+        doğruluyor.
       </p>
       {state === "timed-out" ? (
         <p>
@@ -84,6 +78,39 @@ export function PaymentResultWait({
   );
 }
 
-function wait(delay: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, delay));
+async function checkPaymentResult(
+  assignmentId: string,
+  signal: AbortSignal,
+): Promise<PaymentResultCheck> {
+  try {
+    const response = await fetch(
+      `/api/payments/${encodeURIComponent(assignmentId)}/result`,
+      { cache: "no-store", signal },
+    );
+    const body = await response.json() as Partial<PaymentResultCheck>;
+    if (body.status === "pending" || body.status === "resolved") return { status: body.status };
+    if (
+      body.status === "error" &&
+      typeof body.errorCode === "string" &&
+      typeof body.httpStatus === "number"
+    ) return { status: "error", errorCode: body.errorCode, httpStatus: body.httpStatus };
+  } catch (error) {
+    if (signal.aborted) return { status: "pending" };
+    void error;
+  }
+  return { status: "error", errorCode: "UNEXPECTED_ERROR", httpStatus: 500 };
+}
+
+function wait(delay: number, signal: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", cancel);
+      resolve(true);
+    }, delay);
+    const cancel = () => {
+      window.clearTimeout(timer);
+      resolve(false);
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+  });
 }

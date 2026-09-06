@@ -12,6 +12,7 @@ import {
   corporateJobGate,
   corporatePaymentGate,
   enterSection,
+  gateVerdictRequirements,
   gateRequirements,
   viewerGates,
 } from "./gates";
@@ -314,6 +315,16 @@ describe("bölümün kapısı", () => {
 });
 
 describe("şirket ilanının ödeme kapısı", () => {
+  it("ödeme kapılarını sözlükteki kiplerini bozmadan ayırır", () => {
+    expect(gateVerdictRequirements({
+      open: false,
+      blockedBy: ["companyContact", "companyBillingAddress"],
+    })).toEqual({
+      advisories: ["companyBillingAddress"],
+      blocked: ["companyContact"],
+    });
+  });
+
   it("şirketin adresini sorar, kullanıcınınkini değil", () => {
     // `JobAssignmentManager.java:316-326` şirket ilanında **şirketin** adresini
     // okuyor. Kendi adresi dolu bir yetkili, şirketin adresi boşsa yine 400 alır.

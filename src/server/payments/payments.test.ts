@@ -9,6 +9,8 @@ import {
 
 import {
   createPaymentSession,
+  readEmployerPaymentCompany,
+  readPaymentDetailsForAssignment,
   readEmployerAssignments,
   readPaymentReconciliation,
   readPaymentAttempts,
@@ -152,8 +154,8 @@ describe("işveren ödeme BFF sözleşmesi", () => {
       employerTotal: "1613.04",
       completedAt: "2026-09-06T18:05:00Z",
       createdAt: "2026-09-06T18:00:00Z",
+      failureReason: "provider internal detail",
     }]);
-    expect(result[0]).not.toHaveProperty("failureReason");
   });
 
   it("ödeme sonucunu hem atamanın hem denemelerin backend durumundan mutabıklaştırır", async () => {
@@ -182,7 +184,78 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     );
     expect(result).toMatchObject({
       assignment: { id: assignmentId, paymentStatus: "HELD_IN_ESCROW" },
-      resolution: "succeeded",
+      resolution: "held",
+      hasActiveDispute: false,
     });
   });
+
+  it("işveren ayrıntısında aktif dispute durumunu ödeme geçmişiyle birlikte okur", async () => {
+    const assignment = await readEmployerAssignmentFixture();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([{ status: "OPEN" }])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readPaymentDetailsForAssignment(assignment)).resolves.toMatchObject({
+      hasActiveDispute: true,
+    });
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `https://api.example.test/job-assignments/${assignmentId}/payments`,
+      `https://api.example.test/job-assignments/${assignmentId}/disputes`,
+    ]);
+  });
+
+  it("ownership bulunmazsa ödeme ve dispute uçlarına çıkmaz", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope(assignmentPage([]))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readPaymentReconciliation(assignmentId)).resolves.toEqual({
+      assignment: null,
+      attempts: [],
+      resolution: "pending",
+      hasActiveDispute: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("şirket ödeme kapısı için ilan şirketinin kimlik ve adres varlığını okur", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      company: { id: "company-1", address: { id: "address-1" } },
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readEmployerPaymentCompany(backendAssignment.job.id)).resolves.toEqual({
+      companyId: "company-1",
+      hasAddress: true,
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.example.test/jobs/${backendAssignment.job.id}`,
+    );
+  });
+
+  it.each([
+    ["RELEASED_TO_WORKER", "released"],
+    ["REFUNDED", "refunded"],
+  ])("%s durumunu emanette sonucu ile karıştırmaz", async (paymentStatus, resolution) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(assignmentPage([{
+        ...backendAssignment,
+        paymentStatus,
+      }]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readPaymentReconciliation(assignmentId)).resolves.toMatchObject({ resolution });
+  });
 });
+
+async function readEmployerAssignmentFixture() {
+  const fetchMock = vi.fn().mockResolvedValue(
+    jsonResponse(200, envelope(assignmentPage([backendAssignment]))),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  const result = await readEmployerAssignments();
+  return result.content[0];
+}
