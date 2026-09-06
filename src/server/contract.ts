@@ -65,8 +65,9 @@ export const sessionCookies = {
 
 /**
  * `AuthController`, `LegalController`, `UsersController`, `JobsController`,
- * `PaymentsController`, `EmployerToolsController`, `AddressSearchController` ve
- * `ReferenceDataController` uçları; backend'de context-path yok.
+ * `JobAssignmentsController`, `PaymentsController`, `EmployerToolsController`,
+ * `AddressSearchController` ve `ReferenceDataController` uçları; backend'de
+ * context-path yok.
  *
  * Adres uçlarının kimlik alan parçaları burada değil `@/server/address/gateway`
  * içinde birleştirilir: kimlikler tarayıcıdan geldiği için yola konmadan önce
@@ -85,6 +86,7 @@ export const sessionCookies = {
    * Aynı yol `GET` ile creator bazlı ilan listesini de veriyor (#33).
    */
   individualJobs: "/users/me/jobs",
+  jobAssignments: "/job-assignments",
   /** `GET /reference/job-categories`; `requiresInsurance` bayrağını taşıyor. */
   jobCategories: "/reference/job-categories",
   /**
@@ -114,6 +116,7 @@ export const sessionCookies = {
    * bir tur gerekmiyor.
    */
   usersMe: "/users/me",
+  workerAssignments: "/users/me/assignments?asEmployer=false",
   verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 

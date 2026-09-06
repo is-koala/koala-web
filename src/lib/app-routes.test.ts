@@ -26,6 +26,21 @@ describe("kabuk rota kaydı", () => {
     });
   });
 
+  it("mesajlaşmayı iki kabukta da hazır bölüm olarak bildirir", () => {
+    expect(sectionAt("worker", ["mesajlar"])).toEqual({
+      href: "/panel/mesajlar",
+      label: "Mesajlar",
+      requires: [],
+      status: "ready",
+    });
+    expect(sectionAt("employer", ["mesajlar"])).toEqual({
+      href: "/isveren/mesajlar",
+      label: "Mesajlar",
+      requires: [],
+      status: "ready",
+    });
+  });
+
   it("her bölüm kendi kabuğunun kökü altında kalır", () => {
     for (const shell of Object.values(appShells)) {
       for (const section of shell.sections) {
@@ -113,6 +128,15 @@ describe("kabuk rota kaydı", () => {
   it("bildirilmiş bölümü yol parçalarından bulur", () => {
     expect(sectionAt("employer", ["ilanlar"])?.label).toBe("İlanlarım");
     expect(sectionAt("worker", ["mesajlar"])?.label).toBe("Mesajlar");
+  });
+
+  it("İşlerim bölümünü teslim edilmiş bağlantı olarak kaydeder", () => {
+    expect(sectionAt("worker", ["islerim"])).toEqual({
+      href: "/panel/islerim",
+      label: "İşlerim",
+      requires: [],
+      status: "ready",
+    });
   });
 
   it("bildirilmemiş yolu tanımaz", () => {

@@ -8,6 +8,7 @@ import type {
   ReferenceLocation,
 } from "@/address/contract";
 import { roundCoordinate } from "@/address/contract";
+import { isUuid } from "@/lib/identifiers";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -21,10 +22,8 @@ import { apiRequest } from "@/server/session/session";
  * bir uca çözülürdü.
  */
 
-const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
 export function isBackendId(value: string): boolean {
-  return uuidPattern.test(value);
+  return isUuid(value);
 }
 
 /** `POST /locations/address-search-sessions`. */
