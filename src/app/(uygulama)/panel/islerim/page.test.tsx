@@ -3,18 +3,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
 
-import Page from "./page";
+import Page, { AssignmentsPage } from "./page";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const readWorkerAssignments = vi.hoisted(() => vi.fn());
+const shellGate = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/assignments/assignments", () => ({ readWorkerAssignments }));
+vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
 
 describe("İşlerim sayfası durumları", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     enterShell.mockResolvedValue({ viewer: { firstName: "Ayşe" }, failure: null });
+  });
+
+  it("bölümün merkezi çalışan kapısını veri yüklemeden önce taşır", async () => {
+    const route = await Page();
+
+    expect(route.type).toBe(shellGate);
+    expect(route.props).toMatchObject({ shell: "worker", href: "/panel/islerim" });
+    expect(enterShell).not.toHaveBeenCalled();
+    expect(readWorkerAssignments).not.toHaveBeenCalled();
   });
 
   it("atama yoksa boş durumu gösterir", async () => {
@@ -28,7 +39,7 @@ describe("İşlerim sayfası durumları", () => {
       last: true,
     });
 
-    render(await Page());
+    render(await AssignmentsPage());
 
     expect(screen.getByRole("status")).toHaveTextContent("Henüz atama yok");
   });
@@ -43,7 +54,7 @@ describe("İşlerim sayfası durumları", () => {
       }),
     );
 
-    render(await Page());
+    render(await AssignmentsPage());
 
     expect(screen.getByRole("alert")).toHaveTextContent("Hizmete ulaşılamıyor");
     expect(screen.queryByText("internal backend message")).toBeNull();
@@ -52,7 +63,7 @@ describe("İşlerim sayfası durumları", () => {
   it("beklenmeyen ağ hatasını nötr Türkçe duruma çevirir", async () => {
     readWorkerAssignments.mockRejectedValue(new TypeError("fetch failed"));
 
-    render(await Page());
+    render(await AssignmentsPage());
 
     expect(screen.getByRole("alert")).toHaveTextContent("Bir sorun oluştu");
     expect(screen.queryByText("fetch failed")).toBeNull();
@@ -61,7 +72,7 @@ describe("İşlerim sayfası durumları", () => {
   it("oturum kapısı yönlendirirse liste isteğine çıkmaz", async () => {
     enterShell.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
 
-    await expect(Page()).rejects.toThrow("NEXT_REDIRECT");
+    await expect(AssignmentsPage()).rejects.toThrow("NEXT_REDIRECT");
 
     expect(readWorkerAssignments).not.toHaveBeenCalled();
   });

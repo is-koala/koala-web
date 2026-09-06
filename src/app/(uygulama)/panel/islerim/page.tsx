@@ -1,5 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 
+import { ShellGate } from "@/app/(uygulama)/shell";
 import { AssignmentList } from "@/components/assignment-list";
 import { EmptyState, ErrorState } from "@/components/states";
 import { readWorkerAssignments } from "@/server/assignments/assignments";
@@ -9,6 +10,14 @@ import { enterShell } from "@/server/session/viewer";
 import { readAssignmentAcceptanceAction, respondAssignmentAction } from "./actions";
 
 export default async function Page() {
+  return (
+    <ShellGate shell="worker" href="/panel/islerim">
+      <AssignmentsPage />
+    </ShellGate>
+  );
+}
+
+export async function AssignmentsPage() {
   const context = await enterShell();
   // Profil hatasını layout zaten tek bir hata kartıyla anlatır. Aynı anda
   // atama isteğine çıkmak, çözülemeyen kullanıcı için ikinci bir hata üretir.
