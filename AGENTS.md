@@ -103,13 +103,20 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
 - **Kip yalnız `requires` ile bildirilen kapıları böler.** `gateRequirements`
   bir kabuğun ya da bölümün listesini kipine göre şeride ve engele ayırıyor.
   Bir **eylemin** kendi kararı (`viewerGates(...).individualJob`,
-  `.companyCreation`) böyle bölünmüyor: kapalıysa `blockedBy` listesinin
-  tamamı o eylemi kapatır, kipe bakılmadan. `/isveren/ilan/yeni` ve
-  `/isveren/sirket/yeni` ikisi de bunu yapıyor — kimlik kabuk düzeyinde
-  `advisory` bir şerit ama backend ilan yayımlamayı ve şirket kurmayı kesin
-  olarak reddettiği için eylemin kendisi `EmployerGate` ile kapanıyor. Şirket
-  formunda `children` hiç çizilmiyor, çünkü form tek kullanımlık bir adres
-  kanıtı taşıyor ve doldurulup reddedilmesi o kanıtı yakar.
+  `.companyCreation`, `corporateJobGate(...)`) böyle bölünmüyor: kapalıysa
+  `blockedBy` listesinin tamamı o eylemi kapatır, kipe bakılmadan. Üç form da
+  bunu yapıyor — `/isveren/ilan/yeni`, `/isveren/sirket/yeni` ve
+  `/isveren/sirket/{companyId}/ilan/yeni`; kimlik kabuk düzeyinde `advisory`
+  bir şerit ama backend ilan yayımlamayı ve şirket kurmayı kesin olarak
+  reddettiği için eylemin kendisi `EmployerGate` ile kapanıyor.
+  Ayrıldıkları yer `children`'ın çizilip çizilmediği ve ölçü **eksiği kimin
+  kapatabildiği**: bireysel ilan formu çiziliyor, çünkü oradaki tek engel
+  kimlik doğrulaması ve kullanıcı onu kendisi tamamlayabilir. Şirket kurma ve
+  şirket adına ilan formlarında `children` hiç çizilmiyor — şirket onayı
+  ekipte, yetkililik başka bir yöneticide, yani bekleyerek de olsa formu
+  doldurmanın karşılığı yok ve her üç form tek kullanımlık bir adres kanıtı
+  taşıyor (`candidateToken` 10 dakika yaşıyor): doldurulup reddedilen form o
+  kanıtı yakar.
 - **Şirket onayı kapısı bir ürün kuralı, güvenlik sınırı değil.**
   `company.isApproved()` koala-backend'in iş mantığında hiç okunmuyor;
   onaylanmamış şirket API'den ilan açabiliyor. Kapı istemcide duruyor ve
@@ -118,7 +125,17 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
   değiştirilebilir mi?" sorusu ürün sahibinde (is-koala/koala-web#25).
   `isEmployer` yalnız kayıt anında yazılıyor, değiştirecek bir backend ucu
   yok, ve iki kabuk da bugün role göre değil yalnız oturuma göre kapalı.
-  Giriş sonrası hedef de bu yüzden `/` (`src/lib/site.ts`).
+  **Kayıt** sonrası hedef de bu yüzden `/` (`postRegistrationPath`,
+  `src/lib/site.ts`): hangi kabuğa gidileceği #25'e bağlı. Girişin hedefi
+  ayrı bir karar ve ayrı dosyada — `returnDestination`
+  (`src/server/session/login-redirect.ts`) kullanıcıyı kapıya takıldığı
+  sayfaya geri bırakıyor, dönülecek bir sayfa yoksa `/` kalıyor.
+- **`isEmployer` şirket ilanının koşulu değil.** `JobManager.createIndividualJob`
+  rolü ve kimliği arıyor, `createCorporateJob` yalnız şirketin yetkili
+  listesinde olmayı. Bu yüzden şirket ilanı formu `/isveren/ilan/yeni`
+  bölümünün altında değil kendi adresinde: o bölüm `employerRole` istiyor ve
+  tek adres, davetle katılmış ama işveren olmayan bir yetkiliyi yapabildiği
+  bir işten alıkoyardı.
 
 ## Yasal metinler
 
