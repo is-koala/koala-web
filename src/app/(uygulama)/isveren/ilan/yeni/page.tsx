@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 
 import {
-  IndividualJobForm,
+  JobForm,
   type JobFormData,
   type JobFormTemplate,
-} from "@/components/individual-job-form";
+} from "@/components/job-form";
 import { newIndividualJobPath } from "@/lib/app-routes";
 import type { JobCategory } from "@/lib/job-posting";
 import { failureView } from "@/server/form";
@@ -64,7 +64,8 @@ export async function NewIndividualJobPanel() {
         kullanman gerekiyor.
       </p>
 
-      <IndividualJobForm
+      <JobForm
+        owner={{ kind: "individual" }}
         categories={categories}
         templates={toFormTemplates(templates)}
         blocked={blocked}

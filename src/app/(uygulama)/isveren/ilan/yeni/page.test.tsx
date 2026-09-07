@@ -8,12 +8,12 @@ const currentGates = vi.hoisted(() => vi.fn());
 const fetchJobCategories = vi.hoisted(() => vi.fn());
 const fetchJobTemplates = vi.hoisted(() => vi.fn());
 const shellGate = vi.hoisted(() => vi.fn());
-const individualJobForm = vi.hoisted(() => vi.fn());
+const jobForm = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/gates", () => ({ currentGates }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchJobCategories, fetchJobTemplates }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
-vi.mock("@/components/individual-job-form", () => ({ IndividualJobForm: individualJobForm }));
+vi.mock("@/components/job-form", () => ({ JobForm: jobForm }));
 
 const category = {
   id: "9f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f01",
@@ -27,7 +27,7 @@ async function formProps(): Promise<Record<string, unknown>> {
   const tree = (await NewIndividualJobPanel()) as {
     props: { children: readonly { type: unknown; props: Record<string, unknown> }[] };
   };
-  const form = [tree.props.children].flat(3).find((node) => node?.type === individualJobForm);
+  const form = [tree.props.children].flat(3).find((node) => node?.type === jobForm);
   return form!.props;
 }
 
@@ -119,5 +119,24 @@ describe("yeni bireysel ilan sayfası", () => {
         ],
       },
     });
+  });
+});
+
+describe("yeni bireysel ilan sayfası — işveren kimliği", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentGates.mockResolvedValue({
+      viewer: { firstName: "Ayşe" },
+      failure: null,
+      gates: { individualJob: { open: true } },
+    });
+    fetchJobCategories.mockResolvedValue([category]);
+    fetchJobTemplates.mockResolvedValue([]);
+  });
+
+  it("formu bireysel kimlikle çizer", async () => {
+    // Aynı bileşen şirket ilanını da çiziyor; kimlik prop'u karışırsa sigorta
+    // anahtarı bireysel forma girer ve sunucu o alanı hiç kabul etmez.
+    expect(await formProps()).toMatchObject({ owner: { kind: "individual" } });
   });
 });
