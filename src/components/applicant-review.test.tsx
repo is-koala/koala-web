@@ -123,6 +123,31 @@ describe("işveren aday inceleme listesi", () => {
     expect(within(second).queryByRole("link", { name: "Özgeçmişi aç" })).toBeNull();
   });
 
+  it("başvuru tarihini sunucunun TZ'sinden bağımsız İstanbul saatiyle yazar", () => {
+    // Bileşen `"use client"` taşıyor ama ilk HTML'i Next.js sunucuda çiziyor
+    // ve üretimde sunucu kapsayıcıda `TZ=UTC` ile koşuyor. Sabit olmasaydı
+    // ilk boya ile hidrasyon sonrası iki ayrı saat yazardı.
+    //
+    // Seçilen an gece yarısını geçiriyor: yanlış dilimde yalnız saat değil
+    // **gün** de kayıyor (UTC'de 1 Eylül 22:00, İstanbul'da 2 Eylül 01:00).
+    // Testin ev dilimi zaten Europe/Istanbul olduğu için düşman dilim
+    // olmadan bu iddia hiçbir şey bağlamazdı.
+    const previous = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      // Denemenin gerçekten uygulandığının kanıtı.
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
+      renderReview({
+        applicants: [{ ...applicant("a", "APPLIED"), appliedAt: "2026-09-01T22:00:00Z" }],
+      });
+
+      expect(screen.getByRole("article")).toHaveTextContent("2 Eyl 2026 01:00");
+    } finally {
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
+    }
+  });
+
   it("hiç başvuru yokken boş durumu gösterir", () => {
     renderReview({ applicants: [] });
 

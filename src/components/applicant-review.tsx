@@ -16,6 +16,7 @@ import {
   type TalentPoolAction,
 } from "@/applications/employer-review";
 import { ErrorState } from "@/components/states";
+import { formatDateTime } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 
 /**
@@ -356,16 +357,6 @@ function safeImageUrl(value: string | null): string | null {
   } catch {
     return null;
   }
-}
-
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Istanbul",
-  }).format(date);
 }
 
 const filterOptions: ReadonlyArray<{ value: ApplicantFilter; label: string }> = [

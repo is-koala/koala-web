@@ -8,6 +8,7 @@ import {
   type TalentPoolPage,
   type TalentPoolRemovalAction,
 } from "@/applications/employer-review";
+import { formatDate, isFormattableDate } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 import { talentPoolPath } from "@/lib/app-routes";
 
@@ -41,7 +42,14 @@ export function TalentPoolList({
           <li key={entry.id} className="talent-pool-entry">
             <div>
               <strong>{entry.fullName || "Adı paylaşılmadı"}</strong>
-              <time dateTime={entry.createdAt}>{formatDate(entry.createdAt)} tarihinde eklendi</time>
+              {/*
+                `dateTime` makineye ayrıştırılabilir bir tarih söz veriyor ve
+                `createdAt` yanıtta eksikse boş dizeye düşüyor; o sözü
+                tutamayacak değerde `<time>` hiç kurulmuyor.
+              */}
+              {isFormattableDate(entry.createdAt) ? (
+                <time dateTime={entry.createdAt}>{formatDate(entry.createdAt)} tarihinde eklendi</time>
+              ) : null}
               {entry.note ? <p className="talent-pool-note">{entry.note}</p> : null}
             </div>
             <form action={submit}>
@@ -67,13 +75,4 @@ export function TalentPoolList({
       ) : null}
     </div>
   );
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeZone: "Europe/Istanbul",
-  }).format(date);
 }

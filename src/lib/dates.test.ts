@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 
-import { formatDateTime, formatJobDate, isFormattableDate, monthName } from "./dates";
+import { formatDate, formatDateTime, formatJobDate, isFormattableDate, monthName } from "./dates";
 
 /** Sunucunun kendi saat dilimini taklit eden testler bunu kirletiyor. */
 const originalTimeZone = process.env.TZ;
@@ -54,6 +54,34 @@ describe("an biçimlendirme", () => {
     expect(formatDateTime("bozuk-tarih")).toBe("bozuk-tarih");
     expect(formatDateTime("")).toBe("");
     expect(formatDateTime("2026-13-45T99:99:99Z")).toBe("2026-13-45T99:99:99Z");
+  });
+
+  it("saatsiz biçim aynı günü yazar", () => {
+    expect(formatDate(instant)).toBe("6 Eyl 2026");
+  });
+
+  it("saatsiz biçim de saat dilimini sabitler", async () => {
+    // Aynı sabit, ayrı bir giriş: saati göstermeyen biçim gece yarısını
+    // geçen anda **günü** kaydırarak ayrışırdı ve kimse saatten anlamazdı.
+    for (const hostileZone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati"]) {
+      process.env.TZ = hostileZone;
+
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone, hostileZone).toBe(
+        hostileZone,
+      );
+
+      expect(formatDate(instant), hostileZone).toBe("6 Eyl 2026");
+      expect(formatDate(lateInstant), hostileZone).toBe("7 Eyl 2026");
+
+      vi.resetModules();
+      const reloaded = await import("./dates");
+      expect(reloaded.formatDate(lateInstant), hostileZone).toBe("7 Eyl 2026");
+    }
+  });
+
+  it("saatsiz biçim de ayrıştıramadığı değeri geri verir", () => {
+    expect(formatDate("bozuk-tarih")).toBe("bozuk-tarih");
+    expect(formatDate("")).toBe("");
   });
 
   it("ayrıştırılabilirliği ayrıca söyler", () => {

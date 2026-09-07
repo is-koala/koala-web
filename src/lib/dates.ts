@@ -36,6 +36,22 @@ export function formatDateTime(value: string): string {
 }
 
 /**
+ * Aynı anı saatsiz yazar: "2 Ağu 2026".
+ *
+ * Saat taşımayan ayrı bir biçim, çünkü bazı kayıtların ekrandaki sorusu "ne
+ * zaman" değil "hangi gün": yetenek havuzuna eklenme gibi. Kendi
+ * `Intl.DateTimeFormat`'ını kuran bir ekran ise saat dilimini de yeniden
+ * yazmak zorunda kalırdı; ayrışması gereken tek şey biçim, sabit değil.
+ */
+export function formatDate(value: string): string {
+  if (!isFormattableDate(value)) return value;
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeZone: displayTimeZone,
+  }).format(new Date(value));
+}
+
+/**
  * Değer gerçek bir ana karşılık geliyor mu.
  *
  * Ayrı duruyor çünkü çağıranların biçimlendirme dışında iki kararı daha var:
