@@ -9,6 +9,7 @@ import {
   type ConversationState,
   type TalentPoolState,
 } from "@/applications/employer-review";
+import { talentPoolPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import {
   openApplicantConversation,
@@ -19,9 +20,6 @@ import {
 } from "@/server/applications/employer-review";
 import { failureView, textField } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
-
-/** Havuz listesinin adresi; eylem onu tazelemek zorunda. */
-const talentPoolPath = "/isveren/yetenek-havuzu";
 
 /**
  * Aday paneli.
