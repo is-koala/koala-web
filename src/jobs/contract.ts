@@ -4,6 +4,21 @@ export type SalaryType = "HOURLY" | "DAILY" | "UNKNOWN";
 
 export type AddressPrecision = "APPROXIMATE" | "EXACT" | "UNKNOWN";
 
+/**
+ * İlan listelerinin sayfa boyutu.
+ *
+ * **Tek** sabit, çünkü tek bir sunucu varsayılanı var: yirmi hem
+ * `@PageableDefault` değeri hem de mobilin `JobService.defaultPageSize`'ı.
+ * Herkese açık arama ile "İlanlarım" listesi bunu iki ayrı sabitte tutuyordu;
+ * biri değiştiğinde öbürü sessizce eskir ve aynı uç iki farklı dilimle
+ * okunurdu.
+ *
+ * Adres çubuğundan değiştirilemiyor ve bu da bilinçli: `PageableSanitizer.java:15`
+ * tavanı 100'de tutuyor, ama asıl mesele her sayfa boyutunun ayrı bir
+ * indekslenebilir URL üretmesi.
+ */
+export const jobPageSize = 20;
+
 /** İlan ayrıntısı ekranının backend yanıtından aldığı dar, salt-okunur model. */
 export type JobDetail = {
   readonly id: string;

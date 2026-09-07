@@ -1,4 +1,5 @@
 import { legalCatalog } from "@/content/legal/catalog";
+import { publicJobsPath } from "@/lib/app-routes";
 
 /**
  * Sitenin tek doğruluk kaynağı olan sabitler.
@@ -34,6 +35,9 @@ export const loginPath = "/giris";
 export const postRegistrationPath = "/";
 
 export const marketingNav = [
+  // İlan listesi menünün başında: sitenin iş arayan için var oluş sebebi bu
+  // sayfa, ve tanıtım metinlerinin arkasında kalması onu görünmez yapardı.
+  { href: publicJobsPath, label: "İş İlanları" },
   { href: "/is-arayanlar", label: "İş Arayanlar" },
   { href: "/isverenler", label: "İşverenler" },
   { href: "/nasil-calisir", label: "Nasıl Çalışır" },

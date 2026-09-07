@@ -1,0 +1,371 @@
+import Link from "next/link";
+
+import { LinkPending } from "@/components/link-pending";
+import { EmptyState } from "@/components/states";
+import {
+  districtCityParamName,
+  hasJobFilters,
+  isPageOutOfRange,
+  jobSearchParamNames,
+  jobSearchParams,
+  jobSortOptions,
+  jobTypeLabels,
+  lastJobPage,
+  salaryTypeLabels,
+  type JobFilterOptions,
+  type JobSearchPage,
+  type JobSearchQuery,
+  type JobSummary,
+  type ReferenceOption,
+} from "@/jobs/search";
+import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
+import { formatJobDate } from "@/lib/dates";
+import { jobTypeValues } from "@/lib/job-posting";
+import { formatMoney } from "@/lib/money";
+import { safeImageUrl } from "@/lib/urls";
+
+/**
+ * Herkese açık ilan listesinin ekran parçaları.
+ *
+ * Hiçbiri istemci bileşeni değil ve bu bilinçli: süzgeç, sıralama ve sayfa
+ * adres çubuğunda taşınıyor, yani paylaşılan bir bağlantı aynı listeyi açıyor,
+ * geri düğmesi çalışıyor ve arama motoru her kombinasyonu gerçek bir sayfa
+ * olarak görüyor. Yerel durumda tutulsalardı üçü de kaybolurdu.
+ */
+
+/**
+ * Süzgeç formu.
+ *
+ * `method="get"`: gönderim seçimi adres çubuğuna yazar, JavaScript'siz çalışır
+ * ve sonuç paylaşılabilir olur. Sayfa numarası bilerek bir form alanı değil —
+ * yeni bir süzgeç yeni bir sonuç kümesi demek ve kullanıcıyı o kümenin
+ * yedinci sayfasında bırakmak boş bir ekran gösterirdi.
+ */
+export function JobSearchForm({
+  query,
+  options,
+}: {
+  query: JobSearchQuery;
+  options: JobFilterOptions;
+}) {
+  return (
+    <form className="job-filters" method="get" action={publicJobsPath}>
+      <div className="job-filter-fields">
+        <div className="field">
+          <label htmlFor="job-filter-text">Ne arıyorsun?</label>
+          <input
+            id="job-filter-text"
+            name={jobSearchParamNames.text}
+            type="search"
+            defaultValue={query.text ?? ""}
+            placeholder="Örneğin: garson, kurye, fotoğrafçı"
+          />
+        </div>
+
+        <ReferenceField
+          id="job-filter-category"
+          label="Kategori"
+          name={jobSearchParamNames.categoryId}
+          placeholder="Tüm kategoriler"
+          options={options.categories}
+          selected={query.categoryId}
+        />
+
+        <ReferenceField
+          id="job-filter-city"
+          label="İl"
+          name={jobSearchParamNames.cityId}
+          placeholder="Tüm iller"
+          options={options.cities}
+          selected={query.cityId}
+        />
+
+        {/*
+          İlçe kutusu yalnız bir il seçiliyken var: ilçeler `GET
+          /reference/cities/{cityId}/districts` ile geliyor, yani il olmadan
+          sunulacak bir liste de yok. Gizli alan, listenin hangi ile ait
+          olduğunu söylüyor; il değişip gönderildiğinde ilçe seçimi düşüyor.
+        */}
+        {options.districts.length > 0 ? (
+          <>
+            <input type="hidden" name={districtCityParamName} value={query.cityId ?? ""} />
+            <ReferenceField
+              id="job-filter-district"
+              label="İlçe"
+              name={jobSearchParamNames.districtId}
+              placeholder="Tüm ilçeler"
+              options={options.districts}
+              selected={query.districtId}
+            />
+          </>
+        ) : null}
+
+        <div className="field">
+          <label htmlFor="job-filter-type">İlan türü</label>
+          <select
+            id="job-filter-type"
+            name={jobSearchParamNames.type}
+            defaultValue={query.type ?? ""}
+          >
+            <option value="">Tüm türler</option>
+            {jobTypeValues.map((type) => (
+              <option key={type} value={type}>
+                {jobTypeLabels[type]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="field">
+          <label htmlFor="job-filter-sort">Sıralama</label>
+          <select id="job-filter-sort" name={jobSearchParamNames.sort} defaultValue={query.sort}>
+            {jobSortOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="job-filter-actions">
+        <button className="button button-primary" type="submit">
+          İlanları süz
+        </button>
+        {hasJobFilters(query) ? (
+          <Link className="text-link" href={publicJobsPath}>
+            Süzgeçleri temizle
+          </Link>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function ReferenceField({
+  id,
+  label,
+  name,
+  placeholder,
+  options,
+  selected,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  placeholder: string;
+  options: readonly ReferenceOption[];
+  selected: string | null;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} name={name} defaultValue={selected ?? ""}>
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Sonuç listesi.
+ *
+ * Boş sonuç bir hata değil: sunucu 200 ve boş bir `content` dizisiyle dönüyor.
+ * Ama boşluğun **üç** ayrı sebebi var ve üçü ayrı metin yazıyor, çünkü
+ * kullanıcının yapabileceği şey de üç ayrı şey: sitede hiç ilan yoksa
+ * yapılacak bir şey yok, süzgeç fazla darsa gevşetilir, istenen sayfa
+ * numarası listenin dışındaysa var olan bir sayfaya dönülür. Tek bir metin
+ * yazmak, ikinci ve üçüncü durumdaki kullanıcıya sitenin boş olduğunu
+ * öğretirdi.
+ */
+export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: JobSearchQuery }) {
+  if (isPageOutOfRange(jobs)) {
+    const lastPage = lastJobPage(jobs);
+    return (
+      <EmptyState kind="jobPageOutOfRange">
+        <Link className="text-link" href={jobSearchHref({ ...query, page: lastPage })}>
+          Son sayfaya dön ({lastPage}. sayfa)
+        </Link>
+      </EmptyState>
+    );
+  }
+
+  if (jobs.content.length === 0) {
+    return <EmptyState kind={hasJobFilters(query) ? "jobSearch" : "jobs"} />;
+  }
+
+  return (
+    <>
+      <p className="job-result-count" aria-live="polite">
+        {jobs.totalElements} ilan bulundu
+      </p>
+      <ul className="job-grid">
+        {jobs.content.map((job) => (
+          <li key={job.id}>
+            <JobCard job={job} />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/**
+ * Sayfalama.
+ *
+ * Bağlantılar gerçek `<a href>`: JavaScript kapalı bir tarayıcı da, bir arama
+ * motoru da ikinci sayfaya geçebilmeli. Bir düğme + istemci durumu ikisini de
+ * kapatırdı ve liste tek sayfadan ibaret kalırdı.
+ *
+ * Bekleme göstergesi bağlantının **içinde** duruyor (`LinkPending`): rotanın
+ * yanına bir `loading.tsx` konsaydı Next bütün sayfayı bir Suspense sınırına
+ * alır ve ilanlar ilk HTML'de görünür olmaktan çıkardı.
+ */
+export function JobPagination({ jobs, query }: { jobs: JobSearchPage; query: JobSearchQuery }) {
+  // Menzil dışı sayfada şerit hiç çizilmiyor: "Sayfa 999 / 3" bir konum değil
+  // ve "Önceki sayfa" 998'e giderdi — o da menzil dışı. Listeye dönüş yolunu
+  // boş durum kartı veriyor, gerçek bir sayfaya işaret ederek.
+  if (jobs.totalPages <= 1 || isPageOutOfRange(jobs)) return null;
+
+  // Kullanıcıya 1 tabanlı sayı gösteriliyor; `PageDto.page` 0 tabanlı geliyor.
+  const current = jobs.page + 1;
+
+  return (
+    <nav className="job-pagination" aria-label="İlan sayfaları">
+      {jobs.first ? (
+        <span />
+      ) : (
+        <Link href={jobSearchHref({ ...query, page: current - 1 })} rel="prev">
+          Önceki sayfa
+          <LinkPending />
+        </Link>
+      )}
+      <span>
+        Sayfa {current} / {jobs.totalPages}
+      </span>
+      {jobs.last ? (
+        <span />
+      ) : (
+        <Link href={jobSearchHref({ ...query, page: current + 1 })} rel="next">
+          Sonraki sayfa
+          <LinkPending />
+        </Link>
+      )}
+    </nav>
+  );
+}
+
+/** Süzgeç ve sayfa birlikte taşınıyor: sayfa değişince süzgeç düşmemeli. */
+export function jobSearchHref(query: JobSearchQuery): string {
+  const params = jobSearchParams(query);
+  return params.size === 0 ? publicJobsPath : `${publicJobsPath}?${params}`;
+}
+
+function JobCard({ job }: { job: JobSummary }) {
+  const titleId = `ilan-${job.id}`;
+  const cover = safeImageUrl(job.coverImageUrl);
+
+  return (
+    <article className="job-card" aria-labelledby={titleId}>
+      {cover === null ? null : (
+        /*
+          `next/image` değil düz `<img>`: `next.config.ts` içinde `images`
+          bloğu yok ve kapak görselleri backend'in depolama kökeninden geliyor
+          (`StorageUrlResolver`), yani optimize edici onları reddederdi.
+          Adres backend'den geldiği için `safeImageUrl` kapısından geçiyor.
+        */
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="job-card-cover" src={cover} alt="" loading="lazy" decoding="async" />
+      )}
+
+      <div className="job-card-body">
+        <p className="job-card-kicker">
+          {[job.categoryName, employerLabel(job)].filter(Boolean).join(" · ")}
+        </p>
+
+        <h2 id={titleId}>
+          <Link className="text-link" href={publicJobPath(job.id)}>
+            {job.title}
+          </Link>
+        </h2>
+
+        <dl className="job-card-facts">
+          <Fact label="Konum" value={locationLabel(job)} />
+          <Fact label="İş tarihi" value={formatJobDate(job.startsAt)} />
+          <Fact label="Ücret" value={payoutLabel(job)} />
+          {job.type === "UNKNOWN" ? null : <Fact label="Tür" value={jobTypeLabels[job.type]} />}
+        </dl>
+
+        <JobBadges job={job} />
+      </div>
+    </article>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string | null }) {
+  if (value === null) return null;
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function JobBadges({ job }: { job: JobSummary }) {
+  const badges = [
+    job.insuranceRequired ? "Sigortalı çalışma" : null,
+    job.experienceRequired ? "Deneyim isteniyor" : null,
+  ].filter((badge): badge is string => badge !== null);
+
+  if (badges.length === 0) return null;
+
+  return (
+    <ul className="job-card-badges">
+      {badges.map((badge) => (
+        <li key={badge}>{badge}</li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Kartın konum satırı.
+ *
+ * Yalnız il ve ilçe yazılıyor; `latitude`/`longitude` ekrana **hiç** girmiyor.
+ * ADR-0003 gereği anonim ziyaretçiye giden koordinat iki ondalığa yuvarlanmış
+ * bir bölge ve `addressPrecision` bunu söylüyor — o değeri kesin bir konum
+ * gibi çizmek, gizlenmek üzere bulanıklaştırılmış bir adresi kesinmiş gibi
+ * sunmak olurdu. Kesinlik `EXACT` değilken kullanıcıya da yazılı olarak
+ * söyleniyor, çünkü "Kadıköy, İstanbul" tek başına tam adres sanılabilir.
+ */
+function locationLabel(job: JobSummary): string | null {
+  const place = [job.districtName, job.cityName].filter(Boolean).join(", ");
+  if (!place) return null;
+  return job.addressPrecision === "EXACT" ? place : `${place} (yaklaşık)`;
+}
+
+/**
+ * Kartın ücreti.
+ *
+ * Kaynak `pricing` anlık görüntüsü, `salary` değil: ADR-0002 fiyatı ilan
+ * yayımlandığında donduruyor ve iki alan ayrışabilir; ekranda kilitlenmiş olan
+ * durmalı. Tutar dize olarak biçimlendiriliyor, `Number`'a hiç çevrilmiyor.
+ */
+function payoutLabel(job: JobSummary): string | null {
+  if (job.workerPayout === null || job.currency === null) return null;
+  const amount = formatMoney(job.workerPayout, job.currency);
+  const unit = salaryTypeLabels[job.salaryType];
+  return unit ? `${amount} / ${unit}` : amount;
+}
+
+function employerLabel(job: JobSummary): string | null {
+  if (job.employerType === "COMPANY") return job.companyName ?? "Şirket ilanı";
+  if (job.employerType === "INDIVIDUAL") return "Bireysel ilan";
+  return null;
+}

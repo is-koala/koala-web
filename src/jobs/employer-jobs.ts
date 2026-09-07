@@ -1,3 +1,5 @@
+import type { BackendPage } from "@/lib/pagination";
+
 import type { JobStatus } from "./lifecycle";
 import type { SalaryType } from "./contract";
 
@@ -46,15 +48,7 @@ export type EmployerJob = {
   readonly headcount: number | null;
 };
 
-export type EmployerJobPage = {
-  readonly content: readonly EmployerJob[];
-  readonly page: number;
-  readonly size: number;
-  readonly totalElements: number;
-  readonly totalPages: number;
-  readonly first: boolean;
-  readonly last: boolean;
-};
+export type EmployerJobPage = BackendPage<EmployerJob>;
 
 /**
  * `JobManager.SORTABLE_FIELDS`.
