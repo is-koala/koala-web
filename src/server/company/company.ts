@@ -151,8 +151,15 @@ export async function removeCompanyLogo(companyId: string): Promise<Company> {
   );
 }
 
-/** Kimlik adres çubuğundan geliyor; kaçırılmadan birleştirmek yolu değiştirebilir. */
-function companyPath(companyId: string): string {
+/**
+ * Bir şirket kaynağının backend adresi.
+ *
+ * Dışa açık, çünkü şirketin altında başka modüllerin sahiplendiği uçlar var:
+ * `POST /companies/{companyId}/jobs` ilan modülünün işi ama yolun şirket
+ * parçası buranın. İki yerde kurulsaydı biri kaçırmayı unutabilirdi — kimlik
+ * adres çubuğundan geliyor ve kaçırılmadan birleştirmek yolu değiştirebilir.
+ */
+export function companyPath(companyId: string): string {
   return `/companies/${encodeURIComponent(companyId)}`;
 }
 

@@ -9,7 +9,8 @@ import {
   type TrackingEvent,
 } from "@/assignments/employer-tracking";
 import type { WorkSession } from "@/assignments/work-detail";
-import { formatDateTime, formatDuration, totalMinutes } from "@/components/work-detail/presenters";
+import { formatDuration, totalMinutes } from "@/components/work-detail/presenters";
+import { formatDateTime } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 
 /**

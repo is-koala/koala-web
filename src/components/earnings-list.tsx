@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { formatDateTime } from "@/lib/dates";
 import { formatMoney, sumMoney } from "@/lib/money";
 import type { PayoutStatus, WorkerPayout } from "@/payments/payouts";
 
@@ -51,7 +52,7 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
               </span>
             </div>
             <time dateTime={payout.completedAt ?? payout.createdAt}>
-              {formatPayoutDate(payout.completedAt ?? payout.createdAt)}
+              {formatDateTime(payout.completedAt ?? payout.createdAt)}
             </time>
             {payout.failureMessage || payout.status === "FAILED" ? (
               <div className="payout-failure">
@@ -108,14 +109,4 @@ function formatTotals(totals: ReadonlyMap<string, readonly string[]>): string {
       return total === null ? "—" : formatMoney(total, currency);
     })
     .join(" · ");
-}
-
-function formatPayoutDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Istanbul",
-  }).format(date);
 }

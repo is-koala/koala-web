@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { PaymentStatus } from "@/assignments/contract";
 import { GateAdvisories, GateBlocks } from "@/components/employer-gate";
+import { formatDateTime, isFormattableDate } from "@/lib/dates";
 import type { PricingBreakdown } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
 import {
@@ -224,12 +225,10 @@ function paymentDisabledReason(assignment: EmployerAssignment): string {
   return "Ödeme durumu doğrulanmadan yeni bir ödeme başlatılamaz.";
 }
 
+/**
+ * Bu ekranda ham değer gösterilmiyor: kullanıcı bir ödemenin ne zaman
+ * alındığını okuyor ve ayrıştırılamayan bir dize ona hiçbir şey söylemez.
+ */
 function formatPaymentDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Tarih bilgisi bekleniyor";
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Istanbul",
-  }).format(date);
+  return isFormattableDate(value) ? formatDateTime(value) : "Tarih bilgisi bekleniyor";
 }

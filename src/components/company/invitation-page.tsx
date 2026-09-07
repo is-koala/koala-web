@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { contactRoleLabel, personName } from "@/lib/company-contacts";
+import { formatDateTime, isFormattableDate } from "@/lib/dates";
 import type { FormAction } from "@/lib/form-state";
 import {
   invitationDecision,
@@ -145,20 +146,11 @@ function CompanyLogo({ invitation }: { invitation: CompanyContactInvitation }) {
 }
 
 /**
- * Tarih `Instant`; saat dilimi açıkça İstanbul'a sabitleniyor ki sunucuda
- * ve tarayıcıda aynı metin üretilsin ve hidrasyon ayrışmasın.
+ * Ayrıştırılamayan bir değer `<time>` içine konmuyor: `dateTime` makineye
+ * okunabilir bir tarih söz veriyor, ham metin o sözü tutamaz.
  */
 function InvitationTime({ value }: { value: string }) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return <>{value}</>;
+  if (!isFormattableDate(value)) return <>{value}</>;
 
-  return (
-    <time dateTime={value}>
-      {new Intl.DateTimeFormat("tr-TR", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Europe/Istanbul",
-      }).format(date)}
-    </time>
-  );
+  return <time dateTime={value}>{formatDateTime(value)}</time>;
 }

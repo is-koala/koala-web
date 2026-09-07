@@ -1,6 +1,5 @@
 import type { WorkDetail } from "@/assignments/work-detail";
-
-import { formatDateTime } from "./presenters";
+import { formatDateTime } from "@/lib/dates";
 
 type TimelineEvent = { key: string; label: string; at: string | null };
 
