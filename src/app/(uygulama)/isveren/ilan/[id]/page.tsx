@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
 import { jobStatusLabel } from "@/jobs/lifecycle";
+import { jobApplicantsPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/server/api/errors";
@@ -81,6 +83,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <p className="field-hint">
         Bu fiyat ilan yayımlandığında kilitlendi ve değişmiyor.
       </p>
+
+      {/*
+        Başvuruların menüde bir maddesi yok: bir başvuru bir **ilanın** kaydı
+        ve `GET /jobs/{jobId}/applications` dışında onları getiren bir uç yok.
+        İlanı görüntüleyen kullanıcının başvurulara ulaştığı tek yer burası.
+      */}
+      <Link className="button button-primary" href={jobApplicantsPath(id)}>
+        Başvuruları gör
+      </Link>
 
       {/*
         Kimlik `id`'den bağlanıyor, yanıttaki `job.id`'den değil: bu değer

@@ -102,6 +102,42 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     });
   });
 
+  it("atama satırının takip alanlarını da taşır", async () => {
+    // İşveren için tek atama getiren bir uç yok: ayrıntı ekranı da bu listeden
+    // besleniyor. Zaman çizelgesi ve çalışılan saat buradan gelmezse ayrıntı
+    // ekranı için ikinci bir kaynak uydurmak gerekirdi.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope(assignmentPage([{
+        ...backendAssignment,
+        assignmentDateTime: "2026-09-01T09:00:00Z",
+        actualCompletionDateTime: "2026-09-03T18:00:00Z",
+        workHours: 9,
+      }]))),
+    ));
+
+    const result = await readEmployerAssignments();
+
+    expect(result.content[0]).toMatchObject({
+      assignedAt: "2026-09-01T09:00:00Z",
+      completedAt: "2026-09-03T18:00:00Z",
+      workHours: 9,
+    });
+  });
+
+  it("takip alanları gelmediğinde sıfır ve boş değere iner", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope(assignmentPage([backendAssignment]))),
+    ));
+
+    const result = await readEmployerAssignments();
+
+    expect(result.content[0]).toMatchObject({
+      assignedAt: null,
+      completedAt: null,
+      workHours: 0,
+    });
+  });
+
   it("güvenlik sayfa sınırına gelince atama koleksiyonunu eksik diye işaretler", async () => {
     const fetchMock = vi.fn((input: string | URL | Request) => {
       const page = Number(new URL(String(input)).searchParams.get("page"));

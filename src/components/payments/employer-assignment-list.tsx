@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { assignmentNextStep } from "@/assignments/employer-tracking";
 import { assignmentStatusLabel, formatAssignmentDate } from "@/components/assignment-presenters";
+import { formatMoney } from "@/lib/money";
 import type { EmployerAssignmentPage } from "@/payments/contract";
 
 import { PaymentStatusBadge } from "./employer-payment";
@@ -35,7 +37,32 @@ export function EmployerAssignmentList({
                 <dt>Konum</dt>
                 <dd>{[assignment.districtName, assignment.cityName].filter(Boolean).join(", ") || "Bekleniyor"}</dd>
               </div>
+              {/*
+                Sıfır saat "henüz çalışılmadı" demek; sayı olarak yazmak
+                çalışıldığını ama kaydın boş olduğunu sandırırdı.
+              */}
+              {assignment.workHours > 0 ? (
+                <div>
+                  <dt>Çalışılan saat</dt>
+                  <dd>{`${assignment.workHours} saat`}</dd>
+                </div>
+              ) : null}
+              {assignment.pricing ? (
+                <div>
+                  <dt>İşveren toplamı</dt>
+                  <dd>{formatMoney(assignment.pricing.employerTotal, assignment.pricing.currency)}</dd>
+                </div>
+              ) : null}
             </dl>
+            {/*
+              Rozet `PENDING_CONFIRMATION` ile `CONFIRMED` arasındaki farkı
+              gösteriyor; bu satır o farkın **ne anlama geldiğini** yazıyor.
+              Ödeme yalnız `CONFIRMED` iken açılabiliyor, yani iki satırda
+              kullanıcının yapacağı iş farklı.
+            */}
+            <p className="assignment-notice">
+              {assignmentNextStep(assignment.status, assignment.paymentStatus)}
+            </p>
             <Link className="button button-secondary" href={`/isveren/atama/${encodeURIComponent(assignment.id)}`}>
               Atamayı aç
             </Link>

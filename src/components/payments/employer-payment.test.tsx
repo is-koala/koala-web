@@ -33,6 +33,9 @@ const assignment: EmployerAssignment = {
     serviceFeeAmount: "112.54",
     employerTotal: "1613.04",
   },
+  assignedAt: null,
+  completedAt: null,
+  workHours: 0,
 };
 
 describe("işveren ödeme sunumu", () => {

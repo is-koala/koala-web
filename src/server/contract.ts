@@ -115,6 +115,15 @@ export const sessionCookies = {
   sessions: "/users/me/sessions",
   startRegistration: "/auth/start-registration",
   /**
+   * `GET/PUT/DELETE /users/me/talent-pool[/{workerId}]` —
+   * `EmployerToolsController.java:58-95`. Ekleme `PUT` ile idempotent bir
+   * upsert; `POST` yok.
+   *
+   * Adı `usersMe...` ile başlamıyor, bilerek: `server-only.test.ts` kabuğun
+   * tek `GET /users/me` çağrısını o önekle arıyor.
+   */
+  talentPool: "/users/me/talent-pool",
+  /**
    * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta
    * taşıyor — `isEmployer`, `identityVerified`, `maskedTcIdentityNumber`,
    * `address` ve `companies[].approved` — bu yüzden şirket onayı için ikinci

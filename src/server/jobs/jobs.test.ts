@@ -12,6 +12,7 @@ import {
   closeJob,
   createCompanyJob,
   createJobApplication,
+  fetchJobDetail,
   readJobDetail,
   readMyJobs,
 } from "./jobs";
@@ -123,6 +124,42 @@ describe("ilan ayrıntısı ve başvuru BFF sözleşmesi", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.body).toBe(JSON.stringify({}));
+  });
+
+  it("ilanın kontenjanını ve işe alınan sayısını yayım görünümüne taşır", async () => {
+    // İki alan da `JobDetailDto` üzerinde; `headcount` null ise ilan sınırsız
+    // kişilik ve sıfır saymak onu doluymuş gibi gösterirdi.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      id: jobId,
+      title: "Etkinlik görevlisi",
+      status: "OPEN",
+      salaryType: "DAILY",
+      startDateTime: "2026-10-10T09:00",
+      endDateTime: "2026-10-11T18:00",
+      headcount: 5,
+      hiredCount: 2,
+    }))));
+
+    await expect(fetchJobDetail(jobId)).resolves.toMatchObject({
+      headcount: 5,
+      hiredCount: 2,
+    });
+  });
+
+  it("kontenjan alanları hiç gelmezse sınırsız ve sıfır sayar", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      id: jobId,
+      title: "Etkinlik görevlisi",
+      status: "OPEN",
+      salaryType: "DAILY",
+      startDateTime: "2026-10-10T09:00",
+      endDateTime: "2026-10-11T18:00",
+    }))));
+
+    await expect(fetchJobDetail(jobId)).resolves.toMatchObject({
+      headcount: null,
+      hiredCount: 0,
+    });
   });
 
   it("kapatmayı ilanın kendi POST ucuna, gövdesiz gönderir", async () => {
