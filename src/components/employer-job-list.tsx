@@ -9,6 +9,7 @@ import {
 } from "@/jobs/employer-jobs";
 import { jobStatusLabel } from "@/jobs/lifecycle";
 import { employerJobsPath, publishedJobPath } from "@/lib/app-routes";
+import { formatJobDate } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 
 /**
@@ -174,24 +175,3 @@ function employerJobsHref(sort: JobSort, page: number): string {
   if (page > 0) search.set("page", String(page));
   return `${employerJobsPath}?${search}`;
 }
-
-function formatJobDate(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return value;
-  return `${Number(match[3])} ${monthNames[Number(match[2]) - 1]} ${match[1]}`;
-}
-
-const monthNames = [
-  "Ocak",
-  "Şubat",
-  "Mart",
-  "Nisan",
-  "Mayıs",
-  "Haziran",
-  "Temmuz",
-  "Ağustos",
-  "Eylül",
-  "Ekim",
-  "Kasım",
-  "Aralık",
-];

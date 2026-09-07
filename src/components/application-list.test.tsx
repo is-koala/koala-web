@@ -53,6 +53,9 @@ describe("başvurularım listesi", () => {
     expect(within(card).getByRole("img", { name: "Etkinlik görevlisi kapak görseli" })).toBeVisible();
     expect(within(card).getByText("Kadıköy, İstanbul")).toBeVisible();
     expect(within(card).getByText("12 Eylül 2026")).toBeVisible();
+    // Tarih metni `@/lib/dates` ile paylaşılıyor: üç ekranın da aynı anı aynı
+    // yazması, biçimin tek yerden geldiğinin ekrandaki kanıtı.
+    expect(within(card).getByText("6 Eyl 2026 13:00")).toBeVisible();
     expect(within(card).getByText("Hafta sonu uygunum.")).toBeVisible();
   });
 
