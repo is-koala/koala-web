@@ -18,6 +18,7 @@ import {
 } from "@/applications/employer-review";
 import { ErrorState } from "@/components/states";
 import { formatDateTime } from "@/lib/dates";
+import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { errorPresentation } from "@/lib/errors";
 
 /**
@@ -373,40 +374,6 @@ function conversationErrorMessage(errorCode: string, httpStatus: number): string
     return "Bu ilanın mesajlaşma süresi doldu.";
   }
   return errorPresentation(errorCode, httpStatus).message;
-}
-
-/**
- * `href`'e yazılacak bağlantı; şeması tanınmıyorsa `null`.
- *
- * `cvUrl` backend'den gelen bir metin ve doğrudan `href`'e yazılırsa
- * `javascript:` şeması tıklamayla çalışan bir XSS yüzeyi açar. `target`
- * ve `rel` bunu kapatmıyor — onlar açılan sayfanın bu sekmeye erişimini
- * kısıtlıyor, adresin şemasını değil. Aynı kartta profil fotoğrafı zaten
- * `safeImageUrl`'den geçiyordu; bağlantı geçmiyordu.
- *
- * Yalnız `http`/`https` geçiyor. Göreli yol elenmesi bir kayıp değil:
- * backend bu alanı `StorageUrlResolver.urlFor` ile her zaman mutlak bir
- * adrese çeviriyor.
- */
-function safeExternalUrl(value: string | null): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function safeImageUrl(value: string | null): string | null {
-  if (!value) return null;
-  if (value.startsWith("/")) return value;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? value : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
