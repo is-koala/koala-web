@@ -2,6 +2,17 @@ import { errorPresentation } from "@/lib/errors";
 
 const emptyCopy = {
   jobs: ["Henüz ilan yok", "Yeni ilanlar yayımlandığında burada görünecek."],
+  /**
+   * Süzgeçli aramanın boş sonucu.
+   *
+   * `jobs`'tan ayrı bir metin, çünkü ayrı bir durum: "henüz ilan yok" sitede
+   * hiç ilan olmadığını söyler ve süzgeci daraltmış kullanıcıya yanlış bir şey
+   * öğretir — o kullanıcının yapabileceği bir şey var.
+   */
+  jobSearch: [
+    "Bu süzgeçlere uyan ilan yok",
+    "Aramayı sadeleştirebilir, başka bir il ya da kategori seçebilirsin.",
+  ],
   employerJobs: [
     "Henüz ilan açmadın",
     "Kendi adına ya da yetkilisi olduğun bir şirket adına açtığın ilanlar burada listelenecek.",

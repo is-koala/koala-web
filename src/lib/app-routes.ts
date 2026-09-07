@@ -46,6 +46,30 @@ export type AppSection = ReadySection | PlannedSection;
 
 export type AppShellId = "employer" | "worker";
 
+/**
+ * Herkese açık ilan listesi.
+ *
+ * Kabuk bölümü değil — oturum istemeyen, indekslenen bir tanıtım rotası — ama
+ * adresi yine burada duruyor: menü (`site.ts`), site haritası, ilan kartının
+ * bağlantısı ve sayfalama bağlantıları aynı yolu kuruyor ve dördü ayrı ayrı
+ * yazılsaydı biri değiştiğinde öbürleri sessizce başka bir yere giderdi. Bu
+ * dosya deponun tek rota kaydı; ikinci bir kayıt açmak o sorunu çözmezdi.
+ *
+ * Ad kalıcı: `AGENTS.md` § "Yapı" gereği yayına çıkmış bir rota yeniden
+ * adlandırılmaz. "İş ilanları" aranan ifadenin kendisi; `/ilanlar` tek başına
+ * belirsiz olurdu.
+ */
+export const publicJobsPath = "/is-ilanlari";
+
+/**
+ * Herkese açık ilan ayrıntısı.
+ *
+ * Kimlik tarayıcıdan geliyor; yola konmadan kaçırılır.
+ */
+export function publicJobPath(jobId: string): string {
+  return `${publicJobsPath}/${encodeURIComponent(jobId)}`;
+}
+
 /** Bireysel ilan açma formu; kayıtta bir bölüm olarak da bildirilir. */
 export const newIndividualJobPath = "/isveren/ilan/yeni";
 

@@ -43,13 +43,18 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
     // `apiFetch` token taşımaz ve 401'de yenilemez. Oturumlu bir çağrı onu
     // doğrudan kullanırsa yenileme o yol için sessizce devre dışı kalır ve
     // kullanıcı süresi dolmuş bir tokenla hata ekranına düşer. Listedekiler
-    // ya tokensız uçlar (giriş, kayıt, parola, yasal metinler) ya da
-    // yenilemenin kendisi.
+    // ya tokensız uçlar (giriş, kayıt, parola, yasal metinler, herkese açık
+    // ilan araması) ya da yenilemenin kendisi.
+    //
+    // İlan araması dizin değil **tek dosya** olarak yazılı: kardeşi
+    // `server/jobs/jobs.ts` oturumlu uçları taşıyor ve dizin izni, onun bir
+    // gün sessizce `apiFetch`'e kaymasına kapıyı açardı.
     const allowed = [
       path.join(sourceRoot, "server", "session", "session.ts"),
       path.join(sourceRoot, "server", "session", "refresh.ts"),
       path.join(sourceRoot, "server", "auth"),
       path.join(sourceRoot, "server", "legal"),
+      path.join(sourceRoot, "server", "jobs", "search.ts"),
     ];
 
     const direct = sourceFiles(sourceRoot)

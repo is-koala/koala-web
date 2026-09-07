@@ -38,6 +38,28 @@ describe("rota dosya biçimi", () => {
     expect(violations).toEqual([]);
   });
 
+  it("herkese açık ilan listesinin yanında loading.tsx yok", () => {
+    /*
+     * Bir segmentin yanına `loading.tsx` konduğunda Next `page.tsx`'i otomatik
+     * olarak bir `<Suspense>` sınırına alıyor. Sınır kabuğu erken akıtıyor ve
+     * sayfanın asıl içeriği belgeye `<div hidden id="S:1">` içinde, sonradan
+     * bir satır içi script'in yerine taşıdığı bir parça olarak giriyor.
+     * JavaScript kapalı bir tarayıcıda o taşıma hiç olmuyor: ziyaretçi
+     * ilanları değil, sonsuza kadar iskeleti görüyor.
+     *
+     * `/is-ilanlari` için bu, sayfanın var oluş sebebini iptal eder
+     * (is-koala/koala-web#19: "JavaScript kapalıyken de ilanlar ve sayfalama
+     * bağlantıları görünüyor"). Ekranda hata gibi görünmüyor — JavaScript açık
+     * her tarayıcıda sayfa doğru çalışıyor — o yüzden tek yakalayan yer burası.
+     * Yükleniyor durumu bunun yerine sayfalama bağlantısının içinde duruyor
+     * (`src/components/link-pending.tsx`, `useLinkStatus`).
+     */
+    const listRoute = path.join(appRoot, "(marketing)", "is-ilanlari");
+
+    expect(existsSync(path.join(listRoute, "page.tsx"))).toBe(true);
+    expect(existsSync(path.join(listRoute, "loading.tsx"))).toBe(false);
+  });
+
   it("kabuk köklerinin hiçbirinde loading.tsx yok", () => {
     // Kabuk kökündeki bir `loading.tsx` yalnız kendi sayfasını değil,
     // altındaki `[...section]` yakalayıcısının 404'ünü de düşürür.
