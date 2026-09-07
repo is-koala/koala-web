@@ -170,9 +170,9 @@ describe("bireysel ilan formu — kategori adımı", () => {
     expect(
       screen.getByText(/sigorta zorunlu.*bireysel ilanla açılamaz.*şirket ilanı/i),
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: /Şirket ilanları/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Şirketlerim/ })).toHaveAttribute(
       "href",
-      "/isveren/ilanlar",
+      "/isveren/sirket",
     );
   });
 });

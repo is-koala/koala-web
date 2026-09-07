@@ -108,4 +108,28 @@ describe("işverenin ilan listesi", () => {
       `/isveren/ilan/${job.id}`,
     );
   });
+
+  it("ismi gelmeyen şirket ilanını bireysel göstermiyor", () => {
+    render(
+      <EmployerJobList
+        jobs={pageWith({ content: [{ ...job, companyName: null }] })}
+        sort="createdAt,desc"
+      />,
+    );
+
+    expect(screen.getByText(/Şirket ilanı/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bireysel ilan/)).toBeNull();
+  });
+
+  it("okunamayan işveren tipi için rozet uydurmuyor", () => {
+    render(
+      <EmployerJobList
+        jobs={pageWith({ content: [{ ...job, employerType: "UNKNOWN", companyName: null }] })}
+        sort="createdAt,desc"
+      />,
+    );
+
+    expect(screen.queryByText(/Bireysel ilan/)).toBeNull();
+    expect(screen.queryByText(/Şirket ilanı/)).toBeNull();
+  });
 });

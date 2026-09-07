@@ -1,5 +1,6 @@
 "use client";
 
+import { companySectionPath } from "@/lib/app-routes";
 import Link from "next/link";
 import { useActionState, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -654,7 +655,7 @@ function CategoryChoice({
       ) : (
         <p className="field-hint">
           Sigorta zorunlu işler seçilemez: bu iş için sigorta zorunlu, bireysel ilanla açılamaz —
-          şirket ilanı gerekir. <Link className="text-link" href="/isveren/ilanlar">Şirket ilanları</Link>
+          şirket ilanı gerekir. <Link className="text-link" href={companySectionPath}>Şirketlerim</Link>
         </p>
       )}
       {categories.data.map((category) => (

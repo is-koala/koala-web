@@ -51,6 +51,15 @@ export function EmployerJobList({
  * ile hizalı: elle yazılmış beşinci bir bağlantı, tıklandığında 400 dönen bir
  * düğme olurdu (`PAGE_SORT_FIELD_NOT_ALLOWED`).
  */
+
+function ownerBadge(job: EmployerJob): string {
+  if (job.employerType === "COMPANY") {
+    return job.companyName ? `Şirket ilanı · ${job.companyName}` : "Şirket ilanı";
+  }
+  if (job.employerType === "INDIVIDUAL") return "Bireysel ilan";
+  return "";
+}
+
 function SortChoice({ sort }: { sort: JobSort }) {
   return (
     <nav className="employer-job-sort" aria-label="Sıralama">
@@ -103,9 +112,7 @@ function EmployerJobCard({ job }: { job: EmployerJob }) {
       </div>
 
       <p className="employer-job-owner">
-        {job.employerType === "COMPANY" && job.companyName
-          ? `Şirket ilanı · ${job.companyName}`
-          : "Bireysel ilan"}
+        {ownerBadge(job)}
         {job.insuranceRequired ? " · Sigortalı çalışma" : ""}
       </p>
 

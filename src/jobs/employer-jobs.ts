@@ -64,6 +64,14 @@ export type EmployerJobPage = {
  * (`PageableSanitizer.rejectUnknownSort`). Beşinci bir alan sunmak, kullanıcıya
  * tıklandığında hata veren bir düğme vermek olurdu.
  */
+/**
+ * Sunucunun `JobManager.SORTABLE_FIELDS`'i. Üretim kodundan okunmuyor ve
+ * okunmamalı — `jobSortOptions` zaten gerçek kapı. Burada durmasının sebebi
+ * `employer-jobs.test.ts`: her arayüz seçeneğinin izin verilen bir alana
+ * dayandığını ona karşı kanıtlıyor. Silinirse test de silinir ve sunucu
+ * listesi değiştiğinde arayüz sessizce tıklandığında 400 veren bir düğme
+ * sunmaya başlar.
+ */
 export const sortableJobFields: readonly string[] = [
   "createdAt",
   "salary",
