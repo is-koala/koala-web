@@ -56,9 +56,12 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.getByText("1 sa")).toBeVisible();
   });
 
-  it("iptal edilemeyen atamada iptal formunu hiç açmaz", () => {
-    // `cancellableNow: false` sunucunun kesin cevabı; düğmeyi gösterip 409
-    // yedirmek yerine form hiç çizilmiyor.
+  it("iptal edilemeyen atamada önizlemeyi çizer, yalnız düğmeyi kapatır", () => {
+    // Kabul kriteri (#37): "İptal önizlemesi kullanıcıya ücret oranı, ücret
+    // tutarı, iade tutarı ve ihbar süresini gösterir; `cancellableNow: false`
+    // ise iptal düğmesi kapalıdır." Yani blok görünür kalıyor. Uç bu durumda
+    // 409 değil 200 + tutarlar döndürüyor; bloğu gizlemek kullanıcıya hem
+    // rakamları hem gerekçeyi kaybettirirdi.
     render(<EmployerResolutionActions
       assignmentStatus="CONFIRMED"
       paymentStatus="HELD_IN_ESCROW"
@@ -70,7 +73,32 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
       action={vi.fn()}
     />);
 
-    expect(screen.queryByRole("button", { name: "Atamayı iptal et" })).toBeNull();
+    fireEvent.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
+
+    expect(screen.getByText("75,00 ₺")).toBeVisible();
+    expect(screen.getByText("%7,5")).toBeVisible();
+    expect(screen.getByText("925,00 ₺")).toBeVisible();
+    expect(screen.getByText("1 sa")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeDisabled();
+    expect(screen.getByLabelText("İptal nedeni")).toBeDisabled();
+    expect(screen.getByText(/iptal edilebilir saymıyor/i)).toBeVisible();
+  });
+
+  it("iptal açıkken gerekçe metnini yazmaz", () => {
+    // Kapalılık gerekçesi yalnız kapalıyken duruyor; her zaman çizilseydi
+    // düğmenin açık olduğu ekranda da "iptal edemezsin" yazardı.
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={vi.fn()}
+    />);
+
+    fireEvent.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
+
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeEnabled();
+    expect(screen.queryByText(/iptal edilebilir saymıyor/i)).toBeNull();
   });
 
   it("açık uyuşmazlık varken iptal ve ikinci uyuşmazlık formlarını açmaz", () => {
