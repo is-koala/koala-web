@@ -8,7 +8,11 @@ import { ApplicantReview } from "./applicant-review";
 const jobId = "11111111-1111-4111-8111-111111111111";
 
 function renderReview(overrides: Partial<Parameters<typeof ApplicantReview>[0]> = {}) {
-  const idle = async (_state: unknown, _formData: FormData) => ({ status: "idle" }) as const;
+  const idle = async (state: unknown, formData: FormData) => {
+    void state;
+    void formData;
+    return { status: "idle" } as const;
+  };
   const dossierAction = vi.fn(idle);
   const talentPoolAction = vi.fn(idle);
   const conversationAction = vi.fn(idle);

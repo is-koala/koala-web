@@ -9,6 +9,7 @@ import {
   type AssignmentResolution,
   type ResolutionActionState,
 } from "@/assignments/resolution";
+import { formatNotice, formatRate } from "@/components/work-detail/presenters";
 import { errorPresentation } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
 
@@ -57,9 +58,17 @@ export function EmployerResolutionActions({
               Onaylamadan önce kesinti ve iade tutarını kontrol edin. Bu tutarlar
               sunucunun güncel iptal kuralından gelir.
             </p>
+            {/*
+              Dört alan birlikte duruyor: tutarlar ne kesileceğini söylüyor,
+              oran nasıl hesaplandığını, ihbar süresi ise beklemenin sonucu
+              değiştirip değiştirmeyeceğini. Biri eksik kalırsa kullanıcı geri
+              alınamaz bir karara eksik bakarak varır.
+            */}
             <dl className="cancellation-facts">
               <div><dt>İptal kesintisi</dt><dd>{formatMoney(preview.feeAmount, currency)}</dd></div>
+              <div><dt>İptal kesintisi oranı</dt><dd>{formatRate(preview.feeRate)}</dd></div>
               <div><dt>İade</dt><dd>{formatMoney(preview.refundAmount, currency)}</dd></div>
+              <div><dt>Başlangıca kalan</dt><dd>{formatNotice(preview.noticeMinutes)}</dd></div>
             </dl>
             <ReasonForm
               operation="cancel"

@@ -34,6 +34,7 @@ const assignment: EmployerAssignment = {
   workerName: "Ayşe Yılmaz", cityName: "İstanbul", districtName: "Kadıköy",
   startsAt: "2026-09-12T09:00:00", endsAt: "2026-09-12T18:00:00",
   status: "CONFIRMED", paymentStatus: "PENDING_COLLECTION", pricing,
+  assignedAt: null, completedAt: null, workHours: 0,
 };
 const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",

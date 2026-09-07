@@ -9,6 +9,7 @@ const readEmployerAssignment = vi.hoisted(() => vi.fn());
 const readPaymentResolutionForAssignment = vi.hoisted(() => vi.fn());
 const readEmployerPaymentRequirements = vi.hoisted(() => vi.fn());
 const readAssignmentResolution = vi.hoisted(() => vi.fn());
+const readAssignmentWorkSessions = vi.hoisted(() => vi.fn());
 const viewerGates = vi.hoisted(() => vi.fn());
 const shellGate = vi.hoisted(() => vi.fn());
 const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"); }));
@@ -23,6 +24,10 @@ vi.mock("@/server/assignments/resolution", () => ({
   readAssignmentResolution,
   cancelAssignment: vi.fn(),
   createAssignmentDispute: vi.fn(),
+}));
+vi.mock("@/server/assignments/employer-tracking", () => ({
+  readAssignmentWorkSessions,
+  completeAssignment: vi.fn(),
 }));
 vi.mock("@/server/session/gates", () => ({ viewerGates }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
@@ -45,6 +50,9 @@ const assignment: EmployerAssignment = {
   status: "CONFIRMED",
   paymentStatus: "FAILED",
   pricing: null,
+  assignedAt: "2026-09-01T09:00:00Z",
+  completedAt: null,
+  workHours: 0,
 };
 const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",
@@ -64,6 +72,7 @@ describe("işveren atama ayrıntısı", () => {
       advisories: ["individualBillingAddress"], blocked: ["identityNumber"],
     });
     readPaymentResolutionForAssignment.mockResolvedValue("failed");
+    readAssignmentWorkSessions.mockResolvedValue([]);
     readAssignmentResolution.mockResolvedValue({
       cancellationPreview: null,
       cancellation: null,
@@ -128,5 +137,47 @@ describe("işveren atama ayrıntısı", () => {
 
     expect(screen.getByText("Ödeme iade sürecinde.")).toBeVisible();
     expect(screen.queryByText("Ödeme iade edildi.")).toBeNull();
+  });
+
+  it("çalışma oturumlarını okuyup zaman çizelgesini çizer", async () => {
+    readAssignmentWorkSessions.mockResolvedValue([
+      { id: "s1", checkInAt: "2026-09-02T08:00:00Z", checkOutAt: "2026-09-02T12:30:00Z", minutes: 270 },
+    ]);
+
+    render(await EmployerAssignmentContent({
+      assignment: { ...assignment, status: "IN_PROGRESS", paymentStatus: "HELD_IN_ESCROW" },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(readAssignmentWorkSessions).toHaveBeenCalledWith(assignmentId);
+    expect(screen.getByRole("list", { name: "Atama zaman çizelgesi" })).toBeVisible();
+    expect(screen.getByText("Toplam 4 sa 30 dk")).toBeVisible();
+    expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeEnabled();
+  });
+
+  it("para emanette değilken tamamlama düğmesini kilitler ve nedenini yazar", async () => {
+    // Sunucu bu durumda 409 `ASSIGNMENT_PAYMENT_NOT_SECURED` döndürüyor ve
+    // koşul atama satırından okunabiliyor: düğme açık bırakılıp 409
+    // yedirilmiyor.
+    render(await EmployerAssignmentContent({
+      assignment: { ...assignment, status: "CONFIRMED", paymentStatus: "PENDING_COLLECTION" },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeDisabled();
+    expect(screen.getByText(/Ödeme emanete alınmadan/)).toBeVisible();
+  });
+
+  it("işçi onaylamadan tamamlamayı kapatır", async () => {
+    render(await EmployerAssignmentContent({
+      assignment: { ...assignment, status: "PENDING_CONFIRMATION", paymentStatus: "HELD_IN_ESCROW" },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeDisabled();
+    expect(screen.getByText(/İşçi atamayı onaylamadan/)).toBeVisible();
   });
 });

@@ -36,6 +36,43 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.getByRole("button", { name: "Uyuşmazlık aç" })).toBeVisible();
   });
 
+  it("önizlemenin dört alanını da yazar", () => {
+    // Kabul kriteri dördünü birlikte istiyor: ücret oranı, ücret tutarı, iade
+    // tutarı ve ihbar süresi. Oran ve süre eksik kalırsa kullanıcı kesintinin
+    // neden o kadar olduğunu ve ne kadar beklerse değişeceğini okuyamaz.
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={vi.fn()}
+    />);
+
+    fireEvent.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
+
+    expect(screen.getByText("İptal kesintisi oranı")).toBeVisible();
+    expect(screen.getByText("%7,5")).toBeVisible();
+    expect(screen.getByText("Başlangıca kalan")).toBeVisible();
+    expect(screen.getByText("1 sa")).toBeVisible();
+  });
+
+  it("iptal edilemeyen atamada iptal formunu hiç açmaz", () => {
+    // `cancellableNow: false` sunucunun kesin cevabı; düğmeyi gösterip 409
+    // yedirmek yerine form hiç çizilmiyor.
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={{
+        ...resolution,
+        cancellationPreview: { ...resolution.cancellationPreview!, cancellableNow: false },
+      }}
+      currency="TRY"
+      action={vi.fn()}
+    />);
+
+    expect(screen.queryByRole("button", { name: "Atamayı iptal et" })).toBeNull();
+  });
+
   it("açık uyuşmazlık varken iptal ve ikinci uyuşmazlık formlarını açmaz", () => {
     render(<EmployerResolutionActions
       assignmentStatus="CONFIRMED"

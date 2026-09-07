@@ -26,6 +26,9 @@ const base: EmployerAssignment = {
     serviceFeeAmount: "1.00",
     employerTotal: "9007199254740994.00",
   },
+  assignedAt: null,
+  completedAt: null,
+  workHours: 0,
 };
 
 it("backend toplamlarını kuruş kaybetmeden ödeme ve emanet özetinde toplar", () => {

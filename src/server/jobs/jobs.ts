@@ -57,6 +57,15 @@ export type JobDetail = {
   startDateTime: string;
   endDateTime: string;
   pricing: PricingBreakdown | null;
+  /** `null` ise ilan sınırsız kişilik; sıfır saymak onu doluymuş gibi gösterirdi. */
+  headcount: number | null;
+  /**
+   * Backend her okumada sayıyor (`JobManager.java:293-299`) ve **yalnız**
+   * {CONFIRMED, IN_PROGRESS, COMPLETED} atamaları sayıyor. Kabul kapısı
+   * `PENDING_CONFIRMATION` teklifleri de yer kaplıyor sayıyor, yani bu sayı
+   * kalan kontenjanın üst sınırını verir, kesin değerini değil.
+   */
+  hiredCount: number;
 };
 
 /** `GET /reference/job-categories`. Oturum istemiyor ama BFF yine tek kapıdan geçer. */
@@ -91,8 +100,15 @@ export function createIndividualJob(
   });
 }
 
-export function fetchJobDetail(jobId: string): Promise<JobDetail> {
-  return apiRequest<JobDetail>(jobPath(jobId));
+/** Yanıtta kontenjan alanları eksik gelebiliyor; ikisi de burada karara bağlanır. */
+type JobDetailResponse = Omit<JobDetail, "headcount" | "hiredCount"> & {
+  headcount?: number | null;
+  hiredCount?: number | null;
+};
+
+export async function fetchJobDetail(jobId: string): Promise<JobDetail> {
+  const dto = await apiRequest<JobDetailResponse>(jobPath(jobId));
+  return { ...dto, headcount: dto.headcount ?? null, hiredCount: dto.hiredCount ?? 0 };
 }
 
 /**

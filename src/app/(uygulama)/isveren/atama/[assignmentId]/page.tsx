@@ -2,7 +2,13 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { ShellGate } from "@/app/(uygulama)/shell";
+import {
+  assignmentCompletion,
+  assignmentNextStep,
+  employerAssignmentTimeline,
+} from "@/assignments/employer-tracking";
 import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
+import { EmployerAssignmentTracking } from "@/components/assignment-tracking";
 import { formatAssignmentDate } from "@/components/assignment-presenters";
 import { EmployerResolutionActions } from "@/components/employer-resolution-actions";
 import {
@@ -20,10 +26,11 @@ import {
 } from "@/server/payments/payments";
 import { readEmployerPaymentRequirements } from "@/server/payments/preflight";
 import { readAssignmentResolution } from "@/server/assignments/resolution";
+import { readAssignmentWorkSessions } from "@/server/assignments/employer-tracking";
 import { viewerGates } from "@/server/session/gates";
 import { enterShell, type Viewer } from "@/server/session/viewer";
 
-import { employerResolutionAction } from "./actions";
+import { completeAssignmentAction, employerResolutionAction } from "./actions";
 
 type EmployerAssignmentPageProps = {
   params: Promise<{ assignmentId: string }>;
@@ -81,10 +88,12 @@ export async function EmployerAssignmentContent({
     readPaymentResolutionForAssignment(assignment),
     readEmployerPaymentRequirements(viewerGates(viewer), assignment),
     readAssignmentResolution(assignment.id, assignment.status),
-  ]).then(([paymentResolution, requirements, resolution]) => ({
+    readAssignmentWorkSessions(assignment.id),
+  ]).then(([paymentResolution, requirements, resolution, sessions]) => ({
     paymentResolution,
     requirements,
     resolution,
+    sessions,
   }))
     .catch((error: unknown) => {
       unstable_rethrow(error);
@@ -117,7 +126,7 @@ export async function EmployerAssignmentContent({
         </div>
         <div>
           <dt>Sıradaki adım</dt>
-          <dd>{nextPaymentStep(assignment.status, assignment.paymentStatus)}</dd>
+          <dd>{assignmentNextStep(assignment.status, assignment.paymentStatus)}</dd>
         </div>
       </dl>
 
@@ -133,6 +142,26 @@ export async function EmployerAssignmentContent({
         </div>
       )}
 
+      {/*
+        Takip paneli ödemeden önce duruyor: "iş nerede" sorusu, "ne ödeyeceğim"
+        sorusundan önce geliyor ve tamamlama düğmesinin neden kapalı olduğunu
+        çizelge zaten anlatıyor.
+      */}
+      <EmployerAssignmentTracking
+        timeline={employerAssignmentTimeline({
+          status: assignment.status,
+          assignedAt: assignment.assignedAt,
+          completedAt: assignment.completedAt,
+          sessions: loaded.sessions,
+        })}
+        sessions={loaded.sessions}
+        completion={assignmentCompletion({
+          assignmentStatus: assignment.status,
+          paymentStatus: assignment.paymentStatus,
+        })}
+        action={completeAssignmentAction.bind(null, assignment.id)}
+      />
+
       <EmployerAssignmentPayment assignment={assignment} requirements={loaded.requirements} />
       <AssignmentResolutionPanel resolution={loaded.resolution} currency={currency} />
       <EmployerResolutionActions
@@ -144,17 +173,4 @@ export async function EmployerAssignmentContent({
       />
     </section>
   );
-}
-
-function nextPaymentStep(assignmentStatus: string, paymentStatus: string): string {
-  if (paymentStatus === "PENDING_COLLECTION" || paymentStatus === "FAILED") {
-    return assignmentStatus === "CONFIRMED"
-      ? "Ödemeyi güvenli ödeme sayfasından tamamla."
-      : "İşçinin atamayı onaylamasını bekle.";
-  }
-  if (paymentStatus === "RELEASED_TO_WORKER") return "Para işçiye aktarıldı.";
-  if (paymentStatus === "REFUNDED") return "Ödeme iade sürecinde.";
-  if (assignmentStatus === "IN_PROGRESS") return "İş tamamlandığında atamayı tamamlandı olarak işaretle.";
-  if (assignmentStatus === "COMPLETED") return "Para işçiye aktarılmak üzere işleniyor.";
-  return "İşçinin girişini bekliyor.";
 }

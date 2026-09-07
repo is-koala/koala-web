@@ -17,6 +17,18 @@ export type EmployerAssignment = {
   readonly status: AssignmentStatus;
   readonly paymentStatus: PaymentStatus;
   readonly pricing: PricingBreakdown | null;
+  /** `MyAssignmentDto.assignmentDateTime`; zaman çizelgesinin ilk adımı. */
+  readonly assignedAt: string | null;
+  /** `MyAssignmentDto.actualCompletionDateTime`; yalnız tamamlanmışta dolu. */
+  readonly completedAt: string | null;
+  /**
+   * `MyAssignmentDto.workHours` — backend'in saat cinsinden tam sayısı.
+   *
+   * Puantaj oturumlarından yeniden hesaplanmıyor: liste ekranında oturum
+   * uçlarına satır başına bir tur atmak gerekirdi ve backend bu sayıyı zaten
+   * satırda taşıyor.
+   */
+  readonly workHours: number;
 };
 
 export type EmployerAssignmentPage = {

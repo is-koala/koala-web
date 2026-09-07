@@ -36,6 +36,9 @@ type EmployerAssignmentDto = {
   worker?: { firstName?: string | null; lastName?: string | null } | null;
   status?: string | null;
   paymentStatus?: string | null;
+  assignmentDateTime?: string | null;
+  actualCompletionDateTime?: string | null;
+  workHours?: number | null;
   pricing?: Partial<PricingBreakdown> | null;
 };
 
@@ -263,6 +266,9 @@ function projectEmployerAssignment(dto: EmployerAssignmentDto): EmployerAssignme
     status: known(dto.status, assignmentStatuses),
     paymentStatus: known(dto.paymentStatus, paymentStatuses),
     pricing: completePricing(dto.pricing),
+    assignedAt: dto.assignmentDateTime ?? null,
+    completedAt: dto.actualCompletionDateTime ?? null,
+    workHours: dto.workHours ?? 0,
   };
 }
 

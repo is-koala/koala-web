@@ -38,7 +38,13 @@ describe("ilanın başvuru listesi sayfası", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     enterShell.mockResolvedValue({ viewer: { id: "viewer" }, failure: null });
-    fetchJobDetail.mockResolvedValue({ id: jobId, title: "Hafta sonu garson", status: "OPEN" });
+    fetchJobDetail.mockResolvedValue({
+      id: jobId,
+      title: "Hafta sonu garson",
+      status: "OPEN",
+      headcount: null,
+      hiredCount: 0,
+    });
   });
 
   it("UUID olmayan ilan kimliğini backend'e hiç sormaz", async () => {
@@ -73,6 +79,45 @@ describe("ilanın başvuru listesi sayfası", () => {
       "href",
       `/isveren/ilan/${jobId}`,
     );
+  });
+
+  it("kaç kişinin işe alındığını ve kalan kontenjanı yazar", async () => {
+    fetchJobDetail.mockResolvedValue({
+      id: jobId,
+      title: "Hafta sonu garson",
+      status: "OPEN",
+      headcount: 5,
+      hiredCount: 2,
+    });
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByText(/2 \/ 5 kişi işe alındı/)).toBeVisible();
+    expect(screen.getByText(/3 kişilik yer kaldı/)).toBeVisible();
+  });
+
+  it("kalan kontenjanın bekleyen teklifleri saymadığını da yazar", async () => {
+    // `hiredCount` ile kabul kapısının saydığı kümeler ayrışıyor; sayı
+    // gösterilirken bunun söylenmemesi kullanıcıyı beklenmedik bir 409'a
+    // hazırlıksız bırakırdı.
+    fetchJobDetail.mockResolvedValue({
+      id: jobId,
+      title: "Hafta sonu garson",
+      status: "OPEN",
+      headcount: 5,
+      hiredCount: 2,
+    });
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByText(/cevabını bekleyen teklifler de yer kaplıyor/i)).toBeVisible();
+  });
+
+  it("kontenjan bildirilmemiş ilanda kalan sayı uydurmaz", async () => {
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByText("0 kişi işe alındı")).toBeVisible();
+    expect(screen.queryByText(/yer kaldı/)).toBeNull();
   });
 
   it("başvuruları ve havuz üyeliğini listeye taşır", async () => {

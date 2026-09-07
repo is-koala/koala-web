@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { ApplicantReview } from "@/components/applicant-review";
 import { ErrorState, LoadingState } from "@/components/states";
+import { jobHeadcount } from "@/jobs/headcount";
 import { publishedJobPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import {
@@ -49,9 +50,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   // Kimlik tarayıcıdan geliyor ve yola giriyor; UUID olmayan değer hiç sorulmaz.
   if (!isUuid(id)) notFound();
 
-  let title: string;
+  let job: Awaited<ReturnType<typeof fetchJobDetail>>;
   try {
-    title = (await fetchJobDetail(id)).title;
+    job = await fetchJobDetail(id);
   } catch (error) {
     // Backend yetkisiz kullanıcıya da 404 veriyor; ilanın varlığı sızmasın
     // diye web de aynı cevabı verir.
@@ -60,14 +61,26 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     return <ErrorState errorCode={failure.errorCode} status={failure.httpStatus} />;
   }
 
+  const headcount = jobHeadcount({ headcount: job.headcount, hiredCount: job.hiredCount });
+
   return (
     <section className="app-panel applications-page">
       <p className="eyebrow">İlanın başvuruları</p>
-      <h1>{title}</h1>
+      <h1>{job.title}</h1>
       <p className="lede">
         Adayları inceleyip yetenek havuzuna alabilir, ilanla ilgili yazışmayı buradan
         başlatabilirsin.
       </p>
+      {/*
+        Kontenjan sayısı ve belirsizliği birlikte duruyor: sayı gösterilip
+        `hiredCount` ile kabul kapısının ayrıştığı söylenmezse, "yer var"
+        yazan bir ilanda kabul beklenmedik biçimde reddedilebilir.
+      */}
+      <div className="job-headcount" role="status">
+        <strong>{headcount.summary}</strong>
+        {headcount.caveat ? <p className="field-hint">{headcount.caveat}</p> : null}
+      </div>
+
       <Link className="button button-secondary button-small" href={publishedJobPath(id)}>
         İlana dön
       </Link>

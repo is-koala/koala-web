@@ -5,6 +5,7 @@ import { ApiError } from "@/server/api/errors";
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
 const cancelAssignment = vi.hoisted(() => vi.fn());
 const createAssignmentDispute = vi.hoisted(() => vi.fn());
+const completeAssignment = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
@@ -12,10 +13,11 @@ vi.mock("@/server/assignments/resolution", () => ({
   cancelAssignment,
   createAssignmentDispute,
 }));
+vi.mock("@/server/assignments/employer-tracking", () => ({ completeAssignment }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
 
-import { employerResolutionAction } from "./actions";
+import { completeAssignmentAction, employerResolutionAction } from "./actions";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 
@@ -71,6 +73,38 @@ describe("işveren atama sonuçlandırma action'ı", () => {
       .resolves.toEqual({
         status: "error",
         errorCode: "DISPUTE_BLOCKS_RELEASE",
+        httpStatus: 409,
+      });
+    expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
+  });
+
+  it("tamamlamayı gövdesiz gönderip atama görünümünü yeniler", async () => {
+    await expect(completeAssignmentAction(assignmentId, { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "done" });
+    expect(completeAssignment).toHaveBeenCalledWith(assignmentId);
+    expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
+  });
+
+  it("bozuk atama kimliğinde tamamlamayı backend'e hiç sormaz", async () => {
+    await expect(completeAssignmentAction("../jobs", { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 });
+    expect(completeAssignment).not.toHaveBeenCalled();
+  });
+
+  it("tamamlama reddinde kodu taşır ve görünümü yine tazeler", async () => {
+    // Redlerin ikisi de atamanın durumunun bu sırada değişmiş olmasından
+    // gelebiliyor; kullanıcı hatayı okurken bayat bir ekran görmemeli.
+    completeAssignment.mockRejectedValueOnce(new ApiError({
+      status: 409,
+      errorCode: "ASSIGNMENT_PAYMENT_NOT_SECURED",
+      errorCategory: "DATA_CONFLICT",
+      message: "ham backend mesajı",
+    }));
+
+    await expect(completeAssignmentAction(assignmentId, { status: "idle" }, new FormData()))
+      .resolves.toEqual({
+        status: "error",
+        errorCode: "ASSIGNMENT_PAYMENT_NOT_SECURED",
         httpStatus: 409,
       });
     expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
