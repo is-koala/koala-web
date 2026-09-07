@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { EmployerGate } from "@/components/employer-gate";
+import { LoadingState } from "@/components/states";
 import { JobForm, type JobFormData, type JobFormTemplate } from "@/components/job-form";
 import { isUuid } from "@/lib/identifiers";
 import type { JobCategory } from "@/lib/job-posting";
@@ -32,8 +34,11 @@ export const metadata: Metadata = {
  * yetkililik başka bir yöneticinin elinde. Doldurulup reddedilen form ise tek
  * kullanımlık adres kanıtını yakardı (`candidateToken` 10 dakika yaşıyor).
  *
- * Burada `loading.tsx` yok: sayfa `notFound()` çağırıyor ve bir Suspense
- * sınırı HTTP durumunu 200'de kilitlerdi (`AGENTS.md`).
+ * Burada `loading.tsx` yok: sayfa `notFound()` çağırıyor ve bir rota
+ * seviyesinde Suspense sınırı HTTP durumunu 200'de kilitlerdi (`AGENTS.md`).
+ * Yükleniyor durumu bunun yerine karar verildikten **sonra**, form verisini
+ * bekleyen iç `Suspense` ile veriliyor — aynı kuralın kardeş sayfadaki hâli
+ * (`../../page.tsx`).
  */
 export default async function Page({ params }: { params: Promise<{ companyId: string }> }) {
   const { companyId } = await params;
@@ -60,7 +65,9 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
 
       <EmployerGate blocked={verdict.open ? [] : verdict.blockedBy} action="İlanı yayımla">
         {verdict.open && company ? (
-          <CompanyJobFormPanel companyId={companyId} companyName={company.companyName} />
+          <Suspense fallback={<LoadingState label="İlan formu yükleniyor…" />}>
+            <CompanyJobFormPanel companyId={companyId} companyName={company.companyName} />
+          </Suspense>
         ) : null}
       </EmployerGate>
     </section>

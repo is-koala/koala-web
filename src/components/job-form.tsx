@@ -690,9 +690,11 @@ function CategoryChoice({
  *
  * Kilitliyken anahtar devre dışı ve devre dışı bir kutu gönderime hiç
  * girmiyor; bu yüzden yanında aynı adı taşıyan gizli bir alan duruyor.
- * Değeri yine türetmenin sonucu: sunucu action'ı da aynı hesabı tekrar
- * yapıyor, ama katalog orada okunamazsa son söz bu değerde kalıyor ve
- * kullanıcı kapatamayacağı bir 400'e düşmüyor.
+ * Değeri yine türetmenin sonucu ve hesap tek kaynakta: sunucu action'ı da
+ * gövdeyi kurarken aynı `insuranceRequiredFor`'u çağırıyor, kendi kopyasını
+ * yazmıyor. Gizli alan formdan gelen tercihi değil o türetmeyi taşıyor;
+ * katalog sunucuda okunamazsa son söz bu değerde kalıyor ve kullanıcı
+ * kapatamayacağı bir 400'e düşmüyor.
  */
 function InsuranceChoice({
   locked,
