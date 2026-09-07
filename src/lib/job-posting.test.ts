@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AddressWrite } from "@/address/contract";
 
 import {
-  emptyIndividualJobDraft,
+  emptyJobDraft,
   addressFieldErrors,
   deserializeDraft,
   individualJobBody,
@@ -12,7 +12,7 @@ import {
   serializeDraft,
   unmatchedFieldMessages,
   withJobFieldAliases,
-  type IndividualJobDraft,
+  type JobDraft,
 } from "./job-posting";
 
 const address: AddressWrite = {
@@ -36,9 +36,9 @@ const category = {
   requiresInsurance: false,
 };
 
-function draft(overrides: Partial<IndividualJobDraft> = {}): IndividualJobDraft {
+function draft(overrides: Partial<JobDraft> = {}): JobDraft {
   return {
-    ...emptyIndividualJobDraft,
+    ...emptyJobDraft,
     categoryId: category.id,
     title: "Hafta sonu garson",
     description: "İki günlük etkinlikte servis desteği.",
@@ -231,11 +231,11 @@ describe("taslağın tarayıcıda saklanması", () => {
       JSON.stringify({ title: "kalır", candidateToken: "düşer", address: { cityId: "düşer" } }),
     );
 
-    expect(restored).toEqual({ ...emptyIndividualJobDraft, title: "kalır" });
+    expect(restored).toEqual({ ...emptyJobDraft, title: "kalır" });
   });
 
   it("okunamayan kayıtta boş taslağa döner", () => {
-    expect(deserializeDraft("{bozuk")).toEqual(emptyIndividualJobDraft);
-    expect(deserializeDraft(null)).toEqual(emptyIndividualJobDraft);
+    expect(deserializeDraft("{bozuk")).toEqual(emptyJobDraft);
+    expect(deserializeDraft(null)).toEqual(emptyJobDraft);
   });
 });

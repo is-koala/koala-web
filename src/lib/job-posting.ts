@@ -63,7 +63,7 @@ export type JobCategory = {
  * yalnız gövde kurulurken bir kez yapılıyor ve yarım yazılmış bir sayı
  * taslakta `NaN`'a dönüşmüyor.
  */
-export type IndividualJobDraft = {
+export type JobDraft = {
   categoryId: string;
   title: string;
   description: string;
@@ -84,7 +84,7 @@ export type IndividualJobDraft = {
   headcount: string;
 };
 
-export const emptyIndividualJobDraft: IndividualJobDraft = {
+export const emptyJobDraft: JobDraft = {
   categoryId: "",
   title: "",
   description: "",
@@ -121,7 +121,7 @@ const wholeNumberPattern = /^\d+$/;
  * sırasını denetliyor, tarih sırasını hiç denetlemiyor.
  */
 export function individualJobErrors(
-  draft: IndividualJobDraft,
+  draft: JobDraft,
   categories: readonly JobCategory[] | null,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -231,7 +231,7 @@ export type CreateIndividualJobBody = {
  * çeviriyor — üzerine tek bir alan eklemek bütün gönderimi çöpe atardı.
  */
 export function individualJobBody(
-  draft: IndividualJobDraft,
+  draft: JobDraft,
   address: AddressWrite | null,
   categories: readonly JobCategory[] | null,
 ): CreateIndividualJobBody | null {
@@ -272,12 +272,12 @@ export function individualJobBody(
  * (`JobManager.java:167`), yani önizlemede başka bir tutar sorulsaydı kullanıcı
  * yayımlarken gördüğünden farklı bir fiyata razı olmuş olurdu.
  */
-export function quotedWorkerPayout(draft: IndividualJobDraft): string {
+export function quotedWorkerPayout(draft: JobDraft): string {
   return draft.salary.trim();
 }
 
 /** Taslağın alanları; hem beyaz liste hem "bu ada karşılık bir input var" listesi. */
-const draftFields = Object.keys(emptyIndividualJobDraft) as (keyof IndividualJobDraft)[];
+const draftFields = Object.keys(emptyJobDraft) as (keyof JobDraft)[];
 
 /**
  * Sunucunun bildirdiği alan adının formdaki karşılığı.
@@ -287,7 +287,7 @@ const draftFields = Object.keys(emptyIndividualJobDraft) as (keyof IndividualJob
  * hiçbir input'a karşılık gelmiyor: eşleme kurulmazsa
  * `fieldError(state, "maxAge")` boş döner ve mesaj ekranda hiç görünmez.
  */
-const fieldAliases: Readonly<Record<string, keyof IndividualJobDraft>> = {
+const fieldAliases: Readonly<Record<string, keyof JobDraft>> = {
   ageRangeOrdered: "maxAge",
 };
 
@@ -355,29 +355,29 @@ function isRenderedField(field: string): boolean {
  * taşımıyor; okuma da beyaz listeyle yapılıyor, böylece elle kurcalanmış ya da
  * eski bir sürümden kalmış bir kayıt da kanıt sızdıramaz.
  */
-export function serializeDraft(draft: IndividualJobDraft): string {
+export function serializeDraft(draft: JobDraft): string {
   return JSON.stringify(Object.fromEntries(draftFields.map((field) => [field, draft[field]])));
 }
 
-export function deserializeDraft(raw: string | null): IndividualJobDraft {
-  if (!raw) return emptyIndividualJobDraft;
+export function deserializeDraft(raw: string | null): JobDraft {
+  if (!raw) return emptyJobDraft;
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return emptyIndividualJobDraft;
+    return emptyJobDraft;
   }
 
-  if (typeof parsed !== "object" || parsed === null) return emptyIndividualJobDraft;
+  if (typeof parsed !== "object" || parsed === null) return emptyJobDraft;
   const stored = parsed as Record<string, unknown>;
 
   return Object.fromEntries(
     draftFields.map((field) => [
       field,
-      typeof stored[field] === "string" ? stored[field] : emptyIndividualJobDraft[field],
+      typeof stored[field] === "string" ? stored[field] : emptyJobDraft[field],
     ]),
-  ) as IndividualJobDraft;
+  ) as JobDraft;
 }
 
 /** `datetime-local` değeri; saat dilimi taşımaz çünkü karşılığı `LocalDateTime`. */

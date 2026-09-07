@@ -21,12 +21,12 @@ import type { GateId } from "@/lib/gates";
 import {
   addressFieldErrors,
   deserializeDraft,
-  emptyIndividualJobDraft,
+  emptyJobDraft,
   individualJobErrors,
   moneyPattern,
   serializeDraft,
   unmatchedFieldMessages,
-  type IndividualJobDraft,
+  type JobDraft,
   type JobCategory,
   type PriceQuoteResult,
 } from "@/lib/job-posting";
@@ -142,7 +142,7 @@ export function IndividualJobForm({
   // tarayıcıdan geri yüklenen değerler duruyor ve depolamaya hiçbir şey
   // yazılmıyor. `null` olmasaydı ilk render boş taslağı kaydeder ve
   // kullanıcının önceki yazdıklarını sessizce silerdi.
-  const [edited, setEdited] = useState<IndividualJobDraft | null>(null);
+  const [edited, setEdited] = useState<JobDraft | null>(null);
   const [step, setStep] = useState<StepName>("Kategori");
   const [priceQuote, setPriceQuote] = useState<QuoteState>({ status: "idle" });
   const formId = useId();
@@ -152,7 +152,7 @@ export function IndividualJobForm({
   // sorusunun React'in kendi cevabı.
   const hydrated = useSyncExternalStore(subscribeToNothing, () => true, () => false);
   const restored = useMemo(
-    () => (hydrated ? deserializeDraft(readStoredDraft()) : emptyIndividualJobDraft),
+    () => (hydrated ? deserializeDraft(readStoredDraft()) : emptyJobDraft),
     [hydrated],
   );
   const draft = edited ?? restored;
@@ -190,13 +190,13 @@ export function IndividualJobForm({
   const [state, formAction] = useActionState(submit, idleFormState);
 
   const fieldErrors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
-  const errorFor = (field: keyof IndividualJobDraft) => fieldErrors[field];
+  const errorFor = (field: keyof JobDraft) => fieldErrors[field];
 
   useEffect(() => {
     if (edited !== null) writeStoredDraft(edited);
   }, [edited]);
 
-  const set = (field: keyof IndividualJobDraft) => (value: string) => {
+  const set = (field: keyof JobDraft) => (value: string) => {
     setEdited({ ...draft, [field]: value });
   };
 
@@ -224,7 +224,7 @@ export function IndividualJobForm({
     setEdited({
       ...draft,
       ...Object.fromEntries(
-        (Object.keys(emptyIndividualJobDraft) as (keyof IndividualJobDraft)[])
+        (Object.keys(emptyJobDraft) as (keyof JobDraft)[])
           .map((field) => [field, template[field as keyof JobFormTemplate]])
           .filter(([, value]) => typeof value === "string" && value !== ""),
       ),
@@ -695,7 +695,7 @@ function readStoredDraft(): string | null {
   }
 }
 
-function writeStoredDraft(draft: IndividualJobDraft): void {
+function writeStoredDraft(draft: JobDraft): void {
   try {
     window.localStorage.setItem(draftStorageKey, serializeDraft(draft));
   } catch {

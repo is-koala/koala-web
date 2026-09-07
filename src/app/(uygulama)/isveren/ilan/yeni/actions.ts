@@ -8,12 +8,12 @@ import { gateNotice } from "@/lib/errors";
 import type { GateId } from "@/lib/gates";
 import type { FormState } from "@/lib/form-state";
 import {
-  emptyIndividualJobDraft,
+  emptyJobDraft,
   individualJobBody,
   individualJobErrors,
   moneyPattern,
   withJobFieldAliases,
-  type IndividualJobDraft,
+  type JobDraft,
   type JobCategory,
   type PriceQuoteResult,
 } from "@/lib/job-posting";
@@ -92,10 +92,10 @@ export async function publishIndividualJobAction(
 }
 
 /** Form alanlarının adları DTO alan adlarıyla aynı; taslak birebir okunur. */
-function readDraft(formData: FormData): IndividualJobDraft {
+function readDraft(formData: FormData): JobDraft {
   return Object.fromEntries(
-    Object.keys(emptyIndividualJobDraft).map((field) => [field, textField(formData, field)]),
-  ) as IndividualJobDraft;
+    Object.keys(emptyJobDraft).map((field) => [field, textField(formData, field)]),
+  ) as JobDraft;
 }
 
 async function loadCategories(): Promise<readonly JobCategory[] | null> {
