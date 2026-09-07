@@ -4,21 +4,17 @@ import { redirect } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
 import { newIndividualJobPath, publishedJobPath } from "@/lib/app-routes";
-import { gateNotice } from "@/lib/errors";
-import type { GateId } from "@/lib/gates";
 import type { FormState } from "@/lib/form-state";
 import {
-  emptyJobDraft,
   individualJobBody,
   individualJobErrors,
   moneyPattern,
   withJobFieldAliases,
-  type JobDraft,
-  type JobCategory,
   type PriceQuoteResult,
 } from "@/lib/job-posting";
-import { failureState, failureView, textField, validationState } from "@/server/form";
-import { createIndividualJob, fetchJobCategories, fetchPriceQuote } from "@/server/jobs/jobs";
+import { failureState, failureView, validationState } from "@/server/form";
+import { createIndividualJob, fetchPriceQuote } from "@/server/jobs/jobs";
+import { closedGateState, loadJobCategories, readJobDraft } from "@/server/jobs/submission";
 import { currentGates } from "@/server/session/gates";
 
 /**
@@ -62,12 +58,9 @@ export async function publishIndividualJobAction(
     return closedGateState(verdict?.blockedBy ?? []);
   }
 
-  const draft = readDraft(formData);
+  const draft = readJobDraft(formData);
   const address = readAddressWrite(formData);
-  // Katalog okunamazsa sigorta kuralı denetlenemez; yayımı bir referans
-  // sorgusuna takmak yerine son sözü backend'e bırakıyoruz — o kuralı
-  // gerçekten uyguluyor (`JobManager.java:134-137`).
-  const categories = await loadCategories();
+  const categories = await loadJobCategories();
 
   const errors = individualJobErrors(draft, categories);
   if (address === null) errors.address = "Adresi onaylaman gerekiyor.";
@@ -89,33 +82,4 @@ export async function publishIndividualJobAction(
   // Yayımdan sonra kullanıcı ilanın kendi sayfasına düşer: fiyat orada
   // kilitlenmiş hâliyle duruyor ve form durumu geride kalmıyor.
   redirect(created.id ? publishedJobPath(created.id) : newIndividualJobPath);
-}
-
-/** Form alanlarının adları DTO alan adlarıyla aynı; taslak birebir okunur. */
-function readDraft(formData: FormData): JobDraft {
-  return Object.fromEntries(
-    Object.keys(emptyJobDraft).map((field) => [field, textField(formData, field)]),
-  ) as JobDraft;
-}
-
-async function loadCategories(): Promise<readonly JobCategory[] | null> {
-  try {
-    return await fetchJobCategories();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Kapalı kapının form durumu.
- *
- * Kodu kapının kendi sözlüğünden alıyor (`gateNotice(...).errorCodes`), yani
- * ekrandaki metin backend reddiyle aynı yerden geliyor ve mesaj metnine göre
- * dallanma olmuyor.
- */
-function closedGateState(blockedBy: readonly GateId[]): FormState {
-  const gate = blockedBy[0];
-  const errorCode = (gate === undefined ? undefined : gateNotice(gate).errorCodes[0]) ?? "ACCESS_DENIED";
-
-  return { status: "error", errorCode, httpStatus: 400 };
 }

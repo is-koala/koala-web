@@ -82,6 +82,26 @@ export function editCompanyPath(companyId: string): string {
 }
 
 /**
+ * Şirket adına ilan açma formu.
+ *
+ * Şirket **adreste**, tıpkı `POST /companies/{companyId}/jobs` gibi: ilan hangi
+ * şirket adına açılıyorsa kapı da o şirket için okunuyor ve iki sekmede iki
+ * şirketle çalışan kullanıcı yanlış şirkete ilan açamıyor.
+ *
+ * Bireysel formun (`/isveren/ilan/yeni`) ayrı bir adres olarak kalmasının
+ * nedeni kapı: o bölüm `employerRole` istiyor ve rol kayıt anında yazılıyor.
+ * Şirket ilanının böyle bir koşulu yok — `JobManager.createCorporateJob`
+ * yalnız yetkililiğe bakıyor — yani iki formu tek adrese koymak, davetle
+ * katılmış ama işveren olmayan bir yetkiliyi yapabildiği bir işten alıkoyardı.
+ *
+ * Kayıtta bir bölüm değil: menüde kalıcı bir yer değil, "Şirketim" ve
+ * "İlanlarım" içinden çıkan tek seferlik bir eylem.
+ */
+export function newCompanyJobPath(companyId: string): string {
+  return `${companyProfilePath(companyId)}/ilan/yeni`;
+}
+
+/**
  * Yayımlanmış bir ilanın sayfası.
  *
  * Menüde yok, çünkü bir liste maddesi değil bir kaydın adresi; kapıları da
