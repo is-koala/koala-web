@@ -26,8 +26,15 @@ describe("an biçimlendirme", () => {
     // Sunucu ile tarayıcı aynı anı farklı saat dilimiyle yazarsa ekranda
     // önce bir metin, hidrasyondan sonra başka bir metin görünür. Bu yüzden
     // biçimlendirici ortamın saat dilimine hiç bakmamalı.
-    for (const hostileZone of ["America/Los_Angeles", "Pacific/Kiritimati"]) {
+    for (const hostileZone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati"]) {
       process.env.TZ = hostileZone;
+
+      // Denemenin uygulandığının kanıtı: `process.env.TZ` bir gün çalışma
+      // anında ICU'ya ulaşmaz olursa aşağıdaki iddialar sessizce ev
+      // dilimini ölçmeye başlar ve test yalan yere yeşil kalır.
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone, hostileZone).toBe(
+        hostileZone,
+      );
 
       expect(formatDateTime(instant), hostileZone).toBe("6 Eyl 2026 13:00");
       expect(formatDateTime(lateInstant), hostileZone).toBe("7 Eyl 2026 01:00");
@@ -68,8 +75,15 @@ describe("iş takvimi tarihi", () => {
     // `startsAt` bir an değil, üzerinde anlaşılmış yerel saat. `new Date(...)`
     // ile okunsaydı gece yarısına yakın işler bir gün öne ya da arkaya
     // düşerdi; testler bu yüzden iki uç saat dilimini de deniyor.
-    for (const hostileZone of ["America/Los_Angeles", "Pacific/Kiritimati"]) {
+    for (const hostileZone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati"]) {
       process.env.TZ = hostileZone;
+
+      // Denemenin uygulandığının kanıtı: `process.env.TZ` bir gün çalışma
+      // anında ICU'ya ulaşmaz olursa aşağıdaki iddialar sessizce ev
+      // dilimini ölçmeye başlar ve test yalan yere yeşil kalır.
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone, hostileZone).toBe(
+        hostileZone,
+      );
 
       expect(formatJobDate("2026-09-12T23:30:00"), hostileZone).toBe("12 Eylül 2026");
       expect(formatJobDate("2026-09-12T00:30:00"), hostileZone).toBe("12 Eylül 2026");
