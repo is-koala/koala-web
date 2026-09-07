@@ -21,6 +21,15 @@ export type CompanyProfileProps = {
   viewerRole: string;
   editHref: string;
   contactsHref: string;
+  /**
+   * Şirket adına ilan açma formunun adresi.
+   *
+   * Bağlantı yalnız **onaylı** şirkette çiziliyor. Kural istemcide yaşıyor —
+   * `company.isApproved()` koala-backend'in iş mantığında hiç okunmuyor, yani
+   * onaysız şirket API'den ilan açabiliyor — ama kullanıcıyı formun başında
+   * kapanan bir kapıya yollamanın anlamı yok.
+   */
+  newJobHref: string;
 };
 
 export function CompanyProfileView({
@@ -28,6 +37,7 @@ export function CompanyProfileView({
   viewerRole,
   editHref,
   contactsHref,
+  newJobHref,
 }: CompanyProfileProps) {
   return (
     <div className="profile-page">
@@ -48,6 +58,28 @@ export function CompanyProfileView({
       </section>
 
       <ApprovalNotice approved={company.approved} />
+
+      {company.approved ? (
+        <section className="app-panel" aria-labelledby="company-new-job-title">
+          <div className="section-heading-row">
+            <div>
+              <p className="eyebrow">İlanlar</p>
+              <h2 id="company-new-job-title">Şirket adına ilan</h2>
+            </div>
+          </div>
+          <p className="lede">
+            İlan şirket adına açılır; başvurular ve ödeme de şirketin üzerinden yürür.
+          </p>
+          {/*
+            Yalnız yöneticiye değil, bütün yetkililere gösteriliyor:
+            `createCorporateJob` `requireCompanyAdmin` istemiyor, yetkili
+            listesinde olmayı arıyor.
+          */}
+          <Link className="button button-primary" href={newJobHref}>
+            Şirket adına ilan aç
+          </Link>
+        </section>
+      ) : null}
 
       <section className="app-panel" aria-labelledby="company-facts-title">
         <div className="section-heading-row">

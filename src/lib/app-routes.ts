@@ -50,6 +50,15 @@ export type AppShellId = "employer" | "worker";
 export const newIndividualJobPath = "/isveren/ilan/yeni";
 
 /**
+ * Açtığım ilanların listesi; kayıtta bir bölüm olarak da bildirilir.
+ *
+ * Sabit, çünkü listeyi hem menü hem de sıralama ve sayfa bağlantıları kuruyor:
+ * adres iki yerde yazılsaydı biri değiştiğinde öbürü sessizce başka bir yere
+ * giderdi.
+ */
+export const employerJobsPath = "/isveren/ilanlar";
+
+/**
  * Şirket bölümünün girişi; kullanıcının yetkilisi olduğu şirketlere buradan
  * dallanılır. Kayıtta bir bölüm olarak da bildirilir.
  */
@@ -79,6 +88,26 @@ export function companyProfilePath(companyId: string): string {
 /** Şirketin düzenleme ekranı; yalnız `ADMIN` yetkilisi kaydedebiliyor. */
 export function editCompanyPath(companyId: string): string {
   return `${companyProfilePath(companyId)}/duzenle`;
+}
+
+/**
+ * Şirket adına ilan açma formu.
+ *
+ * Şirket **adreste**, tıpkı `POST /companies/{companyId}/jobs` gibi: ilan hangi
+ * şirket adına açılıyorsa kapı da o şirket için okunuyor ve iki sekmede iki
+ * şirketle çalışan kullanıcı yanlış şirkete ilan açamıyor.
+ *
+ * Bireysel formun (`/isveren/ilan/yeni`) ayrı bir adres olarak kalmasının
+ * nedeni kapı: o bölüm `employerRole` istiyor ve rol kayıt anında yazılıyor.
+ * Şirket ilanının böyle bir koşulu yok — `JobManager.createCorporateJob`
+ * yalnız yetkililiğe bakıyor — yani iki formu tek adrese koymak, davetle
+ * katılmış ama işveren olmayan bir yetkiliyi yapabildiği bir işten alıkoyardı.
+ *
+ * Kayıtta bir bölüm değil: menüde kalıcı bir yer değil, "Şirketim" ve
+ * "İlanlarım" içinden çıkan tek seferlik bir eylem.
+ */
+export function newCompanyJobPath(companyId: string): string {
+  return `${companyProfilePath(companyId)}/ilan/yeni`;
 }
 
 /**
@@ -141,13 +170,14 @@ const employerShell: AppShell = {
       status: "ready",
     },
     {
-      href: "/isveren/ilanlar",
+      href: employerJobsPath,
       label: "İlanlarım",
       // İlan açmanın ortak koşulu. Bireysel/şirket ayrımı ve şirket onayı
-      // ilanın açılacağı yere göre eylem başında kararlaşıyor.
+      // ilanın açılacağı yere göre eylem başında kararlaşıyor. Kip `advisory`:
+      // liste yalnız okuyor ve kimliği doğrulanmamış kullanıcı da açtığı
+      // ilanları görebilmeli.
       requires: ["identityVerification"],
-      status: "planned",
-      note: "İlan açma ve yönetim ekranları henüz açılmadı.",
+      status: "ready",
     },
     {
       href: newIndividualJobPath,

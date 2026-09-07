@@ -1,5 +1,6 @@
 "use client";
 
+import { companySectionPath } from "@/lib/app-routes";
 import Link from "next/link";
 import { useActionState, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -20,25 +21,33 @@ import { idleFormState, type FormAction, type FormState } from "@/lib/form-state
 import type { GateId } from "@/lib/gates";
 import {
   addressFieldErrors,
+  companyJobErrors,
   deserializeDraft,
-  emptyIndividualJobDraft,
+  emptyJobDraft,
   individualJobErrors,
+  insuranceLocked,
   moneyPattern,
   serializeDraft,
   unmatchedFieldMessages,
-  type IndividualJobDraft,
+  type JobDraft,
   type JobCategory,
   type PriceQuoteResult,
 } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
 
 /**
- * Bireysel ilan açma formu.
+ * İlan açma formu — bireysel ve şirket.
  *
  * Çok adımlı ama **tek** `<form>`: adımlar gizlenip gösteriliyor, alanların
  * hepsi bağlı kalıyor. Adım başına ayrı form olsaydı ya her adımda bir
  * gönderim olurdu (ilan yarım kaydedilemiyor) ya da değerler adım değişince
  * kaybolurdu.
+ *
+ * İki işveren türü için **tek** bileşen. Formu kopyalamak sigorta kuralının
+ * iki yerde yaşaması demekti ve bu depoda tekrarlayan kusur tam olarak o:
+ * doğru yazılmış bir kural, sonradan eklenen bir yol tarafından sessizce
+ * geçersiz kılınıyor. Ayrıldıkları yer sayılabilir kadar az — kategori
+ * listesinin davranışı, sigorta anahtarı ve saklanan taslağın anahtarı.
  *
  * Tarayıcının kendi `required` doğrulaması kullanılmıyor: gizli bir panelde
  * duran zorunlu alan gönderimi görünmez biçimde kilitler. Kuralların tek
@@ -69,12 +78,25 @@ export type JobFormTemplate = {
   experienceRequired: string | null;
 };
 
-export type IndividualJobFormProps = {
+/**
+ * İlanın kimin adına açıldığı.
+ *
+ * Şirket kimliği burada taşınıyor çünkü form onu iki yerde kullanıyor:
+ * saklanan taslağın anahtarı (iki şirketin taslağı birbirine karışmamalı) ve
+ * gönderimi karşılayan action. `boolean` bir bayrak ikisini de veremezdi.
+ */
+export type JobFormOwner =
+  | { readonly kind: "individual" }
+  | { readonly kind: "company"; readonly companyId: string; readonly companyName: string };
+
+export type JobFormProps = {
+  owner: JobFormOwner;
   categories: JobFormData<readonly JobCategory[]>;
   templates: JobFormData<readonly JobFormTemplate[]>;
   /**
-   * Yayımlama eyleminin karşılanmamış kapıları — `viewerGates(...).individualJob`.
-   * Boş değilse form doldurulabilir kalır, yalnız yayımlama kapanır.
+   * Yayımlama eyleminin karşılanmamış kapıları — `viewerGates(...).individualJob`
+   * ya da `corporateJobGate(...)`. Boş değilse form doldurulabilir kalır,
+   * yalnız yayımlama kapanır.
    */
   blocked: readonly GateId[];
   action: FormAction;
@@ -117,11 +139,23 @@ const fieldSteps: Readonly<Record<string, StepName>> = {
   maxAge: "Koşullar",
   experienceRequired: "Koşullar",
   headcount: "Koşullar",
+  insurancePreference: "Koşullar",
   address: "Adres",
 };
 
-/** Kaza ile kapanan sekmeden dönenler için; anahtar sürümlü ki şema değişince düşsün. */
-const draftStorageKey = "koala.ilan.bireysel.v1";
+/**
+ * Kaza ile kapanan sekmeden dönenler için; anahtar sürümlü ki şema değişince
+ * düşsün.
+ *
+ * İşveren kimliği anahtarın parçası: aynı kullanıcı hem kendi adına hem iki
+ * ayrı şirket adına ilan açabiliyor ve tek bir anahtar, bir şirketin yarım
+ * taslağını öbürünün formunda gösterirdi.
+ */
+function draftStorageKey(owner: JobFormOwner): string {
+  return owner.kind === "individual"
+    ? "koala.ilan.bireysel.v1"
+    : `koala.ilan.sirket.${owner.companyId}.v1`;
+}
 
 type QuoteState =
   | { status: "idle" }
@@ -129,7 +163,8 @@ type QuoteState =
   | { status: "ready"; result: Extract<PriceQuoteResult, { status: "ready" }> }
   | { status: "error"; errorCode: string; httpStatus: number };
 
-export function IndividualJobForm({
+export function JobForm({
+  owner,
   categories,
   templates,
   blocked,
@@ -137,12 +172,18 @@ export function IndividualJobForm({
   quote,
   addressGateway,
   addressDebounceMs,
-}: IndividualJobFormProps) {
+}: JobFormProps) {
+  const storageKey = draftStorageKey(owner);
+  // Kural seçimi tek yerde: gövdeyi kuran sunucu action'ı da aynı ayrımı aynı
+  // iki işlevle yapıyor, yani form kabul ettiği bir taslağı sunucuya
+  // reddettiremiyor.
+  const jobErrors = owner.kind === "company" ? companyJobErrors : individualJobErrors;
+
   // Taslak, kullanıcı ilk harfi yazana kadar `null`: o ana kadar ekranda
   // tarayıcıdan geri yüklenen değerler duruyor ve depolamaya hiçbir şey
   // yazılmıyor. `null` olmasaydı ilk render boş taslağı kaydeder ve
   // kullanıcının önceki yazdıklarını sessizce silerdi.
-  const [edited, setEdited] = useState<IndividualJobDraft | null>(null);
+  const [edited, setEdited] = useState<JobDraft | null>(null);
   const [step, setStep] = useState<StepName>("Kategori");
   const [priceQuote, setPriceQuote] = useState<QuoteState>({ status: "idle" });
   const formId = useId();
@@ -152,8 +193,8 @@ export function IndividualJobForm({
   // sorusunun React'in kendi cevabı.
   const hydrated = useSyncExternalStore(subscribeToNothing, () => true, () => false);
   const restored = useMemo(
-    () => (hydrated ? deserializeDraft(readStoredDraft()) : emptyIndividualJobDraft),
-    [hydrated],
+    () => (hydrated ? deserializeDraft(readStoredDraft(storageKey)) : emptyJobDraft),
+    [hydrated, storageKey],
   );
   const draft = edited ?? restored;
 
@@ -167,7 +208,7 @@ export function IndividualJobForm({
    * yalnız burada ve sunucu action'ında var — backend onu hiç denetlemiyor.
    */
   const submit = async (previous: FormState, formData: FormData): Promise<FormState> => {
-    const errors = individualJobErrors(draft, catalog);
+    const errors = jobErrors(draft, catalog);
     if (!formData.get("address")) errors.address = "Adresi onaylaman gerekiyor.";
 
     if (Object.keys(errors).length > 0) {
@@ -182,7 +223,7 @@ export function IndividualJobForm({
     // kullanıcı bir dahaki gelişinde yayımladığı ilanı yeniden doldurulmuş
     // bulur. Sunucu yine de reddederse yazdıkları React durumunda duruyor ve
     // ilk tuş vuruşunda kayıt yeniden yazılıyor.
-    clearStoredDraft();
+    clearStoredDraft(storageKey);
 
     return action(previous, formData);
   };
@@ -190,13 +231,13 @@ export function IndividualJobForm({
   const [state, formAction] = useActionState(submit, idleFormState);
 
   const fieldErrors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
-  const errorFor = (field: keyof IndividualJobDraft) => fieldErrors[field];
+  const errorFor = (field: keyof JobDraft) => fieldErrors[field];
 
   useEffect(() => {
-    if (edited !== null) writeStoredDraft(edited);
-  }, [edited]);
+    if (edited !== null) writeStoredDraft(storageKey, edited);
+  }, [edited, storageKey]);
 
-  const set = (field: keyof IndividualJobDraft) => (value: string) => {
+  const set = (field: keyof JobDraft) => (value: string) => {
     setEdited({ ...draft, [field]: value });
   };
 
@@ -224,7 +265,7 @@ export function IndividualJobForm({
     setEdited({
       ...draft,
       ...Object.fromEntries(
-        (Object.keys(emptyIndividualJobDraft) as (keyof IndividualJobDraft)[])
+        (Object.keys(emptyJobDraft) as (keyof JobDraft)[])
           .map((field) => [field, template[field as keyof JobFormTemplate]])
           .filter(([, value]) => typeof value === "string" && value !== ""),
       ),
@@ -258,6 +299,7 @@ export function IndividualJobForm({
       <StepPanel name="Kategori" current={step}>
         <TemplatePicker templates={templates} onPick={applyTemplate} />
         <CategoryChoice
+          owner={owner}
           categories={categories}
           value={draft.categoryId}
           error={errorFor("categoryId")}
@@ -431,14 +473,23 @@ export function IndividualJobForm({
           onValueChange={set("headcount")}
           error={errorFor("headcount")}
         />
+        {owner.kind === "company" ? (
+          <InsuranceChoice
+            locked={insuranceLocked(catalog, draft.categoryId)}
+            value={draft.insurancePreference}
+            onChange={set("insurancePreference")}
+          />
+        ) : null}
       </StepPanel>
 
       <StepPanel name="Adres" current={step}>
         {/*
           ADR-0003: bireysel işverenin tam adresi hiçbir zaman herkese açık
           olmuyor ve sunucu `addressPublic`'i koşulsuz `false` yapıyor
-          (`JobManager.java:155`). Bu yüzden burada bir seçenek değil, bir
-          bilgi var.
+          (`JobManager.java:155`). Şirket ilanında alan gövdede taşınabiliyor
+          ama gönderilmiyor: işyeri adresini herkese açmak ayrı bir ürün
+          kararı ve verilmedi, yani sunucu orada da `false` yazıyor. İki
+          durumda da burada bir seçenek değil, bir bilgi var.
         */}
         <p className="field-hint">
           İşin adresini yalnızca işe aldığın işçi görür; ilanda yalnızca ilçe ve yaklaşık
@@ -569,15 +620,18 @@ function PriceLine({
  * Kategori seçimi.
  *
  * Sigorta zorunlu kategoriler listeden **çıkarılmıyor**: kullanıcı aradığı işi
- * bulamazsa neden bulamadığını da öğrenemez. Devre dışı duruyorlar ve nedeni
- * yanlarında yazılı (`JobManager.java:134-137`).
+ * bulamazsa neden bulamadığını da öğrenemez. Bireysel ilanda devre dışı
+ * duruyorlar ve nedeni yanlarında yazılı (`JobManager.java:134-137`); şirket
+ * ilanında seçilebiliyorlar, çünkü `createCorporateJob` onları kabul ediyor.
  */
 function CategoryChoice({
+  owner,
   categories,
   value,
   error,
   onChange,
 }: {
+  owner: JobFormOwner;
   categories: JobFormData<readonly JobCategory[]>;
   value: string;
   error?: string;
@@ -588,13 +642,22 @@ function CategoryChoice({
   }
   if (categories.data.length === 0) return <EmptyState kind="jobCategories" />;
 
+  const forCompany = owner.kind === "company";
+
   return (
     <fieldset className="category-choice">
       <legend>İş kategorisi</legend>
-      <p className="field-hint">
-        Sigorta zorunlu işler seçilemez: bu iş için sigorta zorunlu, bireysel ilanla açılamaz —
-        şirket ilanı gerekir. <Link className="text-link" href="/isveren/ilanlar">Şirket ilanları</Link>
-      </p>
+      {forCompany ? (
+        <p className="field-hint">
+          Sigorta zorunlu bir iş seçersen sigortalı çalışma koşulu ilana otomatik eklenir ve
+          kapatılamaz.
+        </p>
+      ) : (
+        <p className="field-hint">
+          Sigorta zorunlu işler seçilemez: bu iş için sigorta zorunlu, bireysel ilanla açılamaz —
+          şirket ilanı gerekir. <Link className="text-link" href={companySectionPath}>Şirketlerim</Link>
+        </p>
+      )}
       {categories.data.map((category) => (
         <div className="checkbox-field" key={category.id}>
           <input
@@ -603,7 +666,7 @@ function CategoryChoice({
             name="categoryId"
             value={category.id}
             checked={value === category.id}
-            disabled={category.requiresInsurance}
+            disabled={!forCompany && category.requiresInsurance}
             onChange={(event) => onChange(event.target.value)}
           />
           <label htmlFor={`category-${category.id}`}>
@@ -614,6 +677,56 @@ function CategoryChoice({
       ))}
       <FieldError message={error} />
     </fieldset>
+  );
+}
+
+/**
+ * Şirket ilanının sigorta anahtarı.
+ *
+ * Kilit **türetiliyor**: `insuranceLocked` her render'da seçili kategoriyi
+ * okuyor ve saklanan hiçbir alana bakmıyor. Kategori seçiminde elle
+ * güncellenen bir alan olsaydı, kategoriyi değiştiren her yolun (seçici,
+ * şablon, geri yüklenen taslak) onu güncellemeyi hatırlaması gerekirdi —
+ * koala-mobile#24 bir yol unutulduğu için doğmuştu.
+ *
+ * Kilitliyken anahtar devre dışı ve devre dışı bir kutu gönderime hiç
+ * girmiyor; bu yüzden yanında aynı adı taşıyan gizli bir alan duruyor.
+ * Değeri yine türetmenin sonucu ve hesap tek kaynakta: sunucu action'ı da
+ * gövdeyi kurarken aynı `insuranceRequiredFor`'u çağırıyor, kendi kopyasını
+ * yazmıyor. Gizli alan formdan gelen tercihi değil o türetmeyi taşıyor;
+ * katalog sunucuda okunamazsa son söz bu değerde kalıyor ve kullanıcı
+ * kapatamayacağı bir 400'e düşmüyor.
+ */
+function InsuranceChoice({
+  locked,
+  value,
+  onChange,
+}: {
+  locked: boolean;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="insurance-choice">
+      <div className="checkbox-field">
+        <input
+          id="insurancePreference"
+          type="checkbox"
+          name={locked ? undefined : "insurancePreference"}
+          value="true"
+          checked={locked || value === "true"}
+          disabled={locked}
+          onChange={(event) => onChange(event.target.checked ? "true" : "false")}
+        />
+        <label htmlFor="insurancePreference">Sigortalı çalışma</label>
+      </div>
+      {locked ? <input type="hidden" name="insurancePreference" value="true" /> : null}
+      <p className="field-hint">
+        {locked
+          ? "Bu kategoride sigorta zorunlu; koşul ilandan kaldırılamaz."
+          : "İstersen bu ilanda sigortalı çalışma koşulu arayabilirsin."}
+      </p>
+    </div>
   );
 }
 
@@ -687,25 +800,25 @@ function subscribeToNothing() {
 }
 
 /** Depolama kapalı ya da dolu olabilir; taslak kaybı formu durdurmamalı. */
-function readStoredDraft(): string | null {
+function readStoredDraft(key: string): string | null {
   try {
-    return window.localStorage.getItem(draftStorageKey);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-function writeStoredDraft(draft: IndividualJobDraft): void {
+function writeStoredDraft(key: string, draft: JobDraft): void {
   try {
-    window.localStorage.setItem(draftStorageKey, serializeDraft(draft));
+    window.localStorage.setItem(key, serializeDraft(draft));
   } catch {
     // Yazılamadıysa yapılacak bir şey yok; form çalışmaya devam eder.
   }
 }
 
-function clearStoredDraft(): void {
+function clearStoredDraft(key: string): void {
   try {
-    window.localStorage.removeItem(draftStorageKey);
+    window.localStorage.removeItem(key);
   } catch {
     // Depolama kapalıysa silinecek bir şey de yok.
   }

@@ -35,6 +35,7 @@ function renderProfile(overrides: Partial<Company> = {}, viewerRole = "ADMIN") {
       viewerRole={viewerRole}
       editHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/duzenle"
       contactsHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer"
+      newJobHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ilan/yeni"
     />,
   );
 }
@@ -116,5 +117,35 @@ describe("şirket profili", () => {
     renderProfile({ address: null });
 
     expect(screen.getByText("Adres eklenmemiş")).toBeInTheDocument();
+  });
+});
+
+describe("şirket profilinden ilan açma", () => {
+  afterEach(cleanup);
+
+  it("onaylı şirkette ilan açma yolunu gösterir", () => {
+    renderProfile({ approved: true });
+
+    expect(screen.getByRole("link", { name: /Şirket adına ilan aç/ })).toHaveAttribute(
+      "href",
+      "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ilan/yeni",
+    );
+  });
+
+  it("onay bekleyen şirkette ilan açma yolunu göstermez", () => {
+    // Kural istemcide yaşıyor: `company.isApproved()` backend'in iş
+    // mantığında hiç okunmuyor. Bağlantıyı burada göstermek, kullanıcıyı
+    // formun başında kapanan bir kapıya yollardı.
+    renderProfile({ approved: false });
+
+    expect(screen.queryByRole("link", { name: /Şirket adına ilan aç/ })).toBeNull();
+  });
+
+  it("yetkili olan herkese gösterir, yalnız yöneticiye değil", () => {
+    // İlan açmak `requireCompanyAdmin` istemiyor; `createCorporateJob` yalnız
+    // yetkili listesinde olmayı arıyor.
+    renderProfile({ approved: true }, "STAFF");
+
+    expect(screen.getByRole("link", { name: /Şirket adına ilan aç/ })).toBeVisible();
   });
 });
