@@ -114,6 +114,31 @@ const exactErrors: Record<string, ErrorPresentation> = {
       "İşveren olup olmadığın kayıt sırasında seçiliyor ve bugün değiştirilemiyor. İlan açmak için işveren olarak yeni bir hesap açman gerekiyor.",
     action: "home",
   },
+  // Şirket ilanının iki reddi. `validation` aile metni ("Gönderdiğin
+  // bilgilerden bazıları geçerli değil") ikisinde de yanlış olurdu: ilkinde
+  // düzeltilecek alan sigorta koşulu, ikincisinde kullanıcının formda
+  // düzeltebileceği hiçbir şey yok.
+  JOB_JOB_CATEGORY_REQUIRES_INSURANCE: {
+    title: "Bu kategoride sigortalı çalışma zorunlu",
+    message:
+      "Seçtiğin işte sigorta zorunlu, yani ilan sigortalı çalışma koşuluyla açılmalı. Kategoriyi değiştirebilir ya da sigorta koşulunu kabul edip yeniden deneyebilirsin.",
+    action: "none",
+  },
+  JOB_USER_IS_NOT_A_CONTACT_OF_COMPANY: {
+    title: "Bu şirketin yetkilisi değilsin",
+    message:
+      "İlanı yalnız şirketin yetkili listesindeki kişiler açabilir. Şirket yöneticisinden seni yetkili olarak eklemesini isteyebilirsin.",
+    action: "none",
+  },
+  // Sıralama alanı beyaz listede değil (`PageableSanitizer.rejectUnknownSort`).
+  // Listeler yalnız izin verilen alanları sunuyor, yani buraya ancak elle
+  // yazılmış bir adresle düşülür; aile metni kullanıcıya adres çubuğuna
+  // bakması gerektiğini söylemezdi.
+  PAGE_SORT_FIELD_NOT_ALLOWED: {
+    title: "Bu sıralama desteklenmiyor",
+    message: "Listeyi sayfadaki sıralama seçeneklerinden biriyle yeniden açabilirsin.",
+    action: "none",
+  },
   // İlanın üç durum geçişi reddi. Üçü de `conflict` ailesinde, ama aile
   // metni ("Bu kayıt başka bir duruma geçmiş olabilir") üçünü de aynı şeye
   // benzetirdi: ilkinde ilan çoktan kapanmış, ikincisinde kapanış kalıcı,

@@ -50,6 +50,15 @@ export type AppShellId = "employer" | "worker";
 export const newIndividualJobPath = "/isveren/ilan/yeni";
 
 /**
+ * Açtığım ilanların listesi; kayıtta bir bölüm olarak da bildirilir.
+ *
+ * Sabit, çünkü listeyi hem menü hem de sıralama ve sayfa bağlantıları kuruyor:
+ * adres iki yerde yazılsaydı biri değiştiğinde öbürü sessizce başka bir yere
+ * giderdi.
+ */
+export const employerJobsPath = "/isveren/ilanlar";
+
+/**
  * Şirket bölümünün girişi; kullanıcının yetkilisi olduğu şirketlere buradan
  * dallanılır. Kayıtta bir bölüm olarak da bildirilir.
  */
@@ -161,13 +170,14 @@ const employerShell: AppShell = {
       status: "ready",
     },
     {
-      href: "/isveren/ilanlar",
+      href: employerJobsPath,
       label: "İlanlarım",
       // İlan açmanın ortak koşulu. Bireysel/şirket ayrımı ve şirket onayı
-      // ilanın açılacağı yere göre eylem başında kararlaşıyor.
+      // ilanın açılacağı yere göre eylem başında kararlaşıyor. Kip `advisory`:
+      // liste yalnız okuyor ve kimliği doğrulanmamış kullanıcı da açtığı
+      // ilanları görebilmeli.
       requires: ["identityVerification"],
-      status: "planned",
-      note: "İlan açma ve yönetim ekranları henüz açılmadı.",
+      status: "ready",
     },
     {
       href: newIndividualJobPath,

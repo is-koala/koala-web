@@ -5,6 +5,8 @@ import {
   companyProfilePath,
   companySectionPath,
   editCompanyPath,
+  employerJobsPath,
+  newCompanyJobPath,
   newCompanyPath,
   newIndividualJobPath,
   publishedJobPath,
@@ -108,6 +110,34 @@ describe("kabuk rota kaydı", () => {
       requires: ["employerRole"],
       status: "ready",
     });
+  });
+
+  it("İlanlarım bölümünü teslim edilmiş bağlantı olarak kaydeder", () => {
+    // `planned` kalsaydı menü maddesi tıklanamaz olur ve `[...section]`
+    // yakalayıcısı gerçek listenin önüne "henüz açılmadı" ekranını koyardı.
+    expect(sectionAt("employer", ["ilanlar"])).toEqual({
+      href: employerJobsPath,
+      label: "İlanlarım",
+      // Kimlik kapısı `advisory`: liste yalnız okuyor ve kimliği
+      // doğrulanmamış kullanıcı da açtığı ilanları görebilmeli.
+      requires: ["identityVerification"],
+      status: "ready",
+    });
+  });
+
+  it("şirket ilanı formunu şirketin kendi adresi altında kurar", () => {
+    // Şirket adreste, tıpkı `POST /companies/{companyId}/jobs` gibi: kapı o
+    // şirket için okunuyor.
+    expect(newCompanyJobPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/sirket/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/ilan/yeni",
+    );
+    expect(newCompanyJobPath("a b/../hesap")).toBe("/isveren/sirket/a%20b%2F..%2Fhesap/ilan/yeni");
+  });
+
+  it("şirket ilanı formunu bölüm saymaz", () => {
+    expect(
+      sectionAt("employer", ["sirket", "4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99", "ilan", "yeni"]),
+    ).toBeUndefined();
   });
 
   it("Şirketim bölümünü teslim edilmiş bağlantı olarak kaydeder", () => {
