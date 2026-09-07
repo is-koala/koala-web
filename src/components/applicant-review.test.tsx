@@ -148,6 +148,25 @@ describe("işveren aday inceleme listesi", () => {
     }
   });
 
+  it("özgeçmiş bağlantısında http olmayan şemayı hiç çizmez", () => {
+    // `cvUrl` backend'den gelen bir metin. Doğrudan `href`'e yazılsaydı
+    // `javascript:` şeması tıklamayla çalışan bir XSS yüzeyi açardı;
+    // `target="_blank"` ve `rel="noreferrer noopener"` bunu kapatmıyor,
+    // onlar açılan sayfanın erişimini kısıtlıyor, adresin şemasını değil.
+    renderReview({
+      applicants: [
+        { ...applicant("kotu", "APPLIED"), cvUrl: "javascript:alert(document.cookie)" },
+        { ...applicant("veri", "APPLIED"), cvUrl: "data:text/html,<script>alert(1)</script>" },
+        { ...applicant("bozuk", "APPLIED"), cvUrl: "cv.pdf" },
+        { ...applicant("iyi", "APPLIED"), cvUrl: "https://cdn.example.test/cv.pdf" },
+      ],
+    });
+
+    const links = screen.getAllByRole("link", { name: "Özgeçmişi aç" });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "https://cdn.example.test/cv.pdf");
+  });
+
   it("hiç başvuru yokken boş durumu gösterir", () => {
     renderReview({ applicants: [] });
 
