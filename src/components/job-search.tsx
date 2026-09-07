@@ -5,10 +5,12 @@ import { EmptyState } from "@/components/states";
 import {
   districtCityParamName,
   hasJobFilters,
+  isPageOutOfRange,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
   jobTypeLabels,
+  lastJobPage,
   salaryTypeLabels,
   type JobFilterOptions,
   type JobSearchPage,
@@ -174,10 +176,25 @@ function ReferenceField({
  * Sonuç listesi.
  *
  * Boş sonuç bir hata değil: sunucu 200 ve boş bir `content` dizisiyle dönüyor.
- * Süzgeçli boş sonuç ile "sitede hiç ilan yok" da ayrı iki metin — ikincisi,
- * süzgecini daraltmış kullanıcıya sitenin boş olduğunu düşündürürdü.
+ * Ama boşluğun **üç** ayrı sebebi var ve üçü ayrı metin yazıyor, çünkü
+ * kullanıcının yapabileceği şey de üç ayrı şey: sitede hiç ilan yoksa
+ * yapılacak bir şey yok, süzgeç fazla darsa gevşetilir, istenen sayfa
+ * numarası listenin dışındaysa var olan bir sayfaya dönülür. Tek bir metin
+ * yazmak, ikinci ve üçüncü durumdaki kullanıcıya sitenin boş olduğunu
+ * öğretirdi.
  */
 export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: JobSearchQuery }) {
+  if (isPageOutOfRange(jobs)) {
+    const lastPage = lastJobPage(jobs);
+    return (
+      <EmptyState kind="jobPageOutOfRange">
+        <Link className="text-link" href={jobSearchHref({ ...query, page: lastPage })}>
+          Son sayfaya dön ({lastPage}. sayfa)
+        </Link>
+      </EmptyState>
+    );
+  }
+
   if (jobs.content.length === 0) {
     return <EmptyState kind={hasJobFilters(query) ? "jobSearch" : "jobs"} />;
   }
@@ -210,7 +227,10 @@ export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: Job
  * alır ve ilanlar ilk HTML'de görünür olmaktan çıkardı.
  */
 export function JobPagination({ jobs, query }: { jobs: JobSearchPage; query: JobSearchQuery }) {
-  if (jobs.totalPages <= 1) return null;
+  // Menzil dışı sayfada şerit hiç çizilmiyor: "Sayfa 999 / 3" bir konum değil
+  // ve "Önceki sayfa" 998'e giderdi — o da menzil dışı. Listeye dönüş yolunu
+  // boş durum kartı veriyor, gerçek bir sayfaya işaret ederek.
+  if (jobs.totalPages <= 1 || isPageOutOfRange(jobs)) return null;
 
   // Kullanıcıya 1 tabanlı sayı gösteriliyor; `PageDto.page` 0 tabanlı geliyor.
   const current = jobs.page + 1;

@@ -6,19 +6,22 @@ import type {
   JobCategory,
   PricingBreakdown,
 } from "@/lib/job-posting";
-import type {
-  AddressPrecision,
-  JobApplicationReceipt,
-  JobDetail as PublicJobDetail,
-  SalaryType,
+import {
+  jobPageSize,
+  type JobApplicationReceipt,
+  type JobDetail as PublicJobDetail,
 } from "@/jobs/contract";
-import type {
-  EmployerJob,
-  EmployerJobPage,
-  JobEmployerType,
-  JobSort,
-} from "@/jobs/employer-jobs";
+import type { EmployerJob, EmployerJobPage, JobSort } from "@/jobs/employer-jobs";
 import { jobStatuses } from "@/jobs/lifecycle";
+import { emptyBackendPage } from "@/lib/pagination";
+import {
+  addressPrecisions,
+  clean,
+  employerTypes,
+  known,
+  salaryTypes,
+  type PageDto,
+} from "@/server/api/dto";
 import { companyPath } from "@/server/company/company";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
@@ -146,11 +149,13 @@ export async function readMyJobs({
   sort: JobSort;
 }): Promise<EmployerJobPage> {
   const search = new URLSearchParams({ page: String(page), size: String(jobPageSize), sort });
-  const response = await apiRequest<JobPageDto | null>(
+  const response = await apiRequest<PageDto<JobSummaryDto> | null>(
     `${backendPaths.individualJobs}?${search}`,
   );
 
-  if (response === null) return emptyJobPage(page);
+  // `page` burada zaten sunucunun 0 tabanlı numarası; çağıran onu doğrudan
+  // `Pageable`'a yazıyor.
+  if (response === null) return emptyBackendPage<EmployerJob>(page, jobPageSize);
 
   return {
     content: (response.content ?? []).map(toEmployerJob),
@@ -162,9 +167,6 @@ export async function readMyJobs({
     last: response.last ?? true,
   };
 }
-
-/** `PageableSanitizer` 100'ün üstünü kırpıyor; 20 sunucunun da varsayılanı. */
-const jobPageSize = 20;
 
 /** Yanıtta kontenjan alanları eksik gelebiliyor; ikisi de burada karara bağlanır. */
 type JobDetailResponse = Omit<JobDetail, "headcount" | "hiredCount"> & {
@@ -230,17 +232,6 @@ type JobApplicationDto = {
   id?: string | null;
 };
 
-/** `PageDto<JobSummaryDto>`; yalnız listenin okuduğu alanlar. */
-type JobPageDto = {
-  content?: readonly JobSummaryDto[] | null;
-  page?: number | null;
-  size?: number | null;
-  totalElements?: number | null;
-  totalPages?: number | null;
-  first?: boolean | null;
-  last?: boolean | null;
-};
-
 type JobSummaryDto = {
   id?: string | null;
   title?: string | null;
@@ -259,10 +250,6 @@ type JobSummaryDto = {
   hiredCount?: number | null;
   headcount?: number | null;
 };
-
-const salaryTypes = new Set<SalaryType>(["HOURLY", "DAILY"]);
-const addressPrecisions = new Set<AddressPrecision>(["APPROXIMATE", "EXACT"]);
-const employerTypes = new Set<JobEmployerType>(["INDIVIDUAL", "COMPANY"]);
 
 function toEmployerJob(dto: JobSummaryDto): EmployerJob {
   return {
@@ -285,18 +272,6 @@ function toEmployerJob(dto: JobSummaryDto): EmployerJob {
     applicationCount: dto.applicationCount ?? 0,
     hiredCount: dto.hiredCount ?? 0,
     headcount: dto.headcount ?? null,
-  };
-}
-
-function emptyJobPage(page: number): EmployerJobPage {
-  return {
-    content: [],
-    page,
-    size: jobPageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: page === 0,
-    last: true,
   };
 }
 
@@ -346,14 +321,4 @@ function toJobDetail(dto: JobDetailDto): PublicJobDetail {
     addressPrecision: known(dto.addressPrecision, addressPrecisions),
     status: known(dto.status, jobStatuses),
   };
-}
-
-function clean(value: string | null | undefined): string | null {
-  return value?.trim() || null;
-}
-
-function known<T extends string>(value: string | null | undefined, values: ReadonlySet<T>): T {
-  return value !== null && value !== undefined && values.has(value as T)
-    ? (value as T)
-    : ("UNKNOWN" as T);
 }

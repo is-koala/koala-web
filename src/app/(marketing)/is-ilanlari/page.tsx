@@ -4,6 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 import { JobPagination, JobResultList, JobSearchForm } from "@/components/job-search";
 import { ErrorState } from "@/components/states";
 import {
+  defaultJobSort,
   hasJobFilters,
   jobSearchParams,
   parseJobSearchParams,
@@ -49,9 +50,22 @@ export async function generateMetadata({ searchParams }: JobsPageProps): Promise
   return pageMetadata(pageTitle, description, canonicalPath(query));
 }
 
-/** Süzgeçsiz canonical yalnız sayfa numarasını taşır. */
+/**
+ * Süzgeçsiz canonical yalnız **sayfa** numarasını taşır.
+ *
+ * Sayfa ile sıralama burada ters yönde karara bağlanıyor ve gerekçeleri ayrı:
+ *
+ * - **Sayfa kalıyor.** `?sayfa=2` sayfa 1'in kopyası değil, başka ilanlar
+ *   taşıyor; canonical'ı sayfa 1'e çevirmek o ilanları indeksten düşürürdü.
+ * - **Sıralama düşüyor.** Dört sıralama seçeneği aynı ilan kümesinin farklı
+ *   dizilişi. `hasJobFilters` onu bilerek bir süzgeç saymıyor, yani
+ *   `?sirala=ucret-artan` `noindex` almıyor; canonical de onu taşısaydı tek bir
+ *   içerik dört indekslenebilir URL'ye açılırdı. Düşürülünce dördü tek adreste
+ *   birleşiyor ve `hasJobFilters`'ın gerekçesi ("aynı sonuç kümesinin farklı
+ *   dilimleri, ayrı bir içerik değil") indeksleme tarafında da tutuyor.
+ */
 function canonicalPath(query: JobSearchQuery): string {
-  const params = jobSearchParams(query);
+  const params = jobSearchParams({ ...query, sort: defaultJobSort });
   return params.size === 0 ? publicJobsPath : `${publicJobsPath}?${params}`;
 }
 

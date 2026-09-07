@@ -12,6 +12,8 @@ import type {
   TalentPoolEntry,
   TalentPoolPage,
 } from "@/applications/employer-review";
+import { emptyBackendPage } from "@/lib/pagination";
+import { clean, type PageDto } from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -77,16 +79,6 @@ type TalentPoolEntryDto = {
   worker?: SafeUserDto | null;
   note?: string | null;
   createdAt?: string | null;
-};
-
-type PageDto<T> = {
-  content?: readonly T[] | null;
-  page?: number | null;
-  size?: number | null;
-  totalElements?: number | null;
-  totalPages?: number | null;
-  first?: boolean | null;
-  last?: boolean | null;
 };
 
 const applicationStatuses = new Set<ApplicationStatus>([
@@ -347,19 +339,6 @@ function displayName(user: SafeUserDto | null | undefined): string {
   return name || user?.username?.trim() || "";
 }
 
-function clean(value: string | null | undefined): string | null {
-  const cleaned = value?.trim();
-  return cleaned ? cleaned : null;
-}
-
 function emptyTalentPool(pageNumber: number): TalentPoolPage {
-  return {
-    content: [],
-    page: pageNumber,
-    size: talentPoolPageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: pageNumber === 0,
-    last: true,
-  };
+  return emptyBackendPage<TalentPoolEntry>(pageNumber, talentPoolPageSize);
 }

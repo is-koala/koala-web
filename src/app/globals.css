@@ -78,6 +78,8 @@ h2 { font-size: clamp(1.45rem, 4vw, 2.65rem); line-height: 1.1; letter-spacing: 
 .app-handoff { width: min(100%, 600px); margin-inline: auto; padding: 28px 0 0; border-top: 1px solid var(--line); }
 .state-card { border-radius: 20px; padding: 24px; background: var(--surface); }
 .state-card-error { border-left: 5px solid var(--brand-primary); }
+/* Boş durumun çıkış bağlantısı; metinden ayrılsın diye kendi satırında. */
+.state-card > .text-link { display: inline-block; margin-top: 12px; }
 .state-kicker { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; }
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--surface); }
 .app-bar { border-bottom: 1px solid var(--line); background: var(--paper); position: sticky; top: 0; z-index: 20; }
@@ -305,10 +307,13 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .employer-job-facts dd { margin: 3px 0 0; font-weight: 700; }
 .employer-job-payout { margin: 0; font-size: .9rem; }
 .employer-job-payout span { color: var(--muted); }
-.employer-job-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
-.employer-job-pagination a { font-weight: 750; }
-.employer-job-pagination a:last-child { justify-self: end; }
-.employer-job-pagination > span { color: var(--muted); font-size: .84rem; font-weight: 700; }
+/* İki ilan listesinin sayfalama şeridi tek kural kümesi: aynı üç sütunlu
+   yerleşim, aynı tipografi. Ayrıldıkları tek yer `.job-pagination`'ın üstündeki
+   boşluk ve o da aşağıda, kendi bölümünde. */
+.employer-job-pagination, .job-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
+.employer-job-pagination a, .job-pagination a { font-weight: 750; }
+.employer-job-pagination a:last-child, .job-pagination a:last-child { justify-self: end; }
+.employer-job-pagination > span, .job-pagination > span { color: var(--muted); font-size: .84rem; font-weight: 700; }
 
 /* Herkese açık ilan listesi. Kart `.feature-card` jetonlarını (--surface,
    --line, --muted) kullanıyor ama onun kalıbını değil: tanıtım kartı sabit
@@ -323,7 +328,11 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .job-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
 .job-card { height: 100%; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); }
 .job-card-cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--surface); }
-.job-card-body { display: flex; flex-direction: column; gap: 14px; padding: 22px; }
+/* `flex: 1` olmadan gövde kartın kalan yüksekliğini almıyor ve rozetlerdeki
+   `margin: auto 0 0` itecek bir boşluk bulamıyor: kısa içerikli kart, satırın
+   yüksekliğine gerilirken rozetleri bilgi ızgarasının hemen altında bırakıyor,
+   kart dibinde ise ölü boşluk kalıyordu. */
+.job-card-body { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 22px; }
 .job-card-kicker { margin: 0; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .job-card h2 { margin: 0; font-size: 1.25rem; letter-spacing: -.025em; }
 .job-card-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 0; }
@@ -331,10 +340,8 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .job-card-facts dd { margin: 3px 0 0; font-weight: 700; font-size: .95rem; }
 .job-card-badges { list-style: none; margin: auto 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .job-card-badges li { padding: 5px 10px; border-radius: 999px; background: var(--surface); font-size: .75rem; font-weight: 800; color: var(--muted); }
-.job-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; margin-top: 34px; }
-.job-pagination a { font-weight: 750; }
-.job-pagination a:last-child { justify-self: end; }
-.job-pagination > span { color: var(--muted); font-size: .84rem; font-weight: 700; }
+/* Şeridin geri kalanı `.employer-job-pagination` ile ortak; tek fark bu boşluk. */
+.job-pagination { margin-top: 34px; }
 /* Bekleme göstergesi bağlantının içinde: sayfa bir Suspense sınırına
    alınmadığı için ilanlar ilk HTML'de duruyor, ama tıklanan bağlantı yine de
    sunucuyu beklediğini söylemeli. */
@@ -635,10 +642,11 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 @media (max-width: 620px) { .settings-heading, .settings-list-item, .notification-item { align-items: stretch; flex-direction: column; } .compact-actions { align-items: stretch; } .compact-actions .compact-form, .compact-actions .button { width: 100%; } }
 @media (max-width: 720px) { .consent-banner { grid-template-columns: 1fr; } .consent-actions { justify-content: flex-start; } .address-reference-fields, .address-position-fields, .address-components, .assignment-facts, .earnings-summary { grid-template-columns: 1fr; } }
 @media (max-width: 820px) { .job-detail-hero, .job-detail-layout { grid-template-columns: 1fr; } .job-detail-hero { align-items: start; } .job-detail-layout { gap: 48px; } .job-application-card { position: static; } }
-/* Playwright varsayılan olarak iPhone genişliğinde koşuyor; kart tek sütuna
-   düştüğünde iki sütunlu bilgi ızgarası de sıkışıyor. */
-@media (max-width: 520px) { .job-filters { padding: 18px; border-radius: 20px; } .job-card-facts { grid-template-columns: 1fr; } .job-pagination { gap: 8px; font-size: .85rem; } }
-@media (max-width: 520px) { .job-detail { padding-top: 44px; } .job-detail-hero h1 { font-size: clamp(2.8rem, 14vw, 4rem); } .job-application-card { margin-inline: -8px; padding: 24px 20px; border-radius: 22px; } .job-application-form .button { width: 100%; } }
+/* Telefon genişliği. `.job-grid` buraya gelmeden tek sütuna düşmüş oluyor ve
+   kartın iki sütunlu bilgi ızgarası bu genişlikte "İş tarihi" gibi bir etikete
+   tek satır bırakmıyor — ölçü ziyaretçinin telefonu. İlan detayı da aynı sınırda
+   daralıyor, o yüzden ikisi tek blokta. */
+@media (max-width: 520px) { .job-filters { padding: 18px; border-radius: 20px; } .job-card-facts { grid-template-columns: 1fr; } .job-pagination { gap: 8px; font-size: .85rem; } .job-detail { padding-top: 44px; } .job-detail-hero h1 { font-size: clamp(2.8rem, 14vw, 4rem); } .job-application-card { margin-inline: -8px; padding: 24px 20px; border-radius: 22px; } .job-application-form .button { width: 100%; } }
 @media (max-width: 860px) { .work-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .work-detail-facts, .work-brief-grid, .cancellation-facts { grid-template-columns: 1fr; } .work-session-panel .section-heading-row { flex-direction: column; gap: 8px; } .work-session-history li { flex-direction: column; gap: 2px; } }
 @media (max-width: 720px) { .assignment-detail-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }

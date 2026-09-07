@@ -2,12 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { AddressPrecision, SalaryType } from "@/jobs/contract";
-import type { JobEmployerType } from "@/jobs/employer-jobs";
+import { jobPageSize } from "@/jobs/contract";
 import { jobStatuses } from "@/jobs/lifecycle";
 import {
   backendJobSearchParams,
-  jobSearchPageSize,
   type JobFilterOptions,
   type JobSearchPage,
   type JobSearchQuery,
@@ -16,6 +14,15 @@ import {
   type ReferenceOption,
 } from "@/jobs/search";
 import { jobTypeValues } from "@/lib/job-posting";
+import { emptyBackendPage } from "@/lib/pagination";
+import {
+  addressPrecisions,
+  clean,
+  employerTypes,
+  known,
+  salaryTypes,
+  type PageDto,
+} from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
 import { apiFetch } from "@/server/api/client";
 import { anonymousCaller } from "@/server/session/session";
@@ -55,17 +62,18 @@ import { anonymousCaller } from "@/server/session/session";
  */
 export async function searchJobs(query: JobSearchQuery): Promise<JobSearchPage> {
   const search = backendJobSearchParams(query);
-  const page = await apiFetch<JobPageDto | null>(`${backendPaths.jobs}?${search}`, {
+  const page = await apiFetch<PageDto<JobSummaryDto> | null>(`${backendPaths.jobs}?${search}`, {
     ...(await anonymousCaller()),
     cache: "no-store",
   });
 
-  if (page === null) return emptyJobSearchPage(query.page);
+  // `query.page` kullanıcıya görünen 1 tabanlı numara; zarf 0 tabanlı.
+  if (page === null) return emptyBackendPage<JobSummary>(query.page - 1, jobPageSize);
 
   return {
     content: (page.content ?? []).map(toJobSummary),
     page: page.page ?? query.page - 1,
-    size: page.size ?? jobSearchPageSize,
+    size: page.size ?? jobPageSize,
     totalElements: page.totalElements ?? 0,
     totalPages: page.totalPages ?? 0,
     first: page.first ?? query.page === 1,
@@ -131,29 +139,6 @@ async function referenceList<T extends ReferenceOption>(path: string): Promise<r
   return (list ?? []).filter((option) => Boolean(option?.id) && Boolean(option?.name));
 }
 
-export function emptyJobSearchPage(page: number): JobSearchPage {
-  return {
-    content: [],
-    page: page - 1,
-    size: jobSearchPageSize,
-    totalElements: 0,
-    totalPages: 0,
-    first: page === 1,
-    last: true,
-  };
-}
-
-/** `PageDto<JobSummaryDto>`; her alan eksik gelebiliyor sayılır. */
-type JobPageDto = {
-  content?: readonly JobSummaryDto[] | null;
-  page?: number | null;
-  size?: number | null;
-  totalElements?: number | null;
-  totalPages?: number | null;
-  first?: boolean | null;
-  last?: boolean | null;
-};
-
 type JobSummaryDto = {
   id?: string | null;
   title?: string | null;
@@ -182,10 +167,8 @@ type JobSummaryDto = {
   addressPrecision?: string | null;
 };
 
-const salaryTypes = new Set<SalaryType>(["HOURLY", "DAILY"]);
-const employerTypes = new Set<JobEmployerType>(["INDIVIDUAL", "COMPANY"]);
+/** Yalnız bu listede okunuyor; `jobTypeValues` zaten tek kaynak. */
 const jobTypes = new Set<JobTypeValue>(jobTypeValues);
-const addressPrecisions = new Set<AddressPrecision>(["APPROXIMATE", "EXACT"]);
 
 function toJobSummary(dto: JobSummaryDto): JobSummary {
   return {
@@ -227,18 +210,8 @@ function toJobSummary(dto: JobSummaryDto): JobSummary {
   };
 }
 
-function clean(value: string | null | undefined): string | null {
-  return value?.trim() || null;
-}
-
 /** Jackson `BigDecimal`'i sayı olarak serileştiriyor; ekrana giden biçim dize. */
 function decimal(value: number | string | null | undefined): string | null {
   if (typeof value === "string") return value.trim() || null;
   return typeof value === "number" && Number.isFinite(value) ? String(value) : null;
-}
-
-function known<T extends string>(value: string | null | undefined, values: ReadonlySet<T>): T {
-  return value !== null && value !== undefined && values.has(value as T)
-    ? (value as T)
-    : ("UNKNOWN" as T);
 }

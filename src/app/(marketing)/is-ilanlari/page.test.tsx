@@ -105,12 +105,32 @@ describe("herkese açık ilan listesi", () => {
     expect(container.textContent).not.toContain("29.03");
   });
 
-  it("şirket adresini herkese açmış ilanda yaklaşıklık notu düşer", async () => {
-    searchJobs.mockResolvedValue(page({ content: [job({ addressPrecision: "EXACT" })] }));
+  it("adresi herkese açık ilanda yaklaşıklık notu düşer ama koordinat yine yazılmaz", async () => {
+    // Koordinat yasağının asıl ölçüldüğü yer burası. `JobMapper:33-34` lat/lng'yi
+    // **her zaman** `approximateCoordinate` ile yazıyor; `JobAddressVisibility.protect`
+    // yalnız `EXACT` dalında kesin değeri üzerine koyuyor. Yani tam hassasiyetli
+    // koordinat yalnız bu dalda var ve yasak yalnız burada bir şey ifade ediyor —
+    // yaklaşık fikstürde aynı iddia, değer zaten yuvarlanmışken ölçülmüş olurdu.
+    searchJobs.mockResolvedValue(
+      page({
+        content: [
+          job({ addressPrecision: "EXACT", latitude: 40.9876543, longitude: 29.0312345 }),
+        ],
+      }),
+    );
 
-    render(await renderPage());
+    const { container } = render(await renderPage());
 
     expect(screen.getByText("Kadıköy, İstanbul")).toBeVisible();
+    // `innerHTML`, `textContent` değil: koordinat bir metin düğümüne değil bir
+    // `data-` özniteliğine de yazılabilir ve harita issue'su geldiğinde ilk
+    // deneyeceği yer orası.
+    expect(container.innerHTML).not.toContain("40.98");
+    expect(container.innerHTML).not.toContain("29.03");
+    expect(container.innerHTML).not.toContain("latitude");
+    expect(container.innerHTML).not.toContain("longitude");
+    expect(container.innerHTML).not.toContain("addressPrecision");
+    expect(container.innerHTML).not.toContain("EXACT");
   });
 
   it("süzgeci sunucuya kanonik alanlarıyla götürür", async () => {
@@ -228,6 +248,46 @@ describe("ilan listesinin ekran durumları", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Bu süzgeçlere uyan ilan yok");
   });
 
+  it("menzil dışı sayfayı 'sitede ilan yok' gibi göstermez", async () => {
+    // Altmış ilan varken `?sayfa=999`: sunucu 200 ve boş `content` döndürüyor
+    // ama `totalElements` yerinde duruyor. Üçüncü bir hâl — ne site boş ne de
+    // süzgeç fazla dar — ve kendi metnini hak ediyor (`AGENTS.md` § "Ekran
+    // durumları").
+    searchJobs.mockResolvedValue(
+      page({ content: [], page: 998, totalElements: 60, totalPages: 3, first: false, last: true }),
+    );
+
+    render(await renderPage({ sayfa: "999" }));
+
+    const state = screen.getByRole("status");
+    expect(state).toHaveTextContent("Bu numarada bir sayfa yok");
+    expect(state).not.toHaveTextContent("Henüz ilan yok");
+    expect(state).not.toHaveTextContent("Bu süzgeçlere uyan ilan yok");
+
+    // Dönüş bağlantısı gerçek bir sayfaya gidiyor; 998 de menzil dışıydı.
+    expect(screen.getByRole("link", { name: /Son sayfaya dön/ })).toHaveAttribute(
+      "href",
+      "/is-ilanlari?sayfa=3",
+    );
+
+    // "Sayfa 999 / 3" bir konum değil; şerit hiç çizilmiyor.
+    expect(screen.queryByRole("navigation", { name: "İlan sayfaları" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Önceki sayfa" })).toBeNull();
+  });
+
+  it("menzil dışı sayfadan dönerken süzgeci düşürmez", async () => {
+    searchJobs.mockResolvedValue(
+      page({ content: [], page: 998, totalElements: 41, totalPages: 3, first: false, last: true }),
+    );
+
+    render(await renderPage({ sayfa: "999", ara: "garson" }));
+
+    expect(screen.getByRole("link", { name: /Son sayfaya dön/ })).toHaveAttribute(
+      "href",
+      "/is-ilanlari?ara=garson&sayfa=3",
+    );
+  });
+
   it("liste okunamazsa hatayı `errorCode` ile seçilmiş Türkçe metinle yazar", async () => {
     searchJobs.mockRejectedValue(
       new ApiError({
@@ -285,6 +345,23 @@ describe("ilan listesinin indekslenmesi", () => {
     expect(metadata.title).toBe("İş İlanları – Sayfa 2");
     expect(metadata.alternates?.canonical).toBe("https://iskoala.com/is-ilanlari?sayfa=2");
     expect(metadata.robots).toBeUndefined();
+  });
+
+  it("sıralama çeşidini canonical'a koymaz; dördü tek adreste birleşir", async () => {
+    // `hasJobFilters` sıralamayı bilerek süzgeç saymıyor, yani `?sirala=` bir
+    // `noindex` almıyor. Canonical de onu taşısaydı aynı ilan kümesi için dört
+    // indekslenebilir URL olurdu — yinelenen içerik. Sayfa numarası ise
+    // kalıyor: sayfa 2 başka ilanlar taşıyor.
+    const sorted = await generateMetadata({
+      searchParams: Promise.resolve({ sirala: "ucret-artan" }),
+    });
+    expect(sorted.alternates?.canonical).toBe("https://iskoala.com/is-ilanlari");
+
+    const sortedPageTwo = await generateMetadata({
+      searchParams: Promise.resolve({ sirala: "ucret-artan", sayfa: "2" }),
+    });
+    expect(sortedPageTwo.alternates?.canonical).toBe("https://iskoala.com/is-ilanlari?sayfa=2");
+    expect(sortedPageTwo.robots).toBeUndefined();
   });
 
   it("süzgeçli URL noindex alır ve canonical taşımaz", async () => {

@@ -4,7 +4,6 @@ import {
   backendJobSearchParams,
   districtCityParamName,
   hasJobFilters,
-  jobSearchPageSize,
   jobSearchParams,
   jobSortOptions,
   parseJobSearchParams,
@@ -103,7 +102,12 @@ describe("sayfalama", () => {
   });
 
   it("sayfa boyutunu sabitler ve URL'den değiştirilemez", () => {
-    expect(backendParams({ sayfa: "2", size: "100" }).get("size")).toBe(String(jobSearchPageSize));
+    // Beklenti **elle** yazılı, sabitten okunmuyor: `String(jobPageSize)`
+    // yazılsaydı iddia kendi ölçtüğü değerden kurulurdu ve sabit 55 olduğunda
+    // da yeşil kalırdı — yani başlığının ilk yarısını ("sabitler") hiç
+    // ölçmezdi. Yirmi sunucunun `@PageableDefault` değeri; değişirse bu satır
+    // da bilerek değişmeli.
+    expect(backendParams({ sayfa: "2", size: "100" }).get("size")).toBe("20");
   });
 
   it("geçersiz sayfa numaralarında ilk sayfaya düşer", () => {

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { errorPresentation } from "@/lib/errors";
 
 const emptyCopy = {
@@ -12,6 +14,19 @@ const emptyCopy = {
   jobSearch: [
     "Bu süzgeçlere uyan ilan yok",
     "Aramayı sadeleştirebilir, başka bir il ya da kategori seçebilirsin.",
+  ],
+  /**
+   * Menzil dışı sayfa — üçüncü bir hâl.
+   *
+   * `jobs` ve `jobSearch`'ten ayrı, çünkü ne site boş ne de süzgeç fazla dar:
+   * ilanlar var, yalnız istenen sayfa numarası listenin dışında. İkisinden
+   * birini yazmak ziyaretçiye yanlış bir şey öğretirdi ve düzeltmesi için
+   * yapması gereken şey de ayrı — süzgeci gevşetmek değil, var olan bir
+   * sayfaya dönmek.
+   */
+  jobPageOutOfRange: [
+    "Bu numarada bir sayfa yok",
+    "İstediğin sayfa listenin dışında kaldı; ilanlar daha az sayıda sayfaya sığıyor.",
   ],
   employerJobs: [
     "Henüz ilan açmadın",
@@ -54,12 +69,20 @@ export function LoadingState({ label = "Yükleniyor" }: { label?: string }) {
   );
 }
 
-export function EmptyState({ kind }: { kind: keyof typeof emptyCopy }) {
+export function EmptyState({
+  kind,
+  children,
+}: {
+  kind: keyof typeof emptyCopy;
+  /** Boş durumun çıkış yolu; yalnız kullanıcının atabileceği bir adım varsa. */
+  children?: ReactNode;
+}) {
   const [title, message] = emptyCopy[kind];
   return (
     <div role="status" className="state-card">
       <h2>{title}</h2>
       <p>{message}</p>
+      {children}
     </div>
   );
 }

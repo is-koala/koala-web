@@ -1,7 +1,8 @@
 import { isUuid } from "@/lib/identifiers";
 import { jobTypeValues, type JobType } from "@/lib/job-posting";
+import type { BackendPage } from "@/lib/pagination";
 
-import type { AddressPrecision, SalaryType } from "./contract";
+import { jobPageSize, type AddressPrecision, type SalaryType } from "./contract";
 import type { JobEmployerType } from "./employer-jobs";
 import type { JobStatus } from "./lifecycle";
 
@@ -89,25 +90,7 @@ export type JobFilterOptions = {
 };
 
 /** `PageDto<JobSummaryDto>`. */
-export type JobSearchPage = {
-  readonly content: readonly JobSummary[];
-  readonly page: number;
-  readonly size: number;
-  readonly totalElements: number;
-  readonly totalPages: number;
-  readonly first: boolean;
-  readonly last: boolean;
-};
-
-/**
- * Sabit sayfa boyutu.
- *
- * URL'den değiştirilemiyor ve bu bilinçli: `PageableSanitizer.java:15` tavanı
- * 100'de tutuyor, ama asıl mesele her sayfa boyutunun ayrı bir indekslenebilir
- * URL üretmesi. Yirmi hem sunucunun `@PageableDefault` değeri hem de mobilin
- * `JobService.defaultPageSize`'ı.
- */
-export const jobSearchPageSize = 20;
+export type JobSearchPage = BackendPage<JobSummary>;
 
 /**
  * Sayfa numarası tavanı.
@@ -249,7 +232,7 @@ export function backendJobSearchParams(query: JobSearchQuery): URLSearchParams {
 
   // Kullanıcıya 1 tabanlı sayı gösteriliyor, sunucu 0 tabanlı istiyor.
   params.set("page", String(query.page - 1));
-  params.set("size", String(jobSearchPageSize));
+  params.set("size", String(jobPageSize));
   params.set("sort", sortField(query.sort));
   return params;
 }
@@ -284,6 +267,26 @@ export function hasJobFilters(query: JobSearchQuery): boolean {
     query.districtId !== null ||
     query.type !== null
   );
+}
+
+/**
+ * İstenen sayfa listenin dışında mı.
+ *
+ * Boş bir **sayfa** ile boş bir **liste** ayrı iki hâl, ve `PageDto` ikisini
+ * `totalElements` ile ayırıyor: altmış ilan varken `?sayfa=999` de 200 ve boş
+ * `content` döndürür ama toplam sayı yerinde durur. Ayrım burada yapılıyor
+ * çünkü iki karar birden buna bakıyor — gösterilecek metin ("henüz ilan yok"
+ * demek ziyaretçiye sitenin boş olduğunu öğretirdi) ve sayfalama şeridinin
+ * çizilip çizilmeyeceği ("Sayfa 999 / 3" bir konum değil, ve "Önceki sayfa"
+ * 998'e gitse o da menzil dışı olurdu).
+ */
+export function isPageOutOfRange(page: JobSearchPage): boolean {
+  return page.content.length === 0 && page.totalElements > 0;
+}
+
+/** Menzil dışı sayfadan dönülecek gerçek sayfa; sonuç varsa en az bir sayfa var. */
+export function lastJobPage(page: JobSearchPage): number {
+  return Math.max(page.totalPages, 1);
 }
 
 function sortField(sort: JobSortId): string {

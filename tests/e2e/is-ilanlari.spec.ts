@@ -71,5 +71,9 @@ test("liste okunamadığında boş listeden ayrı bir hata durumu çiziliyor", a
 test("liste sayfası arama motorlarına kapalı değil", async ({ request }) => {
   const robots = await request.get("/robots.txt");
 
+  // Durum kodu da ölçülüyor: `robots.txt` 404 dönseydi gövde bir HTML hata
+  // sayfası olurdu, o da `/is-ilanlari` içermez ve iddia yanlış sebeple yeşil
+  // kalırdı — dosyanın sunulduğunu değil, var olmadığını kanıtlamış olurdu.
+  expect(robots.status()).toBe(200);
   expect(await robots.text()).not.toContain("/is-ilanlari");
 });

@@ -18,6 +18,7 @@ import {
   hasUnresolvedPaymentAttempt,
   paymentStatusPresentation,
 } from "@/payments/checkout";
+import { clean, known } from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -284,14 +285,6 @@ function completePricing(value: Partial<PricingBreakdown> | null | undefined): P
   ) return null;
 
   return value as PricingBreakdown;
-}
-
-function known<T extends string>(value: string | null | undefined, values: ReadonlySet<T>): T {
-  return value && values.has(value as T) ? (value as T) : ("UNKNOWN" as T);
-}
-
-function clean(value: string | null | undefined): string | null {
-  return value?.trim() || null;
 }
 
 function decimal(value: unknown, field: string): string {

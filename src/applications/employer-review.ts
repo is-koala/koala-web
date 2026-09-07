@@ -1,3 +1,5 @@
+import type { BackendPage } from "@/lib/pagination";
+
 import type { ApplicationStatus } from "./contract";
 
 /**
@@ -109,15 +111,7 @@ export type TalentPoolEntry = {
   readonly createdAt: string;
 };
 
-export type TalentPoolPage = {
-  readonly content: readonly TalentPoolEntry[];
-  readonly page: number;
-  readonly size: number;
-  readonly totalElements: number;
-  readonly totalPages: number;
-  readonly first: boolean;
-  readonly last: boolean;
-};
+export type TalentPoolPage = BackendPage<TalentPoolEntry>;
 
 /** Dilimlenmiş liste; alan adları backend'in `PageDto` sözleşmesini izler. */
 export type ApplicantPage = {
