@@ -342,6 +342,46 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
   });
 
+  it("iptal edilemeyen atamada önizlemeyi çizer, yalnız göndermeyi kapatır", async () => {
+    // Kabul kriteri (#85): işçi `cancellableNow: false` iken de başlangıca
+    // kalan süreyi ve iptal edememe nedenini okuyabilmeli, iptal düğmesi
+    // gizli değil kapalı olmalı. Uç bu durumda 409 değil 200 + süre
+    // döndürüyor; bloğu gizlemek işçiye hem süreyi hem gerekçeyi
+    // kaybettiriyor, düğmeyi aratıyordu.
+    const user = userEvent.setup();
+    const closed = workDetail({
+      resolution: {
+        ...workDetail().resolution,
+        cancellationPreview: { noticeMinutes: 120, cancellableNow: false },
+      },
+    });
+
+    render(<WorkDetailScreen initialDetail={closed} action={vi.fn()} locate={located} />);
+
+    await user.click(screen.getByText("İptal önizlemesi"));
+
+    expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeDisabled();
+    expect(screen.getByLabelText("İptal nedeni")).toBeDisabled();
+    expect(screen.getByText(/şu anda bu atamadan çekilemezsin/i)).toBeVisible();
+    // İşçi işverenin rakamlarını görmüyor: kesinti ve iade sunucuda kesiliyor.
+    expect(screen.queryByText("Kesinti")).toBeNull();
+    expect(screen.queryByText("İade")).toBeNull();
+  });
+
+  it("iptal açıkken gerekçe metnini yazmaz", async () => {
+    // Kapalılık gerekçesi yalnız kapalıyken duruyor; her zaman çizilseydi
+    // düğmenin açık olduğu ekranda da "çekilemezsin" yazardı.
+    const user = userEvent.setup();
+    render(<WorkDetailScreen initialDetail={workDetail()} action={vi.fn()} locate={located} />);
+
+    await user.click(screen.getByText("İptal önizlemesi"));
+
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeEnabled();
+    expect(screen.getByLabelText("İptal nedeni")).toBeEnabled();
+    expect(screen.queryByText(/şu anda bu atamadan çekilemezsin/i)).toBeNull();
+  });
+
   it("açık uyuşmazlık varken çalışana ikinci uyuşmazlık formu göstermez", () => {
     const activeDispute = workDetail({
       resolution: {
@@ -361,5 +401,9 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     render(<WorkDetailScreen initialDetail={activeDispute} action={vi.fn()} locate={located} />);
 
     expect(screen.queryByRole("button", { name: "Uyuşmazlığı gönder" })).toBeNull();
+    // İptal bloğu da çizilmiyor: nedeni yukarıdaki kalıcı uyuşmazlık şeridinde
+    // zaten yazılı, blok içinde ikinci kez tekrar edilmesi gerekmiyor.
+    expect(screen.queryByText("İptal önizlemesi")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("açık bir uyuşmazlık var");
   });
 });

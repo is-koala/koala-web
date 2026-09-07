@@ -86,6 +86,31 @@ export function canOpenAssignmentDispute(input: {
     !hasActiveDispute(input.resolution);
 }
 
+/**
+ * İptal önizleme bloğunun **çizilip çizilmediği** — iptalin açık olup olmadığı
+ * ayrı bir soru ve onu `canCancelAssignment` cevaplıyor.
+ *
+ * `GET .../cancellation-preview` iptal edilemeyen atamada 409 değil
+ * **200 + süre/tutar** döndürüyor (`CancellationManager.previewCancellation`,
+ * `:138-140`): "şu anda iptal edemezsin" sunucunun hatası değil, cevabının bir
+ * parçası. Blok `cancellableNow: false` diye kaybolursa kullanıcı ne başlangıca
+ * kalan süreyi ne de nedeni okuyabiliyor, olmayan bir düğmeyi arıyor.
+ *
+ * Açık uyuşmazlık dışarıda tutuluyor: gerekçesi iki ekranda da bölümün
+ * üstündeki kalıcı şeritte (`ActiveDisputeNotice`) yazılı ve blok içinde ikinci
+ * kez tekrarlanmasına gerek yok.
+ *
+ * Kural ekranın içinde değil burada, çünkü işçi ve işveren bu soruyu aynı
+ * kuralla cevaplıyor: önizleme yalnız `CONFIRMED`/`IN_PROGRESS` atamada
+ * indiriliyor ve `cancellableNow` tarafa göre değişmiyor. Ayrılan tek şey
+ * bloğun **içeriği** — işçi kesinti ve iade tutarlarını hiç görmüyor.
+ */
+export function showsCancellationPreview(
+  resolution: Pick<WorkerAssignmentResolution, "cancellationPreview" | "disputes">,
+): boolean {
+  return resolution.cancellationPreview !== null && !hasActiveDispute(resolution);
+}
+
 export function canCancelAssignment(input: {
   assignmentStatus: string;
   resolution: Pick<WorkerAssignmentResolution, "cancellationPreview" | "disputes">;
