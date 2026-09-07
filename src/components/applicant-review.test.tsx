@@ -2,7 +2,11 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { applicantPageSize, type JobApplicant } from "@/applications/employer-review";
+import {
+  applicantPageSize,
+  type ApplicantDossier,
+  type JobApplicant,
+} from "@/applications/employer-review";
 import { ApplicantReview } from "./applicant-review";
 
 const jobId = "11111111-1111-4111-8111-111111111111";
@@ -167,6 +171,64 @@ describe("işveren aday inceleme listesi", () => {
     expect(links[0]).toHaveAttribute("href", "https://cdn.example.test/cv.pdf");
   });
 
+  it("aday panelinde rozetleri seviyeleriyle yazar", async () => {
+    // #36 aday panelinden rozetleri de istiyor; rozetler `PublicProfileDto`
+    // içinde değil, kendi ucunda (`GET /users/{id}/badges`).
+    const user = userEvent.setup();
+    renderReview({ dossierAction: vi.fn(dossierActionFor(dossier())) });
+
+    await user.click(screen.getByRole("button", { name: "Adayı incele" }));
+
+    const badges = await screen.findByRole("list", { name: "Rozetler" });
+    expect(within(badges).getByText("Gezgin")).toBeVisible();
+    expect(within(badges).getByText("Altın")).toBeVisible();
+    // `BadgeTier.NONE` seviyesiz bir rozet ailesi; uydurulmuş bir seviye
+    // yazmak yanlış olurdu.
+    expect(within(badges).getByText("Kimlik doğrulandı")).toBeVisible();
+    expect(within(badges).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("rozeti olmayan adayda listeyi sessizce yutmaz", async () => {
+    const user = userEvent.setup();
+    renderReview({ dossierAction: vi.fn(dossierActionFor(dossier({ badges: [] }))) });
+
+    await user.click(screen.getByRole("button", { name: "Adayı incele" }));
+
+    expect(await screen.findByText("Bu aday henüz rozet kazanmamış.")).toBeVisible();
+    expect(screen.queryByRole("list", { name: "Rozetler" })).toBeNull();
+  });
+
+  it("hiç değerlendirilmemiş adayda düşmez, durumu yazar", async () => {
+    // #36 kabul kriteri: "Puan özeti hiç yazılmamış bir adayda ekran düşmez,
+    // 'henüz değerlendirilmemiş' der." `GET /users/{id}/rating-summary`
+    // böyle bir adayda `data: null` döndürüyor (`ReviewsController.java:95`).
+    const user = userEvent.setup();
+    renderReview({
+      dossierAction: vi.fn(dossierActionFor(dossier({ ratingSummary: null, reviews: [] }))),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Adayı incele" }));
+
+    const panel = await screen.findByRole("region", { name: "Aday ayrıntısı" });
+    expect(within(panel).getByText("Henüz değerlendirilmemiş")).toBeVisible();
+    expect(within(panel).getByText("Bu adaya henüz değerlendirme yazılmamış.")).toBeVisible();
+  });
+
+  it("puanı olan adayda özeti ve son değerlendirmeleri yazar", async () => {
+    const user = userEvent.setup();
+    renderReview({ dossierAction: vi.fn(dossierActionFor(dossier())) });
+
+    await user.click(screen.getByRole("button", { name: "Adayı incele" }));
+
+    const panel = await screen.findByRole("region", { name: "Aday ayrıntısı" });
+    expect(within(panel).getByText("4.75 / 5 · 12 değerlendirme")).toBeVisible();
+    const reviews = within(panel).getByRole("list", { name: "Son değerlendirmeler" });
+    expect(within(reviews).getByText("Mehmet Demir")).toBeVisible();
+    expect(within(reviews).getByText("Zamanında geldi.")).toBeVisible();
+    // Yazarı olmayan değerlendirme backend'de zaten anonim geliyor.
+    expect(within(reviews).getByText("Anonim")).toBeVisible();
+  });
+
   it("hiç başvuru yokken boş durumu gösterir", () => {
     renderReview({ applicants: [] });
 
@@ -174,6 +236,55 @@ describe("işveren aday inceleme listesi", () => {
     expect(screen.queryAllByRole("article")).toHaveLength(0);
   });
 });
+
+/** Kart "Adayı incele" dediğinde panelin dolduğu durumu üreten action. */
+function dossierActionFor(value: ApplicantDossier) {
+  return async (state: unknown, formData: FormData) => {
+    void state;
+    return {
+      status: "done" as const,
+      userId: String(formData.get("userId")),
+      dossier: value,
+    };
+  };
+}
+
+function dossier(overrides: Partial<ApplicantDossier> = {}): ApplicantDossier {
+  return {
+    profile: {
+      id: "a-user",
+      fullName: "Aday a",
+      profilePictureUrl: null,
+      occupation: "Barista",
+      about: "Beş yıl deneyim.",
+      cityName: "İstanbul",
+      districtName: "Kadıköy",
+      cvUrl: null,
+    },
+    ratingSummary: { reviewCount: 12, averageRating: "4.75" },
+    reviews: [
+      {
+        id: "review-1",
+        authorName: "Mehmet Demir",
+        rating: 5,
+        comment: "Zamanında geldi.",
+        createdAt: "2026-08-01T10:00:00Z",
+      },
+      {
+        id: "review-2",
+        authorName: null,
+        rating: 4,
+        comment: null,
+        createdAt: "2026-07-01T10:00:00Z",
+      },
+    ],
+    badges: [
+      { code: "GEZGIN", name: "Gezgin", tier: "GOLD" },
+      { code: "KIMLIK", name: "Kimlik doğrulandı", tier: "NONE" },
+    ],
+    ...overrides,
+  };
+}
 
 function manyApplicants(count: number): readonly JobApplicant[] {
   return Array.from({ length: count }, (_, index) => ({

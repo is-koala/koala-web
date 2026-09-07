@@ -114,7 +114,7 @@ describe("işveren başvuru inceleme backend modülü", () => {
     await expect(readJobApplicants(jobId)).resolves.toEqual([]);
   });
 
-  it("aday dosyasını üç uçtan tek turda toplar ve puan özeti yoksa boş bırakır", async () => {
+  it("aday dosyasını dört uçtan tek turda toplar ve puan özeti yoksa boş bırakır", async () => {
     // `ReviewsController.java:95` özet satırı yoksa `data`'ya `null` yazıyor;
     // bunu bir nesne sanmak aday panelini render sırasında düşürürdü.
     const fetchMock = vi.fn()
@@ -156,7 +156,11 @@ describe("işveren başvuru inceleme backend modülü", () => {
         totalPages: 1,
         first: true,
         last: true,
-      })));
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([
+        { code: "GEZGIN", family: "GEZGIN", tier: "GOLD", name: "  Gezgin  ", description: "d", iconUrl: null, earnedAt: "2026-08-01T10:00:00Z" },
+        { code: "KIMLIK", family: "IDENTITY", tier: "BILINMEYEN", name: null, description: null, iconUrl: null, earnedAt: null },
+      ])));
     vi.stubGlobal("fetch", fetchMock);
 
     const dossier = await readApplicantDossier(workerId);
@@ -188,11 +192,35 @@ describe("işveren başvuru inceleme backend modülü", () => {
         createdAt: "2026-07-01T10:00:00Z",
       },
     ]);
+    // Rozetler `PublicProfileDto`'da yok, kendi ucundan geliyor. Tanınmayan
+    // seviye `UNKNOWN`'a düşüyor ve adı boş olan rozet koduna yedekleniyor —
+    // ikisi de ekranda boş bir çip olurdu.
+    expect(dossier.badges).toEqual([
+      { code: "GEZGIN", name: "Gezgin", tier: "GOLD" },
+      { code: "KIMLIK", name: "KIMLIK", tier: "UNKNOWN" },
+    ]);
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       `https://api.example.test/users/${workerId}`,
       `https://api.example.test/users/${workerId}/rating-summary`,
       `https://api.example.test/users/${workerId}/reviews?page=0&size=5`,
+      `https://api.example.test/users/${workerId}/badges`,
     ]);
+  });
+
+  it("rozet listesi gövdesiz gelirse aday panelini düşürmez", async () => {
+    // Uç düz liste döndürüyor ama zarfın `data` alanı boş kalabiliyor;
+    // `null`'ı liste sanmak paneli render sırasında düşürürdü.
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope({ id: workerId, username: "ayse" })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(null)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(null)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(null))));
+
+    await expect(readApplicantDossier(workerId)).resolves.toMatchObject({
+      badges: [],
+      reviews: [],
+      ratingSummary: null,
+    });
   });
 
   it("puan özetini sayısal alanlarıyla taşır", async () => {
@@ -205,7 +233,8 @@ describe("işveren başvuru inceleme backend modülü", () => {
       })))
       .mockResolvedValueOnce(jsonResponse(200, envelope({
         content: [], page: 0, size: 5, totalElements: 0, totalPages: 0, first: true, last: true,
-      }))));
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([]))));
 
     const dossier = await readApplicantDossier(workerId);
 

@@ -2,10 +2,12 @@ import "server-only";
 
 import type { ApplicationStatus } from "@/applications/contract";
 import type {
+  ApplicantBadge,
   ApplicantDossier,
   ApplicantProfile,
   ApplicantRatingSummary,
   ApplicantReview,
+  BadgeTier,
   JobApplicant,
   TalentPoolEntry,
   TalentPoolPage,
@@ -64,6 +66,12 @@ type ReviewDto = {
   createdAt?: string | null;
 };
 
+type BadgeDto = {
+  code?: string | null;
+  name?: string | null;
+  tier?: string | null;
+};
+
 type TalentPoolEntryDto = {
   id?: string | null;
   worker?: SafeUserDto | null;
@@ -87,6 +95,8 @@ const applicationStatuses = new Set<ApplicationStatus>([
   "REJECTED",
   "WITHDRAWN",
 ]);
+
+const badgeTiers = new Set<BadgeTier>(["BRONZE", "SILVER", "GOLD", "NONE"]);
 
 /** Aday panelinde gösterilen değerlendirme sayısı; tamamı profil ekranının işi. */
 const reviewPreviewSize = 5;
@@ -122,15 +132,20 @@ export async function readJobApplicants(jobId: string): Promise<readonly JobAppl
 }
 
 /**
- * Aday panelinin üç ucu tek turda.
+ * Aday panelinin dört ucu tek turda.
  *
  * `GET /users/{id}/rating-summary` henüz değerlendirilmemiş bir adayda
  * `data: null` döndürüyor (`ReviewsController.java:95`); bu yüzden özet
  * isteğe bağlı bir alan, boş bir nesne değil.
+ *
+ * Rozetler ayrı bir uçta: `GET /users/{id}/badges`
+ * (`BadgesController.badgesOf`), sayfasız düz liste. Profil ucu onları
+ * taşımıyor — `PublicProfileDto` on alanının hiçbiri rozet değil — ve
+ * #36 aday panelinden rozetleri de istiyor.
  */
 export async function readApplicantDossier(userId: string): Promise<ApplicantDossier> {
   const encoded = encodeURIComponent(userId);
-  const [profile, summary, reviews] = await Promise.all([
+  const [profile, summary, reviews, badges] = await Promise.all([
     apiRequest<PublicProfileDto | null>(`/users/${encoded}`, { cache: "no-store" }),
     apiRequest<RatingSummaryDto | null>(`/users/${encoded}/rating-summary`, {
       cache: "no-store",
@@ -139,12 +154,14 @@ export async function readApplicantDossier(userId: string): Promise<ApplicantDos
       `/users/${encoded}/reviews?page=0&size=${reviewPreviewSize}`,
       { cache: "no-store" },
     ),
+    apiRequest<readonly BadgeDto[] | null>(`/users/${encoded}/badges`, { cache: "no-store" }),
   ]);
 
   return {
     profile: toApplicantProfile(userId, profile),
     ratingSummary: toRatingSummary(summary),
     reviews: (reviews?.content ?? []).map(toApplicantReview),
+    badges: (badges ?? []).map(toApplicantBadge),
   };
 }
 
@@ -297,6 +314,16 @@ function toApplicantReview(dto: ReviewDto): ApplicantReview {
     rating: dto.rating ?? 0,
     comment: clean(dto.comment),
     createdAt: dto.createdAt ?? "",
+  };
+}
+
+/** Adı olmayan rozet ekranda boş bir çip olurdu; kod yedeğe düşüyor. */
+function toApplicantBadge(dto: BadgeDto): ApplicantBadge {
+  const code = dto.code?.trim() ?? "";
+  return {
+    code,
+    name: dto.name?.trim() || code,
+    tier: badgeTiers.has(dto.tier as BadgeTier) ? (dto.tier as BadgeTier) : "UNKNOWN",
   };
 }
 

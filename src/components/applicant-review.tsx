@@ -8,6 +8,7 @@ import {
   idleApplicantDossierState,
   idleConversationState,
   idleTalentPoolState,
+  type ApplicantBadge,
   type ApplicantDossier,
   type ApplicantDossierAction,
   type ApplicantFilter,
@@ -283,6 +284,8 @@ function ApplicantDossierPanel({ dossier }: { dossier: ApplicantDossier }) {
 
       {dossier.profile.about ? <p className="applicant-about">{dossier.profile.about}</p> : null}
 
+      <ApplicantBadges badges={dossier.badges} />
+
       {dossier.reviews.length > 0 ? (
         <ol className="applicant-reviews" aria-label="Son değerlendirmeler">
           {dossier.reviews.map((review) => (
@@ -300,6 +303,29 @@ function ApplicantDossierPanel({ dossier }: { dossier: ApplicantDossier }) {
         <p className="muted">Bu adaya henüz değerlendirme yazılmamış.</p>
       )}
     </section>
+  );
+}
+
+/**
+ * Adayın kazandığı rozetler.
+ *
+ * Boş durum yazılı: rozet listesinin hiç çizilmemesi ile adayın rozetinin
+ * olmaması ekranda aynı görünürdü ve işveren "rozetler nerede" diye arardı.
+ */
+function ApplicantBadges({ badges }: { badges: readonly ApplicantBadge[] }) {
+  if (badges.length === 0) {
+    return <p className="muted">Bu aday henüz rozet kazanmamış.</p>;
+  }
+
+  return (
+    <ul className="applicant-badges" aria-label="Rozetler">
+      {badges.map((badge) => (
+        <li key={badge.code} data-tier={badge.tier.toLowerCase()}>
+          <strong>{badge.name}</strong>
+          {badgeTierLabel[badge.tier] ? <span>{badgeTierLabel[badge.tier]}</span> : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -382,6 +408,22 @@ function safeImageUrl(value: string | null): string | null {
     return null;
   }
 }
+
+/**
+ * Rozet seviyesinin Türkçesi.
+ *
+ * `NONE` ve `UNKNOWN` boş: ilki seviyesi olmayan bir rozet ailesi
+ * (`BadgeTier.NONE`), ikincisi backend'in tanımadığımız bir seviye
+ * göndermesi. İkisinde de rozet adı tek başına doğru; uydurulmuş bir seviye
+ * yazmak yanlış olurdu.
+ */
+const badgeTierLabel: Readonly<Record<ApplicantBadge["tier"], string>> = {
+  BRONZE: "Bronz",
+  SILVER: "Gümüş",
+  GOLD: "Altın",
+  NONE: "",
+  UNKNOWN: "",
+};
 
 const filterOptions: ReadonlyArray<{ value: ApplicantFilter; label: string }> = [
   { value: "ALL", label: "Tümü" },

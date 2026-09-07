@@ -73,11 +73,30 @@ export type ApplicantReview = {
   readonly createdAt: string;
 };
 
+/**
+ * `BadgeDto`'nun ekranda kullanılan hâli.
+ *
+ * Yanıt yedi alan taşıyor; kart üçünü çiziyor. `earnedAt`, `description`,
+ * `family` ve `iconUrl` sınırı geçmiyor: işverenin sorduğu soru "bu adayın
+ * hangi rozetleri var", "ne zaman kazandı" değil, ve rozetin ikonu için
+ * ekranda yer yok.
+ */
+export type ApplicantBadge = {
+  readonly code: string;
+  readonly name: string;
+  readonly tier: BadgeTier;
+};
+
+/** `BadgeTier`; tanınmayan değer `UNKNOWN` olur ve seviye yazılmaz. */
+export type BadgeTier = "BRONZE" | "SILVER" | "GOLD" | "NONE" | "UNKNOWN";
+
 /** Aday panelinin tek parça görünümü; özet henüz yoksa `null`. */
 export type ApplicantDossier = {
   readonly profile: ApplicantProfile;
   readonly ratingSummary: ApplicantRatingSummary | null;
   readonly reviews: readonly ApplicantReview[];
+  /** `GET /users/{id}/badges`; kazanılmış rozet geri alınmıyor. */
+  readonly badges: readonly ApplicantBadge[];
 };
 
 /** `TalentPoolEntryDto`; havuz listesi ve kart rozeti bunu paylaşır. */
