@@ -4,7 +4,6 @@ import {
   applicantPage,
   applicantPageSize,
   applicantsInFilter,
-  isApplicantFilter,
   type JobApplicant,
 } from "./employer-review";
 
@@ -31,8 +30,9 @@ describe("işveren başvuru listesinin istemci tarafı dilimlemesi", () => {
   });
 
   it("aralık dışındaki sayfa numarasını son sayfaya sabitler", () => {
-    // Sayfa numarası adres çubuğundan geliyor; boş bir ekran, filtre
-    // daraldığında kullanıcıyı listenin dışına düşürürdü.
+    // Numara adres çubuğundan değil ekranın yerel durumundan geliyor, ama
+    // liste bir prop: sunucu tazelemesinden sonra kısalan listede elde kalan
+    // numara kullanıcıyı boş bir ekrana düşürürdü.
     const page = applicantPage(applicants(45), 99);
 
     expect(page.page).toBe(2);
@@ -62,13 +62,6 @@ describe("işveren başvuru listesinin istemci tarafı dilimlemesi", () => {
 
     expect(applicantsInFilter(list, "APPLIED").map((item) => item.id)).toEqual(["a", "d"]);
     expect(applicantsInFilter(list, "ALL")).toEqual(list);
-  });
-
-  it("adres çubuğundan gelen tanınmayan süzgeci reddeder", () => {
-    expect(isApplicantFilter("APPLIED")).toBe(true);
-    expect(isApplicantFilter("ALL")).toBe(true);
-    expect(isApplicantFilter("UNKNOWN")).toBe(false);
-    expect(isApplicantFilter("../hesap")).toBe(false);
   });
 });
 

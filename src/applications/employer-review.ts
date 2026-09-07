@@ -196,19 +196,6 @@ export function isTalentPoolOperation(value: string): value is TalentPoolOperati
   return value === "add" || value === "remove";
 }
 
-const filters: ReadonlySet<ApplicantFilter> = new Set<ApplicantFilter>([
-  "ALL",
-  "APPLIED",
-  "ACCEPTED",
-  "REJECTED",
-  "WITHDRAWN",
-]);
-
-/** Adres çubuğundan gelen süzgeç adı tanınıyor mu. */
-export function isApplicantFilter(value: string): value is ApplicantFilter {
-  return filters.has(value as ApplicantFilter);
-}
-
 export function applicantsInFilter(
   applicants: readonly JobApplicant[],
   filter: ApplicantFilter,
@@ -221,8 +208,11 @@ export function applicantsInFilter(
  * İstenen sayfanın kayıtları.
  *
  * Aralık dışındaki sayfa numarası son sayfaya sabitlenir, boş bir ekrana
- * düşülmez: numara adres çubuğundan geliyor ve süzgeç daraldığında kullanıcı
- * kendi kendine listenin dışına çıkabilir.
+ * düşülmez. Numara **adres çubuğundan gelmiyor** — `ApplicantReview` onu
+ * yerel durumda tutuyor, çünkü uç sayfalı değil ve sayfayı adrese yazmak her
+ * tıklamada bütün listeyi yeniden indirmek olurdu. Sabitleme yine de yük
+ * taşıyor: liste bir prop, ve sunucu tazelemesinden sonra kısalan bir listede
+ * elde kalan numara son sayfanın ötesinde kalır.
  */
 export function applicantPage(
   applicants: readonly JobApplicant[],
