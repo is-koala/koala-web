@@ -704,17 +704,19 @@ function InsuranceChoice({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="checkbox-field">
-      <input
-        id="insurancePreference"
-        type="checkbox"
-        name={locked ? undefined : "insurancePreference"}
-        value="true"
-        checked={locked || value === "true"}
-        disabled={locked}
-        onChange={(event) => onChange(event.target.checked ? "true" : "false")}
-      />
-      <label htmlFor="insurancePreference">Sigortalı çalışma</label>
+    <div className="insurance-choice">
+      <div className="checkbox-field">
+        <input
+          id="insurancePreference"
+          type="checkbox"
+          name={locked ? undefined : "insurancePreference"}
+          value="true"
+          checked={locked || value === "true"}
+          disabled={locked}
+          onChange={(event) => onChange(event.target.checked ? "true" : "false")}
+        />
+        <label htmlFor="insurancePreference">Sigortalı çalışma</label>
+      </div>
       {locked ? <input type="hidden" name="insurancePreference" value="true" /> : null}
       <p className="field-hint">
         {locked
