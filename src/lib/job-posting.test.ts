@@ -5,9 +5,13 @@ import type { AddressWrite } from "@/address/contract";
 import {
   emptyJobDraft,
   addressFieldErrors,
+  companyJobBody,
+  companyJobErrors,
   deserializeDraft,
   individualJobBody,
   individualJobErrors,
+  insuranceLocked,
+  insuranceRequiredFor,
   quotedWorkerPayout,
   serializeDraft,
   unmatchedFieldMessages,
@@ -34,6 +38,13 @@ const category = {
   name: "Garson",
   code: "WAITER",
   requiresInsurance: false,
+};
+
+const insured = {
+  id: "9f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f02",
+  name: "Motorlu kurye",
+  code: "COURIER",
+  requiresInsurance: true,
 };
 
 function draft(overrides: Partial<JobDraft> = {}): JobDraft {
@@ -80,8 +91,6 @@ describe("bireysel ilan taslağının doğrulaması", () => {
   });
 
   it("sigorta zorunlu kategoriyi bireysel ilanda kabul etmez", () => {
-    const insured = { ...category, id: "9f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f02", requiresInsurance: true };
-
     expect(individualJobErrors(draft({ categoryId: insured.id }), [category, insured])).toHaveProperty(
       "categoryId",
     );
@@ -237,5 +246,105 @@ describe("taslağın tarayıcıda saklanması", () => {
   it("okunamayan kayıtta boş taslağa döner", () => {
     expect(deserializeDraft("{bozuk")).toEqual(emptyJobDraft);
     expect(deserializeDraft(null)).toEqual(emptyJobDraft);
+  });
+});
+
+describe("şirket ilanının doğrulaması", () => {
+  it("sigorta zorunlu kategoriyi kabul eder", () => {
+    // Bireysel yolun tek farkı: `JobManager.createCorporateJob` bu kategoriyi
+    // reddetmiyor, yalnız `insuranceRequired=true` istiyor.
+    expect(companyJobErrors(draft({ categoryId: insured.id }), [category, insured])).toEqual({});
+  });
+
+  it("ortak alan kurallarını bireysel ilanla aynı okur", () => {
+    expect(companyJobErrors(draft({ minAge: "40", maxAge: "20" }), [category])).toHaveProperty(
+      "maxAge",
+    );
+    expect(companyJobErrors(draft({ salary: "0.5" }), [category])).toHaveProperty("salary");
+    expect(
+      companyJobErrors(draft({ endDateTime: "2026-10-09T09:00" }), [category]),
+    ).toHaveProperty("endDateTime");
+  });
+});
+
+describe("şirket ilanının sigorta değeri", () => {
+  it("kategori sigorta zorunlu kılıyorsa işverenin tercihine bakmaz", () => {
+    // `JobManager.java:201-204` bu ilanı `insuranceRequired=false` ile 400'e
+    // düşürüyor; anahtarın kapalı kalabilmesi kullanıcıyı formu doldurup en
+    // sonda reddedilmeye bırakırdı (koala-mobile#24).
+    expect(insuranceRequiredFor([category, insured], insured.id, "false")).toBe(true);
+    expect(insuranceRequiredFor([category, insured], insured.id, "")).toBe(true);
+  });
+
+  it("kategori zorunlu kılmıyorsa işverenin kendi tercihini taşır", () => {
+    expect(insuranceRequiredFor([category, insured], category.id, "true")).toBe(true);
+    expect(insuranceRequiredFor([category, insured], category.id, "false")).toBe(false);
+  });
+
+  it("değeri saklanan bir alandan değil seçili kategoriden okur", () => {
+    // Tek değişen kategori: taslakta senkron tutulan bir alan olsaydı aynı
+    // taslak iki kategoride de aynı cevabı verirdi — hatayı doğuran tam
+    // olarak oydu.
+    const stale = draft({ insurancePreference: "false" });
+
+    expect(insuranceRequiredFor([category, insured], stale.categoryId, stale.insurancePreference))
+      .toBe(false);
+    expect(insuranceRequiredFor([category, insured], insured.id, stale.insurancePreference))
+      .toBe(true);
+  });
+
+  it("katalog okunamadığında sigortayı kendiliğinden açmaz", () => {
+    // `null` "okunamadı" demek: bilinmeyeni sigortalıya çevirmek, işverenin
+    // hiç kabul etmediği bir yükümlülüğü ilana yazardı. Son söz backend'in.
+    expect(insuranceRequiredFor(null, insured.id, "false")).toBe(false);
+  });
+
+  it("kilidi de aynı kategoriden okur", () => {
+    expect(insuranceLocked([category, insured], insured.id)).toBe(true);
+    expect(insuranceLocked([category, insured], category.id)).toBe(false);
+    expect(insuranceLocked(null, insured.id)).toBe(false);
+  });
+});
+
+describe("şirket ilanı gövdesi", () => {
+  it("sigorta alanını her zaman taşır", () => {
+    // `CreateCompanyJobDto.insuranceRequired` `@NotNull`: alan hiç
+    // gönderilmezse ilan alan doğrulamasına takılır.
+    expect(companyJobBody(draft(), address, [category])).toHaveProperty(
+      "insuranceRequired",
+      false,
+    );
+  });
+
+  it("sigorta zorunlu kategoride tercih kapalı bırakılsa da true gönderir", () => {
+    const body = companyJobBody(
+      draft({ categoryId: insured.id, insurancePreference: "false" }),
+      address,
+      [category, insured],
+    );
+
+    expect(body?.insuranceRequired).toBe(true);
+  });
+
+  it("'adresi herkese göster' alanını hiç göndermez", () => {
+    // `CreateCompanyJobDto.addressPublic` var ama bir ürün kararı taşıyor ve
+    // bu dilimde forma girmiyor; primitive `boolean` olduğu için alan
+    // gelmediğinde sunucu `false` yazıyor.
+    expect(companyJobBody(draft(), address, [category])).not.toHaveProperty("addressPublic");
+  });
+
+  it("adresi kanonik bileşenden geldiği gibi taşır", () => {
+    expect(companyJobBody(draft(), address, [category])?.address).toEqual(address);
+  });
+
+  it("geçersiz taslakta ve onaylanmamış adreste gövde üretmez", () => {
+    expect(companyJobBody(draft({ maxAge: "10" }), address, [category])).toBeNull();
+    expect(companyJobBody(draft(), null, [category])).toBeNull();
+  });
+
+  it("fiyat önizlemesine giden tutar, ilana giden ücretin aynısıdır", () => {
+    const filled = draft({ salary: "1500.50" });
+
+    expect(quotedWorkerPayout(filled)).toBe(companyJobBody(filled, address, [category])?.salary);
   });
 });

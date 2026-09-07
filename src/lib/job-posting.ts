@@ -1,13 +1,18 @@
 /**
- * Bireysel ilanın istemci tarafındaki kuralları.
+ * İlan açmanın istemci tarafındaki kuralları.
  *
  * Sunucuya kilitli değil: aynı kurallar hem tarayıcıdaki çok adımlı formda hem
  * de gönderimi karşılayan sunucu action'ında okunuyor. İkisi ayrı yazılsaydı
  * form kabul ettiği bir gövdeyi sunucuya reddettirebilirdi.
  *
- * Alan adları `CreateIndividualJobDto` ile birebir aynı: backend alan
- * hatalarını `details[].field` ile bildiriyor ve `fieldError(state, ad)` o adla
- * okunuyor; bir dönüştürme katmanı iki tarafı sessizce ayırırdı.
+ * Bireysel ve şirket ilanı aynı dosyada, çünkü backend'de de aynı gövdenin iki
+ * hâliler (`CreateIndividualJobDto` / `CreateCompanyJobDto`) ve ayrıldıkları
+ * yer sayılabilir kadar az: sigorta. İki ayrı modül, birinde düzeltilen bir
+ * kuralı öbüründe eskitirdi.
+ *
+ * Alan adları DTO alan adlarıyla birebir aynı: backend alan hatalarını
+ * `details[].field` ile bildiriyor ve `fieldError(state, ad)` o adla okunuyor;
+ * bir dönüştürme katmanı iki tarafı sessizce ayırırdı.
  */
 
 import type { AddressWrite } from "@/address/contract";
@@ -62,6 +67,10 @@ export type JobCategory = {
  * Hepsi metin, çünkü hepsi bir input'un değeri: sayıya ya da tarihe çevirme
  * yalnız gövde kurulurken bir kez yapılıyor ve yarım yazılmış bir sayı
  * taslakta `NaN`'a dönüşmüyor.
+ *
+ * Tek taslak, iki uç: alanların hepsi `CreateIndividualJobDto` ile
+ * `CreateCompanyJobDto`'da ortak. Gövdeyi taslaktan **beyaz listeyle** kuran
+ * `individualJobBody` bireysel uca ait olmayan hiçbir alanı taşımıyor.
  */
 export type JobDraft = {
   categoryId: string;
@@ -82,6 +91,19 @@ export type JobDraft = {
   experienceRequired: string;
   /** `@Min(1)` ama zorunlu değil: boş bırakılırsa gövdeye hiç girmez. */
   headcount: string;
+  /**
+   * İşverenin sigorta **tercihi** — gövdeye giden değer bu değil.
+   *
+   * Adı bilerek `insuranceRequired` değil: gönderilen değeri
+   * `insuranceRequiredFor(...)` kategoriden türetiyor ve bu alanı yalnız
+   * kategori sigortayı zorunlu kılmadığında okuyor. İki ad aynı olsaydı bir
+   * çağıranın taslaktaki alanı doğrudan gövdeye koyması kuralı sessizce
+   * devre dışı bırakırdı — koala-mobile#24'ü doğuran şey tam olarak buydu.
+   *
+   * Bireysel ilanda hiç okunmuyor: `CreateIndividualJobDto` sigorta alanı
+   * taşımıyor ve sunucu değeri `false` sabitliyor (`JobManager.java:153`).
+   */
+  insurancePreference: string;
 };
 
 export const emptyJobDraft: JobDraft = {
@@ -101,6 +123,7 @@ export const emptyJobDraft: JobDraft = {
   maxAge: "",
   experienceRequired: "",
   headcount: "",
+  insurancePreference: "",
 };
 
 /**
@@ -113,32 +136,69 @@ export const moneyPattern = /^\d+(\.\d{1,2})?$/;
 const wholeNumberPattern = /^\d+$/;
 
 /**
- * Taslağın alan bazlı Türkçe hataları; anahtarlar DTO alan adlarıyla aynı.
+ * Bireysel ilanın alan bazlı Türkçe hataları; anahtarlar DTO alan adlarıyla
+ * aynı.
  *
- * İstemci doğrulaması backend'i tekrarlamıyor, iki boşluğu kapatıyor:
- * kullanıcı eksiğini göndermeden önce görüyor, ve `endDateTime > startDateTime`
- * kuralının **tek** uygulayıcısı burası — `CreateIndividualJobDto` yalnız yaş
- * sırasını denetliyor, tarih sırasını hiç denetlemiyor.
+ * Şirket ilanından tek farkı sigorta dalı: `JobManager.java:134-137` sigorta
+ * zorunlu bir kategoride bireysel ilanı koşulsuz reddediyor. Kullanıcıyı formu
+ * doldurduktan sonra öğrenmeye bırakmak akışı çökertirdi.
  */
 export function individualJobErrors(
   draft: JobDraft,
   categories: readonly JobCategory[] | null,
 ): Record<string, string> {
+  const errors = commonJobErrors(draft, categories);
+
+  // Kategoriye ait başka bir hata varsa üzerine yazılmıyor: "kategori seçilmedi"
+  // ile "bu kategori bireysele kapalı" ayrı şeyler ve ilki daha önce geliyor.
+  if (errors.categoryId === undefined && selectedCategory(categories, draft)?.requiresInsurance) {
+    errors.categoryId = "Bu kategori sigorta zorunluluğu taşıyor, bireysel ilanla açılamaz.";
+  }
+
+  return errors;
+}
+
+/**
+ * Şirket ilanının alan bazlı hataları.
+ *
+ * Sigorta zorunlu kategori burada bir hata **değil**:
+ * `JobManager.createCorporateJob` (`:201-204`) o kategoriyi kabul ediyor ve
+ * yalnız `insuranceRequired=true` istiyor. Koşulu forma bir hata olarak değil,
+ * `insuranceRequiredFor(...)` ile türetilen bir değer olarak yazıyoruz —
+ * kullanıcının kapatabileceği bir anahtar bırakmak, sunucunun reddedeceği
+ * gövdeyi göndermeye izin vermek olurdu.
+ *
+ * `commonJobErrors`'a ince bir sarmalayıcı, ama çağıranların ortak listeyi
+ * doğrudan okumasını istemiyoruz: iki uç bir gün başka bir yerde de ayrılırsa
+ * o fark bu işlevin içinde durmalı.
+ */
+export function companyJobErrors(
+  draft: JobDraft,
+  categories: readonly JobCategory[] | null,
+): Record<string, string> {
+  return commonJobErrors(draft, categories);
+}
+
+/**
+ * İki ilan türünün ortak alan kuralları.
+ *
+ * İstemci doğrulaması backend'i tekrarlamıyor, iki boşluğu kapatıyor:
+ * kullanıcı eksiğini göndermeden önce görüyor, ve `endDateTime > startDateTime`
+ * kuralının **tek** uygulayıcısı burası — iki DTO da yalnız yaş sırasını
+ * denetliyor, tarih sırasını hiç denetlemiyor.
+ */
+function commonJobErrors(
+  draft: JobDraft,
+  categories: readonly JobCategory[] | null,
+): Record<string, string> {
   const errors: Record<string, string> = {};
 
-  // Katalog `null` ise "okunamadı" demek, "boş" demek değil: sigorta kuralı
-  // denetlenemez ve son söz backend'e kalır (`JobManager.java:134-137` onu
-  // gerçekten uyguluyor). Boş liste ile karıştırılsaydı katalog düştüğünde
-  // hiçbir kategori seçilemez görünürdü.
-  const category = categories?.find((candidate) => candidate.id === draft.categoryId);
-  if (categories !== null && !category) {
+  // Katalog `null` ise "okunamadı" demek, "boş" demek değil: kategoriye bağlı
+  // kurallar denetlenemez ve son söz backend'e kalır. Boş liste ile
+  // karıştırılsaydı katalog düştüğünde hiçbir kategori seçilemez görünürdü.
+  const category = selectedCategory(categories, draft);
+  if ((categories !== null && !category) || !draft.categoryId.trim()) {
     errors.categoryId = "Bir iş kategorisi seçmelisin.";
-  } else if (!draft.categoryId.trim()) {
-    errors.categoryId = "Bir iş kategorisi seçmelisin.";
-  } else if (category?.requiresInsurance) {
-    // `JobManager.java:134-137` bu isteği koşulsuz reddediyor; kullanıcıyı
-    // formu doldurduktan sonra öğrenmeye bırakmak akışı çökertirdi.
-    errors.categoryId = "Bu kategori sigorta zorunluluğu taşıyor, bireysel ilanla açılamaz.";
   }
 
   if (!draft.title.trim()) errors.title = "İlan başlığı zorunlu.";
@@ -188,14 +248,15 @@ export function individualJobErrors(
 }
 
 /**
- * `POST /users/me/jobs` gövdesi — `CreateIndividualJobDto`.
+ * İki uçta da aynı olan gövde alanları.
  *
- * `insuranceRequired` ve `addressPublic` **yok**, bilerek: DTO ikisini de
- * taşımıyor ve sunucu ikisini de sabitliyor (`JobManager.java:153,155`).
- * Forma sigorta anahtarı ya da "adresi ilanda göster" seçeneği konmasın diye
- * gövde tipi de onları kabul etmiyor.
+ * `addressPublic` **yok**: bireysel DTO onu hiç taşımıyor, şirket DTO'su
+ * taşıyor ama sunucu alan gelmediğinde `false` yazıyor (primitive `boolean`).
+ * İşyeri adresini herkese açmak ayrı bir ürün kararı ve bu dilimde forma
+ * girmiyor; gövde tipinin onu kabul etmemesi, kararı vermeden alanı
+ * göndermeyi imkânsız kılıyor.
  */
-export type CreateIndividualJobBody = {
+type SharedJobBody = {
   categoryId: string;
   title: string;
   description: string;
@@ -223,7 +284,64 @@ export type CreateIndividualJobBody = {
 };
 
 /**
- * Taslağı gövdeye çevirir; kurallardan biri bile ihlal edilmişse `null`.
+ * `POST /users/me/jobs` gövdesi — `CreateIndividualJobDto`.
+ *
+ * Ortak alanlardan **ibaret**: DTO sigorta alanı taşımıyor ve sunucu değeri
+ * `false` sabitliyor (`JobManager.java:153`). Forma sigorta anahtarı konmasın
+ * diye gövde tipi de onu kabul etmiyor.
+ */
+export type CreateIndividualJobBody = SharedJobBody;
+
+/**
+ * `POST /companies/{companyId}/jobs` gövdesi — `CreateCompanyJobDto`.
+ *
+ * Bireyselden tek farkı `insuranceRequired` ve **isteğe bağlı değil**:
+ * `@NotNull`, yani alan gövdeye hiç girmezse ilan alan doğrulamasına takılır.
+ */
+export type CreateCompanyJobBody = SharedJobBody & {
+  insuranceRequired: boolean;
+};
+
+/**
+ * Bu ilanda sigorta koşulunun kullanıcı tarafından kapatılamayacağı.
+ *
+ * Kategoriden okunuyor ve **saklanmıyor**: kategoriyi değiştiren her yolun
+ * (seçici, şablon, geri yüklenen taslak) senkron tutulan bir alanı güncellemeyi
+ * hatırlaması gerekseydi biri unutulduğunda kural sessizce düşerdi —
+ * koala-mobile#24 tam olarak böyle doğdu.
+ *
+ * Katalog okunamadığında (`null`) kilit yok: bilinmeyeni kilitli saymak,
+ * kategori listesi düştüğünde her ilanı sigortalıya çevirirdi.
+ */
+export function insuranceLocked(
+  categories: readonly JobCategory[] | null,
+  categoryId: string,
+): boolean {
+  return categories?.find((candidate) => candidate.id === categoryId)?.requiresInsurance === true;
+}
+
+/**
+ * Şirket ilanının gövdesine girecek sigorta değeri.
+ *
+ * `JobManager.java:201-204` sigorta zorunlu bir kategoride `insuranceRequired`
+ * `true` değilse ilanı 400 ile geri çeviriyor. Kilitli değilken işverenin
+ * kendi tercihi geçerli: sunucu zorunlu kılmadığı bir işte de sigortayı kabul
+ * ediyor.
+ *
+ * Katalog okunamadığında tercih olduğu gibi taşınıyor ve son söz backend'e
+ * kalıyor: bilinmeyeni `true` saymak, işverenin hiç kabul etmediği bir
+ * yükümlülüğü ilana yazardı.
+ */
+export function insuranceRequiredFor(
+  categories: readonly JobCategory[] | null,
+  categoryId: string,
+  preference: string,
+): boolean {
+  return insuranceLocked(categories, categoryId) || preference === "true";
+}
+
+/**
+ * Bireysel ilan gövdesi; kurallardan biri bile ihlal edilmişse `null`.
  *
  * Adres **dışarıdan** geliyor ve olduğu gibi taşınıyor: kanonik adres bileşeni
  * (is-koala/koala-web#27) `AddressWriteV2` gövdesini hazır veriyor ve
@@ -235,10 +353,39 @@ export function individualJobBody(
   address: AddressWrite | null,
   categories: readonly JobCategory[] | null,
 ): CreateIndividualJobBody | null {
-  if (address === null) return null;
-  if (Object.keys(individualJobErrors(draft, categories)).length > 0) return null;
+  return sharedJobBody(draft, address, individualJobErrors(draft, categories));
+}
 
-  const body: CreateIndividualJobBody = {
+/**
+ * Şirket ilanı gövdesi; kurallardan biri bile ihlal edilmişse `null`.
+ *
+ * Sigorta değeri taslaktan **kopyalanmıyor**, kategoriden türetiliyor: gövdeyi
+ * kuran tek yer burası olduğu için kilitli bir kategoride kapalı bir tercihle
+ * gönderim yapılamıyor.
+ */
+export function companyJobBody(
+  draft: JobDraft,
+  address: AddressWrite | null,
+  categories: readonly JobCategory[] | null,
+): CreateCompanyJobBody | null {
+  const shared = sharedJobBody(draft, address, companyJobErrors(draft, categories));
+  if (shared === null) return null;
+
+  return {
+    ...shared,
+    insuranceRequired: insuranceRequiredFor(categories, draft.categoryId, draft.insurancePreference),
+  };
+}
+
+function sharedJobBody(
+  draft: JobDraft,
+  address: AddressWrite | null,
+  errors: Record<string, string>,
+): SharedJobBody | null {
+  if (address === null) return null;
+  if (Object.keys(errors).length > 0) return null;
+
+  const body: SharedJobBody = {
     categoryId: draft.categoryId,
     title: draft.title.trim(),
     description: draft.description.trim(),
@@ -274,6 +421,14 @@ export function individualJobBody(
  */
 export function quotedWorkerPayout(draft: JobDraft): string {
   return draft.salary.trim();
+}
+
+/** Taslakta seçili olan kategori; katalog okunamadıysa ya da eşleşme yoksa yok. */
+function selectedCategory(
+  categories: readonly JobCategory[] | null,
+  draft: JobDraft,
+): JobCategory | undefined {
+  return categories?.find((candidate) => candidate.id === draft.categoryId);
 }
 
 /** Taslağın alanları; hem beyaz liste hem "bu ada karşılık bir input var" listesi. */
