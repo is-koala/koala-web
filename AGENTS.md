@@ -137,6 +137,23 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
   tek adres, davetle katılmış ama işveren olmayan bir yetkiliyi yapabildiği
   bir işten alıkoyardı.
 
+### Telif satırında yıl yok
+
+`SiteFooter` `© Koala` yazıyor, yıl **bilerek yok**. Tanıtım ve yasal sayfalar
+statik üretildiği için yıl build anında HTML'e ve RSC payload'ına sabit sayı
+olarak gömülüyordu: 1 Ocak'tan sonra, site yeniden deploy edilene kadar
+ziyaretçi eski yılı görürdü. Ayrıca değeri build makinesinin `TZ`'sine bağlıydı.
+
+Alternatifleri tartıldı ve elendi (is-koala/koala-web#90): `revalidate` yılda bir
+değişen bir dize için tamamen statik 25 sayfaya çalışma zamanı ekliyordu, yılı
+istemcide çizmek ise altbilgiyi istemci grafiğine sokup bugün **olmayan** bir
+hidrasyon ayrışması yaratıyordu. Telif ihbarı yılı zorunlu tutmuyor, o yüzden
+kaynak kurutuldu.
+
+`src/components/site-footer.test.tsx` bunu tutuyor: altbilgi metninde dört
+haneli hiçbir sayı olmamalı. Yılı geri eklemek zararsız görünür ve kusuru ancak
+yıl dönümünde gösterir — test o tek satırı bugün durduruyor.
+
 ## Yasal metinler
 
 `/kullanim-kosullari` ve `/gizlilik-politikasi` yalnız bu sitenin sayfaları

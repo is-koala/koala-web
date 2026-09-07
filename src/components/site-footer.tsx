@@ -17,9 +17,19 @@ export function SiteFooter() {
             </li>
           ))}
         </ul>
-        <p className="copyright">
-          © {new Date().getFullYear()} {site.name}
-        </p>
+        {/*
+          Telif satırında yıl **bilerek yok**. Yıl, statik üretilen sayfalarda
+          (`AGENTS.md` § Yapı: tanıtım sayfaları statik üretilir) build anında
+          HTML'e ve RSC payload'ına sabit sayı olarak gömülüyordu; 1 Ocak'tan
+          sonra site yeniden deploy edilene kadar ziyaretçi eski yılı görürdü.
+          Ayrıca çalıştığı ortamın `TZ`'sine bağlıydı.
+
+          Bunu ISR ya da istemcide çizimle çözmek, yılda bir kez değişen
+          kozmetik bir dize için sırasıyla çalışma zamanı makinesi ve istemci
+          JS'i eklemek olurdu. Telif ihbarı yılı zorunlu tutmuyor, o yüzden
+          kaynağı kurutuldu (is-koala/koala-web#90).
+        */}
+        <p className="copyright">© {site.name}</p>
       </div>
     </footer>
   );
