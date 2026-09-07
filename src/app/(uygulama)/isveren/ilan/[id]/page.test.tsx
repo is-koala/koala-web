@@ -133,6 +133,19 @@ describe("yayımlanmış ilan sayfası", () => {
     expect(typeof props.action).toBe("function");
   });
 
+  it("başvuru listesine ilanın kendi adresinden bağlanır", async () => {
+    // Başvuruların menüde bir maddesi yok; ilanı görüntüleyen kullanıcının
+    // onlara ulaşabildiği tek yer bu bağlantı.
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByRole("link", { name: "Başvuruları gör" })).toHaveAttribute(
+      "href",
+      `/isveren/ilan/${jobId}/basvurular`,
+    );
+  });
+
   it("eylemleri 'yakında' diye erteleyen metni artık taşımaz", async () => {
     fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
 

@@ -94,6 +94,26 @@ export function publishedJobPath(jobId: string): string {
   return `/isveren/ilan/${encodeURIComponent(jobId)}`;
 }
 
+/**
+ * Bir ilana gelen başvuruların listesi.
+ *
+ * Adres ilanın **altında**, kabuk menüsünde değil: bir başvuru tek başına bir
+ * kayıt değil, bir ilanın kaydı, ve `GET /jobs/{jobId}/applications` dışında
+ * onu getiren bir uç yok. Kapısı da yok — ilanı görebilen kullanıcı
+ * başvurularını da görebilmeli; yetkiyi backend ilanın kaydından okuyor.
+ */
+export function jobApplicantsPath(jobId: string): string {
+  return `${publishedJobPath(jobId)}/basvurular`;
+}
+
+/**
+ * Yetenek havuzu bölümü.
+ *
+ * Başvuru ekranından beslenen kalıcı bir liste, o yüzden menüde kendi maddesi
+ * var: kullanıcı bir ilanı kapattıktan sonra da beğendiği adayları bulabilmeli.
+ */
+export const talentPoolPath = "/isveren/yetenek-havuzu";
+
 export type AppShell = {
   readonly id: AppShellId;
   /** Kabuğun kökü; `private-routes.ts` içindeki ağaç girdisiyle aynı olmalı. */
@@ -167,7 +187,19 @@ const employerShell: AppShell = {
       // kapılarını açıyor ve onlar eylem başında okunuyor.
       requires: [],
       status: "planned",
-      note: "Başvuru listesi ve aday inceleme henüz açılmadı.",
+      // Başvurular ilanın kendi sayfasından açılıyor (`jobApplicantsPath`).
+      // İlanlar arası bir gelen kutusu creator bazlı ilan listesini bekliyor
+      // (is-koala/koala-web#33): o uç olmadan hangi ilanların başvurusu
+      // toplanacağı okunamıyor.
+      note: "Başvurular şimdilik her ilanın kendi sayfasından açılıyor; ilanlar arası gelen kutusu ilan listesiyle birlikte gelecek.",
+    },
+    {
+      href: talentPoolPath,
+      label: "Yetenek havuzu",
+      // `EmployerToolsController.java:58-95` havuz uçlarında kimlik ya da rol
+      // aramıyor; liste yalnız oturum istiyor.
+      requires: [],
+      status: "ready",
     },
     {
       href: "/isveren/atamalar",

@@ -5,10 +5,12 @@ import {
   companyProfilePath,
   companySectionPath,
   editCompanyPath,
+  jobApplicantsPath,
   newCompanyPath,
   newIndividualJobPath,
   publishedJobPath,
   sectionAt,
+  talentPoolPath,
 } from "./app-routes";
 import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
@@ -20,6 +22,7 @@ describe("kabuk rota kaydı", () => {
       "İlanlarım",
       "Yeni ilan",
       "Başvurular",
+      "Yetenek havuzu",
       "Atamalar",
       "Mesajlar",
       "Ödemeler",
@@ -147,6 +150,40 @@ describe("kabuk rota kaydı", () => {
     expect(publishedJobPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
       "/isveren/ilan/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99",
     );
+  });
+
+  it("başvuru listesini ilanın altında, kimliği kaçırarak adresler", () => {
+    // Başvuru bir ilanın kaydı: `GET /jobs/{jobId}/applications` dışında onu
+    // getiren bir uç yok, bu yüzden adres de ilanın altında duruyor.
+    expect(jobApplicantsPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/ilan/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/basvurular",
+    );
+    expect(jobApplicantsPath("a b/../hesap")).toBe("/isveren/ilan/a%20b%2F..%2Fhesap/basvurular");
+  });
+
+  it("başvuru listesini kayıtta bir bölüm saymaz", () => {
+    // `[...section]` onu tanısaydı gerçek sayfa yerine "henüz açılmadı"
+    // ekranı çizilirdi.
+    expect(sectionAt("employer", ["ilan", "x", "basvurular"])).toBeUndefined();
+  });
+
+  it("yetenek havuzunu teslim edilmiş işveren bölümü olarak kaydeder", () => {
+    expect(sectionAt("employer", ["yetenek-havuzu"])).toEqual({
+      href: talentPoolPath,
+      label: "Yetenek havuzu",
+      requires: [],
+      status: "ready",
+    });
+    expect(talentPoolPath).toBe("/isveren/yetenek-havuzu");
+  });
+
+  it("ilanlar arası başvuru gelen kutusunu planlı ve gerekçeli bırakır", () => {
+    // Bölüm creator bazlı ilan listesini bekliyor (is-koala/koala-web#33);
+    // bugün başvurular yalnız ilanın kendi sayfasından açılıyor.
+    const inbox = sectionAt("employer", ["basvurular"]);
+
+    expect(inbox?.status).toBe("planned");
+    expect(inbox?.status === "planned" && inbox.note).toContain("ilan");
   });
 
   it("henüz açılmamış her bölüm nedenini yazılı taşır", () => {
