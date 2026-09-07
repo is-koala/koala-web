@@ -136,6 +136,9 @@ describe("hesap ve ayarlar ekranı", () => {
     const center = screen.getByRole("region", { name: "Bildirim merkezi" });
     expect(center).toHaveTextContent("1 okunmamış bildirim");
     expect(within(center).getByText("Başvurun güncellendi")).toBeVisible();
+    // Fixture UTC 11:30 → İstanbul 14:30. Bu satır biçimin ekrana
+    // ulaştığını bağlıyor; sabitlendiğini aşağıdaki düşman dilim testi.
+    expect(center).toHaveTextContent("6 Eyl 2026 14:30");
     expect(within(center).getByRole("button", { name: "Okundu işaretle" })).toBeVisible();
     expect(within(center).getByRole("button", { name: "Tümünü okundu işaretle" })).toBeVisible();
   });
@@ -230,12 +233,40 @@ describe("hesap ve ayarlar ekranı", () => {
 
     const sessions = screen.getByRole("region", { name: "Oturumlar ve cihazlar" });
     expect(within(sessions).getByText("Bu cihaz")).toBeVisible();
+    // Fixture UTC 12:00 → İstanbul 15:00.
+    expect(sessions).toHaveTextContent("Son kullanım 6 Eyl 2026 15:00");
+    expect(sessions).toHaveTextContent("Son kullanım 5 Eyl 2026 15:00");
     expect(within(sessions).getByRole("link", { name: "Bu cihazdan çıkış yap" })).toHaveAttribute(
       "href",
       "/cikis",
     );
     expect(within(sessions).getByRole("button", { name: "iPhone oturumunu kapat" })).toBeVisible();
     expect(within(sessions).getByRole("button", { name: "Diğer tüm oturumları kapat" })).toBeVisible();
+  });
+
+  it("tarihleri sunucunun TZ'sinden bağımsız İstanbul saatiyle çizer", () => {
+    // Ekran `"use client"` taşıyor ama ilk HTML sunucuda çiziliyor ve üretimde
+    // sunucunun dilimi `UTC`. Sabit olmasaydı ilk boya ile hidrasyon sonrası
+    // iki ayrı saat yazar, gece yarısını geçen kayıtlarda gün de kayardı.
+    //
+    // Testin ev dilimi zaten Europe/Istanbul olduğu için yukarıdaki tarih
+    // iddiaları sabit kaldırılsa da yeşil kalır; ısıran iddia bu.
+    const previous = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
+      renderSettings();
+
+      expect(screen.getByRole("region", { name: "Oturumlar ve cihazlar" })).toHaveTextContent(
+        "Son kullanım 6 Eyl 2026 15:00",
+      );
+      expect(screen.getByRole("region", { name: "Bildirim merkezi" })).toHaveTextContent(
+        "6 Eyl 2026 14:30",
+      );
+    } finally {
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
+    }
   });
 
   it("boş banka, bildirim ve oturum listelerini açıkça anlatır", () => {
