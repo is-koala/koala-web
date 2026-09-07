@@ -13,6 +13,7 @@ import {
 } from "@/applications/contract";
 import { ErrorState } from "@/components/states";
 import { formatDateTime, formatJobDate } from "@/lib/dates";
+import { safeImageUrl } from "@/lib/urls";
 
 type ApplicationListProps = {
   initialPage: WorkerApplicationPage;
@@ -195,17 +196,6 @@ function ApplicationCover({ application }: { application: WorkerApplication }) {
       style={{ backgroundImage: `url(${JSON.stringify(imageUrl)})` }}
     />
   );
-}
-
-function safeImageUrl(value: string | null): string | null {
-  if (!value) return null;
-  if (value.startsWith("/")) return value;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? value : null;
-  } catch {
-    return null;
-  }
 }
 
 function ApplicationEmpty({ filter }: { filter: ApplicationFilter }) {
