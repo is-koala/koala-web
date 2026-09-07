@@ -74,12 +74,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       {/*
         Kontenjan sayısı ve belirsizliği birlikte duruyor: sayı gösterilip
         `hiredCount` ile kabul kapısının ayrıştığı söylenmezse, "yer var"
-        yazan bir ilanda kabul beklenmedik biçimde reddedilebilir.
+        yazan bir ilanda kabul beklenmedik biçimde reddedilebilir. Kontenjan
+        hiç bildirilmemişse şerit **çizilmiyor**: sınırsız bir ilanda
+        gösterilecek bir doluluk yok.
       */}
-      <div className="job-headcount" role="status">
-        <strong>{headcount.summary}</strong>
-        {headcount.caveat ? <p className="field-hint">{headcount.caveat}</p> : null}
-      </div>
+      {headcount.summary ? (
+        <div className="job-headcount" role="status">
+          <strong>{headcount.summary}</strong>
+          {headcount.caveat ? <p className="field-hint">{headcount.caveat}</p> : null}
+        </div>
+      ) : null}
 
       <Link className="button button-secondary button-small" href={publishedJobPath(id)}>
         İlana dön

@@ -24,13 +24,18 @@ describe("ilan kontenjanı", () => {
     });
   });
 
-  it("kontenjan bildirilmemişse sınırsız sayar", () => {
-    // `JobDetailDto.headcount` null olabiliyor ve bu "sınırsız" demek; sıfır
-    // saymak ilanı kapalıymış gibi gösterirdi.
+  it("kontenjan bildirilmemişse sınırsız sayar ve özet yazmaz", () => {
+    // `JobDetailDto.headcount` null olabiliyor ve bu "sınırsız" demek
+    // (`JobApplicationManager.assertOpeningAvailable` null görünce hiç
+    // saymadan geçiyor); sıfır saymak ilanı kapalıymış gibi gösterirdi.
     const status = jobHeadcount({ headcount: null, hiredCount: 7 });
 
     expect(status).toMatchObject({ headcount: null, remaining: null, full: false });
     expect(status.caveat).toBeNull();
+    // Kontenjan yoksa doluluk özeti de yok: "7 kişi işe alındı" olmayan bir
+    // kotanın doluluğunu bildirirdi ve bilinmeyen üst sınır ile sayaç aynı
+    // görünürdü.
+    expect(status.summary).toBeNull();
   });
 
   it("kalan kontenjanın kesin olmadığını yazılı taşır", () => {

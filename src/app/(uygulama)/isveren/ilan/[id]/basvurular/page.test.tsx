@@ -113,10 +113,13 @@ describe("ilanın başvuru listesi sayfası", () => {
     expect(screen.getByText(/cevabını bekleyen teklifler de yer kaplıyor/i)).toBeVisible();
   });
 
-  it("kontenjan bildirilmemiş ilanda kalan sayı uydurmaz", async () => {
+  it("kontenjan bildirilmemiş ilanda şeridi hiç çizmez", async () => {
+    // `headcount: null` sınırsız demek, sıfır değil: backend'in kabul kapısı
+    // alanı null görünce hiç saymadan geçiyor. Olmayan bir kotanın doluluğunu
+    // yazmak "0 kişi işe alındı" ile "kontenjan yok"u ekranda aynı gösterirdi.
     render(await Page({ params: Promise.resolve({ id: jobId }) }));
 
-    expect(screen.getByText("0 kişi işe alındı")).toBeVisible();
+    expect(screen.queryByText(/kişi işe alındı/)).toBeNull();
     expect(screen.queryByText(/yer kaldı/)).toBeNull();
   });
 

@@ -13,7 +13,17 @@ export type HeadcountStatus = {
   /** Sınırsız ilanda `null`; hiç eksiye düşmez. */
   readonly remaining: number | null;
   readonly full: boolean;
-  readonly summary: string;
+  /**
+   * Kontenjan şeridinin metni; ilan sınırsızsa `null` ve şerit hiç çizilmiyor.
+   *
+   * `headcount` null olduğunda ortada bir kontenjan **yok**:
+   * `JobApplicationManager.assertOpeningAvailable` alanı null görünce hiç
+   * saymadan geçiyor. Böyle bir ilanda "0 kişi işe alındı" yazmak, olmayan
+   * bir kotanın doluluğunu bildirmek olurdu — bilinmeyen bir üst sınır ile
+   * sıfırlanmış bir sayaç ekranda aynı görünürdü. Şartname de takibi
+   * `headcount` bildirilmiş ilanlara bağlıyor (#37).
+   */
+  readonly summary: string | null;
   /**
    * Kalan sayının kesin olmadığı durumun yazılı hâli; kesin olduğunda `null`.
    *
@@ -42,7 +52,7 @@ export function jobHeadcount(input: {
       hiredCount,
       remaining: null,
       full: false,
-      summary: `${hiredCount} kişi işe alındı`,
+      summary: null,
       caveat: null,
     };
   }
