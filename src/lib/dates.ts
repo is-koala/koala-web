@@ -49,6 +49,30 @@ export function isFormattableDate(value: string): boolean {
 }
 
 /**
+ * Ekranın "içinde bulunduğumuz yıl" saydığı sayı — telif satırı gibi tek
+ * başına duran yerler için.
+ *
+ * `new Date().getFullYear()` yılı çalıştığı ortamın `TZ`'sinden okur. Üretimde
+ * sunucu kapsayıcıda `UTC` ile koşuyor, tarayıcı ise kullanıcının dilimini
+ * kullanıyor: 31 Aralık 21:00 UTC ile 1 Ocak 00:00 UTC arasındaki üç saat
+ * boyunca İstanbul'daki tarayıcı yeni yıla girmiş, sunucu girmemiş oluyor.
+ * Sunucunun çizdiği ilk HTML bir yıl, hidrasyondan sonrası başka bir yıl
+ * yazar ve React ikisini uzlaştıramaz.
+ *
+ * Biçimlendirici `en-US` ile kuruluyor çünkü buradan çıkan değer ekrana
+ * yazılan bir metin değil, `Number` ile okunan bir sayı: latin rakam
+ * kullanmayan bir yerelin yazdığı yıl sessizce `NaN`'a düşerdi.
+ */
+export function currentDisplayYear(): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      timeZone: displayTimeZone,
+    }).format(new Date()),
+  );
+}
+
+/**
  * İş takviminin tarihlerini yazar: "12 Eylül 2026".
  *
  * `startsAt` ve `endsAt` backend'den ofsetsiz `LocalDateTime` olarak geliyor

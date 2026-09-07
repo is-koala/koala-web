@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/brand/Wordmark";
+import { currentDisplayYear } from "@/lib/dates";
 import { legalNav, site } from "@/lib/site";
 
 export function SiteFooter() {
@@ -18,7 +19,7 @@ export function SiteFooter() {
           ))}
         </ul>
         <p className="copyright">
-          © {new Date().getFullYear()} {site.name}
+          © {currentDisplayYear()} {site.name}
         </p>
       </div>
     </footer>

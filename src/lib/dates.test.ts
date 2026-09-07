@@ -1,6 +1,12 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 
-import { formatDateTime, formatJobDate, isFormattableDate, monthName } from "./dates";
+import {
+  currentDisplayYear,
+  formatDateTime,
+  formatJobDate,
+  isFormattableDate,
+  monthName,
+} from "./dates";
 
 /** Sunucunun kendi saat dilimini taklit eden testler bunu kirletiyor. */
 const originalTimeZone = process.env.TZ;
@@ -8,6 +14,9 @@ const originalTimeZone = process.env.TZ;
 afterEach(() => {
   if (originalTimeZone === undefined) delete process.env.TZ;
   else process.env.TZ = originalTimeZone;
+  // Yıl testleri saati sahteleyerek kirletiyor; bırakılan sahte saat bu
+  // dosyanın geri kalanını değil, aynı işçide koşan başka dosyaları vurur.
+  vi.useRealTimers();
   vi.resetModules();
 });
 
@@ -62,6 +71,63 @@ describe("an biçimlendirme", () => {
     expect(isFormattableDate(instant)).toBe(true);
     expect(isFormattableDate("bozuk-tarih")).toBe(false);
     expect(isFormattableDate("")).toBe(false);
+  });
+});
+
+/**
+ * 31 Aralık 2026 21:30 UTC: İstanbul çoktan 1 Ocak 2027 00:30, sunucunun
+ * `UTC` saati hâlâ 2026. Üretimde yılda üç saat açık kalan pencere bu.
+ */
+const afterIstanbulNewYear = "2026-12-31T21:30:00Z";
+
+/**
+ * 31 Aralık 2026 11:00 UTC: İstanbul hâlâ 31 Aralık 2026 14:00 ama
+ * `Pacific/Kiritimati` (UTC+14) 1 Ocak 2027'ye geçmiş. Pencerenin ters yönü —
+ * sabit yalnız "geri kalanlar" için değil, "önden gidenler" için de gerek.
+ */
+const beforeIstanbulNewYear = "2026-12-31T11:00:00Z";
+
+describe("içinde bulunulan yıl", () => {
+  it("sıradan bir günde takvim yılını verir", () => {
+    vi.setSystemTime(new Date(instant));
+    expect(currentDisplayYear()).toBe(2026);
+  });
+
+  it("yıl sınırında sunucunun TZ'sinden bağımsız İstanbul yılını verir", async () => {
+    // Saat sahteleniyor: gerçek zamanda bu iddia yılda yalnız birkaç saat bir
+    // şey ölçer, geri kalan zaman her saat dilimi aynı yılı yazar ve test
+    // hiçbir şeyi bağlamadan yeşil kalır.
+    for (const [moment, expectedYear, hostileZones] of [
+      [afterIstanbulNewYear, 2027, ["UTC", "America/Los_Angeles"]],
+      [beforeIstanbulNewYear, 2026, ["Pacific/Kiritimati"]],
+    ] as const) {
+      vi.setSystemTime(new Date(moment));
+
+      for (const hostileZone of hostileZones) {
+        process.env.TZ = hostileZone;
+
+        // Denemenin uygulandığının kanıtı: `process.env.TZ` bir gün çalışma
+        // anında ICU'ya ulaşmaz olursa aşağıdaki iddialar sessizce ev
+        // dilimini — zaten Europe/Istanbul — ölçmeye başlar ve test yalan
+        // yere yeşil kalır.
+        expect(Intl.DateTimeFormat().resolvedOptions().timeZone, hostileZone).toBe(
+          hostileZone,
+        );
+
+        // Seçilen anın gerçekten ısırdığının kanıtı: düşman dilim bu anda
+        // başka bir yıl yazmıyorsa iddianın ayırt ettiği bir şey yok.
+        expect(new Date().getFullYear(), hostileZone).not.toBe(expectedYear);
+
+        expect(currentDisplayYear(), hostileZone).toBe(expectedYear);
+
+        // Modül yeniden değerlendiriliyor: biçimlendirici bir gün modül
+        // yüklenirken bir kez kurulursa, çalışma anında TZ değiştirmek onu
+        // yakalayamaz ve yukarıdaki satır yalan yere yeşil kalırdı.
+        vi.resetModules();
+        const reloaded = await import("./dates");
+        expect(reloaded.currentDisplayYear(), hostileZone).toBe(expectedYear);
+      }
+    }
   });
 });
 
