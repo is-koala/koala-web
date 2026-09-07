@@ -1,4 +1,5 @@
 import type { AssignmentStatus, PaymentStatus } from "@/assignments/contract";
+import { monthName } from "@/lib/dates";
 
 export const assignmentStatusLabel: Readonly<Record<AssignmentStatus, string>> = {
   PENDING_CONFIRMATION: "Onay bekliyor",
@@ -19,31 +20,16 @@ export const paymentStatusLabel: Readonly<Record<PaymentStatus, string>> = {
   UNKNOWN: "Ödeme durumu güncelleniyor",
 };
 
-const monthNames = [
-  "Ocak",
-  "Şubat",
-  "Mart",
-  "Nisan",
-  "Mayıs",
-  "Haziran",
-  "Temmuz",
-  "Ağustos",
-  "Eylül",
-  "Ekim",
-  "Kasım",
-  "Aralık",
-] as const;
-
 export function formatAssignmentDate(startsAt: string, endsAt: string): string {
   const start = localDateParts(startsAt);
   const end = localDateParts(endsAt);
   if (!start || !end) return startsAt;
 
-  const startLabel = `${start.day} ${monthNames[start.month - 1]} ${start.year}, ${start.time}`;
+  const startLabel = `${start.day} ${monthName(start.month)} ${start.year}, ${start.time}`;
   if (start.year === end.year && start.month === end.month && start.day === end.day) {
     return `${startLabel}–${end.time}`;
   }
-  return `${startLabel} – ${end.day} ${monthNames[end.month - 1]} ${end.year}, ${end.time}`;
+  return `${startLabel} – ${end.day} ${monthName(end.month)} ${end.year}, ${end.time}`;
 }
 
 export function formatMoney(amount: string, currency: string): string {

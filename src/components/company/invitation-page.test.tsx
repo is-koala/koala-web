@@ -67,7 +67,7 @@ describe("davet karşılama sayfası", () => {
     expect(screen.getByText("İlan yetkilisi")).toBeInTheDocument();
     // Davetin son kullanma tarihi yok: aylar önce gönderilmiş bir davet hâlâ
     // kabul edilebilir, bu yüzden tarih ekranda.
-    expect(screen.getByText(/1 Ağu 2026/)).toBeInTheDocument();
+    expect(screen.getByText("1 Ağu 2026 12:00")).toBeInTheDocument();
   });
 
   it("kabul ve reddi eşit görünürlükte sunar", () => {
@@ -132,7 +132,7 @@ describe("davet karşılama sayfası", () => {
 
     expect(screen.queryByRole("button", { name: "Daveti kabul et" })).not.toBeInTheDocument();
     expect(screen.getByText("Kabul edildi")).toBeInTheDocument();
-    expect(screen.getByText(/5 Ağu 2026/)).toBeInTheDocument();
+    expect(screen.getByText("5 Ağu 2026 15:30")).toBeInTheDocument();
   });
 
   it("ikinci cevaplamanın 409'unu ham hata yerine kendi metniyle gösterir", async () => {

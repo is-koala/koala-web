@@ -38,6 +38,9 @@ describe("atama iptal, iade ve uyuşmazlık görünümü", () => {
     expect(screen.getByText("İade işleniyor")).toBeVisible();
     expect(screen.getByText("925,00 ₺")).toBeVisible();
     expect(screen.getByText("Plan değişti")).toBeVisible();
+    // Tarih metni `@/lib/dates` ile paylaşılıyor: üç ekranın da aynı anı aynı
+    // yazması, biçimin tek yerden geldiğinin ekrandaki kanıtı.
+    expect(screen.getByText("6 Eyl 2026 13:00")).toBeVisible();
   });
 
   it("sıfır tutarlı iptali iade talebi gibi sunmaz", () => {

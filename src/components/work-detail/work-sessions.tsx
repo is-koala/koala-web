@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 import type { CheckpointKind, WorkDetail } from "@/assignments/work-detail";
+import { formatDateTime } from "@/lib/dates";
 
 import {
   canCheckIn,
-  formatDateTime,
   formatDuration,
   formatElapsed,
   openSession,

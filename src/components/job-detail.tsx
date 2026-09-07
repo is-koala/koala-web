@@ -1,23 +1,9 @@
+import { monthName } from "@/lib/dates";
 import type { FormAction } from "@/lib/form-state";
 import type { JobDetail, SalaryType } from "@/jobs/contract";
 import { jobApplicationsClosedReason } from "@/jobs/lifecycle";
 
 import { JobApplicationForm } from "./job-application-form";
-
-const monthNames = [
-  "Ocak",
-  "Şubat",
-  "Mart",
-  "Nisan",
-  "Mayıs",
-  "Haziran",
-  "Temmuz",
-  "Ağustos",
-  "Eylül",
-  "Ekim",
-  "Kasım",
-  "Aralık",
-] as const;
 
 export function JobDetailView({ job, applyAction }: { job: JobDetail; applyAction: FormAction }) {
   const employer = job.companyName ?? job.employerName;
@@ -100,7 +86,7 @@ function formatSchedule(startsAt: string, endsAt: string): string {
   const start = parseLocalTimestamp(startsAt);
   const end = parseLocalTimestamp(endsAt);
   if (!start || !end) return "Tarih bilgisi paylaşılmadı";
-  const date = `${start.day} ${monthNames[start.month - 1]} ${start.year}`;
+  const date = `${start.day} ${monthName(start.month)} ${start.year}`;
   return `${date}, ${start.time}–${end.time}`;
 }
 

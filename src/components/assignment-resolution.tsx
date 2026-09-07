@@ -6,6 +6,7 @@ import {
   type RefundStatus,
   type WorkerAssignmentResolution,
 } from "@/assignments/resolution";
+import { formatDateTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 
 export function AssignmentResolutionPanel({
@@ -73,7 +74,7 @@ function WorkerCancellationSummary({
       <p>{cancellation.reason}</p>
       <p>
         <strong>İptal zamanı:</strong>{" "}
-        <time dateTime={cancellation.cancelledAt}>{formatDate(cancellation.cancelledAt)}</time>
+        <time dateTime={cancellation.cancelledAt}>{formatDateTime(cancellation.cancelledAt)}</time>
       </p>
     </article>
   );
@@ -150,13 +151,13 @@ function CancellationSummary({
         </div>
         <div>
           <dt>İptal zamanı</dt>
-          <dd><time dateTime={cancellation.cancelledAt}>{formatDate(cancellation.cancelledAt)}</time></dd>
+          <dd><time dateTime={cancellation.cancelledAt}>{formatDateTime(cancellation.cancelledAt)}</time></dd>
         </div>
         {hasRefund ? (
           <div>
             <dt>İade tamamlanma</dt>
             <dd>{cancellation.refundCompletedAt
-              ? <time dateTime={cancellation.refundCompletedAt}>{formatDate(cancellation.refundCompletedAt)}</time>
+              ? <time dateTime={cancellation.refundCompletedAt}>{formatDateTime(cancellation.refundCompletedAt)}</time>
               : "Henüz tamamlanmadı"}</dd>
           </div>
         ) : null}
@@ -173,7 +174,7 @@ function DisputeSummary({ dispute }: { dispute: AssignmentDispute }) {
           <p className="eyebrow">Uyuşmazlık</p>
           <h3>{disputeStatusLabel(dispute.status)}</h3>
         </div>
-        <time dateTime={dispute.createdAt}>{formatDate(dispute.createdAt)}</time>
+        <time dateTime={dispute.createdAt}>{formatDateTime(dispute.createdAt)}</time>
       </div>
       <p>{dispute.reason}</p>
       {dispute.resolution ? (
@@ -226,14 +227,4 @@ function disputeResolutionLabel(resolution: NonNullable<AssignmentDispute["resol
     case "DISMISSED":
       return "Talep reddedildi";
   }
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Istanbul",
-  }).format(date);
 }

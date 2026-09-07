@@ -59,16 +59,6 @@ export function formatElapsed(checkInAt: string, now: number): string {
   return [hours, minutes, rest].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-export function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Istanbul",
-  }).format(date);
-}
-
 export function timesheetErrorMessage(errorCode: string, status: number): string {
   if (errorCode === "TIMESHEET_ALREADY_CHECKED_IN") {
     return "Zaten açık bir çalışma oturumu var. Güncel durum gösteriliyor.";
