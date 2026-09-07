@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 
 import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
-import { canCancelAssignment } from "@/assignments/resolution";
+import { canCancelAssignment, showsCancellationPreview } from "@/assignments/resolution";
 
 import { canOpenDispute, formatNotice } from "./presenters";
 
@@ -17,18 +17,22 @@ export function WorkSecondaryActions({
   onCommand: (command: WorkDetailCommand, notice?: string) => void;
 }) {
   const preview = detail.resolution.cancellationPreview;
+  // Görünürlük ile eylem ayrı: blok önizleme geldiği sürece duruyor, gönderme
+  // sunucunun `cancellableNow` kararıyla açılıyor. Kapalı bir blok olmayan bir
+  // bloktan farklı — işçi neden çekilemediğini ekranda okumalı.
+  const showsCancellation = showsCancellationPreview(detail.resolution);
   const canCancel = canCancelAssignment({
     assignmentStatus: detail.assignment.status,
     resolution: detail.resolution,
   });
   const canReview = detail.assignment.status === "COMPLETED";
   const showDispute = canOpenDispute(detail);
-  if (!canCancel && !showDispute && !canReview) return null;
+  if (!showsCancellation && !showDispute && !canReview) return null;
 
   return (
     <section className="work-detail-section work-secondary-actions" aria-labelledby="other-actions-heading">
       <h2 id="other-actions-heading">Diğer işlemler</h2>
-      {canCancel && preview ? (
+      {showsCancellation && preview ? (
         <details>
           <summary>İptal önizlemesi</summary>
           <div className="work-action-body">
@@ -44,6 +48,7 @@ export function WorkSecondaryActions({
               maxLength={1000}
               pending={pending}
               onSubmit={(reason) => onCommand({ type: "cancel", reason }, "Atama iptal edildi.")}
+              blockedReason={canCancel ? null : cancellationClosedReason}
             />
           </div>
         </details>
@@ -96,24 +101,48 @@ function ActionForm({
   maxLength,
   pending,
   onSubmit,
+  blockedReason = null,
 }: {
   label: string;
   button: string;
   maxLength: number;
   pending: boolean;
   onSubmit: (reason: string) => void;
+  /** Eylem kapalıysa nedeni; açıkken `null`. Kapalı form gizlenmiyor. */
+  blockedReason?: string | null;
 }) {
   const id = `reason-${maxLength}`;
+  const blocked = blockedReason !== null;
   return (
     <form className="form compact-form" onSubmit={(event) => submitReason(event, onSubmit)}>
       <div className="field">
         <label htmlFor={id}>{label}</label>
-        <textarea id={id} name="reason" required maxLength={maxLength} rows={4} />
+        <textarea id={id} name="reason" required maxLength={maxLength} rows={4} disabled={blocked} />
       </div>
-      <button className="button button-danger button-small" disabled={pending}>{button}</button>
+      <button className="button button-danger button-small" disabled={blocked || pending}>
+        {button}
+      </button>
+      {blockedReason ? <p className="muted">{blockedReason}</p> : null}
     </form>
   );
 }
+
+/**
+ * `cancellableNow: false` iken işçinin okuduğu neden.
+ *
+ * Sunucu bayrağı üç koşuldan biriyle düşürüyor
+ * (`CancellationManager.java:138-140`): atamanın durumu artık iptal edilebilir
+ * kümede değil, atamanın zaten bir iptal kaydı var, ya da açık bir uyuşmazlık
+ * var. Üçüncüsünde blok hiç çizilmiyor — gerekçesi bölümün üstündeki kalıcı
+ * şeritte yazılı; kalan ikisi işçiye aynı şeyi söylüyor: sunucudaki atama
+ * ekrandakinden yeni.
+ *
+ * İşverenin metni kopyalanmıyor. O ekran kesinti ve iade tutarını konuşuyor;
+ * işçinin gördüğü tek sayı başlangıca kalan süre ve yaptığı şey iptal etmek
+ * değil işten çekilmek.
+ */
+const cancellationClosedReason =
+  "Şu anda bu atamadan çekilemezsin: atama iptal edilmiş ya da durumu sen bakarken değişmiş olabilir. Sayfayı yenileyip güncel duruma bak.";
 
 function submitReason(
   event: FormEvent<HTMLFormElement>,
