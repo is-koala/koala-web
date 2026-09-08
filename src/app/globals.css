@@ -320,6 +320,10 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .job-filters { border: 1px solid var(--line); border-radius: 24px; background: var(--surface); padding: 24px; display: flex; flex-direction: column; gap: 18px; }
 .job-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
 .job-filter-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.job-filter-badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.job-filter-badges a { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: .8rem; font-weight: 750; text-decoration: none; }
+.job-filter-badges a:hover { border-color: var(--ink); }
+.job-filter-badges a span { font-size: 1rem; line-height: 1; color: var(--muted); }
 .job-result-count { margin: 28px 0 14px; color: var(--muted); font-size: .88rem; font-weight: 750; }
 .job-search > .state-card { margin-top: 28px; }
 .job-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }

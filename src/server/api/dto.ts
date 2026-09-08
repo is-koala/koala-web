@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { AddressPrecision, SalaryType } from "@/jobs/contract";
-import type { JobEmployerType } from "@/jobs/employer-jobs";
+import { employerTypeValues, type JobEmployerType } from "@/jobs/employer-jobs";
 
 /**
  * Backend yanıtlarını ekranın modeline daraltan ortak parçalar.
@@ -79,6 +79,6 @@ function isMember<T extends string>(values: ReadonlySet<T>, value: string): valu
 /** `SalaryType`; `UNKNOWN` kümede yok, `known` onu zaten yedek olarak yazıyor. */
 export const salaryTypes = new Set<SalaryType>(["HOURLY", "DAILY"]);
 
-export const employerTypes = new Set<JobEmployerType>(["INDIVIDUAL", "COMPANY"]);
+export const employerTypes = new Set<JobEmployerType>(employerTypeValues);
 
 export const addressPrecisions = new Set<AddressPrecision>(["APPROXIMATE", "EXACT"]);

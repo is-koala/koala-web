@@ -1,9 +1,10 @@
 import { isUuid } from "@/lib/identifiers";
-import { jobTypeValues, type JobType } from "@/lib/job-posting";
+import { jobTypeValues, salaryTypeValues, type JobType } from "@/lib/job-posting";
+import { formatMoney } from "@/lib/money";
 import type { BackendPage } from "@/lib/pagination";
 
 import { jobPageSize, type AddressPrecision, type SalaryType } from "./contract";
-import type { JobEmployerType } from "./employer-jobs";
+import { employerTypeValues, type JobEmployerType } from "./employer-jobs";
 import type { JobStatus } from "./lifecycle";
 
 /**
@@ -110,12 +111,20 @@ const maxJobSearchPage = 100_000;
  * alanı sessizce yok saymıyor, 400 `PAGE_SORT_FIELD_NOT_ALLOWED` ile
  * reddediyor. Yani ham girdiyi taşımak, rastgele parametrelerle gelen bir
  * arama motoru botuna SSR sayfasını çökertmek olurdu.
+ *
+ * Liste mobilin `JobSortOption` enum'uyla **birebir** aynı beş seçimi sunuyor
+ * (`newest`, `startDateAsc`, `salaryDesc`, `salaryAsc`, `titleAsc`) — aynı ucu
+ * çağıran iki istemcinin farklı sıralamalar sunması, aynı aramanın platforma
+ * göre başka sıralanması demek olurdu. Dört alanın **sekiz** yönünü birden
+ * açmak da bu yüzden yapılmadı: sunucu izin verse de mobilde karşılığı olmayan
+ * üç seçim eklerdi.
  */
 export const jobSortOptions = [
   { id: "en-yeni", label: "Önce en yeni", field: "createdAt,desc" },
   { id: "baslangic", label: "Önce yaklaşan iş", field: "startDateTime,asc" },
   { id: "ucret-azalan", label: "Ücreti yüksek olan", field: "salary,desc" },
   { id: "ucret-artan", label: "Ücreti düşük olan", field: "salary,asc" },
+  { id: "baslik", label: "Başlığa göre (A-Z)", field: "title,asc" },
 ] as const;
 
 export type JobSortId = (typeof jobSortOptions)[number]["id"];
@@ -134,6 +143,57 @@ export const salaryTypeLabels: Readonly<Record<SalaryType, string>> = {
   DAILY: "günlük",
   UNKNOWN: "",
 };
+
+/**
+ * Süzgeç değeri olarak ücret ve işveren tipi.
+ *
+ * `contract.ts`'teki `SalaryType` ve `employer-jobs.ts`'teki `JobEmployerType`
+ * `UNKNOWN` da taşıyor; o değer bir **yanıtın** okunamamış olması, bir seçim
+ * değil. Süzgeç tipleri bu yüzden dar: `?ucret-tipi=UNKNOWN` sunucuda karşılığı
+ * olmayan bir enum sabiti ve Spring'in bind aşamasında 400 üretirdi.
+ */
+export type JobSalaryTypeFilter = (typeof salaryTypeValues)[number];
+export type JobEmployerTypeFilter = (typeof employerTypeValues)[number];
+
+/** Ücret tipi süzgecinin kutu ve rozet metni; kartın birim ekiyle aynı sözcükler. */
+export const salaryTypeFilterLabels: Readonly<Record<JobSalaryTypeFilter, string>> = {
+  HOURLY: "Saatlik ücret",
+  DAILY: "Günlük ücret",
+};
+
+/** İşveren tipi; kartın `employerLabel` metinleriyle aynı sözcükler. */
+export const employerTypeFilterLabels: Readonly<Record<JobEmployerTypeFilter, string>> = {
+  INDIVIDUAL: "Bireysel ilan",
+  COMPANY: "Şirket ilanı",
+};
+
+/**
+ * Üç durumlu süzgeçlerin adres çubuğundaki karşılığı.
+ *
+ * `sigorta` ve `deneyim` seçilmemiş, "evet" ve "hayır" olmak üzere **üç** hâl
+ * taşıyor ve sunucu da öyle okuyor: `JobDao.searchIds` içinde
+ * `(:insuranceRequired is null or j.insuranceRequired = :insuranceRequired)`,
+ * yani `null` "süzme" demek ve `false` **sigortasız ilanları** süzüyor. İkisi
+ * aynı şey değil, o yüzden alan bir onay kutusu değil: onay kutusu işaretsizken
+ * gönderilmiyor ve "farketmez" ile "hayır"ı aynı hâle katlardı.
+ */
+const booleanFilterValues: Readonly<Record<string, boolean>> = { evet: true, hayir: false };
+
+/** Kanonik `boolean`'ı yeniden adres çubuğu değerine çevirir. */
+function booleanFilterParam(value: boolean): string {
+  return value ? "evet" : "hayir";
+}
+
+/**
+ * Üç durumlu süzgecin form kutusundaki seçili değeri; `""` "farketmez".
+ *
+ * Boş dize seçildiğinde tarayıcı parametreyi boş gönderiyor,
+ * `parseJobSearchParams` onu tanımıyor ve alan `null` kalıyor — yani
+ * "farketmez" seçeneği süzgeci gerçekten kaldırıyor.
+ */
+export function booleanFilterChoice(value: boolean | null): string {
+  return value === null ? "" : booleanFilterParam(value);
+}
 
 /**
  * İlçe listesinin hangi ile ait olduğunu taşıyan gizli alan.
@@ -159,6 +219,12 @@ export const jobSearchParamNames = {
   cityId: "il",
   districtId: "ilce",
   type: "tur",
+  salaryType: "ucret-tipi",
+  employerType: "isveren",
+  minSalary: "min-ucret",
+  maxSalary: "max-ucret",
+  insuranceRequired: "sigorta",
+  experienceRequired: "deneyim",
   sort: "sirala",
 } as const;
 
@@ -171,6 +237,23 @@ export type JobSearchQuery = {
   readonly cityId: string | null;
   readonly districtId: string | null;
   readonly type: JobType | null;
+  readonly salaryType: JobSalaryTypeFilter | null;
+  readonly employerType: JobEmployerTypeFilter | null;
+  /**
+   * Ücret aralığı; `Job.salary` ile karşılaştırılıyor, ekrandaki `pricing`
+   * tutarıyla değil.
+   *
+   * `number` değil **dize**: sunucu tarafı `BigDecimal` ve `jobs.salary`
+   * sütunu `NUMERIC(19,2)`. Değeri `Number`'a çevirmek, `money.ts`'in bütün
+   * modülde kaçındığı şeyi tam da süzgecin sınırında yapardı — 19 haneli bir
+   * ondalık kayan noktada yuvarlanır ve kullanıcının yazdığı sınır sunucuya
+   * başka bir sayı olarak giderdi.
+   */
+  readonly minSalary: string | null;
+  readonly maxSalary: string | null;
+  /** Üç durumlu: `null` süzme, `true` gerekli, `false` gerekli **değil**. */
+  readonly insuranceRequired: boolean | null;
+  readonly experienceRequired: boolean | null;
   readonly sort: JobSortId;
 };
 
@@ -195,6 +278,12 @@ export function parseJobSearchParams(raw: RawSearchParams): JobSearchQuery {
     cityId,
     districtId: districtParam(raw, cityId),
     type: typeParam(raw[jobSearchParamNames.type]),
+    salaryType: enumParam(raw[jobSearchParamNames.salaryType], salaryTypeValues),
+    employerType: enumParam(raw[jobSearchParamNames.employerType], employerTypeValues),
+    minSalary: salaryParam(raw[jobSearchParamNames.minSalary]),
+    maxSalary: salaryParam(raw[jobSearchParamNames.maxSalary]),
+    insuranceRequired: booleanParam(raw[jobSearchParamNames.insuranceRequired]),
+    experienceRequired: booleanParam(raw[jobSearchParamNames.experienceRequired]),
     sort: sortParam(raw[jobSearchParamNames.sort]),
   };
 }
@@ -217,10 +306,21 @@ function districtParam(raw: RawSearchParams, cityId: string | null): string | nu
 /**
  * Backend'in `JobSearchCriteriaDto` ve `Pageable` alanları.
  *
- * Mobil aynı ucu aynı adlarla çağırıyor (`JobService.search`): `query`,
- * `categoryId`, `type`, `page`, `size`. Web ayrıca `cityId`, `districtId` ve
- * `sort` gönderiyor — üçü de sunucunun desteklediği ama mobilin henüz
- * kullanmadığı alanlar, uydurma değil.
+ * Adlar `JobSearchCriteriaDto`'dan birebir alınıyor ve mobil (`JobSearchQuery.
+ * toQueryParameters`) aynı ucu aynı adlarla çağırıyor: `query`, `categoryId`,
+ * `cityId`, `districtId`, `type`, `salaryType`, `employerType`, `minSalary`,
+ * `maxSalary`, `insuranceRequired`, `experienceRequired`, `sort`. Uydurma alan
+ * yok; iki istemci artık sunucunun aynı yüzeyini kullanıyor.
+ *
+ * Tek fark sınırlayıcı kutu (`minLatitude`…`maxLongitude`): mobilde harita
+ * var, webde henüz yok (is-koala/koala-web#20 kapsam dışı bırakıyor). Bu bir
+ * ayrışma değil, webde henüz olmayan bir ekran — alan sunucuda duruyor ve
+ * harita geldiğinde aynı adlarla bağlanacak.
+ *
+ * Aralığın ters olması (`minSalary > maxSalary`) burada düzeltilmiyor.
+ * Sunucu onu boş bir sonuçla yanıtlıyor ve boş sonuç ekranı süzgeci gevşetmeyi
+ * zaten söylüyor; sınırları sessizce yer değiştirmek, kullanıcının sormadığı
+ * bir soruyu cevaplayıp sonucu onun yazdığı aralıkmış gibi göstermek olurdu.
  */
 export function backendJobSearchParams(query: JobSearchQuery): URLSearchParams {
   const params = new URLSearchParams();
@@ -229,6 +329,16 @@ export function backendJobSearchParams(query: JobSearchQuery): URLSearchParams {
   if (query.cityId !== null) params.set("cityId", query.cityId);
   if (query.districtId !== null) params.set("districtId", query.districtId);
   if (query.type !== null) params.set("type", query.type);
+  if (query.salaryType !== null) params.set("salaryType", query.salaryType);
+  if (query.employerType !== null) params.set("employerType", query.employerType);
+  if (query.minSalary !== null) params.set("minSalary", query.minSalary);
+  if (query.maxSalary !== null) params.set("maxSalary", query.maxSalary);
+  if (query.insuranceRequired !== null) {
+    params.set("insuranceRequired", String(query.insuranceRequired));
+  }
+  if (query.experienceRequired !== null) {
+    params.set("experienceRequired", String(query.experienceRequired));
+  }
 
   // Kullanıcıya 1 tabanlı sayı gösteriliyor, sunucu 0 tabanlı istiyor.
   params.set("page", String(query.page - 1));
@@ -245,6 +355,21 @@ export function jobSearchParams(query: JobSearchQuery): URLSearchParams {
   if (query.cityId !== null) params.set(jobSearchParamNames.cityId, query.cityId);
   if (query.districtId !== null) params.set(jobSearchParamNames.districtId, query.districtId);
   if (query.type !== null) params.set(jobSearchParamNames.type, query.type);
+  if (query.salaryType !== null) params.set(jobSearchParamNames.salaryType, query.salaryType);
+  if (query.employerType !== null) {
+    params.set(jobSearchParamNames.employerType, query.employerType);
+  }
+  if (query.minSalary !== null) params.set(jobSearchParamNames.minSalary, query.minSalary);
+  if (query.maxSalary !== null) params.set(jobSearchParamNames.maxSalary, query.maxSalary);
+  if (query.insuranceRequired !== null) {
+    params.set(jobSearchParamNames.insuranceRequired, booleanFilterParam(query.insuranceRequired));
+  }
+  if (query.experienceRequired !== null) {
+    params.set(
+      jobSearchParamNames.experienceRequired,
+      booleanFilterParam(query.experienceRequired),
+    );
+  }
   if (query.sort !== defaultJobSort) params.set(jobSearchParamNames.sort, query.sort);
   if (query.page > 1) params.set(jobSearchParamNames.page, String(query.page));
   return params;
@@ -258,6 +383,17 @@ export function jobSearchParams(query: JobSearchQuery): URLSearchParams {
  * sayıda URL demek ve hepsi indekslenirse Google yinelenen içerik görür.
  * Sıralama ve sayfa buraya dahil değil: ikisi de aynı sonuç kümesinin farklı
  * dilimleri, ayrı bir içerik değil.
+ *
+ * **Altı yeni süzgeç neden buraya girdi, canonical'dan silinmedi.** Ayrım tek
+ * bir soruya bakıyor: URL sonuç **kümesini** mi değiştiriyor, yoksa aynı
+ * kümenin dizilişini mi? `sirala` ikincisi, o yüzden `canonicalPath` onu
+ * silip beş adresi tek adreste topluyor. `ucret-tipi`, `isveren`,
+ * `min-ucret`, `max-ucret`, `sigorta` ve `deneyim` birincisi — altısı da
+ * `JobDao.searchIds` içinde ayrı bir `where` koşulu, yani sunucudan **başka
+ * ilanlar** dönüyor. Onları da canonical'dan silmek, içeriği süzülmüş bir
+ * sayfaya "asıl adresim süzgeçsiz liste" dedirtirdi: Google'ın gördüğü sayfa
+ * ile işaret ettiği adres aynı ilanları taşımazdı. Bu yüzden süzgeçli URL
+ * `noindex, follow` alıyor ve canonical **hiç** taşımıyor.
  */
 export function hasJobFilters(query: JobSearchQuery): boolean {
   return (
@@ -265,8 +401,159 @@ export function hasJobFilters(query: JobSearchQuery): boolean {
     query.categoryId !== null ||
     query.cityId !== null ||
     query.districtId !== null ||
-    query.type !== null
+    query.type !== null ||
+    query.salaryType !== null ||
+    query.employerType !== null ||
+    query.minSalary !== null ||
+    query.maxSalary !== null ||
+    query.insuranceRequired !== null ||
+    query.experienceRequired !== null
   );
+}
+
+/** Rozet olarak çizilen, tek tek silinebilen bir süzgeç seçimi. */
+export type ActiveJobFilter = {
+  readonly id: string;
+  readonly label: string;
+  /** Yalnız bu seçim düşürülmüş sorgu; rozetin bağlantısı buradan üretiliyor. */
+  readonly without: JobSearchQuery;
+};
+
+/**
+ * Seçili süzgeçler, tek tek silinebilir hâlde.
+ *
+ * On bir süzgeç bir formda birikince kullanıcı hangilerinin açık olduğunu
+ * kutulara tek tek bakarak çıkarmak zorunda kalıyor; hele biri ekranın altında
+ * kalmışsa boş sonucun sebebi görünmez oluyor. Rozetler o durumu tek satırda
+ * okunur yapıyor.
+ *
+ * Her rozet **sayfayı da sıfırlıyor**: bir süzgeç kalkınca sonuç kümesi
+ * değişiyor ve kullanıcıyı eski kümenin yedinci sayfasında bırakmak, süzgeci
+ * gevşetmenin karşılığı olarak boş bir ekran gösterirdi.
+ *
+ * İl rozeti ilçeyi de düşürüyor: ilçeler ilin kimliğiyle çekiliyor, yani il
+ * kalkınca ilçe seçimi sahipsiz kalırdı.
+ *
+ * Sıralama listede **yok**: `hasJobFilters` onu bir süzgeç saymıyor ve bir
+ * sıralama her zaman seçili — silinebilir bir rozet olarak çizmek, "kaldır"
+ * düğmesi aslında "varsayılana dön" demek olurdu.
+ */
+export function activeJobFilters(
+  query: JobSearchQuery,
+  options: JobFilterOptions,
+): readonly ActiveJobFilter[] {
+  const filters: ActiveJobFilter[] = [];
+  const drop = (patch: Partial<JobSearchQuery>): JobSearchQuery => ({
+    ...query,
+    ...patch,
+    page: 1,
+  });
+
+  if (query.text !== null) {
+    filters.push({ id: "ara", label: `“${query.text}” araması`, without: drop({ text: null }) });
+  }
+  if (query.categoryId !== null) {
+    filters.push({
+      id: "kategori",
+      label: optionName(options.categories, query.categoryId, "Seçili kategori"),
+      without: drop({ categoryId: null }),
+    });
+  }
+  if (query.cityId !== null) {
+    filters.push({
+      id: "il",
+      label: optionName(options.cities, query.cityId, "Seçili il"),
+      without: drop({ cityId: null, districtId: null }),
+    });
+  }
+  if (query.districtId !== null) {
+    filters.push({
+      id: "ilce",
+      label: optionName(options.districts, query.districtId, "Seçili ilçe"),
+      without: drop({ districtId: null }),
+    });
+  }
+  if (query.type !== null) {
+    filters.push({ id: "tur", label: jobTypeLabels[query.type], without: drop({ type: null }) });
+  }
+  if (query.salaryType !== null) {
+    filters.push({
+      id: "ucret-tipi",
+      label: salaryTypeFilterLabels[query.salaryType],
+      without: drop({ salaryType: null }),
+    });
+  }
+  if (query.employerType !== null) {
+    filters.push({
+      id: "isveren",
+      label: employerTypeFilterLabels[query.employerType],
+      without: drop({ employerType: null }),
+    });
+  }
+  if (query.minSalary !== null) {
+    filters.push({
+      id: "min-ucret",
+      label: `En az ${formatFilterSalary(query.minSalary)}`,
+      without: drop({ minSalary: null }),
+    });
+  }
+  if (query.maxSalary !== null) {
+    filters.push({
+      id: "max-ucret",
+      label: `En çok ${formatFilterSalary(query.maxSalary)}`,
+      without: drop({ maxSalary: null }),
+    });
+  }
+  if (query.insuranceRequired !== null) {
+    filters.push({
+      id: "sigorta",
+      label: insuranceFilterLabels[booleanFilterParam(query.insuranceRequired)],
+      without: drop({ insuranceRequired: null }),
+    });
+  }
+  if (query.experienceRequired !== null) {
+    filters.push({
+      id: "deneyim",
+      label: experienceFilterLabels[booleanFilterParam(query.experienceRequired)],
+      without: drop({ experienceRequired: null }),
+    });
+  }
+  return filters;
+}
+
+/** Sigorta süzgecinin üç hâlinden ikisi; "farketmez" bir rozet çizmiyor. */
+export const insuranceFilterLabels: Readonly<Record<string, string>> = {
+  evet: "Sigortalı çalışma",
+  hayir: "Sigortasız ilanlar",
+};
+
+export const experienceFilterLabels: Readonly<Record<string, string>> = {
+  evet: "Deneyim isteniyor",
+  hayir: "Deneyim istenmiyor",
+};
+
+/**
+ * Sözlükten adı çözer; sözlük okunamamışsa genel bir etiket kalır.
+ *
+ * `readJobFilterOptions` başarısız olduğunda sayfa süzgeç kutularını boş
+ * bırakıp listeyi çizmeye devam ediyor. Rozet o durumda kimliği ekrana
+ * basmamalı ama **kaybolmamalı** da: adında ne yazdığı bilinmeyen bir süzgeç
+ * hâlâ sonucu daraltıyor ve kullanıcının onu kaldırabilmesi gerekiyor.
+ */
+function optionName(options: readonly ReferenceOption[], id: string, fallback: string): string {
+  return options.find((option) => option.id === id)?.name ?? fallback;
+}
+
+/**
+ * Rozetteki ücret sınırı.
+ *
+ * Kartla aynı biçimlendirici: süzgeç `Job.salary` ile karşılaştırılıyor ve o
+ * alan `PricingManager` tarafından bugün yalnız `TRY` üretiliyor, yani rozet
+ * kartta okunan tutarla aynı dilde konuşuyor. Ayrı bir biçimlendirme yazmak
+ * aynı sayıyı iki farklı görünümde gösterirdi.
+ */
+function formatFilterSalary(amount: string): string {
+  return formatMoney(amount, "TRY");
 }
 
 /**
@@ -319,6 +606,46 @@ function uuidParam(value: string | string[] | undefined): string | null {
 function typeParam(value: string | string[] | undefined): JobType | null {
   const raw = single(value);
   return jobTypeValues.find((type) => type === raw) ?? null;
+}
+
+/** Beyaz listedeki enum sabiti; dışındaki her şey seçilmemiş sayılır. */
+function enumParam<T extends string>(
+  value: string | string[] | undefined,
+  values: readonly T[],
+): T | null {
+  const raw = single(value);
+  return values.find((option) => option === raw) ?? null;
+}
+
+function booleanParam(value: string | string[] | undefined): boolean | null {
+  const raw = single(value);
+  // `raw in booleanFilterValues` prototip zincirini de sayardı: `?sigorta=
+  // constructor` `true` verirdi ve değer `undefined` olarak sunucuya çıkardı.
+  return raw !== null && Object.hasOwn(booleanFilterValues, raw) ? booleanFilterValues[raw] : null;
+}
+
+/**
+ * Ücret sınırı; işaretsiz ondalık, en çok iki basamak.
+ *
+ * Kalıp `jobs.salary` sütununun kendisinden türüyor: `NUMERIC(19, 2)`, yani
+ * ölçek 2 ve tam kısım en çok on yedi hane. Fazlası sunucuda karşılaştırılacak
+ * bir tutar değil ve `BigDecimal`'e giden yolda gereksiz risk.
+ *
+ * Eksi değer de düşüyor. Sunucu onu kabul eder ve boş bir sonuç döndürürdü ama
+ * `?min-ucret=-1` bir seçim değil, bozuk bir girdi: ekranda "En az -1 ₺" diye
+ * bir rozet çizmek kullanıcıya yapmadığı bir tercihi geri okurdu.
+ *
+ * Ondalık ayracı yalnız nokta. Türkçe yazımdaki virgül bilerek kabul
+ * edilmiyor: `1,50` ile `1.500` aynı tuşlarla yazılıyor ve hangisinin
+ * kastedildiğini uydurmak, kullanıcının koymadığı bir sınırı sunucuya
+ * göndermek olurdu. Formdaki alan `type="number"`, yani tarayıcı zaten nokta
+ * gönderiyor.
+ */
+const salaryPattern = /^\d{1,17}(?:\.\d{1,2})?$/;
+
+function salaryParam(value: string | string[] | undefined): string | null {
+  const raw = single(value)?.trim();
+  return raw !== undefined && salaryPattern.test(raw) ? raw : null;
 }
 
 function sortParam(value: string | string[] | undefined): JobSortId {

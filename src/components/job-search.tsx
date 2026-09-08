@@ -2,15 +2,22 @@ import Link from "next/link";
 
 import { LinkPending } from "@/components/link-pending";
 import { EmptyState } from "@/components/states";
+import { employerTypeValues } from "@/jobs/employer-jobs";
 import {
+  activeJobFilters,
+  booleanFilterChoice,
   districtCityParamName,
+  employerTypeFilterLabels,
+  experienceFilterLabels,
   hasJobFilters,
+  insuranceFilterLabels,
   isPageOutOfRange,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
   jobTypeLabels,
   lastJobPage,
+  salaryTypeFilterLabels,
   salaryTypeLabels,
   type JobFilterOptions,
   type JobSearchPage,
@@ -20,7 +27,7 @@ import {
 } from "@/jobs/search";
 import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
 import { formatJobDate } from "@/lib/dates";
-import { jobTypeValues } from "@/lib/job-posting";
+import { jobTypeValues, salaryTypeValues } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
 import { safeImageUrl } from "@/lib/urls";
 
@@ -100,21 +107,78 @@ export function JobSearchForm({
           </>
         ) : null}
 
-        <div className="field">
-          <label htmlFor="job-filter-type">İlan türü</label>
-          <select
-            id="job-filter-type"
-            name={jobSearchParamNames.type}
-            defaultValue={query.type ?? ""}
-          >
-            <option value="">Tüm türler</option>
-            {jobTypeValues.map((type) => (
-              <option key={type} value={type}>
-                {jobTypeLabels[type]}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ChoiceField
+          id="job-filter-type"
+          label="İlan türü"
+          name={jobSearchParamNames.type}
+          placeholder="Tüm türler"
+          choices={jobTypeValues.map((type) => ({ value: type, label: jobTypeLabels[type] }))}
+          selected={query.type}
+        />
+
+        <ChoiceField
+          id="job-filter-salary-type"
+          label="Ücret tipi"
+          name={jobSearchParamNames.salaryType}
+          placeholder="Saatlik ve günlük"
+          choices={salaryTypeValues.map((value) => ({
+            value,
+            label: salaryTypeFilterLabels[value],
+          }))}
+          selected={query.salaryType}
+        />
+
+        <ChoiceField
+          id="job-filter-employer-type"
+          label="İlanı veren"
+          name={jobSearchParamNames.employerType}
+          placeholder="Herkes"
+          choices={employerTypeValues.map((value) => ({
+            value,
+            label: employerTypeFilterLabels[value],
+          }))}
+          selected={query.employerType}
+        />
+
+        <SalaryField
+          id="job-filter-min-salary"
+          label="En az ücret"
+          name={jobSearchParamNames.minSalary}
+          placeholder="Alt sınır yok"
+          value={query.minSalary}
+        />
+
+        <SalaryField
+          id="job-filter-max-salary"
+          label="En çok ücret"
+          name={jobSearchParamNames.maxSalary}
+          placeholder="Üst sınır yok"
+          value={query.maxSalary}
+        />
+
+        {/*
+          Üç durumlu, onay kutusu değil: sunucu `null` (süzme), `true` ve
+          `false`'ı ayrı okuyor ve işaretsiz bir onay kutusu hiç gönderilmediği
+          için "farketmez" ile "hayır" tek hâle katlanırdı — sigortasız işleri
+          arayan kullanıcı onları hiç süzemezdi.
+        */}
+        <ChoiceField
+          id="job-filter-insurance"
+          label="Sigorta"
+          name={jobSearchParamNames.insuranceRequired}
+          placeholder="Farketmez"
+          choices={booleanChoices(insuranceFilterLabels)}
+          selected={booleanFilterChoice(query.insuranceRequired)}
+        />
+
+        <ChoiceField
+          id="job-filter-experience"
+          label="Deneyim"
+          name={jobSearchParamNames.experienceRequired}
+          placeholder="Farketmez"
+          choices={booleanChoices(experienceFilterLabels)}
+          selected={booleanFilterChoice(query.experienceRequired)}
+        />
 
         <div className="field">
           <label htmlFor="job-filter-sort">Sıralama</label>
@@ -138,7 +202,128 @@ export function JobSearchForm({
           </Link>
         ) : null}
       </div>
+
+      <ActiveFilterBadges query={query} options={options} />
     </form>
+  );
+}
+
+/**
+ * Seçili süzgeçler, tek tek silinebilir.
+ *
+ * Her rozet gerçek bir `<a href>`: JavaScript kapalıyken de bir süzgeç
+ * kaldırılabilmeli, ve düğme + istemci durumu bunu kapatırdı. Form
+ * gönderilmesi de gerekmiyor — bağlantı zaten doğru adresi taşıyor.
+ *
+ * Bağlantı `<form>`'un içinde duruyor ve bu geçerli: iç içe geçen şey bir form
+ * değil, bir liste. Rozetlerin süzgeç kutularının yanında durması gerekiyor
+ * çünkü ikisi aynı şeyi iki farklı okunurlukta söylüyor — kutular ne
+ * seçilebileceğini, rozetler ne seçili olduğunu.
+ */
+function ActiveFilterBadges({
+  query,
+  options,
+}: {
+  query: JobSearchQuery;
+  options: JobFilterOptions;
+}) {
+  const filters = activeJobFilters(query, options);
+  if (filters.length === 0) return null;
+
+  return (
+    <ul className="job-filter-badges" aria-label="Seçili süzgeçler">
+      {filters.map((filter) => (
+        <li key={filter.id}>
+          {/*
+            Görünen metin süzgecin kendisi, erişilebilir ad ise ne yapacağını
+            söylüyor: ekran okuyucuda tek başına "Kadıköy" bir bağlantı adı
+            olarak nereye gittiğini anlatmıyor.
+          */}
+          <Link href={jobSearchHref(filter.without)} aria-label={`${filter.label} süzgecini kaldır`}>
+            {filter.label}
+            <span aria-hidden="true">×</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Üç durumlu süzgecin iki yazılı seçeneği; üçüncüsü `placeholder`. */
+function booleanChoices(labels: Readonly<Record<string, string>>): readonly Choice[] {
+  return [
+    { value: "evet", label: labels.evet },
+    { value: "hayir", label: labels.hayir },
+  ];
+}
+
+type Choice = { value: string; label: string };
+
+function ChoiceField({
+  id,
+  label,
+  name,
+  placeholder,
+  choices,
+  selected,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  placeholder: string;
+  choices: readonly Choice[];
+  selected: string | null;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} name={name} defaultValue={selected ?? ""}>
+        <option value="">{placeholder}</option>
+        {choices.map((choice) => (
+          <option key={choice.value} value={choice.value}>
+            {choice.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Ücret sınırı kutusu.
+ *
+ * `type="number"`: tarayıcı ondalık ayracı olarak **nokta** gönderiyor, yani
+ * Türkçe klavyede virgülle yazılan bir tutar da sunucuya `JobSearchCriteriaDto`
+ * `BigDecimal`'inin okuyabileceği biçimde gidiyor. `step` iki basamak, çünkü
+ * `jobs.salary` sütunu `NUMERIC(19, 2)`.
+ */
+function SalaryField({
+  id,
+  label,
+  name,
+  placeholder,
+  value,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  placeholder: string;
+  value: string | null;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label} (₺)</label>
+      <input
+        id={id}
+        name={name}
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        defaultValue={value ?? ""}
+        placeholder={placeholder}
+      />
+    </div>
   );
 }
 
