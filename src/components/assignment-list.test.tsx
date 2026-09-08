@@ -132,6 +132,14 @@ describe("çalışan atama listesi", () => {
     expect(respondAction).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
+    // Diyalog gövdeyi de kuruyor: karar adı, atama kimliği ve sayfa numarası
+    // olmadan action ne yapacağını bilemez. Alanlar diyaloğun ortak kabuğuna
+    // taşındı ve düşmeleri buradan başka hiçbir yerde görünmezdi.
+    const submitted = respondAction.mock.calls[0][1];
+    expect(submitted.get("decision")).toBe("accept");
+    expect(submitted.get("assignmentId")).toBe(baseAssignment.id);
+    expect(submitted.get("currentPage")).toBe("0");
+
     expect(await screen.findByText("Onaylandı")).toBeVisible();
     expect(screen.getByText("İşverenin ödemesi bekleniyor.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Kabul et" })).toBeNull();
