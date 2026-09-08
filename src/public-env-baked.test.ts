@@ -48,27 +48,17 @@ function unsupportedPublicReads(file: string, contents: string): string[] {
   }
 
   function visit(node: ts.Node) {
-    if (
-      ts.isVariableDeclaration(node) &&
-      node.initializer &&
-      isProcessEnv(node.initializer)
-    ) {
-      report(
-        ts.isObjectBindingPattern(node.name)
-          ? "process.env destructuring"
-          : "process.env alias",
-      );
-    }
-    if (
-      ts.isElementAccessExpression(node) &&
-      isProcessEnv(node.expression) &&
-      !allowedHelperDefault(node)
-    ) {
-      report(
-        ts.isStringLiteral(node.argumentExpression)
-          ? node.argumentExpression.text
-          : "computed process.env access",
-      );
+    if (isProcessEnv(node)) {
+      const access = node.parent;
+      const directStatic =
+        ts.isPropertyAccessExpression(access) && access.expression === node;
+      const helperDefault =
+        ts.isElementAccessExpression(access) &&
+        access.expression === node &&
+        allowedHelperDefault(access);
+      if (!directStatic && !helperDefault) {
+        report("non-static process.env access");
+      }
     }
     ts.forEachChild(node, visit);
   }
@@ -201,6 +191,18 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
     [
       "template anahtarlı erişim",
       'void process.env[`${"NEXT_PUBLIC_TEMPLATE"}`];',
+    ],
+    [
+      "parametre varsayılanında env aliası",
+      "function read(env = process.env) { return env.NEXT_PUBLIC_PARAMETER; }",
+    ],
+    [
+      "sonradan env aliası atama",
+      "let env; env = process.env; void env.NEXT_PUBLIC_ASSIGNED;",
+    ],
+    [
+      "destructuring assignment",
+      "let NEXT_PUBLIC_ASSIGNED; ({ NEXT_PUBLIC_ASSIGNED } = process.env);",
     ],
   ])("inline edilmeyen %s biçimini reddediyor", (_, source) => {
     expect(unsupportedPublicReads("fixture.ts", source)).not.toEqual([]);
