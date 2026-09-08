@@ -14,6 +14,7 @@ import {
   readTalentPool,
   readTalentPoolMembership,
   removeFromTalentPool,
+  respondToApplication,
   saveToTalentPool,
 } from "./employer-review";
 
@@ -320,6 +321,137 @@ describe("işveren başvuru inceleme backend modülü", () => {
     await saveToTalentPool(workerId, "");
 
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ body: JSON.stringify({}) });
+  });
+
+  it("kabulü redden ayrı bir gövdeyle gönderir ve atama kimliğini geri taşır", async () => {
+    // `JobApplicationDetailDto.assignment` yalnız kabul yanıtında dolu ve
+    // başvuru listesi ucu (`JobApplicantDto`) atama taşımıyor: kimlik burada
+    // okunmazsa bu ekrandan bir daha okunamıyor.
+    const assignmentId = "44444444-4444-4444-8444-444444444444";
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({
+        id: applicationId,
+        status: "ACCEPTED",
+        assignment: { id: assignmentId, status: "PENDING_CONFIRMATION" },
+      })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+    ).resolves.toEqual({ decision: "ACCEPTED", assignmentId });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.example.test/job-applications/${applicationId}/respond`,
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ status: "ACCEPTED" }),
+    });
+  });
+
+  it("kabul gövdesine red gerekçesi koymaz", async () => {
+    // Sunucu alanı kabulde hiç okumuyor (`respondToApplication` onu yalnız
+    // `else` dalında yazıyor); gönderilen bir gerekçe kaydı kirletirdi.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({ id: applicationId, status: "ACCEPTED", assignment: null })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await respondToApplication({
+      applicationId,
+      decision: "ACCEPTED",
+      rejectionReason: "yanlışlıkla yazıldı",
+    });
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      body: JSON.stringify({ status: "ACCEPTED" }),
+    });
+  });
+
+  it("red gerekçesini kırpıp gövdeye koyar, atama beklemez", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({ id: applicationId, status: "REJECTED" })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      respondToApplication({
+        applicationId,
+        decision: "REJECTED",
+        rejectionReason: "  Deneyim aradığımız alanda değil.  ",
+      }),
+    ).resolves.toEqual({ decision: "REJECTED", assignmentId: null });
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      body: JSON.stringify({
+        status: "REJECTED",
+        rejectionReason: "Deneyim aradığımız alanda değil.",
+      }),
+    });
+  });
+
+  it("kararı gönderilen değerden değil sunucunun yanıtından okur", async () => {
+    // Sunucu son sözü söyleyen taraf: gönderilen değeri varsaymak, yanıtın
+    // başka bir şey söylediği bir durumda ekrana yanlış kararı yazdırırdı.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({ id: applicationId, status: "REJECTED" })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+    ).resolves.toMatchObject({ decision: "REJECTED" });
+  });
+
+  it("tanınmayan durumu kabule düşürmez", async () => {
+    // Kabul dalı ekranda "tam iş adresi ona açıldı" yazıyor ve atama
+    // bağlantısı çiziyor. Okunamayan bir durumu kabule saymak, ADR-0003
+    // uyarınca geri alınamaz olan bir ifşanın **olduğunu iddia etmek** olurdu:
+    // bu ekranın söyleyebileceği en pahalı yanlış.
+    for (const status of ["SHORTLISTED", "APPLIED", "WITHDRAWN"]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+        jsonResponse(200, envelope({ id: applicationId, status })),
+      ));
+
+      await expect(
+        respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+      ).resolves.toMatchObject({ decision: "UNKNOWN" });
+    }
+  });
+
+  it("durumu hiç gelmeyen yanıtta da kabul demez", async () => {
+    // `data: null` ve alanı eksik gövde aynı yere düşüyor: ortada okunmuş bir
+    // karar yok.
+    for (const body of [null, { id: applicationId }, { id: applicationId, status: null }]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(body))));
+
+      await expect(
+        respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+      ).resolves.toEqual({ decision: "UNKNOWN", assignmentId: null });
+    }
+  });
+
+  it("409 kontenjan reddini kodu ile yukarı taşır", async () => {
+    // Ekran metni `errorCode` ile seçiliyor; kod kaybolursa kart nötr yedeğe
+    // düşer ve kullanıcı kontenjanın dolduğunu hiç okuyamaz.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(409, {
+        success: false,
+        httpStatus: "CONFLICT",
+        errorCode: "JOB_APPLICATION_JOB_HEADCOUNT_FULL",
+        errorCategory: "CONFLICT",
+        message: "Bu ilanın kontenjanı dolu.",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+    ).rejects.toMatchObject({
+      status: 409,
+      errorCode: "JOB_APPLICATION_JOB_HEADCOUNT_FULL",
+    });
   });
 
   it("aday ile konuşmayı işçi kimliğini sorguya koyarak açar", async () => {

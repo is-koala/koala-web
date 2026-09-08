@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { isValidElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
@@ -128,14 +129,62 @@ describe("ilanın başvuru listesi sayfası", () => {
     readJobApplicants.mockResolvedValue(applicants);
     readTalentPoolMembership.mockResolvedValue(new Set([workerId]));
 
-    render(await JobApplicantsPanel({ jobId }));
+    render(await JobApplicantsPanel({ jobId, headcount: 2, hiredCount: 1 }));
 
     expect(applicantReview).toHaveBeenCalledTimes(1);
     expect(applicantReview.mock.calls[0][0]).toMatchObject({
       jobId,
       applicants,
       inTalentPool: [workerId],
+      // Kontenjan sayıları burada durmazsa kabul kapısı hiç kurulamaz ve
+      // kullanıcı geri alınamaz sandığı bir düğmeden 409 yer.
+      headcount: 2,
+      hiredCount: 1,
     });
+  });
+
+  it("kontenjan sayılarını sayfadan başvuru listesine geçirir", async () => {
+    // İki hop var — sayfa panele, panel listeye — ve ilki kopsaydı bütün
+    // ekran testleri yeşil kalır, kapı yalnız gerçek sayfada ölürdü.
+    fetchJobDetail.mockResolvedValue({
+      id: jobId,
+      title: "Hafta sonu garson",
+      status: "OPEN",
+      headcount: 2,
+      hiredCount: 2,
+    });
+
+    const tree = await Page({ params: Promise.resolve({ id: jobId }) });
+
+    expect(panelProps(tree)).toEqual({ jobId, headcount: 2, hiredCount: 2 });
+  });
+
+  it("kabul kapısını `hiredCount`tan türetilmiş bir bayrağa indirgemez", async () => {
+    // `hiredCount` yalnız {CONFIRMED, IN_PROGRESS, COMPLETED} sayıyor; kabul
+    // kapısı `PENDING_CONFIRMATION` teklifleri de yer kaplıyor sayıyor. Sayfa
+    // `jobHeadcount(...).full` geçirseydi, tek yeri bekleyen bir teklifte olan
+    // ilanda panel "yer var" duyar ve kapıyı açık bırakırdı.
+    fetchJobDetail.mockResolvedValue({
+      id: jobId,
+      title: "Hafta sonu garson",
+      status: "OPEN",
+      headcount: 1,
+      hiredCount: 0,
+    });
+
+    const props = panelProps(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(props).toEqual({ jobId, headcount: 1, hiredCount: 0 });
+    expect(props).not.toHaveProperty("headcountFull");
+  });
+
+  it("kontenjanı bildirilmemiş ilanda sınırsızlığı olduğu gibi taşır", async () => {
+    // `headcount: null` sınırsız ilan: `assertOpeningAvailable` alanı null
+    // görünce hiç saymadan geçiyor. Sıfıra düşürmek olmayan bir kotayı dolu
+    // gösterirdi.
+    const tree = await Page({ params: Promise.resolve({ id: jobId }) });
+
+    expect(panelProps(tree)).toEqual({ jobId, headcount: null, hiredCount: 0 });
   });
 
   it("başvurular okunamadığında hata kartı çizer", async () => {
@@ -151,9 +200,28 @@ describe("ilanın başvuru listesi sayfası", () => {
     );
     readTalentPoolMembership.mockResolvedValue(new Set<string>());
 
-    render(await JobApplicantsPanel({ jobId }));
+    render(await JobApplicantsPanel({ jobId, headcount: null, hiredCount: 0 }));
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(applicantReview).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Sayfanın `JobApplicantsPanel`'e verdiği prop'lar.
+ *
+ * Panel bir `Suspense` sınırının altında ve kendisi async: `render` onu
+ * çözmeden yedeği çiziyor, yani ekrandan okunamıyor. Ağaçtaki element yine de
+ * prop'larını taşıyor ve kontenjan kararının sayfadan çıktığı tek yer orası.
+ */
+function panelProps(node: ReactNode): Record<string, unknown> | null {
+  if (Array.isArray(node)) {
+    return node.reduce<Record<string, unknown> | null>(
+      (found, child) => found ?? panelProps(child as ReactNode),
+      null,
+    );
+  }
+  if (!isValidElement(node)) return null;
+  if (node.type === JobApplicantsPanel) return node.props as Record<string, unknown>;
+  return panelProps((node.props as { children?: ReactNode }).children ?? null);
+}

@@ -20,6 +20,7 @@ import { enterShell } from "@/server/session/viewer";
 
 import {
   applicantConversationAction,
+  applicantDecisionAction,
   applicantDossierAction,
   applicantTalentPoolAction,
 } from "./actions";
@@ -89,8 +90,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         İlana dön
       </Link>
 
+      {/*
+        Panele **sayı** geçiyor, `headcount.full` değil: o bayrak `hiredCount`tan
+        türüyor ve kabul kapısının saydığı kümeyi (`SLOT_OCCUPYING_STATUSES`)
+        eksik okuyor. Kapı, başvuru listesini gören katmanda kuruluyor
+        (`acceptanceHeadcount`).
+      */}
       <Suspense fallback={<LoadingState label="Başvurular yükleniyor" />}>
-        <JobApplicantsPanel jobId={id} />
+        <JobApplicantsPanel jobId={id} headcount={job.headcount} hiredCount={job.hiredCount} />
       </Suspense>
     </section>
   );
@@ -102,7 +109,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
  * İkisi birlikte okunuyor çünkü kart üzerindeki "havuzda mı" rozeti onlarsız
  * çizilemez; ayrı ayrı beklemek ekranı iki kez sıçratırdı.
  */
-export async function JobApplicantsPanel({ jobId }: { jobId: string }) {
+export async function JobApplicantsPanel({
+  jobId,
+  headcount,
+  hiredCount,
+}: {
+  jobId: string;
+  /** İlanın kaç kişilik olduğu; `null` ise sınırsız. */
+  headcount: number | null;
+  /** İşe alınmış sayısı; kabul kapısının okuduğu kümenin alt sınırı. */
+  hiredCount: number;
+}) {
   const loaded = await Promise.all([readJobApplicants(jobId), readTalentPoolMembership()])
     .then(([applicants, inTalentPool]) => ({ applicants, inTalentPool }))
     .catch((error: unknown) => {
@@ -119,9 +136,12 @@ export async function JobApplicantsPanel({ jobId }: { jobId: string }) {
       jobId={jobId}
       applicants={loaded.applicants}
       inTalentPool={[...loaded.inTalentPool]}
+      headcount={headcount}
+      hiredCount={hiredCount}
       dossierAction={applicantDossierAction}
       talentPoolAction={applicantTalentPoolAction}
       conversationAction={applicantConversationAction}
+      decisionAction={applicantDecisionAction}
     />
   );
 }

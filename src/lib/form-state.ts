@@ -27,3 +27,41 @@ export type FormAction = (state: FormState, formData: FormData) => Promise<FormS
 export function fieldError(state: FormState, name: string): string | undefined {
   return state.status === "error" ? state.fieldErrors?.[name] : undefined;
 }
+
+/**
+ * Reddin ekrana taşınan tek gövdesi.
+ *
+ * `failureView` bunu döndürüyor ve her durum birliğinin hata dalı aynı iki
+ * alanı yazıyordu. Dallanma `errorCode` ile yapılıyor, mesaj metniyle asla
+ * (`AGENTS.md`); çift olarak durmaları o kuralı her kopyada yeniden yazma
+ * riskini taşıyordu.
+ */
+export type ActionFailure = {
+  readonly errorCode: string;
+  readonly httpStatus: number;
+};
+
+/** `useActionState` imzası; durumun kendisini çağıran seçiyor. */
+export type ActionFor<State> = (state: State, formData: FormData) => Promise<State>;
+
+/**
+ * Kimliğini kendi içinde taşıyan eylem durumu.
+ *
+ * Bir liste tek bir `useActionState` paylaştığında cevabın **hangi satıra**
+ * ait olduğu başka türlü okunamıyor: durum kimliği taşımazsa ikinci satıra
+ * verilen cevap ilkinin altına çizilir. Aynı üçlü — birlik, `idle` sabiti,
+ * action imzası — bu yüzden ekran ekran kopyalanıyordu.
+ *
+ * Kimliğin **adı** ekrana bırakılıyor (`"userId"`, `"applicationId"`): tek bir
+ * `key` alanı okunurluğu düşürür ve iki farklı kimliği aynı isimde toplardı.
+ *
+ * `FormState`'in yerini almıyor. O birlik kimliksiz ve alan bazlı hata metni
+ * taşıyor; formlar onu, satır başına cevap veren listeler bunu kullanır.
+ */
+export type KeyedActionState<Key extends string, Done> =
+  | { readonly status: "idle" }
+  | (Readonly<Record<Key, string>> & Done & { readonly status: "done" })
+  | (Readonly<Record<Key, string>> & ActionFailure & { readonly status: "error" });
+
+/** Her durum birliğinin başlangıcı; `idle` dalı hepsinde aynı. */
+export const idleActionState = { status: "idle" } as const;

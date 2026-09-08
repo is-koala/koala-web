@@ -4,18 +4,21 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import {
+  isApplicationDecision,
   isTalentPoolOperation,
   type ApplicantDossierState,
+  type ApplicationDecisionState,
   type ConversationState,
   type TalentPoolState,
 } from "@/applications/employer-review";
-import { talentPoolPath } from "@/lib/app-routes";
+import { jobApplicantsPath, talentPoolPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import {
   openApplicantConversation,
   readApplicantDossier,
   readTalentPoolMembership,
   removeFromTalentPool,
+  respondToApplication,
   saveToTalentPool,
 } from "@/server/applications/employer-review";
 import { failureView, textField } from "@/server/form";
@@ -82,6 +85,65 @@ export async function applicantTalentPoolAction(
   } catch (error) {
     unstable_rethrow(error);
     return { status: "error", ...failureView(error), ...known(state) };
+  }
+}
+
+/**
+ * Başvurunun kabul ya da reddi.
+ *
+ * Ekranın tek geri alınamaz eylemi. Kabul bir atama kuruyor, ilanın
+ * kontenjanından bir yer tüketiyor ve ADR-0003 uyarınca tam iş adresini
+ * çalışana açıyor; sunucu ikinci bir karara `JOB_APPLICATION_ALREADY_RESPONDED`
+ * (409) ile karşılık veriyor. Kart bu yüzden kararı **kendi durumunda**
+ * kilitliyor ve eylem sunucudan gelen kimliği geri taşıyor.
+ *
+ * Yetki denetimi burada tekrar edilmiyor ve edilmemeli: backend yetkisiz
+ * çağırana başvurunun varlığını sızdırmadan 404 veriyor
+ * (`assertCurrentUserIsEmployerOf`). İstemcide bir kopya kural yazmak, iki
+ * tarafın ayrışabileceği ikinci bir doğruluk kaynağı olurdu.
+ */
+export async function applicantDecisionAction(
+  _state: ApplicationDecisionState,
+  formData: FormData,
+): Promise<ApplicationDecisionState> {
+  void _state;
+  await requireSessionForCurrentPath();
+
+  const applicationId = textField(formData, "applicationId");
+  const jobId = textField(formData, "jobId");
+  const decision = textField(formData, "decision");
+  const rejectionReason = textField(formData, "rejectionReason");
+
+  if (!isUuid(applicationId) || !isUuid(jobId) || !isApplicationDecision(decision)) {
+    return {
+      status: "error",
+      applicationId: isUuid(applicationId) ? applicationId : "",
+      errorCode: "VALIDATION_FAILED",
+      httpStatus: 400,
+    };
+  }
+
+  // Gerekçe sözleşmede isteğe bağlı (`AnswerApplicationDto` üzerinde `@Size`
+  // bile yok) ama #80 onu zorunlu tutuyor: adayın okuyacağı tek açıklama bu ve
+  // boş bırakılan alan sunucuda `null` olarak kalıcılaşırdı.
+  if (decision === "REJECTED" && rejectionReason.trim() === "") {
+    return {
+      status: "error",
+      applicationId,
+      errorCode: "DECISION_REASON_REQUIRED",
+      httpStatus: 400,
+    };
+  }
+
+  try {
+    const outcome = await respondToApplication({ applicationId, decision, rejectionReason });
+    // Liste sunucudan iniyor: tazelenmezse aynı kart bir sonraki gezinmede
+    // yine `APPLIED` görünürdü.
+    revalidatePath(jobApplicantsPath(jobId));
+    return { status: "done", applicationId, outcome };
+  } catch (error) {
+    unstable_rethrow(error);
+    return { status: "error", applicationId, ...failureView(error) };
   }
 }
 
