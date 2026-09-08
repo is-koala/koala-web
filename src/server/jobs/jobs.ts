@@ -6,16 +6,11 @@ import type {
   JobCategory,
   PricingBreakdown,
 } from "@/lib/job-posting";
-import {
-  jobPageSize,
-  type JobApplicationReceipt,
-  type JobDetail as PublicJobDetail,
-} from "@/jobs/contract";
+import { jobPageSize, type JobApplicationReceipt } from "@/jobs/contract";
 import type { EmployerJob, EmployerJobPage, JobSort } from "@/jobs/employer-jobs";
 import { jobStatuses } from "@/jobs/lifecycle";
 import { emptyBackendPage } from "@/lib/pagination";
 import {
-  addressPrecisions,
   clean,
   employerTypes,
   known,
@@ -27,11 +22,17 @@ import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
 /**
- * İlan uçlarının sunucu tarafı.
+ * İlan uçlarının **oturumlu** sunucu tarafı.
  *
  * Tarayıcı `api.iskoala.com` ile hiç konuşmuyor (ADR-0011); bu modül BFF'in
  * ilan yüzeyi ve yalnız `apiRequest` üzerinden gidiyor, yani süresi dolmuş
  * erişim tokenı sessizce yenileniyor.
+ *
+ * Herkese açık okumalar burada **değil**: onlar oturum taşımamak zorunda ve
+ * `public-jobs.ts` içinde duruyorlar. Ayrım dosya sınırında, çünkü
+ * `src/server/server-only.test.ts` ham `apiFetch` iznini dosya adına göre
+ * veriyor — bu dosyanın bir gün oraya kayması, yenilemenin oturumlu uçlarda
+ * sessizce devre dışı kalması demek olurdu.
  */
 
 /** `IndividualJobDto`'nun bu akışta okunan parçası. */
@@ -208,26 +209,6 @@ function jobPath(jobId: string): string {
   return `${backendPaths.jobs}/${encodeURIComponent(jobId)}`;
 }
 
-type JobDetailDto = {
-  id?: string | null;
-  title?: string | null;
-  description?: string | null;
-  duties?: string | null;
-  dressCode?: string | null;
-  category?: { name?: string | null } | null;
-  company?: { name?: string | null } | null;
-  creator?: { firstName?: string | null; lastName?: string | null } | null;
-  salaryType?: string | null;
-  startDateTime?: string | null;
-  endDateTime?: string | null;
-  pricing?: { workerPayout?: string | null; currency?: string | null } | null;
-  insuranceRequired?: boolean;
-  experienceRequired?: boolean;
-  address?: { displayAddress?: string | null } | null;
-  addressPrecision?: string | null;
-  status?: string | null;
-};
-
 type JobApplicationDto = {
   id?: string | null;
 };
@@ -275,15 +256,6 @@ function toEmployerJob(dto: JobSummaryDto): EmployerJob {
   };
 }
 
-export async function readJobDetail(jobId: string): Promise<PublicJobDetail | null> {
-  // Yanıt oturum sahibine göre kesin veya yaklaşık adres taşıyabilir; kullanıcılar
-  // arasında önbellek paylaşmak gizli adresi yanlış kişiye gösterebilirdi.
-  const dto = await apiRequest<JobDetailDto | null>(`${backendPaths.jobs}/${jobId}`, {
-    cache: "no-store",
-  });
-  return dto === null ? null : toJobDetail(dto);
-}
-
 export async function createJobApplication(
   jobId: string,
   notes?: string,
@@ -296,29 +268,3 @@ export async function createJobApplication(
   return dto === null ? null : { id: dto.id ?? "" };
 }
 
-function toJobDetail(dto: JobDetailDto): PublicJobDetail {
-  const employerName = [dto.creator?.firstName, dto.creator?.lastName]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .join(" ");
-
-  return {
-    id: dto.id ?? "",
-    title: dto.title ?? "",
-    description: clean(dto.description),
-    duties: clean(dto.duties),
-    dressCode: clean(dto.dressCode),
-    categoryName: clean(dto.category?.name),
-    companyName: clean(dto.company?.name),
-    employerName: employerName || null,
-    salaryType: known(dto.salaryType, salaryTypes),
-    startsAt: dto.startDateTime ?? "",
-    endsAt: dto.endDateTime ?? "",
-    workerPayout: clean(dto.pricing?.workerPayout),
-    currency: clean(dto.pricing?.currency),
-    insuranceRequired: dto.insuranceRequired === true,
-    experienceRequired: dto.experienceRequired === true,
-    location: clean(dto.address?.displayAddress),
-    addressPrecision: known(dto.addressPrecision, addressPrecisions),
-    status: known(dto.status, jobStatuses),
-  };
-}

@@ -13,7 +13,6 @@ import {
   createCompanyJob,
   createJobApplication,
   fetchJobDetail,
-  readJobDetail,
   readMyJobs,
 } from "./jobs";
 
@@ -29,7 +28,7 @@ vi.mock("next/headers", async () => {
   };
 });
 
-describe("ilan ayrıntısı ve başvuru BFF sözleşmesi", () => {
+describe("ilan yönetimi ve başvurunun oturumlu BFF sözleşmesi", () => {
   beforeEach(() => {
     vi.stubEnv("API_URL", "https://api.example.test");
     vi.stubEnv("APP_VERSION", "1.4.0");
@@ -41,59 +40,6 @@ describe("ilan ayrıntısı ve başvuru BFF sözleşmesi", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-  });
-
-  it("ilanı sunucu sözleşmesinden, adres kesinliğini ve fiyat anlık görüntüsünü koruyarak okur", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(200, envelope(jobDetailDto())),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(readJobDetail(jobId)).resolves.toEqual({
-      id: jobId,
-      title: "Etkinlik görevlisi",
-      description: "Festival alanında misafir karşılama.",
-      duties: "Bilet kontrolü ve yönlendirme",
-      dressCode: "Siyah kıyafet",
-      categoryName: "Etkinlik",
-      companyName: "Koala Etkinlik",
-      employerName: "Ayşe Yıldız",
-      salaryType: "DAILY",
-      startsAt: "2026-09-12T09:00:00",
-      endsAt: "2026-09-12T18:00:00",
-      workerPayout: "1250.00",
-      currency: "TRY",
-      insuranceRequired: true,
-      experienceRequired: false,
-      location: "Kadıköy, İstanbul",
-      addressPrecision: "APPROXIMATE",
-      status: "OPEN",
-    });
-
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(`https://api.example.test/jobs/${jobId}`);
-    expect(init).toMatchObject({ method: "GET", cache: "no-store" });
-    expect(init.headers).toBeInstanceOf(Headers);
-  });
-
-  it("ilanın durumunu başvuru yüzeyine taşır", async () => {
-    // Başvuru formunun çizilip çizilmeyeceğine ilanın durumu karar veriyor;
-    // alan modele girmezse kapatılmış ilan da başvuru almaya devam eder.
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(200, envelope({ ...jobDetailDto(), status: "CANCELLED" })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(readJobDetail(jobId)).resolves.toMatchObject({ status: "CANCELLED" });
-  });
-
-  it("durum alanı hiç gelmezse ilanı kapalı saymaz", async () => {
-    const dto = jobDetailDto();
-    delete (dto as { status?: unknown }).status;
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(dto)));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(readJobDetail(jobId)).resolves.toMatchObject({ status: "UNKNOWN" });
   });
 
   it("başvuru gövdesinde yalnız dolu notu taşır", async () => {
@@ -370,37 +316,3 @@ function jobSummaryDto() {
   };
 }
 
-function jobDetailDto() {
-  return {
-    id: jobId,
-    title: "Etkinlik görevlisi",
-    description: "Festival alanında misafir karşılama.",
-    duties: "Bilet kontrolü ve yönlendirme",
-    dressCode: "Siyah kıyafet",
-    position: "Karşılama",
-    category: { id: "category-1", name: "Etkinlik", code: "EVENT" },
-    employerType: "COMPANY",
-    type: "ONE_TIME",
-    salaryType: "DAILY",
-    salary: 1500,
-    pricing: {
-      pricingVersion: "2026-09",
-      currency: "TRY",
-      workerPayout: "1250.00",
-      serviceFeeRate: "0.20",
-      serviceFeeAmount: "250.00",
-      employerTotal: "1500.00",
-    },
-    insuranceRequired: true,
-    experienceRequired: false,
-    startDateTime: "2026-09-12T09:00:00",
-    endDateTime: "2026-09-12T18:00:00",
-    status: "OPEN",
-    address: { displayAddress: "Kadıköy, İstanbul" },
-    addressPrecision: "APPROXIMATE",
-    creator: { firstName: "Ayşe", lastName: "Yıldız" },
-    company: { name: "Koala Etkinlik" },
-    headcount: 4,
-    hiredCount: 1,
-  };
-}
