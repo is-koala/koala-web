@@ -198,6 +198,7 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .assignment-dialog-facts div { padding: 14px 16px; border-radius: 14px; background: var(--surface); }
 .assignment-dialog-facts dt { color: var(--muted); font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
 .assignment-dialog-facts dd { margin: 4px 0 0; font-weight: 750; overflow-wrap: anywhere; }
+.assignment-dialog > .muted { margin: 16px 0 0; }
 .assignment-dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .earnings-page { display: flex; flex-direction: column; gap: 24px; }
 .earnings-page > .lede { margin-bottom: 0; }
