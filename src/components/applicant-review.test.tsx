@@ -11,29 +11,35 @@ import { ApplicantReview } from "./applicant-review";
 
 const jobId = "11111111-1111-4111-8111-111111111111";
 
+/** Hiçbir şey yapmayan action; eylemin çağrıldığını ölçmek yeterli olduğunda. */
+const idleAction = async (state: unknown, formData: FormData) => {
+  void state;
+  void formData;
+  return { status: "idle" } as const;
+};
+
 function renderReview(overrides: Partial<Parameters<typeof ApplicantReview>[0]> = {}) {
-  const idle = async (state: unknown, formData: FormData) => {
-    void state;
-    void formData;
-    return { status: "idle" } as const;
-  };
+  const idle = idleAction;
   const dossierAction = vi.fn(idle);
   const talentPoolAction = vi.fn(idle);
   const conversationAction = vi.fn(idle);
+  const decisionAction = vi.fn(idle);
 
   render(
     <ApplicantReview
       jobId={jobId}
       applicants={[applicant("a", "APPLIED")]}
       inTalentPool={[]}
+      headcountFull={false}
       dossierAction={dossierAction}
       talentPoolAction={talentPoolAction}
       conversationAction={conversationAction}
+      decisionAction={decisionAction}
       {...overrides}
     />,
   );
 
-  return { dossierAction, talentPoolAction, conversationAction };
+  return { dossierAction, talentPoolAction, conversationAction, decisionAction };
 }
 
 describe("işveren aday inceleme listesi", () => {
@@ -285,6 +291,308 @@ function dossier(overrides: Partial<ApplicantDossier> = {}): ApplicantDossier {
     ...overrides,
   };
 }
+
+describe("başvuru kabul/red karar akışı", () => {
+  it("kabul diyaloğu ADR-0003 adres ifşasını, kontenjanı ve geri alınamazlığı yazar", async () => {
+    // Kabul edildiği an atama kuruluyor ve tam iş adresi çalışana açılıyor
+    // (`ApplicationDecisionIT.bothAcceptedWorkersSeeTheFullAddress...`:
+    // `addressPrecision` `APPROXIMATE`'ten `EXACT`'e geçiyor). İşveren bunu
+    // karar anında okumazsa geri alınamaz bir ifşayı sonradan öğrenir.
+    const user = userEvent.setup();
+    renderReview();
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Tam iş adresi açılır")).toBeInTheDocument();
+    expect(within(dialog).getByText(/sokak, bina ve\s+kapı numarasıyla tam adresi/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/kontenjanından bir yer tükenir/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Karar geri alınamaz")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Kabulü onayla" })).toBeInTheDocument();
+  });
+
+  it("kabul onayı ACCEPTED gövdesini gönderir ve gerekçe taşımaz", async () => {
+    const user = userEvent.setup();
+    const { decisionAction } = renderReview();
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(decisionAction).toHaveBeenCalledTimes(1);
+    const form = decisionAction.mock.calls[0][1] as FormData;
+    expect(form.get("decision")).toBe("ACCEPTED");
+    expect(form.get("applicationId")).toBe("a");
+    expect(form.get("jobId")).toBe(jobId);
+    expect(form.get("rejectionReason")).toBeNull();
+  });
+
+  it("kabul onaylandığında onay düğmesi ekrandan kalkar", async () => {
+    // Diyalog açık kalsaydı, aynı düğme ikinci kez basılabilir ve sunucudan
+    // 409 dönerdi.
+    const user = userEvent.setup();
+    renderReview();
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Kabulü onayla" })).toBeNull();
+    // Aynı düğümün gerçekten çizildiğini ölçen pozitif iddia: kart hâlâ
+    // ekranda ve karar bölümü duruyor.
+    expect(screen.getByRole("article")).toBeInTheDocument();
+  });
+
+  it("red formu gerekçeyi zorunlu tutar ve REJECTED gövdesi gönderir", async () => {
+    const user = userEvent.setup();
+    const { decisionAction } = renderReview();
+
+    const card = screen.getByRole("article");
+    const reason = within(card).getByLabelText("Red gerekçesi");
+    expect(reason).toBeRequired();
+
+    await user.type(reason, "Tarih uymuyor.");
+    await user.click(within(card).getByRole("button", { name: "Reddi gönder" }));
+
+    expect(decisionAction).toHaveBeenCalledTimes(1);
+    const form = decisionAction.mock.calls[0][1] as FormData;
+    expect(form.get("decision")).toBe("REJECTED");
+    expect(form.get("rejectionReason")).toBe("Tarih uymuyor.");
+  });
+
+  it("cevap beklenirken ikinci tıklama sunucuya ikinci kararı göndermez", async () => {
+    // Çift tıklama: kabul ve red geri döndürülemez, ve sunucu ikinciyi 409 ile
+    // reddediyor. Düğme bekleme boyunca kapalı olmazsa kullanıcı hatayı
+    // kararını verdikten sonra görür.
+    const user = userEvent.setup();
+    let release = () => {};
+    const decisionAction = vi.fn(
+      () =>
+        new Promise<{ status: "idle" }>((resolve) => {
+          release = () => resolve({ status: "idle" });
+        }),
+    );
+    renderReview({ decisionAction });
+
+    const card = screen.getByRole("article");
+    await user.type(within(card).getByLabelText("Red gerekçesi"), "Tarih uymuyor.");
+    const send = within(card).getByRole("button", { name: "Reddi gönder" });
+    await user.click(send);
+
+    try {
+      expect(decisionAction).toHaveBeenCalledTimes(1);
+      expect(send).toBeDisabled();
+      await user.click(send);
+      expect(decisionAction).toHaveBeenCalledTimes(1);
+    } finally {
+      // Bir iddia düşse de eylem serbest bırakılmalı: askıda kalan söz,
+      // dosyadaki sonraki testlere çözülmemiş bir React geçişi olarak
+      // taşınıp onları da düşürüyor ve kusurun yerini okunmaz hâle getiriyor.
+      release();
+    }
+  });
+
+  it("karar verilmiş kartta ikinci karar hiç sunulmaz, nedeni yazılı durur", async () => {
+    // `JOB_APPLICATION_ALREADY_RESPONDED`: sunucu ikinci kararı 409 ile
+    // reddediyor. Kartın kapanması bunu önden gösteriyor.
+    for (const status of ["ACCEPTED", "REJECTED"] as const) {
+      const { unmount } = render(
+        <ApplicantReview
+          jobId={jobId}
+          applicants={[applicant("a", status)]}
+          inTalentPool={[]}
+          headcountFull={false}
+          dossierAction={vi.fn(idleAction)}
+          talentPoolAction={vi.fn(idleAction)}
+          conversationAction={vi.fn(idleAction)}
+          decisionAction={vi.fn(idleAction)}
+        />,
+      );
+
+      const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+      // Pozitif iddia aynı düğümü ölçüyor: bölüm çizilmiş ve gerekçe onun
+      // içinde. Yalnız "düğme yok" deseydi, hiç çizilmeyen bir kart da geçerdi.
+      expect(within(decision).getByText(/Karar geri alınamıyor/)).toBeInTheDocument();
+      expect(within(decision).queryByRole("button", { name: "Kabul et" })).toBeNull();
+      expect(within(decision).queryByRole("button", { name: "Reddi gönder" })).toBeNull();
+      expect(within(decision).queryByLabelText("Red gerekçesi")).toBeNull();
+
+      unmount();
+    }
+  });
+
+  it("geri çekilmiş başvuruda karar sunmaz ve sebebini ayrı yazar", () => {
+    renderReview({ applicants: [applicant("a", "WITHDRAWN")] });
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByText(/Aday başvurusunu geri çekti/)).toBeInTheDocument();
+    expect(within(decision).queryByRole("button", { name: "Kabul et" })).toBeNull();
+    expect(within(decision).queryByRole("button", { name: "Reddi gönder" })).toBeNull();
+  });
+
+  it("kontenjan dolu ilanda kabul kapalı ve sebebi yazılı, red açık kalır", () => {
+    // Sunucu dolu ilanda kabulü 409 ile reddediyor ama reddi kabul etmeye
+    // devam ediyor. Düğmeyi sebepsiz gizlemek kullanıcıyı aramaya bırakırdı.
+    renderReview({ headcountFull: true });
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+    expect(within(decision).getByText(/kontenjanı doldu/)).toBeInTheDocument();
+    expect(within(decision).getByRole("button", { name: "Reddi gönder" })).toBeEnabled();
+  });
+
+  it("kabulden sonra kart kilitlenir ve atama görünümüne yol açılır", async () => {
+    // Liste sunucudan bir kez indi: tazeleme dönene kadar kayıt hâlâ `APPLIED`
+    // görünüyor. Kilit yalnız sunucu durumuna baksaydı kart o aralıkta ikinci
+    // bir karara açık kalırdı. Atama kimliği de yalnız bu yanıtta var
+    // (`JobApplicantDto` onu taşımıyor).
+    const user = userEvent.setup();
+    const assignmentId = "9f2c1a44-1b2c-4d3e-8f01-2a3b4c5d6e7f";
+    const decisionAction = vi.fn(async () => ({
+      status: "done" as const,
+      applicationId: "a",
+      outcome: { decision: "ACCEPTED" as const, assignmentId },
+    }));
+    renderReview({ decisionAction });
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("status")).toHaveTextContent(
+      "tam iş adresi ona açıldı",
+    );
+    expect(within(decision).getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
+      "href",
+      `/isveren/atama/${assignmentId}`,
+    );
+    expect(within(decision).queryByRole("button", { name: "Kabul et" })).toBeNull();
+    expect(within(decision).queryByLabelText("Red gerekçesi")).toBeNull();
+  });
+
+  it("atama kimliği gelmediğinde atama listesine düşer", async () => {
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "done" as const,
+      applicationId: "a",
+      outcome: { decision: "ACCEPTED" as const, assignmentId: null },
+    }));
+    renderReview({ decisionAction });
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(screen.getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
+      "href",
+      "/isveren/atamalar",
+    );
+  });
+
+  it("redden sonra atama bağlantısı çizilmez", async () => {
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "done" as const,
+      applicationId: "a",
+      outcome: { decision: "REJECTED" as const, assignmentId: null },
+    }));
+    renderReview({ decisionAction });
+
+    const card = screen.getByRole("article");
+    await user.type(within(card).getByLabelText("Red gerekçesi"), "Tarih uymuyor.");
+    await user.click(within(card).getByRole("button", { name: "Reddi gönder" }));
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("status")).toHaveTextContent("Başvuru reddedildi");
+    expect(within(decision).queryByRole("link", { name: "Atamayı aç" })).toBeNull();
+  });
+
+  it("ikinci karta karar vermek ilk kartın kilidini açmaz", async () => {
+    // `useActionState` tek durum taşıyor: kararlar birikmezse ilk kartın
+    // cevabı ikincisininkiyle ezilir ve o kart yeniden karara açılırdı.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async (_state: unknown, formData: FormData) => ({
+      status: "done" as const,
+      applicationId: String(formData.get("applicationId")),
+      outcome: { decision: "REJECTED" as const, assignmentId: null },
+    }));
+    renderReview({
+      applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
+      decisionAction,
+    });
+
+    const [first, second] = screen.getAllByRole("article");
+    await user.type(within(first).getByLabelText("Red gerekçesi"), "Tarih uymuyor.");
+    await user.click(within(first).getByRole("button", { name: "Reddi gönder" }));
+    await user.type(within(second).getByLabelText("Red gerekçesi"), "Uzaklık.");
+    await user.click(within(second).getByRole("button", { name: "Reddi gönder" }));
+
+    for (const card of screen.getAllByRole("article")) {
+      expect(within(card).getByText(/Karar geri alınamıyor/)).toBeInTheDocument();
+      expect(within(card).queryByLabelText("Red gerekçesi")).toBeNull();
+    }
+  });
+
+  it("kontenjan reddini mesaj metniyle değil errorCode ile seçer", async () => {
+    // `AGENTS.md`: dallanma `errorCode` ile yapılır. Backend'in ham metni
+    // ("Bu ilanın kontenjanı dolu.") burada hiç okunmuyor.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "error" as const,
+      applicationId: "a",
+      errorCode: "JOB_APPLICATION_JOB_HEADCOUNT_FULL",
+      httpStatus: 409,
+    }));
+    renderReview({ decisionAction });
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    const card = screen.getByRole("article");
+    expect(within(card).getByRole("alert")).toHaveTextContent(
+      "İlanın kontenjanı doldu; bu adayı kabul edemezsin.",
+    );
+  });
+
+  it("yetkisiz kullanıcının 404'ünde başvurunun varlığını ele vermez", async () => {
+    // Backend yetkisiz çağırana da, olmayan bir kayda da aynı kodu veriyor
+    // (`ApplicationDecisionIT.anOutsiderCannotTellAnAnsweredApplicationFrom...`).
+    // Ekran metni ikisini ayırsaydı, sunucunun kapattığı sızıntıyı istemci açardı.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "error" as const,
+      applicationId: "a",
+      errorCode: "JOB_APPLICATION_NOT_FOUND",
+      httpStatus: 404,
+    }));
+    renderReview({ decisionAction });
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bu başvuru bulunamadı ya da cevaplama yetkin yok.",
+    );
+  });
+
+  it("kimliği listede olmayan karar reddini sessizce yutmaz", async () => {
+    // Biçimi bozuk bir gövde `applicationId: ""` ile dönüyor ve hiçbir kartla
+    // eşleşmiyor; uyarı kartın içine çizilseydi hiç görünmezdi.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "error" as const,
+      applicationId: "",
+      errorCode: "VALIDATION_FAILED",
+      httpStatus: 400,
+    }));
+    renderReview({ decisionAction });
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bu karar gönderilemedi; sayfayı yenileyip yeniden dene.",
+    );
+  });
+});
 
 function manyApplicants(count: number): readonly JobApplicant[] {
   return Array.from({ length: count }, (_, index) => ({

@@ -20,6 +20,7 @@ import { enterShell } from "@/server/session/viewer";
 
 import {
   applicantConversationAction,
+  applicantDecisionAction,
   applicantDossierAction,
   applicantTalentPoolAction,
 } from "./actions";
@@ -90,7 +91,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </Link>
 
       <Suspense fallback={<LoadingState label="Başvurular yükleniyor" />}>
-        <JobApplicantsPanel jobId={id} />
+        <JobApplicantsPanel jobId={id} headcountFull={headcount.full} />
       </Suspense>
     </section>
   );
@@ -102,7 +103,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
  * İkisi birlikte okunuyor çünkü kart üzerindeki "havuzda mı" rozeti onlarsız
  * çizilemez; ayrı ayrı beklemek ekranı iki kez sıçratırdı.
  */
-export async function JobApplicantsPanel({ jobId }: { jobId: string }) {
+export async function JobApplicantsPanel({
+  jobId,
+  headcountFull,
+}: {
+  jobId: string;
+  /** İlanın kontenjanı; kabul düğmesini kapatan tek istemci kuralı. */
+  headcountFull: boolean;
+}) {
   const loaded = await Promise.all([readJobApplicants(jobId), readTalentPoolMembership()])
     .then(([applicants, inTalentPool]) => ({ applicants, inTalentPool }))
     .catch((error: unknown) => {
@@ -119,9 +127,11 @@ export async function JobApplicantsPanel({ jobId }: { jobId: string }) {
       jobId={jobId}
       applicants={loaded.applicants}
       inTalentPool={[...loaded.inTalentPool]}
+      headcountFull={headcountFull}
       dossierAction={applicantDossierAction}
       talentPoolAction={applicantTalentPoolAction}
       conversationAction={applicantConversationAction}
+      decisionAction={applicantDecisionAction}
     />
   );
 }

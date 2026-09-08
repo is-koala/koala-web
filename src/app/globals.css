@@ -360,6 +360,15 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .applicant-avatar-empty { border: 1px dashed var(--line); }
 .applicant-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%; margin-top: auto; }
 .applicant-actions form { margin: 0; }
+.applicant-decision { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; padding-top: 18px; border-top: 1px solid var(--line); }
+.applicant-decision > .form-warning { width: 100%; margin: 0; }
+.applicant-decision-done { width: 100%; margin: 0; padding: 13px 15px; border-radius: 13px; background: #e2f4e8; color: #176437; font-size: .9rem; font-weight: 750; }
+.applicant-decision > .muted { margin: 0; font-size: .88rem; }
+.applicant-decision-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.applicant-decision-reject { width: 100%; }
+.applicant-decision-reject > summary { cursor: pointer; color: var(--brand-accent); font-size: .88rem; font-weight: 800; }
+.applicant-decision-reject .form { margin-top: 14px; gap: 12px; }
+.applicant-decision-reject .field-hint { margin: 0; }
 .applicant-dossier { width: 100%; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
 .applicant-dossier h3 { margin-bottom: 14px; font-size: 1rem; }
 .applicant-about { margin: 14px 0 0; font-size: .9rem; }
