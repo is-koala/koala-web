@@ -40,6 +40,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Pi kısıtı vitest.config.ts'te, CI'a bağlı. Buradan bayrak geçirmiyoruz:
+      # AGENTS.md kapıyı `npm test` olarak sabitliyor ve iki yer ayrışmasın.
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium

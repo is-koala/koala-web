@@ -229,14 +229,24 @@ Değişiklikler ayrı feature branch'te küçük Conventional Commit'lerle
 gönderilir ve PR açılır. Doğrudan `main` dalına push edilmez; başlık İngilizce imperative,
 gövde `Refs #NN` taşır ve `git add .` kullanılmaz.
 
-**Kalite kapısı yerelde koşulur.** `.github/workflows/ci.yml` duruyor ama
-faturalandırma yüzünden hiç çalışmıyor: her koşu saniyeler içinde log'suz
-başarısız oluyor. Yani "CI yeşil" diye bakılacak bir yer yok; kapıyı
-gönderen çalıştırır ve dördü de yeşil olmadan PR açılmaz:
+**Kalite kapısı hem yerelde hem CI'da koşulur.** `.github/workflows/ci.yml`
+artık self-hosted bir Raspberry Pi runner'ında çalışıyor (is-koala/koala-backend#91);
+GitHub faturalandırmasına bağlı değil. Yine de kapıyı **gönderen çalıştırır**:
+Pi'de üç runner aynı makineyi paylaştığı için kuyruk uzayabilir ve CI'ın
+cevabını beklemek geri bildirimi yavaşlatır. Dördü de yeşil olmadan PR açılmaz:
 
 ```
 npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+Bu komut CI'da da birebir aynı biçimde koşuyor. Pi'ye özgü kısıt
+(tek worker, uzun zaman sınırı) `vitest.config.ts` ve `playwright.config.ts`
+içinde `process.env.CI`'a bağlı; iş akışından bayrak geçirilmez, yoksa
+belgelenen kapı ile CI'ın koştuğu komut sessizce ayrışır.
+
+**CI kırmızısını okurken:** bir iş "test adımı tamamlanmadı, sonraki adımlar hiç
+koşmadı, log yüklenmedi" imzasıyla düşerse bu bir test kırmızısı değil — Pi'de
+eşzamanlı üç ağır süit birbirini öldürüyor (ölçüm: is-koala/koala#97).
 
 `npm run build` `.env.local` istiyor; `.env.example` kopyalanıp `API_URL`
 yerel bir değere çevrilir (dosya Git'e girmez).

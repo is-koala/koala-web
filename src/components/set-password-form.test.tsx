@@ -63,7 +63,10 @@ describe("parola belirleme formu", () => {
 
     await submit();
 
-    const field = await screen.findByLabelText("Parola");
+    // Alan ilk çizimde zaten var; onu beklemek action sonucunun işlendiğini
+    // garanti etmez. Önce sunucudan dönen yeni hata metnini bekle.
+    await screen.findByText("Parola en az 8 karakter olmalıdır.");
+    const field = screen.getByLabelText("Parola");
     expect(field).toHaveAccessibleDescription(/Parola en az 8 karakter olmalıdır\./);
     expect(field).toHaveAttribute("aria-invalid", "true");
   });
