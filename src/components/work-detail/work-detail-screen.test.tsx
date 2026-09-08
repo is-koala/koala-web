@@ -153,7 +153,9 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Konum izni verilmedi; giriş konumsuz kaydedildi.",
     );
-    expect(screen.getByRole("button", { name: "İşten çıkış yap" })).toBeVisible();
+    // Konum uyarısı action sonucundaki yeni iş ayrıntısından önce çizilebilir.
+    // Yenilenen oturumun düğmesini ayrıca bekleyerek transition yarışını önle.
+    expect(await screen.findByRole("button", { name: "İşten çıkış yap" })).toBeVisible();
   });
 
   it("güvensiz bağlam sonucunda konumsuz devam uyarısını açıklar", async () => {
