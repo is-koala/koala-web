@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -50,25 +50,38 @@ describe("ilan sayfasının adres yüzeyi", () => {
 
   it("tam adres ve koordinat üretilen DOM'a hiç girmiyor", async () => {
     const { container } = render(await Page({ params: Promise.resolve({ jobId: jobDetailId }) }));
-    const html = container.innerHTML;
 
     /*
-     * Önce sayfanın gerçekten **çizildiği** ölçülüyor, sonra sızıntının
-     * yokluğu. Sıra önemli: "içermiyor" biçimindeki bir iddia, sayfa hata
-     * kartına düştüğünde de yeşil kalır — yani hiçbir şey çizmeyen bir
-     * regresyon, gizlilik iddiasını kanıtlanmış gibi gösterirdi. Bu satır o
-     * yalancı yeşili kapatıyor.
+     * Guard, negatif iddianın taradığı **iki düğümü de** tek tek kanıtlıyor.
+     *
+     * Önceki hâli döngüseldi ve ölçülerek kapatıldı. Guard
+     * `toContain("Etkinlik görevlisi")` ve `toContain('application/ld+json')`
+     * diyordu; oysa JSON-LD `<script>` gövdenin **kardeşi** ve içinde zaten
+     * `title: "Etkinlik görevlisi"` taşıyor, yani iki iddia da tek başına o
+     * script tarafından karşılanıyordu. İki mutasyon ölçüldü — sarmalayıcının
+     * `ready` dalı kapatıldı, sonra `JobDetailView` `null` döndürüldü — ve
+     * gizlilik iddiası ikisinde de yeşil kaldı: gövde hiç çizilmezken sayfa
+     * "adres sızdırmıyor" diye kanıtlanmış görünüyordu.
+     *
+     * Bir "sayfa çizildi" iddiası yetmiyor; iddia, sızıntının düşebileceği
+     * her yüzeyin **kendisine** bakmalı. `h1` yalnız `JobDetailView` içinde
+     * var, `<script>` ise yalnız sayfanın yapısal veri kolunda: ikisinden
+     * biri düştüğünde bu test artık kırmızıya dönüyor.
      */
-    expect(html).toContain("Etkinlik görevlisi");
-    expect(html).toContain('type="application/ld+json"');
+    expect(screen.getByRole("heading", { level: 1, name: "Etkinlik görevlisi" })).toBeVisible();
+
+    const jsonLd = container.querySelector('script[type="application/ld+json"]');
+    expect(jsonLd?.innerHTML, "yapısal veri hiç çizilmedi").toContain('"@type":"JobPosting"');
 
     /*
      * `textContent` değil `innerHTML`: koordinat bir `data-` özniteliğine,
      * bir `alt` metnine ya da JSON-LD `<script>` gövdesine düşerse metin
-     * okuması onu görmez ve iddia sızıntının üstünden geçerdi.
+     * okuması onu görmez ve iddia sızıntının üstünden geçerdi. Tarama
+     * `container` üzerinde, yani iki yüzeyi de **ve** aralarında kalan her
+     * şeyi kapsıyor.
      */
     for (const secret of forbiddenAddressValues) {
-      expect(html, secret).not.toContain(secret);
+      expect(container.innerHTML, secret).not.toContain(secret);
     }
   });
 
