@@ -1,13 +1,26 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceptanceHeadcount,
   applicantPage,
   applicantPageSize,
   applicantsInFilter,
   applicationDecisionGate,
   isApplicationDecision,
+  openAcceptanceHeadcount,
+  type ApplicationDecisionOutcome,
   type JobApplicant,
 } from "./employer-review";
+
+/** Kontenjanı işe alınmışlarla dolmuş ilan; kapı testlerinin sabit girdisi. */
+const fullHeadcount = acceptanceHeadcount({
+  headcount: 1,
+  hiredCount: 1,
+  applicants: [],
+  decidedNow: new Map(),
+});
+
+const acceptedNow: ApplicationDecisionOutcome = { decision: "ACCEPTED", assignmentId: null };
 
 describe("işveren başvuru listesinin istemci tarafı dilimlemesi", () => {
   it("sayfa boyutundan fazlasını hiç taşımaz", () => {
@@ -71,8 +84,8 @@ describe("başvuru karar kapısı", () => {
   it("bekleyen başvuruda ve boş kontenjanda iki eylemi de açar", () => {
     const gate = applicationDecisionGate({
       status: "APPLIED",
-      headcountFull: false,
-      decidedNow: false,
+      headcount: openAcceptanceHeadcount,
+      decidedNow: null,
     });
 
     expect(gate).toEqual({
@@ -90,8 +103,8 @@ describe("başvuru karar kapısı", () => {
     // eylemi birlikte kapatmak, işvereni yapabildiği bir işten alıkoyardı.
     const gate = applicationDecisionGate({
       status: "APPLIED",
-      headcountFull: true,
-      decidedNow: false,
+      headcount: fullHeadcount,
+      decidedNow: null,
     });
 
     expect(gate.canAccept).toBe(false);
@@ -105,7 +118,11 @@ describe("başvuru karar kapısı", () => {
     // reddediyor ve ekran bunu önden göstermezse kullanıcı geri alınamaz
     // sandığı bir düğmeye basar.
     for (const status of ["ACCEPTED", "REJECTED"] as const) {
-      const gate = applicationDecisionGate({ status, headcountFull: false, decidedNow: false });
+      const gate = applicationDecisionGate({
+        status,
+        headcount: openAcceptanceHeadcount,
+        decidedNow: null,
+      });
 
       expect(gate.canAccept).toBe(false);
       expect(gate.canReject).toBe(false);
@@ -119,13 +136,13 @@ describe("başvuru karar kapısı", () => {
     // verdiğini söylerdi.
     const withdrawn = applicationDecisionGate({
       status: "WITHDRAWN",
-      headcountFull: false,
-      decidedNow: false,
+      headcount: openAcceptanceHeadcount,
+      decidedNow: null,
     });
     const answered = applicationDecisionGate({
       status: "ACCEPTED",
-      headcountFull: false,
-      decidedNow: false,
+      headcount: openAcceptanceHeadcount,
+      decidedNow: null,
     });
 
     expect(withdrawn.canAccept).toBe(false);
@@ -139,8 +156,8 @@ describe("başvuru karar kapısı", () => {
     // ne olduğu bilinmeyen bir kayda geri alınamaz bir karar vermek olurdu.
     const gate = applicationDecisionGate({
       status: "UNKNOWN",
-      headcountFull: false,
-      decidedNow: false,
+      headcount: openAcceptanceHeadcount,
+      decidedNow: null,
     });
 
     expect(gate.canAccept).toBe(false);
@@ -154,13 +171,34 @@ describe("başvuru karar kapısı", () => {
     // baksaydı kart o aralıkta ikinci bir karara açık kalırdı.
     const gate = applicationDecisionGate({
       status: "APPLIED",
-      headcountFull: false,
-      decidedNow: true,
+      headcount: openAcceptanceHeadcount,
+      decidedNow: acceptedNow,
     });
 
     expect(gate.canAccept).toBe(false);
     expect(gate.canReject).toBe(false);
     expect(gate.closedReason).toMatch(/geri alınamıyor/);
+  });
+
+  it("sunucunun cevabı okunamadığında kararı ayrı bir metinle kapatır", () => {
+    // 2xx döndü ama `status` okunamadı: kabul mü red mi işlendiği belli değil.
+    // "Karar verildi, geri alınamıyor" demek işverene bilmediğimiz bir şeyi
+    // söylemek olurdu; ikinci bir karar göndermek de geri alınamaz.
+    const unreadable = applicationDecisionGate({
+      status: "APPLIED",
+      headcount: openAcceptanceHeadcount,
+      decidedNow: { decision: "UNKNOWN", assignmentId: null },
+    });
+    const answered = applicationDecisionGate({
+      status: "APPLIED",
+      headcount: openAcceptanceHeadcount,
+      decidedNow: acceptedNow,
+    });
+
+    expect(unreadable.canAccept).toBe(false);
+    expect(unreadable.canReject).toBe(false);
+    expect(unreadable.closedReason).toMatch(/ikinci bir karar göndermek geri alınamaz/);
+    expect(unreadable.closedReason).not.toEqual(answered.closedReason);
   });
 
   it("gövdeye yalnız sunucunun tanıdığı iki karar adını geçirir", () => {
@@ -171,6 +209,112 @@ describe("başvuru karar kapısı", () => {
     expect(isApplicationDecision("WITHDRAWN")).toBe(false);
     expect(isApplicationDecision("APPLIED")).toBe(false);
     expect(isApplicationDecision("accepted")).toBe(false);
+  });
+});
+
+describe("kabul kapısının kontenjan sayacı", () => {
+  it("tek yeri bekleyen bir teklifte olan ilanda kabulü kapatır", () => {
+    // Sunucudaki iki küme ayrışıyor: `hiredCount` yalnız {CONFIRMED,
+    // IN_PROGRESS, COMPLETED} sayıyor (`JobManager.java:280`), kabul kapısı
+    // `PENDING_CONFIRMATION`ı da yer kaplıyor sayıyor
+    // (`JobAssignmentManager.java:71`). `hiredCount` okunduğunda tek kişilik
+    // ilanın tek yeri bekleyen bir teklifteyken "yer var" görünüyor ve
+    // kullanıcı geri alınamaz sandığı düğmeden 409 yiyor — #80 bunu reddediyor.
+    const gate = acceptanceHeadcount({
+      headcount: 1,
+      hiredCount: 0,
+      applicants: [applicant("a", "ACCEPTED"), applicant("b", "APPLIED")],
+      decidedNow: new Map(),
+    });
+
+    expect(gate.full).toBe(true);
+    expect(gate.reason).toMatch(/kontenjanını doldurdu/);
+  });
+
+  it("bu oturumda verilen kabul de yeri tüketir", () => {
+    // En olası senaryo: ilk adayı kabul et, hemen ikinciye bak. Sunucu listesi
+    // tazelenene kadar ilk kart hâlâ `APPLIED` görünüyor.
+    const gate = acceptanceHeadcount({
+      headcount: 1,
+      hiredCount: 0,
+      applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
+      decidedNow: new Map([["a", acceptedNow]]),
+    });
+
+    expect(gate.full).toBe(true);
+  });
+
+  it("bu oturumdaki reddi yer tüketen saymaz", () => {
+    // Red bir atama kurmuyor: `respondToApplication` yalnız kabul dalında
+    // `new JobAssignment()` yazıyor.
+    const gate = acceptanceHeadcount({
+      headcount: 1,
+      hiredCount: 0,
+      applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
+      decidedNow: new Map([["a", { decision: "REJECTED" as const, assignmentId: null }]]),
+    });
+
+    expect(gate.full).toBe(false);
+    expect(gate.reason).toBeNull();
+  });
+
+  it("yer kalan ilanda kapıyı açık bırakır", () => {
+    const gate = acceptanceHeadcount({
+      headcount: 3,
+      hiredCount: 1,
+      applicants: [applicant("a", "ACCEPTED"), applicant("b", "APPLIED")],
+      decidedNow: new Map(),
+    });
+
+    expect(gate).toEqual(openAcceptanceHeadcount);
+  });
+
+  it("kontenjanı bildirilmemiş ilanda hiç kapatmaz", () => {
+    // `headcount: null` sınırsız demek: `assertOpeningAvailable` alanı null
+    // görünce hiç saymadan geçiyor, yani kapatılacak bir kapı yok.
+    const gate = acceptanceHeadcount({
+      headcount: null,
+      hiredCount: 9,
+      applicants: [applicant("a", "ACCEPTED"), applicant("b", "ACCEPTED")],
+      decidedNow: new Map(),
+    });
+
+    expect(gate).toEqual(openAcceptanceHeadcount);
+  });
+
+  it("işe alınmışla dolan kontenjanı bekleyen tekliften ayrı bir metinle söyler", () => {
+    // İki hâlin çaresi ayrı: işe alınmışla dolan kontenjanda yol kurulmuş bir
+    // atamayı iptal etmek, bekleyen teklifte ise adayın cevabını beklemek.
+    // Tek metin, olmayan bir atamayı iptal etmeye yollardı.
+    const hired = acceptanceHeadcount({
+      headcount: 1,
+      hiredCount: 1,
+      applicants: [applicant("a", "ACCEPTED")],
+      decidedNow: new Map(),
+    });
+    const pending = acceptanceHeadcount({
+      headcount: 1,
+      hiredCount: 0,
+      applicants: [applicant("a", "ACCEPTED")],
+      decidedNow: new Map(),
+    });
+
+    expect(hired.reason).toMatch(/kontenjanı doldu/);
+    expect(pending.reason).toMatch(/geri çevirirse yer yeniden açılır/);
+    expect(hired.reason).not.toEqual(pending.reason);
+  });
+
+  it("liste bayatsa bile sunucunun işe alınmış sayısının altına düşmez", () => {
+    // Üç sayının sırası kesin: `hiredCount ≤ yer tüketen ≤ kabul edilmiş
+    // başvuru`. Yalnız listeye bakmak, liste eksik indiğinde kapıyı açardı.
+    const gate = acceptanceHeadcount({
+      headcount: 2,
+      hiredCount: 2,
+      applicants: [],
+      decidedNow: new Map(),
+    });
+
+    expect(gate.full).toBe(true);
   });
 });
 

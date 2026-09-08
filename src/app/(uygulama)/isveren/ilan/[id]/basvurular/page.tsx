@@ -90,8 +90,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         İlana dön
       </Link>
 
+      {/*
+        Panele **sayı** geçiyor, `headcount.full` değil: o bayrak `hiredCount`tan
+        türüyor ve kabul kapısının saydığı kümeyi (`SLOT_OCCUPYING_STATUSES`)
+        eksik okuyor. Kapı, başvuru listesini gören katmanda kuruluyor
+        (`acceptanceHeadcount`).
+      */}
       <Suspense fallback={<LoadingState label="Başvurular yükleniyor" />}>
-        <JobApplicantsPanel jobId={id} headcountFull={headcount.full} />
+        <JobApplicantsPanel jobId={id} headcount={job.headcount} hiredCount={job.hiredCount} />
       </Suspense>
     </section>
   );
@@ -105,11 +111,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
  */
 export async function JobApplicantsPanel({
   jobId,
-  headcountFull,
+  headcount,
+  hiredCount,
 }: {
   jobId: string;
-  /** İlanın kontenjanı; kabul düğmesini kapatan tek istemci kuralı. */
-  headcountFull: boolean;
+  /** İlanın kaç kişilik olduğu; `null` ise sınırsız. */
+  headcount: number | null;
+  /** İşe alınmış sayısı; kabul kapısının okuduğu kümenin alt sınırı. */
+  hiredCount: number;
 }) {
   const loaded = await Promise.all([readJobApplicants(jobId), readTalentPoolMembership()])
     .then(([applicants, inTalentPool]) => ({ applicants, inTalentPool }))
@@ -127,7 +136,8 @@ export async function JobApplicantsPanel({
       jobId={jobId}
       applicants={loaded.applicants}
       inTalentPool={[...loaded.inTalentPool]}
-      headcountFull={headcountFull}
+      headcount={headcount}
+      hiredCount={hiredCount}
       dossierAction={applicantDossierAction}
       talentPoolAction={applicantTalentPoolAction}
       conversationAction={applicantConversationAction}

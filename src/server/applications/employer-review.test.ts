@@ -404,6 +404,34 @@ describe("işveren başvuru inceleme backend modülü", () => {
     ).resolves.toMatchObject({ decision: "REJECTED" });
   });
 
+  it("tanınmayan durumu kabule düşürmez", async () => {
+    // Kabul dalı ekranda "tam iş adresi ona açıldı" yazıyor ve atama
+    // bağlantısı çiziyor. Okunamayan bir durumu kabule saymak, ADR-0003
+    // uyarınca geri alınamaz olan bir ifşanın **olduğunu iddia etmek** olurdu:
+    // bu ekranın söyleyebileceği en pahalı yanlış.
+    for (const status of ["SHORTLISTED", "APPLIED", "WITHDRAWN"]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+        jsonResponse(200, envelope({ id: applicationId, status })),
+      ));
+
+      await expect(
+        respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+      ).resolves.toMatchObject({ decision: "UNKNOWN" });
+    }
+  });
+
+  it("durumu hiç gelmeyen yanıtta da kabul demez", async () => {
+    // `data: null` ve alanı eksik gövde aynı yere düşüyor: ortada okunmuş bir
+    // karar yok.
+    for (const body of [null, { id: applicationId }, { id: applicationId, status: null }]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(body))));
+
+      await expect(
+        respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
+      ).resolves.toEqual({ decision: "UNKNOWN", assignmentId: null });
+    }
+  });
+
   it("409 kontenjan reddini kodu ile yukarı taşır", async () => {
     // Ekran metni `errorCode` ile seçiliyor; kod kaybolursa kart nötr yedeğe
     // düşer ve kullanıcı kontenjanın dolduğunu hiç okuyamaz.

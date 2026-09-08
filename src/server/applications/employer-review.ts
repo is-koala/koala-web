@@ -291,10 +291,17 @@ export async function respondToApplication(input: {
     onu taşımıyor, yani karar anında okunmazsa bu ekrandan bir daha okunamıyor.
     Yanıtın kararı kendi alanından geri alınıyor ve gönderilen değer
     varsayılmıyor — sunucu son sözü söyleyen taraf.
+
+    Üç dal var, iki değil. Tanınmayan ya da eksik bir `status` kabule
+    **düşürülmüyor**: kabul dalı ekranda "tam iş adresi ona açıldı" yazıyor ve
+    atama bağlantısı çiziyor, yani okunamayan bir durumu kabul saymak geri
+    alınamaz bir ifşanın olduğunu iddia etmek olurdu. Ekran adres gizliliği
+    hakkında yanlış konuşamaz; `UNKNOWN` yenilemeyi söylüyor.
+    `APPLIED`/`WITHDRAWN` de buraya düşüyor: ikisi de bir karar değil.
   */
   const status = known<ApplicationStatus>(detail?.status, applicationStatuses);
   return {
-    decision: status === "REJECTED" ? "REJECTED" : "ACCEPTED",
+    decision: status === "ACCEPTED" || status === "REJECTED" ? status : "UNKNOWN",
     assignmentId: clean(detail?.assignment?.id),
   };
 }

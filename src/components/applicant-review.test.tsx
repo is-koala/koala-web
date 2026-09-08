@@ -30,7 +30,8 @@ function renderReview(overrides: Partial<Parameters<typeof ApplicantReview>[0]> 
       jobId={jobId}
       applicants={[applicant("a", "APPLIED")]}
       inTalentPool={[]}
-      headcountFull={false}
+      headcount={null}
+      hiredCount={0}
       dossierAction={dossierAction}
       talentPoolAction={talentPoolAction}
       conversationAction={conversationAction}
@@ -330,16 +331,23 @@ describe("başvuru kabul/red karar akışı", () => {
     // Diyalog açık kalsaydı, aynı düğme ikinci kez basılabilir ve sunucudan
     // 409 dönerdi.
     const user = userEvent.setup();
-    renderReview();
+    const decisionAction = vi.fn(async () => ({
+      status: "done" as const,
+      applicationId: "a",
+      outcome: { decision: "ACCEPTED" as const, assignmentId: null },
+    }));
+    renderReview({ decisionAction });
 
     await user.click(screen.getByRole("button", { name: "Kabul et" }));
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("button", { name: "Kabulü onayla" })).toBeNull();
-    // Aynı düğümün gerçekten çizildiğini ölçen pozitif iddia: kart hâlâ
-    // ekranda ve karar bölümü duruyor.
-    expect(screen.getByRole("article")).toBeInTheDocument();
+    // Pozitif iddia negatifle **aynı düğümü** ölçüyor: karar bölümü çizilmiş
+    // ve kararı yazmış. `getByRole("article")` komşu düğüm — kartın kendisi —
+    // ve karar bölümü hiç çizilmese de yeşil kalırdı.
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("status")).toHaveTextContent("Başvuru kabul edildi");
   });
 
   it("red formu gerekçeyi zorunlu tutar ve REJECTED gövdesi gönderir", async () => {
@@ -391,7 +399,7 @@ describe("başvuru kabul/red karar akışı", () => {
     }
   });
 
-  it("karar verilmiş kartta ikinci karar hiç sunulmaz, nedeni yazılı durur", async () => {
+  it("karar verilmiş kartta ikinci karar kilitli, nedeni yazılı durur", async () => {
     // `JOB_APPLICATION_ALREADY_RESPONDED`: sunucu ikinci kararı 409 ile
     // reddediyor. Kartın kapanması bunu önden gösteriyor.
     for (const status of ["ACCEPTED", "REJECTED"] as const) {
@@ -400,7 +408,8 @@ describe("başvuru kabul/red karar akışı", () => {
           jobId={jobId}
           applicants={[applicant("a", status)]}
           inTalentPool={[]}
-          headcountFull={false}
+          headcount={null}
+      hiredCount={0}
           dossierAction={vi.fn(idleAction)}
           talentPoolAction={vi.fn(idleAction)}
           conversationAction={vi.fn(idleAction)}
@@ -410,34 +419,120 @@ describe("başvuru kabul/red karar akışı", () => {
 
       const decision = screen.getByRole("region", { name: "Başvuru kararı" });
       // Pozitif iddia aynı düğümü ölçüyor: bölüm çizilmiş ve gerekçe onun
-      // içinde. Yalnız "düğme yok" deseydi, hiç çizilmeyen bir kart da geçerdi.
+      // içinde. Yalnız "düğme kapalı" deseydi, hiç çizilmeyen bir kart da geçerdi.
       expect(within(decision).getByText(/Karar geri alınamıyor/)).toBeInTheDocument();
-      expect(within(decision).queryByRole("button", { name: "Kabul et" })).toBeNull();
-      expect(within(decision).queryByRole("button", { name: "Reddi gönder" })).toBeNull();
-      expect(within(decision).queryByLabelText("Red gerekçesi")).toBeNull();
+      // Kapalı eylem **gizlenmiyor, kilitleniyor** — kabuk kapılarının
+      // `blocking` kipi ve `WorkSecondaryActions.blockedReason` ile aynı kalıp.
+      expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+      expect(within(decision).getByRole("button", { name: "Reddi gönder" })).toBeDisabled();
+      expect(within(decision).getByLabelText("Red gerekçesi")).toBeDisabled();
 
       unmount();
     }
   });
 
-  it("geri çekilmiş başvuruda karar sunmaz ve sebebini ayrı yazar", () => {
+  it("geri çekilmiş başvuruda iki eylemi de kilitler ve sebebini ayrı yazar", () => {
     renderReview({ applicants: [applicant("a", "WITHDRAWN")] });
 
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
     expect(within(decision).getByText(/Aday başvurusunu geri çekti/)).toBeInTheDocument();
-    expect(within(decision).queryByRole("button", { name: "Kabul et" })).toBeNull();
-    expect(within(decision).queryByRole("button", { name: "Reddi gönder" })).toBeNull();
+    expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+    expect(within(decision).getByRole("button", { name: "Reddi gönder" })).toBeDisabled();
   });
 
   it("kontenjan dolu ilanda kabul kapalı ve sebebi yazılı, red açık kalır", () => {
     // Sunucu dolu ilanda kabulü 409 ile reddediyor ama reddi kabul etmeye
     // devam ediyor. Düğmeyi sebepsiz gizlemek kullanıcıyı aramaya bırakırdı.
-    renderReview({ headcountFull: true });
+    renderReview({ headcount: 1, hiredCount: 1 });
 
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
     expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
     expect(within(decision).getByText(/kontenjanı doldu/)).toBeInTheDocument();
     expect(within(decision).getByRole("button", { name: "Reddi gönder" })).toBeEnabled();
+  });
+
+  it("tek yeri bekleyen bir teklifte olan ilanda kabulü açık bırakmaz", () => {
+    // `hiredCount` yalnız {CONFIRMED, IN_PROGRESS, COMPLETED} sayıyor; kabul
+    // kapısı `PENDING_CONFIRMATION` teklifleri de yer kaplıyor sayıyor. Kapı
+    // `hiredCount`a baksaydı bu ekran "yer var" der, kullanıcı geri alınamaz
+    // sandığı düğmeye basar ve 409 yerdi — #80 tam olarak bunu reddediyor.
+    renderReview({
+      applicants: [applicant("a", "APPLIED"), applicant("b", "ACCEPTED")],
+      headcount: 1,
+      hiredCount: 0,
+    });
+
+    const open = within(screen.getAllByRole("article")[0]).getByRole("region", {
+      name: "Başvuru kararı",
+    });
+    expect(within(open).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+    expect(within(open).getByText(/kontenjanını doldurdu/)).toBeInTheDocument();
+    expect(within(open).getByRole("button", { name: "Reddi gönder" })).toBeEnabled();
+  });
+
+  it("ilk adayı kabul etmek ikinci kartın kabulünü de kapatır", async () => {
+    // En olası senaryo: ilk adayı kabul et, hemen ikinciye bak. Sunucu listesi
+    // tazelenene kadar ilk kart hâlâ `APPLIED` görünüyor; sayaç bu oturumun
+    // kararlarını saymasaydı ikinci kart açık kalır ve 409'a yollardı.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async (_state: unknown, formData: FormData) => ({
+      status: "done" as const,
+      applicationId: String(formData.get("applicationId")),
+      outcome: { decision: "ACCEPTED" as const, assignmentId: null },
+    }));
+    renderReview({
+      applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
+      headcount: 1,
+      hiredCount: 0,
+      decisionAction,
+    });
+
+    const second = within(screen.getAllByRole("article")[1]).getByRole("region", {
+      name: "Başvuru kararı",
+    });
+    expect(within(second).getByRole("button", { name: "Kabul et" })).toBeEnabled();
+
+    await user.click(
+      within(screen.getAllByRole("article")[0]).getByRole("button", { name: "Kabul et" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(within(second).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+    expect(within(second).getByText(/kontenjanını doldurdu/)).toBeInTheDocument();
+  });
+
+  it("diyalog açıkken kontenjan dolarsa onay düğmesi de kapanır", async () => {
+    // Kapı yalnız diyalog **açılırken** okunsaydı, açık bir diyalogda kapanan
+    // kontenjan görülmezdi: liste diyalog açıkken tazelenebiliyor
+    // (`revalidatePath`, ya da aynı şirketten başka bir yetkilinin kararı).
+    const user = userEvent.setup();
+    const common = {
+      jobId,
+      inTalentPool: [],
+      headcount: 1,
+      hiredCount: 0,
+      dossierAction: vi.fn(idleAction),
+      talentPoolAction: vi.fn(idleAction),
+      conversationAction: vi.fn(idleAction),
+      decisionAction: vi.fn(idleAction),
+    };
+    const { rerender } = render(
+      <ApplicantReview {...common} applicants={[applicant("a", "APPLIED")]} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    expect(screen.getByRole("button", { name: "Kabulü onayla" })).toBeEnabled();
+
+    rerender(
+      <ApplicantReview
+        {...common}
+        applicants={[applicant("a", "APPLIED"), applicant("b", "ACCEPTED")]}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Kabulü onayla" })).toBeDisabled();
+    expect(within(dialog).getByText(/kontenjanını doldurdu/)).toBeInTheDocument();
   });
 
   it("kabulden sonra kart kilitlenir ve atama görünümüne yol açılır", async () => {
@@ -465,8 +560,8 @@ describe("başvuru kabul/red karar akışı", () => {
       "href",
       `/isveren/atama/${assignmentId}`,
     );
-    expect(within(decision).queryByRole("button", { name: "Kabul et" })).toBeNull();
-    expect(within(decision).queryByLabelText("Red gerekçesi")).toBeNull();
+    expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+    expect(within(decision).getByLabelText("Red gerekçesi")).toBeDisabled();
   });
 
   it("atama kimliği gelmediğinde atama listesine düşer", async () => {
@@ -485,6 +580,52 @@ describe("başvuru kabul/red karar akışı", () => {
       "href",
       "/isveren/atamalar",
     );
+  });
+
+  it("daha önce kabul edilmiş kartta da atama yolu ekranda kalır", async () => {
+    // Karar sonrası geçiş yolu #80'in maddesi. Bağlantı yalnız aynı oturumda
+    // çizilseydi, sayfa bir kez yenilendiğinde ekrandan tümüyle silinirdi:
+    // atama kimliği yalnız kabul yanıtında var (`JobApplicantDto` onu
+    // taşımıyor), o yüzden yenilenmiş kartta yedek atama listesi.
+    renderReview({ applicants: [applicant("a", "ACCEPTED")] });
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
+      "href",
+      "/isveren/atamalar",
+    );
+  });
+
+  it("daha önce reddedilmiş kartta atama yolu çizmez", async () => {
+    renderReview({ applicants: [applicant("a", "REJECTED")] });
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).queryByRole("link", { name: "Atamayı aç" })).toBeNull();
+  });
+
+  it("sunucunun cevabı okunamadığında adres ifşasını iddia etmez", async () => {
+    // Tanınmayan bir durumu kabule düşürmek, ADR-0003 uyarınca geri alınamaz
+    // olan bir ifşanın **olduğunu iddia etmek** olurdu. Ekran adres gizliliği
+    // hakkında yanlış konuşamaz: ne "adres açıldı" der, ne atama yolu çizer.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "done" as const,
+      applicationId: "a",
+      outcome: { decision: "UNKNOWN" as const, assignmentId: null },
+    }));
+    renderReview({ decisionAction });
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("status")).toHaveTextContent(/cevabı okunamadı/);
+    expect(within(decision).queryByText(/tam iş adresi ona açıldı/)).toBeNull();
+    expect(within(decision).queryByRole("link", { name: "Atamayı aç" })).toBeNull();
+    // Kart yine de kilitli: 2xx döndü, ikinci bir karar geri alınamaz bir
+    // sonuç doğurabilir.
+    expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
+    expect(within(decision).getByText(/önce sayfayı yenile/)).toBeInTheDocument();
   });
 
   it("redden sonra atama bağlantısı çizilmez", async () => {
@@ -527,7 +668,7 @@ describe("başvuru kabul/red karar akışı", () => {
 
     for (const card of screen.getAllByRole("article")) {
       expect(within(card).getByText(/Karar geri alınamıyor/)).toBeInTheDocument();
-      expect(within(card).queryByLabelText("Red gerekçesi")).toBeNull();
+      expect(within(card).getByLabelText("Red gerekçesi")).toBeDisabled();
     }
   });
 

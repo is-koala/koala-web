@@ -129,20 +129,21 @@ describe("ilanın başvuru listesi sayfası", () => {
     readJobApplicants.mockResolvedValue(applicants);
     readTalentPoolMembership.mockResolvedValue(new Set([workerId]));
 
-    render(await JobApplicantsPanel({ jobId, headcountFull: true }));
+    render(await JobApplicantsPanel({ jobId, headcount: 2, hiredCount: 1 }));
 
     expect(applicantReview).toHaveBeenCalledTimes(1);
     expect(applicantReview.mock.calls[0][0]).toMatchObject({
       jobId,
       applicants,
       inTalentPool: [workerId],
-      // Kontenjan kararı burada durmazsa kabul düğmesi dolu ilanda da açık
-      // kalır ve kullanıcı geri alınamaz sandığı bir düğmeden 409 yer.
-      headcountFull: true,
+      // Kontenjan sayıları burada durmazsa kabul kapısı hiç kurulamaz ve
+      // kullanıcı geri alınamaz sandığı bir düğmeden 409 yer.
+      headcount: 2,
+      hiredCount: 1,
     });
   });
 
-  it("kontenjan kararını sayfadan başvuru listesine geçirir", async () => {
+  it("kontenjan sayılarını sayfadan başvuru listesine geçirir", async () => {
     // İki hop var — sayfa panele, panel listeye — ve ilki kopsaydı bütün
     // ekran testleri yeşil kalır, kapı yalnız gerçek sayfada ölürdü.
     fetchJobDetail.mockResolvedValue({
@@ -155,29 +156,35 @@ describe("ilanın başvuru listesi sayfası", () => {
 
     const tree = await Page({ params: Promise.resolve({ id: jobId }) });
 
-    expect(panelProps(tree)).toEqual({ jobId, headcountFull: true });
+    expect(panelProps(tree)).toEqual({ jobId, headcount: 2, hiredCount: 2 });
   });
 
-  it("yeri kalan ilanda kabul kapısını kapatmaz", async () => {
+  it("kabul kapısını `hiredCount`tan türetilmiş bir bayrağa indirgemez", async () => {
+    // `hiredCount` yalnız {CONFIRMED, IN_PROGRESS, COMPLETED} sayıyor; kabul
+    // kapısı `PENDING_CONFIRMATION` teklifleri de yer kaplıyor sayıyor. Sayfa
+    // `jobHeadcount(...).full` geçirseydi, tek yeri bekleyen bir teklifte olan
+    // ilanda panel "yer var" duyar ve kapıyı açık bırakırdı.
     fetchJobDetail.mockResolvedValue({
       id: jobId,
       title: "Hafta sonu garson",
       status: "OPEN",
-      headcount: 2,
-      hiredCount: 1,
+      headcount: 1,
+      hiredCount: 0,
     });
 
-    const tree = await Page({ params: Promise.resolve({ id: jobId }) });
+    const props = panelProps(await Page({ params: Promise.resolve({ id: jobId }) }));
 
-    expect(panelProps(tree)).toEqual({ jobId, headcountFull: false });
+    expect(props).toEqual({ jobId, headcount: 1, hiredCount: 0 });
+    expect(props).not.toHaveProperty("headcountFull");
   });
 
-  it("kontenjanı bildirilmemiş ilanda kabulü kapatmaz", async () => {
+  it("kontenjanı bildirilmemiş ilanda sınırsızlığı olduğu gibi taşır", async () => {
     // `headcount: null` sınırsız ilan: `assertOpeningAvailable` alanı null
-    // görünce hiç saymadan geçiyor, yani kapatılacak bir kapı yok.
+    // görünce hiç saymadan geçiyor. Sıfıra düşürmek olmayan bir kotayı dolu
+    // gösterirdi.
     const tree = await Page({ params: Promise.resolve({ id: jobId }) });
 
-    expect(panelProps(tree)).toEqual({ jobId, headcountFull: false });
+    expect(panelProps(tree)).toEqual({ jobId, headcount: null, hiredCount: 0 });
   });
 
   it("başvurular okunamadığında hata kartı çizer", async () => {
@@ -193,7 +200,7 @@ describe("ilanın başvuru listesi sayfası", () => {
     );
     readTalentPoolMembership.mockResolvedValue(new Set<string>());
 
-    render(await JobApplicantsPanel({ jobId, headcountFull: false }));
+    render(await JobApplicantsPanel({ jobId, headcount: null, hiredCount: 0 }));
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(applicantReview).not.toHaveBeenCalled();

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 
 import {
+  acceptanceHeadcount,
   applicantPage,
   applicantsInFilter,
   applicationDecisionGate,
@@ -12,17 +13,20 @@ import {
   idleConversationState,
   idleTalentPoolState,
   rejectionReasonMaxLength,
+  type AcceptanceHeadcount,
   type ApplicantBadge,
   type ApplicantDossier,
   type ApplicantDossierAction,
   type ApplicantFilter,
   type ApplicationDecisionAction,
+  type ApplicationDecisionGate,
   type ApplicationDecisionOutcome,
   type ApplicationDecisionState,
   type ConversationAction,
   type JobApplicant,
   type TalentPoolAction,
 } from "@/applications/employer-review";
+import { AssignmentDialog } from "@/components/assignment-dialog";
 import { ErrorState } from "@/components/states";
 import { formatDateTime } from "@/lib/dates";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
@@ -42,7 +46,8 @@ export function ApplicantReview({
   jobId,
   applicants,
   inTalentPool,
-  headcountFull,
+  headcount,
+  hiredCount,
   dossierAction,
   talentPoolAction,
   conversationAction,
@@ -52,15 +57,10 @@ export function ApplicantReview({
   applicants: readonly JobApplicant[];
   /** Sunucudan gelen ilk üyelik kümesi; eylem sonrası yerine yenisi geçer. */
   inTalentPool: readonly string[];
-  /**
-   * İlanın kontenjanı doldu mu.
-   *
-   * Kabul düğmesinin kapısı: sunucu dolu ilanda kabulü 409
-   * (`JOB_APPLICATION_JOB_HEADCOUNT_FULL`) ile reddediyor ve istemci bunu
-   * önden göstermezse kullanıcı geri alınamaz sandığı bir düğmeye basıp
-   * hatayla karşılaşır.
-   */
-  headcountFull: boolean;
+  /** İlanın kaç kişilik olduğu; `null` ise sınırsız ve kapatılacak kapı yok. */
+  headcount: number | null;
+  /** `JobDetailDto.hiredCount`; kabul kapısının okuduğu kümenin **alt sınırı**. */
+  hiredCount: number;
   dossierAction: ApplicantDossierAction;
   talentPoolAction: TalentPoolAction;
   conversationAction: ConversationAction;
@@ -86,6 +86,16 @@ export function ApplicantReview({
   );
   const [acceptance, setAcceptance] = useState<JobApplicant | null>(null);
   const decided = useDecidedApplications(decisionState);
+
+  /*
+    Doluluk kararı burada, sayfada değil: kabul kapısının okuduğu küme bu
+    oturumda verilmiş kabulleri de sayıyor ve o sayı yalnız burada biliniyor.
+    Sunucu listesi tazelenene kadar kabul edilmiş kart hâlâ `APPLIED` görünüyor.
+  */
+  const headcountGate = useMemo(
+    () => acceptanceHeadcount({ headcount, hiredCount, applicants, decidedNow: decided }),
+    [applicants, decided, headcount, hiredCount],
+  );
 
   const filtered = useMemo(
     () => applicantsInFilter(applicants, filter),
@@ -156,7 +166,7 @@ export function ApplicantReview({
               jobId={jobId}
               applicant={applicant}
               inPool={pooled.has(applicant.applicant.id)}
-              headcountFull={headcountFull}
+              headcount={headcountGate}
               decidedNow={decided.get(applicant.id) ?? null}
               decisionFailure={
                 decisionState.status === "error" &&
@@ -196,6 +206,16 @@ export function ApplicantReview({
         <AcceptanceDialog
           jobId={jobId}
           applicant={acceptance}
+          /*
+            Diyalog da kapıdan geçiyor. Kapı açıkken açıldı diye açık kalmıyor:
+            yandaki kart kabul edilip kontenjan dolduğunda bu düğme hâlâ canlı
+            olurdu ve kullanıcı geri alınamaz sandığı düğmeden 409 yerdi.
+          */
+          gate={applicationDecisionGate({
+            status: acceptance.status,
+            headcount: headcountGate,
+            decidedNow: decided.get(acceptance.id) ?? null,
+          })}
           pending={decisionPending}
           submitDecision={submitDecision}
           onClose={() => setAcceptance(null)}
@@ -251,7 +271,7 @@ function ApplicantCard({
   jobId,
   applicant,
   inPool,
-  headcountFull,
+  headcount,
   decidedNow,
   decisionFailure,
   dossier,
@@ -266,7 +286,7 @@ function ApplicantCard({
   jobId: string;
   applicant: JobApplicant;
   inPool: boolean;
-  headcountFull: boolean;
+  headcount: AcceptanceHeadcount;
   /** Bu oturumda verilmiş karar; sunucu listesi henüz tazelenmemiş olabilir. */
   decidedNow: ApplicationDecisionOutcome | null;
   decisionFailure: { errorCode: string; httpStatus: number } | null;
@@ -346,7 +366,7 @@ function ApplicantCard({
         <ApplicantDecision
           jobId={jobId}
           applicant={applicant}
-          headcountFull={headcountFull}
+          headcount={headcount}
           decidedNow={decidedNow}
           failure={decisionFailure}
           pending={pending.decision}
@@ -366,15 +386,16 @@ function ApplicantCard({
 /**
  * Kartın karar bölümü.
  *
- * Kapalı hâl **gizlenmiyor**: kapının kapalı olduğu her durumda nedeni yazılı
- * duruyor. Düğmeyi kaldırıp sebebi yazmamak, kullanıcıyı "kabul düğmesi
- * nerede" diye aramaya bırakırdı — kabul kontenjan dolduğunda kayboluyor ve
- * ilan hâlâ açık görünüyor.
+ * Kapalı hâl **gizlenmiyor, kilitleniyor**: eylem devre dışı kalıyor ve
+ * gerekçe yanında yazılı duruyor. Kalıp kabuk kapılarının `blocking` kipiyle
+ * ve `WorkSecondaryActions`'ın `blockedReason`'ıyla aynı (`AGENTS.md`);
+ * düğmeyi kaldırmak kullanıcıyı "kabul düğmesi nerede" diye aramaya bırakır ve
+ * aynı bileşende iki farklı kapalılık kipi olurdu.
  */
 function ApplicantDecision({
   jobId,
   applicant,
-  headcountFull,
+  headcount,
   decidedNow,
   failure,
   pending,
@@ -383,7 +404,7 @@ function ApplicantDecision({
 }: {
   jobId: string;
   applicant: JobApplicant;
-  headcountFull: boolean;
+  headcount: AcceptanceHeadcount;
   decidedNow: ApplicationDecisionOutcome | null;
   failure: { errorCode: string; httpStatus: number } | null;
   pending: boolean;
@@ -392,10 +413,14 @@ function ApplicantDecision({
 }) {
   const gate = applicationDecisionGate({
     status: applicant.status,
-    headcountFull,
-    decidedNow: decidedNow !== null,
+    headcount,
+    decidedNow,
   });
   const reasonId = `applicant-rejection-${applicant.id}`;
+  const assignment = assignmentHref(applicant, decidedNow);
+  // Karar tümüyle kapalıyken sebep tek: iki eylemin altına iki kez yazmak
+  // aynı cümleyi tekrarlardı.
+  const closedReason = gate.closedReason ?? gate.acceptClosedReason;
 
   return (
     <section className="applicant-decision" aria-label="Başvuru kararı">
@@ -407,75 +432,94 @@ function ApplicantDecision({
 
       {decidedNow ? (
         <p role="status" className="applicant-decision-done">
-          {decidedNow.decision === "ACCEPTED"
-            ? "Başvuru kabul edildi. Adaya teklif gitti ve tam iş adresi ona açıldı."
-            : "Başvuru reddedildi. Yazdığın gerekçe adayın başvuru ekranında görünecek."}
+          {decisionNotice[decidedNow.decision]}
         </p>
       ) : null}
 
-      {/*
-        Atama görünümüne geçiş (#37). Kimlik yalnız kabul **yanıtında** var:
-        başvuru listesi ucu (`JobApplicantDto`) atama taşımıyor, yani daha önce
-        kabul edilmiş bir kartta kimlik elde yok ve bağlantı atama listesine
-        gidiyor. İkisinin arasını kapatmak için ikinci bir uç yok.
-      */}
-      {decidedNow?.decision === "ACCEPTED" ? (
-        <Link
-          className="button button-secondary button-small"
-          href={
-            decidedNow.assignmentId
-              ? `/isveren/atama/${encodeURIComponent(decidedNow.assignmentId)}`
-              : "/isveren/atamalar"
-          }
-        >
+      {assignment ? (
+        <Link className="button button-secondary button-small" href={assignment}>
           Atamayı aç
         </Link>
       ) : null}
 
-      {gate.closedReason ? (
-        <p className="muted">{gate.closedReason}</p>
-      ) : (
-        <>
-          <div className="applicant-decision-actions">
-            <button
-              className="button button-primary button-small"
-              type="button"
-              onClick={onAcceptRequested}
-              disabled={!gate.canAccept || pending}
-            >
-              Kabul et
-            </button>
-          </div>
-          {gate.acceptClosedReason ? <p className="muted">{gate.acceptClosedReason}</p> : null}
+      <div className="applicant-decision-actions">
+        <button
+          className="button button-primary button-small"
+          type="button"
+          onClick={onAcceptRequested}
+          disabled={!gate.canAccept || pending}
+        >
+          Kabul et
+        </button>
+      </div>
+      {closedReason ? <p className="muted">{closedReason}</p> : null}
 
-          <details className="applicant-decision-reject">
-            <summary>Başvuruyu reddet</summary>
-            <form className="form compact-form" action={submitDecision}>
-              <input type="hidden" name="applicationId" value={applicant.id} />
-              <input type="hidden" name="jobId" value={jobId} />
-              <input type="hidden" name="decision" value="REJECTED" />
-              <div className="field">
-                <label htmlFor={reasonId}>Red gerekçesi</label>
-                <textarea
-                  id={reasonId}
-                  name="rejectionReason"
-                  required
-                  rows={3}
-                  maxLength={rejectionReasonMaxLength}
-                />
-                <p className="field-hint">
-                  Aday bu açıklamayı başvuru ekranında okuyacak. Red kararı da geri alınamıyor.
-                </p>
-              </div>
-              <button className="button button-danger button-small" disabled={pending}>
-                Reddi gönder
-              </button>
-            </form>
-          </details>
-        </>
-      )}
+      <details className="applicant-decision-reject">
+        <summary>Başvuruyu reddet</summary>
+        <form className="form compact-form" action={submitDecision}>
+          <input type="hidden" name="applicationId" value={applicant.id} />
+          <input type="hidden" name="jobId" value={jobId} />
+          <input type="hidden" name="decision" value="REJECTED" />
+          <div className="field">
+            <label htmlFor={reasonId}>Red gerekçesi</label>
+            <textarea
+              id={reasonId}
+              name="rejectionReason"
+              required
+              rows={3}
+              maxLength={rejectionReasonMaxLength}
+              disabled={!gate.canReject}
+            />
+            <p className="field-hint">
+              Aday bu açıklamayı başvuru ekranında okuyacak. Red kararı da geri alınamıyor.
+            </p>
+          </div>
+          <button
+            className="button button-danger button-small"
+            disabled={!gate.canReject || pending}
+          >
+            Reddi gönder
+          </button>
+        </form>
+      </details>
     </section>
   );
+}
+
+/** Karar verildikten sonra kartın üstünde duran cümle; üç sonucun üçü ayrı. */
+const decisionNotice: Readonly<Record<ApplicationDecisionOutcome["decision"], string>> = {
+  ACCEPTED: "Başvuru kabul edildi. Adaya teklif gitti ve tam iş adresi ona açıldı.",
+  REJECTED: "Başvuru reddedildi. Yazdığın gerekçe adayın başvuru ekranında görünecek.",
+  UNKNOWN:
+    "Kararın gönderildi ama sunucunun cevabı okunamadı. Kabul mü red mi işlendiğini görmek için sayfayı yenile.",
+};
+
+/** İşverenin bütün atamaları; ilana göre süzülemiyor ama karardan sonraki tek yol. */
+const employerAssignmentsPath = "/isveren/atamalar";
+
+/**
+ * Atama görünümüne geçiş yolu (#37); kabul edilmemiş kartta `null`.
+ *
+ * İki kabul hâli var ve **ikisinde de** bağlantı çiziliyor. Bu oturumda
+ * kabul edilen kartta atama kimliği elde ve doğrudan atamaya gidiliyor; daha
+ * önce kabul edilmiş bir kartta kimlik hiç yok — `JobApplicantDto` atama
+ * taşımıyor, getirecek ikinci bir uç da yok — o yüzden atama listesine
+ * düşülüyor. Bağlantıyı yalnız ilk hâlde çizmek, kararın ardından sayfa bir
+ * kez yenilendiğinde geçiş yolunu ekrandan tümüyle silerdi.
+ *
+ * Okunamayan karar bağlantı çizdirmiyor: atama kurulup kurulmadığı belli değil.
+ */
+function assignmentHref(
+  applicant: JobApplicant,
+  decidedNow: ApplicationDecisionOutcome | null,
+): string | null {
+  if (decidedNow !== null) {
+    if (decidedNow.decision !== "ACCEPTED") return null;
+    return decidedNow.assignmentId
+      ? `/isveren/atama/${encodeURIComponent(decidedNow.assignmentId)}`
+      : employerAssignmentsPath;
+  }
+  return applicant.status === "ACCEPTED" ? employerAssignmentsPath : null;
 }
 
 /**
@@ -491,73 +535,59 @@ function ApplicantDecision({
 function AcceptanceDialog({
   jobId,
   applicant,
+  gate,
   pending,
   submitDecision,
   onClose,
 }: {
   jobId: string;
   applicant: JobApplicant;
+  /** Kartın kapısı; diyalog açıkken kapanabildiği için burada da okunuyor. */
+  gate: ApplicationDecisionGate;
   pending: boolean;
   submitDecision: (formData: FormData) => void;
   onClose: () => void;
 }) {
   return (
-    <div
-      className="assignment-dialog-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="applicant-acceptance-title"
-    >
-      <section className="assignment-dialog">
-        <p className="eyebrow">Son kontrol</p>
-        <h2 id="applicant-acceptance-title">Başvuruyu kabul et</h2>
-        <h3>{applicant.applicant.fullName || "Adı paylaşılmadı"}</h3>
-        <dl className="assignment-dialog-facts">
-          <div>
-            <dt>Tam iş adresi açılır</dt>
-            <dd>
-              Kabul ettiğin anda bu adaya ilanın yaklaşık konumu değil sokak, bina ve
-              kapı numarasıyla tam adresi ve haritadaki kesin noktası görünür olur.
-              Açılan adres geri kapatılamaz.
-            </dd>
-          </div>
-          <div>
-            <dt>Atama kurulur</dt>
-            <dd>
-              Adaya bir atama teklifi gider ve ilanın kontenjanından bir yer tükenir.
-              Cevabını bekleyen teklif de yer kaplar.
-            </dd>
-          </div>
-          <div>
-            <dt>Karar geri alınamaz</dt>
-            <dd>
-              Kabul edilmiş bir başvuru bu ekrandan reddedilemez. Vazgeçmen gerekirse
-              kurulan atamayı atama ekranından iptal etmen gerekir.
-            </dd>
-          </div>
-        </dl>
-        <div className="assignment-dialog-actions">
-          <form action={submitDecision} onSubmit={onClose}>
-            <input type="hidden" name="applicationId" value={applicant.id} />
-            <input type="hidden" name="jobId" value={jobId} />
-            <input type="hidden" name="decision" value="ACCEPTED" />
-            <button className="button button-primary button-small" type="submit" disabled={pending}>
-              {pending ? "Karar gönderiliyor" : "Kabulü onayla"}
-            </button>
-          </form>
-          <button
-            className="button button-secondary button-small"
-            type="button"
-            onClick={onClose}
-            disabled={pending}
-          >
-            Vazgeç
-          </button>
-        </div>
-      </section>
-    </div>
+    <AssignmentDialog
+      titleId="applicant-acceptance-title"
+      title="Başvuruyu kabul et"
+      subject={applicant.applicant.fullName || "Adı paylaşılmadı"}
+      facts={acceptanceFacts}
+      fields={
+        <>
+          <input type="hidden" name="applicationId" value={applicant.id} />
+          <input type="hidden" name="jobId" value={jobId} />
+          <input type="hidden" name="decision" value="ACCEPTED" />
+        </>
+      }
+      confirmLabel="Kabulü onayla"
+      pendingLabel="Karar gönderiliyor"
+      pending={pending}
+      blockedReason={gate.canAccept ? null : (gate.closedReason ?? gate.acceptClosedReason)}
+      formAction={submitDecision}
+      onClose={onClose}
+    />
   );
 }
+
+const acceptanceFacts = [
+  {
+    term: "Tam iş adresi açılır",
+    detail:
+      "Kabul ettiğin anda bu adaya ilanın yaklaşık konumu değil sokak, bina ve kapı numarasıyla tam adresi ve haritadaki kesin noktası görünür olur. Açılan adres geri kapatılamaz.",
+  },
+  {
+    term: "Atama kurulur",
+    detail:
+      "Adaya bir atama teklifi gider ve ilanın kontenjanından bir yer tükenir. Cevabını bekleyen teklif de yer kaplar.",
+  },
+  {
+    term: "Karar geri alınamaz",
+    detail:
+      "Kabul edilmiş bir başvuru bu ekrandan reddedilemez. Vazgeçmen gerekirse kurulan atamayı atama ekranından iptal etmen gerekir.",
+  },
+] as const;
 
 function ApplicantAvatar({ applicant }: { applicant: JobApplicant }) {
   const url = safeImageUrl(applicant.applicant.profilePictureUrl);
