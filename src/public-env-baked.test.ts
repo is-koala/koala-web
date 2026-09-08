@@ -15,32 +15,81 @@ function unsupportedPublicReads(file: string, contents: string): string[] {
     contents,
     ts.ScriptTarget.Latest,
     true,
+    /\.(?:tsx|mdx)$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const unsafe: string[] = [];
+  const processEnvAliases = new Set<string>();
 
   function report(name: string) {
     unsafe.push(`${path.relative(projectRoot, file)}: ${name}`);
   }
 
+  function collectAliases(node: ts.Node) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      (isProcessEnv(node.initializer) ||
+        (ts.isIdentifier(node.initializer) &&
+          processEnvAliases.has(node.initializer.text)))
+    ) {
+      processEnvAliases.add(node.name.text);
+    }
+    ts.forEachChild(node, collectAliases);
+  }
+
+  function allowedHelperDefault(node: ts.ElementAccessExpression): boolean {
+    if (path.relative(projectRoot, file) !== path.join("src", "lib", "env.ts")) {
+      return false;
+    }
+    const parameter = node.parent;
+    const fn = parameter.parent;
+    return (
+      ts.isParameter(parameter) &&
+      parameter.initializer === node &&
+      ts.isFunctionDeclaration(fn) &&
+      fn.name?.text === "requiredEnvironmentValue" &&
+      ts.isIdentifier(node.argumentExpression) &&
+      ts.isIdentifier(fn.parameters[0]?.name) &&
+      node.argumentExpression.text === fn.parameters[0].name.text
+    );
+  }
+
   function visit(node: ts.Node) {
-    if (ts.isIdentifier(node) && /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.text)) {
-      const direct =
-        ts.isPropertyAccessExpression(node.parent) &&
-        node.parent.name === node &&
-        isProcessEnv(node.parent.expression);
-      if (!direct) report(node.text);
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.name.text) &&
+      ts.isIdentifier(node.expression) &&
+      processEnvAliases.has(node.expression.text)
+    ) {
+      report(node.name.text);
     }
     if (
       ts.isElementAccessExpression(node) &&
       isProcessEnv(node.expression) &&
-      ts.isStringLiteral(node.argumentExpression) &&
-      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.argumentExpression.text)
+      !allowedHelperDefault(node)
     ) {
-      report(node.argumentExpression.text);
+      report(
+        ts.isStringLiteral(node.argumentExpression)
+          ? node.argumentExpression.text
+          : "computed process.env access",
+      );
+    }
+    if (
+      ts.isBindingElement(node) &&
+      ts.isIdentifier(node.name) &&
+      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.name.text) &&
+      ts.isObjectBindingPattern(node.parent) &&
+      ts.isVariableDeclaration(node.parent.parent) &&
+      node.parent.parent.initializer &&
+      isProcessEnv(node.parent.parent.initializer)
+    ) {
+      report(node.name.text);
     }
     ts.forEachChild(node, visit);
   }
 
+  collectAliases(source);
   visit(source);
   return unsafe;
 }
@@ -50,7 +99,7 @@ function sourceFiles(directory: string): string[] {
     const full = path.join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);
     // Testler derlemeye girmez; yalnız gönderilen kaynak taranır.
-    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [full] : [];
+    return /\.(?:tsx?|mdx)$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [full] : [];
   });
 }
 
@@ -161,8 +210,29 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
     ["env aliası", "const env = process.env; void env.NEXT_PUBLIC_ALIAS;"],
     ["destructuring", "const { NEXT_PUBLIC_PICKED } = process.env;"],
     ["bracket erişimi", 'void process.env["NEXT_PUBLIC_BRACKET"];'],
+    [
+      "değişken anahtarlı erişim",
+      'const key = "NEXT_PUBLIC_DYNAMIC" as const; void process.env[key];',
+    ],
+    [
+      "template anahtarlı erişim",
+      'void process.env[`${"NEXT_PUBLIC_TEMPLATE"}`];',
+    ],
   ])("inline edilmeyen %s biçimini reddediyor", (_, source) => {
     expect(unsupportedPublicReads("fixture.ts", source)).not.toEqual([]);
+  });
+
+  it("type alanlarını ortam değişkeni erişimi saymıyor", () => {
+    expect(
+      unsupportedPublicReads(
+        "fixture.ts",
+        "interface PublicEnv { NEXT_PUBLIC_TYPED: string }",
+      ),
+    ).toEqual([]);
+  });
+
+  it("Next tarafından derlenen MDX modüllerini de tarıyor", () => {
+    expect(shippedSourceFiles().some((file) => file.endsWith(".mdx"))).toBe(true);
   });
 
   it("gönderilen kaynakta inline edilmeyen public erişim bırakmıyor", () => {
