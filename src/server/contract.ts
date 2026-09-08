@@ -135,6 +135,19 @@ export const sessionCookies = {
   verifyRegistrationToken: "/auth/verify-registration-token",
 } as const;
 
+/**
+ * Tek bir ilanın adresi. Kimlik tarayıcıdan geliyor; yola konmadan kaçırılır.
+ *
+ * Burada, `backendPaths`'in yanında duruyor çünkü ilan kaynağının adresini
+ * kuran **tek** yer olması gerekiyor. İki çevirici de aynı üç satırı yorumuyla
+ * birlikte taşıyordu (`jobs.ts`, `public-jobs.ts`) ve kaçırmayı unutan bir
+ * kopya, ilan kimliğini doğrudan yola yazan bir yol açardı. Aynı gerekçeyle
+ * `companyPath` şirket modülünde tek yerde duruyor.
+ */
+export function jobPath(jobId: string): string {
+  return `${backendPaths.jobs}/${encodeURIComponent(jobId)}`;
+}
+
 /** Erişim tokenı reddedildiğinde backend bu durumu döner. */
 export const unauthorizedStatus = 401;
 

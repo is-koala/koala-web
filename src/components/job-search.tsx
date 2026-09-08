@@ -521,8 +521,16 @@ function JobCard({ job }: { job: JobSummary }) {
         </p>
 
         <h2 id={titleId}>
+          {/*
+            Bekleme göstergesi sayfalama bağlantısındaki gerekçenin aynısıyla
+            burada: ilan ayrıntısının yanında `loading.tsx` **yok**
+            (is-koala/koala-web#94), yani tıklamayla sunucu yanıtı arasındaki
+            boşluğu dolduracak bir iskelet de yok. `LinkPending` o boşluğu
+            sayfayı bir Suspense sınırına sokmadan dolduruyor.
+          */}
           <Link className="text-link" href={publicJobPath(job.id)}>
             {job.title}
+            <LinkPending />
           </Link>
         </h2>
 

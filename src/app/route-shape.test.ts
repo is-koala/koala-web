@@ -38,7 +38,10 @@ describe("rota dosya biçimi", () => {
     expect(violations).toEqual([]);
   });
 
-  it("herkese açık ilan listesinin yanında loading.tsx yok", () => {
+  it.each([
+    ["ilan listesi", path.join("(marketing)", "is-ilanlari")],
+    ["ilan ayrıntısı", path.join("(marketing)", "is-ilanlari", "[jobId]")],
+  ])("herkese açık %s sayfasının yanında loading.tsx yok", (_name, route) => {
     /*
      * Bir segmentin yanına `loading.tsx` konduğunda Next `page.tsx`'i otomatik
      * olarak bir `<Suspense>` sınırına alıyor. Sınır kabuğu erken akıtıyor ve
@@ -47,17 +50,23 @@ describe("rota dosya biçimi", () => {
      * JavaScript kapalı bir tarayıcıda o taşıma hiç olmuyor: ziyaretçi
      * ilanları değil, sonsuza kadar iskeleti görüyor.
      *
-     * `/is-ilanlari` için bu, sayfanın var oluş sebebini iptal eder
-     * (is-koala/koala-web#19: "JavaScript kapalıyken de ilanlar ve sayfalama
-     * bağlantıları görünüyor"). Ekranda hata gibi görünmüyor — JavaScript açık
-     * her tarayıcıda sayfa doğru çalışıyor — o yüzden tek yakalayan yer burası.
-     * Yükleniyor durumu bunun yerine sayfalama bağlantısının içinde duruyor
-     * (`src/components/link-pending.tsx`, `useLinkStatus`).
+     * İki rota da bu yüzden listede. Liste için bu, sayfanın var oluş sebebini
+     * iptal eder (is-koala/koala-web#19: "JavaScript kapalıyken de ilanlar ve
+     * sayfalama bağlantıları görünüyor"). Ayrıntı sayfası aynı kusuru
+     * bağımsız olarak taşıyordu (is-koala/koala-web#94) ve orada bedel daha
+     * ağır: sayfa `JobPosting` yapısal verisi ve kanonik adres taşıyor, yani
+     * ilk HTML'i okuyan bir tarayıcıya iskeletten başka bir şey görünmezdi.
+     *
+     * Ekranda hata gibi görünmüyor — JavaScript açık her tarayıcıda sayfa
+     * doğru çalışıyor — o yüzden tek yakalayan yer burası. Yükleniyor durumu
+     * bunun yerine gezinme bağlantısının içinde duruyor
+     * (`src/components/link-pending.tsx`, `useLinkStatus`): sayfalama
+     * bağlantılarında ve ilan kartının başlık bağlantısında.
      */
-    const listRoute = path.join(appRoot, "(marketing)", "is-ilanlari");
+    const segment = path.join(appRoot, route);
 
-    expect(existsSync(path.join(listRoute, "page.tsx"))).toBe(true);
-    expect(existsSync(path.join(listRoute, "loading.tsx"))).toBe(false);
+    expect(existsSync(path.join(segment, "page.tsx"))).toBe(true);
+    expect(existsSync(path.join(segment, "loading.tsx"))).toBe(false);
   });
 
   it("kabuk köklerinin hiçbirinde loading.tsx yok", () => {

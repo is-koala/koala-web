@@ -52,6 +52,33 @@ export async function anonymousCaller(): Promise<ApiCaller> {
 }
 
 /**
+ * Kimseye ait olmayan, istek bağlamı da taşımayan çağrı.
+ *
+ * `anonymousCaller`'dan ayrı duruyor ve fark tek kelimeyle **istek**:
+ * o çerezi ve istemci IP'sini okuyor, yani `cookies()`/`headers()` çağırıyor
+ * ve kullandığı her sayfayı dinamik render'a mahkûm ediyor. Statik üretilen
+ * ya da ISR ile önbelleklenen bir tanıtım sayfası bunu karşılayamaz: Next
+ * istek-zamanı API'si gördüğü anda önbelleklemeyi bırakır.
+ *
+ * Cihaz kimliği sabit ve bu bir kimlik değil, bir **yer tutucu**: backend web
+ * çağrılarında yalnız oturum uçlarında zorunlu tutuyor
+ * (`ClientContext.requireWebDeviceId`, yalnız `AuthManager` login/refresh),
+ * herkese açık `GET` uçlarında hiç okumuyor. `apiFetch` yine de biçime uyan
+ * bir değer istiyor — kural oturum çağrılarını koruyor ve gevşetilmemeli — o
+ * yüzden buradan sabit, ayırt edici bir değer geçiyor. Ziyaretçiden türeyen
+ * hiçbir şey taşımadığı için üretilen HTML de ziyaretçiden bağımsız.
+ *
+ * Yalnız kimlik istemeyen okumalarda kullanılır; token taşıyan bir akış için
+ * `apiRequest` vardır.
+ */
+export function publicReaderCaller(): ApiCaller {
+  return { deviceId: publicReaderDeviceId, accessToken: null, clientIp: null };
+}
+
+/** Biçim `deviceIdPattern`'e uyar; taşıdığı tek bilgi çağrının kamuya açık olduğu. */
+const publicReaderDeviceId = "web-public-reader";
+
+/**
  * Oturum bağlamını taşıyan backend çağrısı.
  *
  * Sayfalar ve action'lar tokenları hiç görmez: erişim tokenı ve cihaz

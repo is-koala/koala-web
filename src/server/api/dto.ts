@@ -2,7 +2,7 @@ import "server-only";
 
 import type { AddressPrecision, SalaryType } from "@/jobs/contract";
 import { employerTypeValues, type JobEmployerType } from "@/jobs/employer-jobs";
-import { salaryTypeValues } from "@/lib/job-posting";
+import { jobTypeValues, salaryTypeValues, type JobType } from "@/lib/job-posting";
 
 /**
  * Backend yanıtlarını ekranın modeline daraltan ortak parçalar.
@@ -90,4 +90,42 @@ export const salaryTypes = new Set<SalaryType>(salaryTypeValues);
 
 export const employerTypes = new Set<JobEmployerType>(employerTypeValues);
 
-export const addressPrecisions = new Set<AddressPrecision>(["APPROXIMATE", "EXACT"]);
+/** `JobType`; iki ilan çeviricisi de aynı kümeyi okuyor. */
+export const jobTypes = new Set<JobType>(jobTypeValues);
+
+const addressPrecisions = new Set<AddressPrecision>(["APPROXIMATE", "EXACT"]);
+
+/**
+ * Backend'in bildirdiği adres kesinliği.
+ *
+ * Okunamayan kesinlik `UNKNOWN` kalıyor ve ekran onu yaklaşık gibi ele
+ * alıyor: bilinmeyen bir bayrağı "kesin" saymak, ziyaretçiye olduğundan daha
+ * kesin bir konum vaat etmek — ve gizlenmesi gereken bir adresi açığa
+ * çıkarmak — olurdu (ADR-0003).
+ *
+ * Gerekçe **burada**, çağrı yerlerinde değil: iki çevirici de aynı üç satırı
+ * kopyalamıştı ve kural değişseydi biri güncellenip öbürü sessizce eski
+ * kalırdı.
+ */
+export function precisionOf(value: string | null | undefined): AddressPrecision {
+  return known(value, addressPrecisions);
+}
+
+/**
+ * Kontenjan alanları — `headcount` ve `hiredCount` birlikte okunur.
+ *
+ * İkisi de üç çeviricide tekrar ediyordu, gerekçe yorumlarıyla birlikte:
+ *
+ * - `headcount` `null` ise ilan **sınırsız** kişilik; eksik değeri sıfır
+ *   saymak ilanı doluymuş gibi gösterirdi.
+ * - `hiredCount` backend'de yalnız {CONFIRMED, IN_PROGRESS, COMPLETED}
+ *   atamalarını sayıyor (`JobManager.java:293-299`). Kabul kapısı
+ *   `PENDING_CONFIRMATION` teklifleri de yer kaplıyor sayıyor, yani bu sayı
+ *   kalan kontenjanın **üst sınırı**, kesin değeri değil.
+ */
+export function openings(dto: { headcount?: number | null; hiredCount?: number | null }): {
+  headcount: number | null;
+  hiredCount: number;
+} {
+  return { headcount: dto.headcount ?? null, hiredCount: dto.hiredCount ?? 0 };
+}

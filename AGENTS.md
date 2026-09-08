@@ -78,14 +78,30 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
   görülür, `next dev` her dinamik yanıtın üzerine kendi
   `no-cache, must-revalidate` başlığını yazıyor, bu yüzden Playwright
   koşuları ona bakamaz.
-- `loading.tsx`, yanındaki `page.tsx` `notFound()` çağırıyorsa konulamaz —
-  kabuk kökünde de, bölümün kendi klasöründe de. Segment bir Suspense sınırıyla
-  sarıldığında sayfa askıya girer girmez kabuk erken akıtılır, HTTP durumu
-  200'de kilitlenir ve `notFound()` artık 404 döndüremez. Kural yalnız kabuk
-  köküyle sınırlı değil: `notFound()` bir `await`'ten **sonra** çağrılıyorsa
-  bölümün kendi `loading.tsx`'i de aynı sonucu verir.
-  `src/app/route-shape.test.ts` ikisini de zorluyor. Yükleniyor durumu, karar
-  verildikten **sonra** açılan bir iç `Suspense` ile verilir.
+- `loading.tsx` bir segmenti Suspense sınırına sokar ve bunun **iki** ayrı yan
+  etkisi var. İkisi de ekranda görünmez; JavaScript açık her tarayıcıda sayfa
+  doğru çalışır. `src/app/route-shape.test.ts` ikisini de zorluyor.
+
+  1. **HTTP durumu 200'de kilitlenir.** Sayfa askıya girer girmez kabuk erken
+     akıtılır ve `notFound()` artık 404 döndüremez. Bu yüzden `loading.tsx`,
+     yanındaki `page.tsx` `notFound()` çağırıyorsa konulamaz — kabuk kökünde
+     de, bölümün kendi klasöründe de. Kural yalnız kabuk köküyle sınırlı
+     değil: `notFound()` bir `await`'ten **sonra** çağrılıyorsa bölümün kendi
+     `loading.tsx`'i de aynı sonucu verir.
+  2. **İçerik ilk HTML'e `<div hidden>` içinde girer.** Sayfanın asıl gövdesi
+     belgeye `<div hidden id="S:1">…</div>` olarak yazılır ve onu yerine
+     taşıyan şey satır içi bir script'tir. JavaScript kapalı ya da
+     çalışmamışsa taşıma hiç olmaz: ziyaretçi sonsuza kadar iskeleti görür.
+     Bu yüzden `loading.tsx`, içeriğinin script'siz görünmesi gereken hiçbir
+     tanıtım sayfasının yanına konulamaz — `(marketing)` "statik üretilir, SEO
+     önemli" diyor ve orada iskelet, indekslenen tek şey olur. Kusur
+     is-koala/koala-web#93'te ilan listesinde, #94'te ilan ayrıntısında
+     ölçüldü; ikisinde de kaynak koda değil, `next build && next start`
+     sonrası `curl` ile **üretilen HTML'e** bakılarak bulundu.
+
+  Her iki durumda da yükleniyor durumu başka yere taşınır: karar verildikten
+  **sonra** açılan bir iç `Suspense` sınırına, ya da gezinme bağlantısının
+  içine (`src/components/link-pending.tsx`, `useLinkStatus`).
 - Yetki kapıları tek katmanda: sözlük `src/lib/gates.ts`, karar
   `src/server/session/gates.ts`, metin `src/lib/errors.ts`
   (`gateNotice`). Kararlar `enterShell()`'in zaten okuduğu `GET /users/me`
@@ -172,6 +188,40 @@ doğrulamadığını **açıkça söyle** ve nelere bakılması gerektiğini yaz
 Yeni veri ekranı yükleniyor, boş ve hata durumlarının üçünü de tanımlar.
 Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
 `errorCode` ile seç ve bilinmeyen kodda nötr Türkçe yedeği göster.
+
+### Önbelleklenen sayfada hata kartı çizme
+
+`revalidate` taşıyan bir sayfada (bugün yalnız ilan ayrıntısı) hata durumu
+sayfanın **içinde** çizilemez. Yakalanıp bir karta dönüştürülen backend hatası
+yanıtı 200 yapıyor ve `s-maxage` onu pencere boyunca kilitliyor: backend
+iyileşse bile ziyaretçi hata kartını almaya devam ediyor ve istek backend'e
+hiç gitmiyor. Ölçüldü (is-koala/koala-web#98): 503'ten sonra backend
+düzeltildi, üç istek de önbellekten hata kartı aldı, backend'e sıfır istek
+gitti.
+
+Ayrım **kalıcı yokluk ile geçici arıza** arasında:
+
+- **404 kalıcı** — `notFound()`; cevap pencere boyunca aynı kalacağı için
+  önbelleğe girmesi doğru.
+- **Öbür her hata geçici** — yeniden atılır. Next'in ISR rehberi bunu
+  söylüyor (*"throw an error instead of returning so that the cache is not
+  updated"*): atılan render önbelleğe yazılmıyor, durum kodu 500 oluyor ve
+  bir sonraki istek backend'e yeniden gidiyor.
+
+**Ekran durumu bu rotada bir ekran değil, ve bunu bilerek yazıyoruz.**
+Önbellekte olmayan bir ilan arıza sırasında Next'in yerleşik 500 gövdesini
+alıyor: 21 baytlık, çevrilmemiş "Internal Server Error". Bölüme `error.tsx`
+kondu ve **çalışmadı** — ISR üretimi sırasında atılan hata için o sınır hiç
+render edilmiyor, `global-error.tsx` de öyle. `await connection()` ile hata
+dalında dinamik render'a düşmek de denendi; `revalidate` taşıyan rotada Next
+onu `DYNAMIC_SERVER_USAGE` ile reddediyor. Üçü de `next build` + standalone
+`server.js` + `curl` ile ölçüldü, kaynak koda bakılarak değil.
+
+Takas bilinçli: karşılığında arıza önbelleğe hiç girmiyor, iyileşme sonraki
+istekte görünüyor, ve **zaten önbellekte olan ilan arıza boyunca kendi doğru
+sayfasını sunmaya devam ediyor** — eski davranışta o sayfa da beş dakikalığına
+hata kartına dönüşüyordu. Çevrilmiş bir 500 gövdesi isteniyorsa yeri bu rota
+değil, önündeki ters vekil.
 
 ## Commit ve PR
 
