@@ -153,9 +153,12 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Konum izni verilmedi; giriş konumsuz kaydedildi.",
     );
-    // Konum uyarısı action sonucundaki yeni iş ayrıntısından önce çizilebilir.
-    // Yenilenen oturumun düğmesini ayrıca bekleyerek transition yarışını önle.
-    expect(await screen.findByRole("button", { name: "İşten çıkış yap" })).toBeVisible();
+    // `getByRole`, `findByRole` değil: `applyResult` `setDetail` ile `setFeedback`'i
+    // aynı senkron blokta çağırıyor, React onları tek commit'te topluyor. Yani uyarı
+    // görünür olduğunda yenilenen oturumun düğmesi de görünür olmak ZORUNDA.
+    // Beklemek, bayat arayüzü 1 saniyeye kadar kabul eder ve şu gerilemeyi gizler:
+    // uyarı çizilir ama ekranda hâlâ giriş düğmesi durur — ikinci bir check-in daveti.
+    expect(screen.getByRole("button", { name: "İşten çıkış yap" })).toBeVisible();
   });
 
   it("güvensiz bağlam sonucunda konumsuz devam uyarısını açıklar", async () => {
