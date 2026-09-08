@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
+import { compileSync } from "@mdx-js/mdx";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
@@ -9,33 +10,24 @@ const projectRoot = path.resolve(sourceRoot, "..");
 const dockerfile = path.join(projectRoot, "Dockerfile");
 const nextRootEntry = /^(?:instrumentation(?:-client)?|sentry\.(?:server|edge)\.config|next\.config|mdx-components|middleware|proxy)\.tsx?$/;
 
-function unsupportedPublicReads(file: string, contents: string): string[] {
-  const source = ts.createSourceFile(
-    file,
-    contents,
+function parsedSource(file: string, contents: string): ts.SourceFile {
+  const mdx = file.endsWith(".mdx");
+  const compiled = mdx ? String(compileSync(contents, { jsx: true })) : contents;
+  return ts.createSourceFile(
+    mdx ? `${file}.tsx` : file,
+    compiled,
     ts.ScriptTarget.Latest,
     true,
     /\.(?:tsx|mdx)$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
+}
+
+function unsupportedPublicReads(file: string, contents: string): string[] {
+  const source = parsedSource(file, contents);
   const unsafe: string[] = [];
-  const processEnvAliases = new Set<string>();
 
   function report(name: string) {
     unsafe.push(`${path.relative(projectRoot, file)}: ${name}`);
-  }
-
-  function collectAliases(node: ts.Node) {
-    if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer &&
-      (isProcessEnv(node.initializer) ||
-        (ts.isIdentifier(node.initializer) &&
-          processEnvAliases.has(node.initializer.text)))
-    ) {
-      processEnvAliases.add(node.name.text);
-    }
-    ts.forEachChild(node, collectAliases);
   }
 
   function allowedHelperDefault(node: ts.ElementAccessExpression): boolean {
@@ -57,12 +49,15 @@ function unsupportedPublicReads(file: string, contents: string): string[] {
 
   function visit(node: ts.Node) {
     if (
-      ts.isPropertyAccessExpression(node) &&
-      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.name.text) &&
-      ts.isIdentifier(node.expression) &&
-      processEnvAliases.has(node.expression.text)
+      ts.isVariableDeclaration(node) &&
+      node.initializer &&
+      isProcessEnv(node.initializer)
     ) {
-      report(node.name.text);
+      report(
+        ts.isObjectBindingPattern(node.name)
+          ? "process.env destructuring"
+          : "process.env alias",
+      );
     }
     if (
       ts.isElementAccessExpression(node) &&
@@ -75,21 +70,9 @@ function unsupportedPublicReads(file: string, contents: string): string[] {
           : "computed process.env access",
       );
     }
-    if (
-      ts.isBindingElement(node) &&
-      ts.isIdentifier(node.name) &&
-      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.name.text) &&
-      ts.isObjectBindingPattern(node.parent) &&
-      ts.isVariableDeclaration(node.parent.parent) &&
-      node.parent.parent.initializer &&
-      isProcessEnv(node.parent.parent.initializer)
-    ) {
-      report(node.name.text);
-    }
     ts.forEachChild(node, visit);
   }
 
-  collectAliases(source);
   visit(source);
   return unsafe;
 }
@@ -110,13 +93,11 @@ function shippedSourceFiles(): string[] {
   return [...sourceFiles(sourceRoot), ...rootEntries];
 }
 
-function publicNames(file: string): string[] {
-  const source = ts.createSourceFile(
-    file,
-    readFileSync(file, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-  );
+function publicNames(
+  file: string,
+  contents = readFileSync(file, "utf8"),
+): string[] {
+  const source = parsedSource(file, contents);
   const names: string[] = [];
 
   function visit(node: ts.Node) {
@@ -153,12 +134,7 @@ function isProcessEnv(node: ts.Node): node is ts.PropertyAccessExpression {
 }
 
 function unsafeRequiredPublicReads(file: string): string[] {
-  const source = ts.createSourceFile(
-    file,
-    readFileSync(file, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-  );
+  const source = parsedSource(file, readFileSync(file, "utf8"));
   const unsafe: string[] = [];
 
   function visit(node: ts.Node) {
@@ -208,7 +184,15 @@ function declaredArgs(builder: string): Set<string> {
 describe("public ortam değişkenleri derlemeye gömülüyor", () => {
   it.each([
     ["env aliası", "const env = process.env; void env.NEXT_PUBLIC_ALIAS;"],
+    [
+      "env aliasında bracket erişimi",
+      'const env = process.env; void env["NEXT_PUBLIC_ALIAS_BRACKET"];',
+    ],
     ["destructuring", "const { NEXT_PUBLIC_PICKED } = process.env;"],
+    [
+      "yeniden adlandırılmış destructuring",
+      "const { NEXT_PUBLIC_RENAMED: value } = process.env;",
+    ],
     ["bracket erişimi", 'void process.env["NEXT_PUBLIC_BRACKET"];'],
     [
       "değişken anahtarlı erişim",
@@ -235,6 +219,22 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
     expect(shippedSourceFiles().some((file) => file.endsWith(".mdx"))).toBe(true);
   });
 
+  it("MDX JSX ifadelerindeki public erişimleri derlenmiş modülden okuyor", () => {
+    const source =
+      '# Başlık\n\n<Widget value={process.env.NEXT_PUBLIC_MDX_COMPONENT} />';
+
+    expect(publicNames("fixture.mdx", source)).toContain(
+      "NEXT_PUBLIC_MDX_COMPONENT",
+    );
+  });
+
+  it("MDX JSX ifadelerindeki computed process.env erişimini reddediyor", () => {
+    const source =
+      '# Başlık\n\n<Widget value={process.env[`NEXT_PUBLIC_MDX_DYNAMIC`]} />';
+
+    expect(unsupportedPublicReads("fixture.mdx", source)).not.toEqual([]);
+  });
+
   it("gönderilen kaynakta inline edilmeyen public erişim bırakmıyor", () => {
     const unsafe = shippedSourceFiles().flatMap((file) =>
       unsupportedPublicReads(file, readFileSync(file, "utf8")),
@@ -255,7 +255,7 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
     // değişken derlemede boş kalır ve hata vermez: sayfa açılır, özellik
     // sessizce çalışmaz. Sentry'nin üç değişkeni tam olarak böyle kalmıştı.
     const used = new Set(
-      shippedSourceFiles().flatMap(publicNames),
+      shippedSourceFiles().flatMap((file) => publicNames(file)),
     );
 
     const declared = declaredArgs(

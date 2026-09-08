@@ -261,7 +261,9 @@ sonradan eklenen runtime değişkeni tarayıcı bundle'ını değiştirmez. Bu y
 istemci veya build girişlerinde okunan her public ad, `Dockerfile` builder
 aşamasında `ARG` ve aynı adlı `ENV NAME=$NAME` olarak `npm run build` öncesinde
 bulunur. Next yalnız `process.env.NAME` biçimindeki statik erişimi inline eder;
-`process.env[name]` etmez. `requiredEnvironmentValue` ile public ad okuyan çağrı
-ikinci argümanda doğrudan `process.env.NEXT_PUBLIC_...` değerini geçirir.
-`src/public-env-baked.test.ts` bu sözleşmeyi TypeScript AST üzerinden hem
-`src/` hem kök Next girişleri için tutar; yeni ad eklerken testi gevşetme.
+`process.env[name]` etmez. Bu yüzden gönderilen kaynakta `process.env` aliası,
+destructuring veya computed erişim kullanılmaz. `requiredEnvironmentValue` ile
+public ad okuyan çağrı ikinci argümanda doğrudan
+`process.env.NEXT_PUBLIC_...` değerini geçirir. `src/public-env-baked.test.ts`
+bu sözleşmeyi TypeScript AST ve derlenmiş MDX modülleri üzerinden hem `src/`
+hem kök Next girişleri için tutar; yeni ad eklerken testi gevşetme.
