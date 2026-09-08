@@ -113,7 +113,7 @@ describe("işveren atama takibi", () => {
 
     await user.click(screen.getByRole("button", { name: "İşi tamamlandı işaretle" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(expected);
+    expect(await screen.findByRole("alert")).toHaveTextContent(expected);
   });
 
   it("tamamlama başarılıysa sonucu ekranda söyler", async () => {
@@ -128,6 +128,6 @@ describe("işveren atama takibi", () => {
 
     await user.click(screen.getByRole("button", { name: "İşi tamamlandı işaretle" }));
 
-    expect(screen.getByRole("status")).toHaveTextContent("tamamlandı");
+    expect(await screen.findByRole("status")).toHaveTextContent("tamamlandı");
   });
 });

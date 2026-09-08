@@ -347,7 +347,9 @@ describe("başvuru kabul/red karar akışı", () => {
     // ve kararı yazmış. `getByRole("article")` komşu düğüm — kartın kendisi —
     // ve karar bölümü hiç çizilmese de yeşil kalırdı.
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
-    expect(within(decision).getByRole("status")).toHaveTextContent("Başvuru kabul edildi");
+    expect(await within(decision).findByRole("status")).toHaveTextContent(
+      "Başvuru kabul edildi",
+    );
   });
 
   it("red formu gerekçeyi zorunlu tutar ve REJECTED gövdesi gönderir", async () => {
@@ -497,6 +499,7 @@ describe("başvuru kabul/red karar akışı", () => {
     );
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
+    await within(screen.getAllByRole("article")[0]).findByRole("status");
     expect(within(second).getByRole("button", { name: "Kabul et" })).toBeDisabled();
     expect(within(second).getByText(/kontenjanını doldurdu/)).toBeInTheDocument();
   });
@@ -553,7 +556,7 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
-    expect(within(decision).getByRole("status")).toHaveTextContent(
+    expect(await within(decision).findByRole("status")).toHaveTextContent(
       "tam iş adresi ona açıldı",
     );
     expect(within(decision).getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
@@ -576,7 +579,7 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(screen.getByRole("button", { name: "Kabul et" }));
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
-    expect(screen.getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
       "href",
       "/isveren/atamalar",
     );
@@ -619,7 +622,7 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
-    expect(within(decision).getByRole("status")).toHaveTextContent(/cevabı okunamadı/);
+    expect(await within(decision).findByRole("status")).toHaveTextContent(/cevabı okunamadı/);
     expect(within(decision).queryByText(/tam iş adresi ona açıldı/)).toBeNull();
     expect(within(decision).queryByRole("link", { name: "Atamayı aç" })).toBeNull();
     // Kart yine de kilitli: 2xx döndü, ikinci bir karar geri alınamaz bir
@@ -642,7 +645,9 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(within(card).getByRole("button", { name: "Reddi gönder" }));
 
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
-    expect(within(decision).getByRole("status")).toHaveTextContent("Başvuru reddedildi");
+    expect(await within(decision).findByRole("status")).toHaveTextContent(
+      "Başvuru reddedildi",
+    );
     expect(within(decision).queryByRole("link", { name: "Atamayı aç" })).toBeNull();
   });
 
@@ -663,8 +668,10 @@ describe("başvuru kabul/red karar akışı", () => {
     const [first, second] = screen.getAllByRole("article");
     await user.type(within(first).getByLabelText("Red gerekçesi"), "Tarih uymuyor.");
     await user.click(within(first).getByRole("button", { name: "Reddi gönder" }));
+    await within(first).findByRole("status");
     await user.type(within(second).getByLabelText("Red gerekçesi"), "Uzaklık.");
     await user.click(within(second).getByRole("button", { name: "Reddi gönder" }));
+    await within(second).findByRole("status");
 
     for (const card of screen.getAllByRole("article")) {
       expect(within(card).getByText(/Karar geri alınamıyor/)).toBeInTheDocument();
@@ -688,7 +695,7 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
     const card = screen.getByRole("article");
-    expect(within(card).getByRole("alert")).toHaveTextContent(
+    expect(await within(card).findByRole("alert")).toHaveTextContent(
       "İlanın kontenjanı doldu; bu adayı kabul edemezsin.",
     );
   });
@@ -709,7 +716,7 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(screen.getByRole("button", { name: "Kabul et" }));
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Bu başvuru bulunamadı ya da cevaplama yetkin yok.",
     );
   });
@@ -729,7 +736,7 @@ describe("başvuru kabul/red karar akışı", () => {
     await user.click(screen.getByRole("button", { name: "Kabul et" }));
     await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Bu karar gönderilemedi; sayfayı yenileyip yeniden dene.",
     );
   });
