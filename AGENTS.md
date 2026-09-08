@@ -78,14 +78,30 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
   görülür, `next dev` her dinamik yanıtın üzerine kendi
   `no-cache, must-revalidate` başlığını yazıyor, bu yüzden Playwright
   koşuları ona bakamaz.
-- `loading.tsx`, yanındaki `page.tsx` `notFound()` çağırıyorsa konulamaz —
-  kabuk kökünde de, bölümün kendi klasöründe de. Segment bir Suspense sınırıyla
-  sarıldığında sayfa askıya girer girmez kabuk erken akıtılır, HTTP durumu
-  200'de kilitlenir ve `notFound()` artık 404 döndüremez. Kural yalnız kabuk
-  köküyle sınırlı değil: `notFound()` bir `await`'ten **sonra** çağrılıyorsa
-  bölümün kendi `loading.tsx`'i de aynı sonucu verir.
-  `src/app/route-shape.test.ts` ikisini de zorluyor. Yükleniyor durumu, karar
-  verildikten **sonra** açılan bir iç `Suspense` ile verilir.
+- `loading.tsx` bir segmenti Suspense sınırına sokar ve bunun **iki** ayrı yan
+  etkisi var. İkisi de ekranda görünmez; JavaScript açık her tarayıcıda sayfa
+  doğru çalışır. `src/app/route-shape.test.ts` ikisini de zorluyor.
+
+  1. **HTTP durumu 200'de kilitlenir.** Sayfa askıya girer girmez kabuk erken
+     akıtılır ve `notFound()` artık 404 döndüremez. Bu yüzden `loading.tsx`,
+     yanındaki `page.tsx` `notFound()` çağırıyorsa konulamaz — kabuk kökünde
+     de, bölümün kendi klasöründe de. Kural yalnız kabuk köküyle sınırlı
+     değil: `notFound()` bir `await`'ten **sonra** çağrılıyorsa bölümün kendi
+     `loading.tsx`'i de aynı sonucu verir.
+  2. **İçerik ilk HTML'e `<div hidden>` içinde girer.** Sayfanın asıl gövdesi
+     belgeye `<div hidden id="S:1">…</div>` olarak yazılır ve onu yerine
+     taşıyan şey satır içi bir script'tir. JavaScript kapalı ya da
+     çalışmamışsa taşıma hiç olmaz: ziyaretçi sonsuza kadar iskeleti görür.
+     Bu yüzden `loading.tsx`, içeriğinin script'siz görünmesi gereken hiçbir
+     tanıtım sayfasının yanına konulamaz — `(marketing)` "statik üretilir, SEO
+     önemli" diyor ve orada iskelet, indekslenen tek şey olur. Kusur
+     is-koala/koala-web#93'te ilan listesinde, #94'te ilan ayrıntısında
+     ölçüldü; ikisinde de kaynak koda değil, `next build && next start`
+     sonrası `curl` ile **üretilen HTML'e** bakılarak bulundu.
+
+  Her iki durumda da yükleniyor durumu başka yere taşınır: karar verildikten
+  **sonra** açılan bir iç `Suspense` sınırına, ya da gezinme bağlantısının
+  içine (`src/components/link-pending.tsx`, `useLinkStatus`).
 - Yetki kapıları tek katmanda: sözlük `src/lib/gates.ts`, karar
   `src/server/session/gates.ts`, metin `src/lib/errors.ts`
   (`gateNotice`). Kararlar `enterShell()`'in zaten okuduğu `GET /users/me`
