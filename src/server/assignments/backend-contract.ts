@@ -5,6 +5,7 @@ import type {
   PaymentStatus,
   WorkerAssignment,
 } from "@/assignments/contract";
+import { clean } from "@/server/api/dto";
 
 /** Backend'in çalışan ataması liste satırı. */
 export type AssignmentDto = {
@@ -67,11 +68,11 @@ export function projectWorkerAssignment(dto: AssignmentDto): WorkerAssignment {
     id: dto.id,
     jobId: dto.job.id,
     title: dto.job.title,
-    position: cleanText(dto.job.position),
-    categoryName: cleanText(dto.job.category?.name),
-    companyName: cleanText(dto.job.companyName),
-    cityName: cleanText(dto.job.cityName),
-    districtName: cleanText(dto.job.districtName),
+    position: clean(dto.job.position),
+    categoryName: clean(dto.job.category?.name),
+    companyName: clean(dto.job.companyName),
+    cityName: clean(dto.job.cityName),
+    districtName: clean(dto.job.districtName),
     startsAt: dto.job.startDateTime,
     endsAt: dto.job.endDateTime,
     status: normalizeAssignmentStatus(dto.status),
@@ -93,7 +94,3 @@ function normalizePaymentStatus(value: string): PaymentStatus {
     : "UNKNOWN";
 }
 
-function cleanText(value: string | null | undefined): string | null {
-  const cleaned = value?.trim();
-  return cleaned ? cleaned : null;
-}

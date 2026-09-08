@@ -276,10 +276,6 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .application-assignment { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
 .application-assignment code { overflow-wrap: anywhere; font-size: .78rem; }
 .application-withdraw { margin-top: auto; }
-.application-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
-.application-pagination a { font-weight: 750; }
-.application-pagination a:last-child { justify-self: end; }
-.application-pagination > span { color: var(--muted); font-size: .84rem; font-weight: 700; }
 .application-dialog-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(40, 40, 40, .48); }
 .application-dialog { width: min(520px, 100%); padding: clamp(22px, 4vw, 34px); border-radius: 24px; background: var(--paper); box-shadow: 0 24px 80px rgba(40, 40, 40, .28); }
 .application-dialog h2 { margin-bottom: 12px; }
@@ -309,11 +305,12 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .employer-job-payout span { color: var(--muted); }
 /* İki ilan listesinin sayfalama şeridi tek kural kümesi: aynı üç sütunlu
    yerleşim, aynı tipografi. Ayrıldıkları tek yer `.job-pagination`'ın üstündeki
-   boşluk ve o da aşağıda, kendi bölümünde. */
-.employer-job-pagination, .job-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
-.employer-job-pagination a, .job-pagination a { font-weight: 750; }
-.employer-job-pagination a:last-child, .job-pagination a:last-child { justify-self: end; }
-.employer-job-pagination > span, .job-pagination > span { color: var(--muted); font-size: .84rem; font-weight: 700; }
+   boşluk ve o da aşağıda, kendi bölümünde. Başvuru şeridi de aynı kuralı
+   paylaşıyor; ayrı yazıldığı sürece üçü sessizce ayrışabiliyordu. */
+.application-pagination, .employer-job-pagination, .job-pagination { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
+.application-pagination a, .employer-job-pagination a, .job-pagination a { font-weight: 750; }
+.application-pagination a:last-child, .employer-job-pagination a:last-child, .job-pagination a:last-child { justify-self: end; }
+.application-pagination > span, .employer-job-pagination > span, .job-pagination > span { color: var(--muted); font-size: .84rem; font-weight: 700; }
 
 /* Herkese açık ilan listesi. Kart `.feature-card` jetonlarını (--surface,
    --line, --muted) kullanıyor ama onun kalıbını değil: tanıtım kartı sabit
