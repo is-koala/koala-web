@@ -46,10 +46,11 @@ gönderilmiş e-postalar için duruyor.
 Dağıtım kaynağı GitHub `main` değil, backend ile aynı şekilde `v*` etiketidir.
 Dokploy servisi repodaki çok aşamalı `Dockerfile` ile build edilir, container
 3000 portunu açar ve sağlık kontrolü `/api/health` adresini kullanır. Build
-ortamında `.env.example` içindeki public değerler; runtime'da `API_URL`,
-`APP_VERSION` ve `GIT_SHA` tanımlanır. `iskoala.com` servise bağlanır, TLS ve HTTPS zorlama
-açılır; `www.iskoala.com` aynı servise bağlanır ve uygulama katmanında apex'e
-301 döner.
+ortamında kaynak kodun okuduğu `.env.example` public değerleri Docker build arg
+olarak geçirilir; bunları yalnız container runtime ortamına eklemek yeterli
+değildir. Runtime'da `API_URL`, `APP_VERSION` ve `GIT_SHA` tanımlanır.
+`iskoala.com` servise bağlanır, TLS ve HTTPS zorlama açılır;
+`www.iskoala.com` aynı servise bağlanır ve uygulama katmanında apex'e 301 döner.
 
 PR birleştirme, `v*` etiketi yayımlama ve production deploy birbirinden ayrı
 yayın kararlarıdır. CI doğrulamasından sonra yayımlanan etiket Dokploy'da yeni
