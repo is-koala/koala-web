@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { JobSearchPage, JobSummary } from "@/jobs/search";
+import { jobSearchParamNames, type JobSearchPage, type JobSummary } from "@/jobs/search";
 import { ApiError } from "@/server/api/errors";
 
 import { generateMetadata, JobsPage } from "./page";
@@ -236,6 +236,34 @@ describe("herkese açık ilan listesi", () => {
     ).toHaveAttribute("href", `/is-ilanlari?il=${cityId}`);
   });
 
+  it("adres çubuğundaki her süzgeç formda bir alan olarak duruyor", async () => {
+    /*
+     * Bir süzgeç dokuz yerde biliniyor ve `tsc` bunların ayrışmasını
+     * görmüyordu: yedinci bir süzgeç eklenip yalnız üçüne yazıldığında
+     * derleyici sessiz kalıyor ve adres çubuğundan okunan ama formda kutusu
+     * olmayan bir süzgeç kapıdan geçiyordu. Bu iddia listeyi
+     * `jobSearchParamNames`'ten türetiyor, elle yazmıyor — yeni bir süzgeç
+     * kutusuz kaldığı anda kırmızıya dönüyor.
+     *
+     * `sayfa` bilerek dışarıda: yeni bir süzgeç yeni bir sonuç kümesi demek ve
+     * kullanıcıyı o kümenin yedinci sayfasında bırakmak boş bir ekran
+     * gösterirdi (`JobSearchForm` yorumu).
+     */
+    readJobFilterOptions.mockResolvedValue({
+      categories: [{ id: categoryId, name: "Garsonluk" }],
+      cities: [{ id: cityId, name: "İstanbul" }],
+      districts: [{ id: districtId, name: "Kadıköy" }],
+    });
+
+    const { container } = render(await renderPage({ il: cityId }));
+    const form = container.querySelector("form")!;
+
+    for (const [field, param] of Object.entries(jobSearchParamNames)) {
+      if (field === "page") continue;
+      expect(form.elements.namedItem(param), param).not.toBeNull();
+    }
+  });
+
   it("süzgeç seçili değilken rozet şeridi hiç çizilmez", async () => {
     render(await renderPage({ sirala: "ucret-artan", sayfa: "2" }));
 
@@ -425,6 +453,65 @@ describe("ilan listesinin ekran durumları", () => {
 
     expect(screen.getByRole("link", { name: "Etkinlik görevlisi" })).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("sözlük okunamadığında formu göndermek il, ilçe ve kategori seçimini kaybettirmez", async () => {
+    /*
+     * Rozet şeridi bu üç seçimi "seçili" gösteriyor ama form onları
+     * taşımıyordu: sözlük ucu düştüğünde kutuların içi boş kalıyor, tarayıcı
+     * eşleşmeyen `defaultValue`'yu ilk seçeneğe (boş dize) düşürüyor ve ilçe
+     * kutusu ile onun gizli `ilce-ili` alanı hiç çizilmiyordu. Yani "İlanları
+     * süz"e basan kullanıcı — boş sonuç ekranının **tam da yapmasını
+     * söylediği** şey — süzgecini sessizce kaybediyordu.
+     *
+     * Ölçü gönderimin kendisi: `FormData`, ekrandaki kutu değil. Kutunun
+     * görünüşü doğru olup gönderim yine boş çıkabilirdi.
+     */
+    readJobFilterOptions.mockRejectedValue(
+      new ApiError({ status: 503, errorCode: "UNEXPECTED", errorCategory: "UNEXPECTED", message: "" }),
+    );
+    searchJobs.mockResolvedValue(page());
+
+    const { container } = render(
+      await renderPage({ kategori: categoryId, il: cityId, ilce: districtId, sigorta: "evet" }),
+    );
+    const submitted = Object.fromEntries(new FormData(container.querySelector("form")!));
+
+    expect(submitted).toMatchObject({
+      kategori: categoryId,
+      il: cityId,
+      ilce: districtId,
+      "ilce-ili": cityId,
+      sigorta: "evet",
+    });
+
+    // Kutuda okunan ad rozetteki adla birebir aynı; iki ayrı metin, aynı
+    // seçimin ekranın iki yerinde iki ayrı şey olarak görünmesi olurdu.
+    expect(screen.getByLabelText("İl")).toHaveValue(cityId);
+    expect(screen.getByRole("option", { name: "Seçili il" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Seçili süzgeçler" })).getByRole("link", {
+        name: "Seçili il süzgecini kaldır",
+      }),
+    ).toBeVisible();
+  });
+
+  it("boş sonuçta hangi süzgeçlerin daralttığını yazar", async () => {
+    /*
+     * Ters bir ücret aralığında daraltan şey ne il ne kategori: sabit metin
+     * ("başka bir il ya da kategori seçebilirsin") on bir süzgecin ikisini
+     * tanıyıp kullanıcıya yanlış yere baktırıyordu. Issue #20 metnin "hangi
+     * filtrelerin daralttığını **söylemesini**" istiyor.
+     */
+    searchJobs.mockResolvedValue(page({ content: [], totalElements: 0, totalPages: 0 }));
+
+    render(await renderPage({ "min-ucret": "1500", "max-ucret": "500" }));
+
+    const state = screen.getByRole("status");
+    expect(state).toHaveTextContent("Bu süzgeçlere uyan ilan yok");
+    expect(state).toHaveTextContent("En az 1.500,00 ₺");
+    expect(state).toHaveTextContent("En çok 500,00 ₺");
+    expect(state).not.toHaveTextContent("il ya da kategori");
   });
 });
 

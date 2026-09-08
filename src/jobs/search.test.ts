@@ -5,11 +5,13 @@ import {
   backendJobSearchParams,
   districtCityParamName,
   hasJobFilters,
+  jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
   parseJobSearchParams,
   type JobFilterOptions,
   type JobSearchQuery,
+  type RawSearchParams,
 } from "./search";
 
 const categoryId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -342,7 +344,28 @@ describe("tam süzgeç seti", () => {
     // üstünden geçen bir sınır sunucuya kayan noktayla yeniden üretilmiş
     // olarak giderdi.
     expect(backendParams({ "min-ucret": "1500.50" }).get("minSalary")).toBe("1500.50");
-    expect(backendParams({ "min-ucret": "007" }).get("minSalary")).toBe("007");
+    expect(backendParams({ "min-ucret": "0.05" }).get("minSalary")).toBe("0.05");
+  });
+
+  it("baştaki sıfırları kırpar, sınırı düşürmez", () => {
+    /*
+     * `007` eksi bir değerin aksine gerçek bir sınır taşıyor: düşürmek
+     * kullanıcının koyduğu süzgeci sessizce kaldırmak olurdu. Ama olduğu gibi
+     * taşımak da rozete "En az 007,00 ₺" yazdırıyordu — on yedi haneye kadar
+     * "En çok 00.000.000.000.000.005,00 ₺" — yani kullanıcıya yapmadığı bir
+     * tercihi geri okuyordu. Eksi değerin gerekçesinin aynısı, kararı ayrı:
+     * orada geri okunacak bir seçim yok, burada var.
+     */
+    expect(backendParams({ "min-ucret": "007" }).get("minSalary")).toBe("7");
+    expect(backendParams({ "max-ucret": "00000000000000005" }).get("maxSalary")).toBe("5");
+    // Tam kısmın tek sıfırı duruyor: `.05` sunucuda `BigDecimal`'e bind edilmez.
+    expect(backendParams({ "min-ucret": "00.05" }).get("minSalary")).toBe("0.05");
+    expect(backendParams({ "min-ucret": "000" }).get("minSalary")).toBe("0");
+    // Kırpma kalıptan önce: kalıp sütunun taşıyabileceği **büyüklüğü** ölçüyor
+    // ve baştaki sıfır o büyüklüğü değiştirmiyor.
+    expect(backendParams({ "min-ucret": `${"0".repeat(8)}99999999999999999` }).get("minSalary")).toBe(
+      "99999999999999999",
+    );
   });
 
   it("ters aralığı sessizce düzeltmez", () => {
@@ -479,5 +502,112 @@ describe("silinebilir süzgeç rozetleri", () => {
 
     expect(filters.map((filter) => filter.label)).toEqual(["Seçili il"]);
     expect(filters[0].without.cityId).toBeNull();
+  });
+});
+
+/**
+ * Bir süzgeç dokuz yerde biliniyor ve dokuzunun tutarlılığını bugün yalnız
+ * yazarın dikkati koruyor.
+ *
+ * Ölçüldü: yedinci bir süzgeç (`acil`) eklenip dokuzun yalnız üçüne
+ * yazıldığında `tsc` sadece iki test literalinde patlıyordu; oralara
+ * `urgent: null` yazınca her şey yeşile dönüyordu. Yani adres çubuğundan
+ * okunan ama sunucuya hiç gitmeyen, rozet çizmeyen ve `noindex` tetiklemeyen
+ * **ölü** bir süzgeç kapıdan geçebiliyordu — ekranda da hata gibi görünmezdi,
+ * çünkü eksik olan şey bir davranış değil bir bağlantı.
+ *
+ * Bu blok o bağlantıyı zorluyor. Örnek tablosunun anahtarları
+ * `jobSearchParamNames`'ten türüyor, yani yeni bir süzgeç önce `tsc`'yi
+ * (`JobFilterParam` bir birlik) sonra aşağıdaki iddiaları kırıyor.
+ *
+ * **Göremedikleri**, bilerek yazılı:
+ *
+ * - `jobSearchParamNames`'e uğramadan, `raw["acil"]` diye doğrudan okunan bir
+ *   parametre. Tablo o adı hiç görmez; tek koruma parametre adlarının o tek
+ *   kayıtta durması.
+ * - Metnin **doğruluğu**. Rozetin bir etiketi olduğunu ölçüyor, etiketin doğru
+ *   sözcük olduğunu değil.
+ * - Backend **alan adının** `JobSearchCriteriaDto` ile eşleştiği. Yalnız
+ *   isteğin değiştiğini görüyor; adın doğruluğunu "altı yeni süzgeci sunucunun
+ *   alan adlarına çevirir" ölçüyor.
+ * - Formdaki **alanın kendisi**. Kutuların varlığı bu dosyadan görünmüyor;
+ *   onu `is-ilanlari/page.test.tsx` içindeki "adres çubuğundaki her süzgeç
+ *   formda bir alan olarak duruyor" ölçüyor.
+ * - Süzgecin `sirala` ve `sayfa` gibi bir **dilim** değil gerçekten bir küme
+ *   daraltması olduğu. Bu ikisi ada göre dışarıda bırakılıyor ve kararı
+ *   `hasJobFilters`'ın kendi yorumu taşıyor.
+ */
+describe("süzgeç listelerinin ayrışmaması", () => {
+  /** `sayfa` ve `sirala` bir süzgeç değil: ikisi de aynı kümenin dilimi. */
+  type JobFilterParam = Exclude<
+    (typeof jobSearchParamNames)[keyof typeof jobSearchParamNames],
+    "sayfa" | "sirala"
+  >;
+
+  /**
+   * Her süzgecin adres çubuğundaki örneği.
+   *
+   * Anahtar tipi bir birlik: `jobSearchParamNames`'e yeni bir süzgeç
+   * eklendiğinde bu tablo eksik kalır ve `tsc` onu ilk kapıda söyler.
+   * `context`, süzgecin okunabilmesi için gereken diğer parametreler.
+   */
+  const filterSamples: Readonly<
+    Record<JobFilterParam, { readonly value: string; readonly context?: RawSearchParams }>
+  > = {
+    ara: { value: "garson" },
+    kategori: { value: categoryId },
+    il: { value: cityId },
+    // Tek başına okunmuyor: `districtParam` ilsiz bir ilçeyi düşürüyor.
+    ilce: { value: districtId, context: { il: cityId } },
+    tur: { value: "ONE_TIME" },
+    "ucret-tipi": { value: "HOURLY" },
+    isveren: { value: "COMPANY" },
+    "min-ucret": { value: "500" },
+    "max-ucret": { value: "1500" },
+    sigorta: { value: "evet" },
+    deneyim: { value: "hayir" },
+  };
+
+  const options: JobFilterOptions = { categories: [], cities: [], districts: [] };
+
+  it("adres çubuğundaki her parametrenin bir örneği var", () => {
+    // `tsc` kapısının çalışma zamanındaki ikizi: `sayfa`/`sirala` dışlaması
+    // burada **alan** adına bakıyor, birlikteki dize adına değil. Yeni bir
+    // süzgeç birliğin dışlama listesine yazılarak `tsc`'den kaçırılsaydı bu
+    // iddia onu yine görürdü.
+    const filterParams = Object.entries(jobSearchParamNames)
+      .filter(([field]) => field !== "page" && field !== "sort")
+      .map(([, param]) => param);
+
+    expect(Object.keys(filterSamples).toSorted()).toEqual(filterParams.toSorted());
+  });
+
+  it("her süzgeç beş listenin hepsinde birden duruyor", () => {
+    for (const [param, sample] of Object.entries(filterSamples)) {
+      const context = sample.context ?? {};
+      const withFilter = parseJobSearchParams({ ...context, [param]: sample.value });
+      const without = parseJobSearchParams(context);
+
+      // 1. Ayrıştırıcı: parametre kanonik modelde bir alana düşüyor.
+      expect(withFilter, param).not.toEqual(without);
+
+      // 2. Sunucu: istek gövdesi değişiyor, yani süzgeç gerçekten gidiyor.
+      expect(backendJobSearchParams(withFilter).toString(), param).not.toBe(
+        backendJobSearchParams(without).toString(),
+      );
+
+      // 3. Adres çubuğuna geri yazma: rozet ve sayfalama bağlantıları bunu
+      // okuyor; eksik bir satır süzgeci ikinci sayfada düşürürdü.
+      expect([...jobSearchParams(withFilter).keys()], param).toContain(param);
+
+      // 4. Rozet: seçim ekranda tek tek kaldırılabilir olarak görünüyor.
+      expect(activeJobFilters(withFilter, options).length, param).toBe(
+        activeJobFilters(without, options).length + 1,
+      );
+
+      // 5. İndeksleme. `ilce` için bu satır bağlamındaki `il` yüzünden zaten
+      // doğru; onun asıl ölçüsü yukarıdaki dört fark iddiası.
+      expect(hasJobFilters(withFilter), param).toBe(true);
+    }
   });
 });

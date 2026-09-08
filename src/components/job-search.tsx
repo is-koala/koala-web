@@ -6,6 +6,7 @@ import { employerTypeValues } from "@/jobs/employer-jobs";
 import {
   activeJobFilters,
   booleanFilterChoice,
+  booleanFilterValues,
   districtCityParamName,
   employerTypeFilterLabels,
   experienceFilterLabels,
@@ -17,8 +18,11 @@ import {
   jobSortOptions,
   jobTypeLabels,
   lastJobPage,
+  referenceFieldOptions,
+  referenceFilterLabels,
   salaryTypeFilterLabels,
   salaryTypeLabels,
+  type BooleanFilterValue,
   type JobFilterOptions,
   type JobSearchPage,
   type JobSearchQuery,
@@ -76,6 +80,7 @@ export function JobSearchForm({
           placeholder="Tüm kategoriler"
           options={options.categories}
           selected={query.categoryId}
+          fallback={referenceFilterLabels.category}
         />
 
         <ReferenceField
@@ -85,6 +90,7 @@ export function JobSearchForm({
           placeholder="Tüm iller"
           options={options.cities}
           selected={query.cityId}
+          fallback={referenceFilterLabels.city}
         />
 
         {/*
@@ -92,8 +98,14 @@ export function JobSearchForm({
           /reference/cities/{cityId}/districts` ile geliyor, yani il olmadan
           sunulacak bir liste de yok. Gizli alan, listenin hangi ile ait
           olduğunu söylüyor; il değişip gönderildiğinde ilçe seçimi düşüyor.
+
+          Seçili bir ilçe kutuyu **tek başına** da açıyor: sözlük ucu
+          okunamadığında liste boş dönüyordu ve kutuyla birlikte gizli alan da
+          çizilmiyordu, yani gönderim ilçe seçimini götürmüyordu. Seçili ilçe
+          zaten bir il taşıyor (`districtParam` ilsiz ilçeyi düşürüyor), yani
+          gizli alanın yazacağı kimlik de yerinde.
         */}
-        {options.districts.length > 0 ? (
+        {options.districts.length > 0 || query.districtId !== null ? (
           <>
             <input type="hidden" name={districtCityParamName} value={query.cityId ?? ""} />
             <ReferenceField
@@ -103,6 +115,7 @@ export function JobSearchForm({
               placeholder="Tüm ilçeler"
               options={options.districts}
               selected={query.districtId}
+              fallback={referenceFilterLabels.district}
             />
           </>
         ) : null}
@@ -250,11 +263,8 @@ function ActiveFilterBadges({
 }
 
 /** Üç durumlu süzgecin iki yazılı seçeneği; üçüncüsü `placeholder`. */
-function booleanChoices(labels: Readonly<Record<string, string>>): readonly Choice[] {
-  return [
-    { value: "evet", label: labels.evet },
-    { value: "hayir", label: labels.hayir },
-  ];
+function booleanChoices(labels: Readonly<Record<BooleanFilterValue, string>>): readonly Choice[] {
+  return booleanFilterValues.map((value) => ({ value, label: labels[value] }));
 }
 
 type Choice = { value: string; label: string };
@@ -327,6 +337,14 @@ function SalaryField({
   );
 }
 
+/**
+ * Sözlükten beslenen süzgeç kutusu.
+ *
+ * `fallback` seçili maddenin sözlükte bulunamadığı hâlin adı. Kutu o maddeyi
+ * yine de bir seçenek olarak taşıyor — yoksa tarayıcı eşleşmeyen seçimi ilk
+ * seçeneğe düşürür ve gönderim kullanıcının süzgecini sessizce silerdi
+ * (`referenceFieldOptions`).
+ */
 function ReferenceField({
   id,
   label,
@@ -334,6 +352,7 @@ function ReferenceField({
   placeholder,
   options,
   selected,
+  fallback,
 }: {
   id: string;
   label: string;
@@ -341,13 +360,14 @@ function ReferenceField({
   placeholder: string;
   options: readonly ReferenceOption[];
   selected: string | null;
+  fallback: string;
 }) {
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
       <select id={id} name={name} defaultValue={selected ?? ""}>
         <option value="">{placeholder}</option>
-        {options.map((option) => (
+        {referenceFieldOptions(options, selected, fallback).map((option) => (
           <option key={option.id} value={option.id}>
             {option.name}
           </option>
@@ -367,8 +387,22 @@ function ReferenceField({
  * numarası listenin dışındaysa var olan bir sayfaya dönülür. Tek bir metin
  * yazmak, ikinci ve üçüncü durumdaki kullanıcıya sitenin boş olduğunu
  * öğretirdi.
+ *
+ * Süzgeçli boşlukta metin **hangi** süzgeçlerin daralttığını da yazıyor. Sabit
+ * bir cümle ("başka bir il ya da kategori seçebilirsin") on bir süzgecin
+ * ikisini tanıyordu ve gerisinde yanlış yere baktırıyordu: ters bir ücret
+ * aralığında daraltan şey ne il ne kategori. Liste `activeJobFilters`'tan
+ * geliyor, yani rozet şeridiyle aynı sözcükler.
  */
-export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: JobSearchQuery }) {
+export function JobResultList({
+  jobs,
+  query,
+  options,
+}: {
+  jobs: JobSearchPage;
+  query: JobSearchQuery;
+  options: JobFilterOptions;
+}) {
   if (isPageOutOfRange(jobs)) {
     const lastPage = lastJobPage(jobs);
     return (
@@ -381,7 +415,20 @@ export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: Job
   }
 
   if (jobs.content.length === 0) {
-    return <EmptyState kind={hasJobFilters(query) ? "jobSearch" : "jobs"} />;
+    // Hangi metnin yazılacağına rozet listesinin **kendisi** karar veriyor,
+    // ayrı bir `hasJobFilters` çağrısı değil: iki soru da "seçili bir süzgeç
+    // var mı" ve ikisi ayrı okunsaydı ekran "bu süzgeçlere uyan ilan yok" deyip
+    // altında hiçbir süzgeç sayamayacağı bir hâle düşebilirdi.
+    const filters = activeJobFilters(query, options);
+    if (filters.length === 0) return <EmptyState kind="jobs" />;
+
+    return (
+      <EmptyState kind="jobSearch">
+        <p className="state-filters">
+          Şu an açık olanlar: {filters.map((filter) => filter.label).join(" · ")}
+        </p>
+      </EmptyState>
+    );
   }
 
   return (

@@ -131,7 +131,7 @@ export async function JobsPage({ searchParams }: JobsPageProps) {
         <ErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
       ) : (
         <>
-          <JobResultList jobs={result.jobs} query={query} />
+          <JobResultList jobs={result.jobs} query={query} options={options} />
           <JobPagination jobs={result.jobs} query={query} />
         </>
       )}

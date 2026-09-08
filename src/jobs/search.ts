@@ -176,11 +176,19 @@ export const employerTypeFilterLabels: Readonly<Record<JobEmployerTypeFilter, st
  * yani `null` "süzme" demek ve `false` **sigortasız ilanları** süzüyor. İkisi
  * aynı şey değil, o yüzden alan bir onay kutusu değil: onay kutusu işaretsizken
  * gönderilmiyor ve "farketmez" ile "hayır"ı aynı hâle katlardı.
+ *
+ * İki değer bir **birlik**, düz dize değil. Etiket tabloları ve form kutusu bu
+ * anahtarları ayrı ayrı elle yazıyordu: `evet` bir yerde `Evet` olduğunda
+ * derleyicinin söyleyeceği bir şey yoktu ve kusuru yalnız bir test görebilirdi.
+ * Birlik aynı iddiayı `tsc`'ye taşıyor — aynı commit'teki `salaryTypeFilterLabels`
+ * zaten böyle anahtarlı.
  */
-const booleanFilterValues: Readonly<Record<string, boolean>> = { evet: true, hayir: false };
+export const booleanFilterValues = ["evet", "hayir"] as const;
+
+export type BooleanFilterValue = (typeof booleanFilterValues)[number];
 
 /** Kanonik `boolean`'ı yeniden adres çubuğu değerine çevirir. */
-function booleanFilterParam(value: boolean): string {
+function booleanFilterParam(value: boolean): BooleanFilterValue {
   return value ? "evet" : "hayir";
 }
 
@@ -191,7 +199,7 @@ function booleanFilterParam(value: boolean): string {
  * `parseJobSearchParams` onu tanımıyor ve alan `null` kalıyor — yani
  * "farketmez" seçeneği süzgeci gerçekten kaldırıyor.
  */
-export function booleanFilterChoice(value: boolean | null): string {
+export function booleanFilterChoice(value: boolean | null): BooleanFilterValue | "" {
   return value === null ? "" : booleanFilterParam(value);
 }
 
@@ -277,7 +285,7 @@ export function parseJobSearchParams(raw: RawSearchParams): JobSearchQuery {
     categoryId: uuidParam(raw[jobSearchParamNames.categoryId]),
     cityId,
     districtId: districtParam(raw, cityId),
-    type: typeParam(raw[jobSearchParamNames.type]),
+    type: enumParam(raw[jobSearchParamNames.type], jobTypeValues),
     salaryType: enumParam(raw[jobSearchParamNames.salaryType], salaryTypeValues),
     employerType: enumParam(raw[jobSearchParamNames.employerType], employerTypeValues),
     minSalary: salaryParam(raw[jobSearchParamNames.minSalary]),
@@ -455,21 +463,21 @@ export function activeJobFilters(
   if (query.categoryId !== null) {
     filters.push({
       id: "kategori",
-      label: optionName(options.categories, query.categoryId, "Seçili kategori"),
+      label: optionName(options.categories, query.categoryId, referenceFilterLabels.category),
       without: drop({ categoryId: null }),
     });
   }
   if (query.cityId !== null) {
     filters.push({
       id: "il",
-      label: optionName(options.cities, query.cityId, "Seçili il"),
+      label: optionName(options.cities, query.cityId, referenceFilterLabels.city),
       without: drop({ cityId: null, districtId: null }),
     });
   }
   if (query.districtId !== null) {
     filters.push({
       id: "ilce",
-      label: optionName(options.districts, query.districtId, "Seçili ilçe"),
+      label: optionName(options.districts, query.districtId, referenceFilterLabels.district),
       without: drop({ districtId: null }),
     });
   }
@@ -522,15 +530,28 @@ export function activeJobFilters(
 }
 
 /** Sigorta süzgecinin üç hâlinden ikisi; "farketmez" bir rozet çizmiyor. */
-export const insuranceFilterLabels: Readonly<Record<string, string>> = {
+export const insuranceFilterLabels: Readonly<Record<BooleanFilterValue, string>> = {
   evet: "Sigortalı çalışma",
   hayir: "Sigortasız ilanlar",
 };
 
-export const experienceFilterLabels: Readonly<Record<string, string>> = {
+export const experienceFilterLabels: Readonly<Record<BooleanFilterValue, string>> = {
   evet: "Deneyim isteniyor",
   hayir: "Deneyim istenmiyor",
 };
+
+/**
+ * Sözlükte bulunmayan bir seçimin adı.
+ *
+ * Tek tablo, çünkü aynı metni iki taraf okuyor: rozet şeridi ve süzgeç
+ * kutusunun kendisi. İki kopya olsaydı aynı seçim ekranın iki yerinde iki
+ * farklı adla görünürdü.
+ */
+export const referenceFilterLabels = {
+  category: "Seçili kategori",
+  city: "Seçili il",
+  district: "Seçili ilçe",
+} as const;
 
 /**
  * Sözlükten adı çözer; sözlük okunamamışsa genel bir etiket kalır.
@@ -542,6 +563,29 @@ export const experienceFilterLabels: Readonly<Record<string, string>> = {
  */
 function optionName(options: readonly ReferenceOption[], id: string, fallback: string): string {
   return options.find((option) => option.id === id)?.name ?? fallback;
+}
+
+/**
+ * Süzgeç kutusunun seçenekleri; sözlükte olmayan seçim de listeye giriyor.
+ *
+ * Bir görünüm tercihi değil, **veri kaybının** kapatılması. Sözlük ucu
+ * okunamadığında kutu yalnız "Tüm iller"i taşıyordu, tarayıcı eşleşmeyen
+ * `defaultValue`'yu o ilk seçeneğe düşürüyordu ve "İlanları süz"e basan
+ * kullanıcı — boş sonuç ekranının tam da yapmasını söylediği şey — il, ilçe ve
+ * kategori seçimini sessizce kaybediyordu. Rozet şeridi ise onları hâlâ seçili
+ * gösteriyordu: aynı formun iki yarısı iki ayrı şey söylüyordu.
+ *
+ * Seçim listeye yazılınca üçü de aynı şeyi söylüyor — kutu, rozet ve gönderim.
+ * Adı `optionName` ile aynı tablodan geliyor, yani kutuda okunan metin rozette
+ * okunanla birebir aynı.
+ */
+export function referenceFieldOptions(
+  options: readonly ReferenceOption[],
+  selected: string | null,
+  fallback: string,
+): readonly ReferenceOption[] {
+  if (selected === null || options.some((option) => option.id === selected)) return options;
+  return [...options, { id: selected, name: fallback }];
 }
 
 /**
@@ -603,11 +647,6 @@ function uuidParam(value: string | string[] | undefined): string | null {
   return raw !== null && isUuid(raw) ? raw : null;
 }
 
-function typeParam(value: string | string[] | undefined): JobType | null {
-  const raw = single(value);
-  return jobTypeValues.find((type) => type === raw) ?? null;
-}
-
 /** Beyaz listedeki enum sabiti; dışındaki her şey seçilmemiş sayılır. */
 function enumParam<T extends string>(
   value: string | string[] | undefined,
@@ -618,10 +657,11 @@ function enumParam<T extends string>(
 }
 
 function booleanParam(value: string | string[] | undefined): boolean | null {
-  const raw = single(value);
-  // `raw in booleanFilterValues` prototip zincirini de sayardı: `?sigorta=
-  // constructor` `true` verirdi ve değer `undefined` olarak sunucuya çıkardı.
-  return raw !== null && Object.hasOwn(booleanFilterValues, raw) ? booleanFilterValues[raw] : null;
+  // Beyaz liste bir **dizi**, nesne değil. Anahtarları bir nesnede aramak
+  // prototip zincirini de sayardı: `?sigorta=constructor` bir seçim gibi
+  // okunur ve değer `undefined` olarak sunucuya çıkardı.
+  const choice = enumParam(value, booleanFilterValues);
+  return choice === null ? null : choice === "evet";
 }
 
 /**
@@ -635,6 +675,18 @@ function booleanParam(value: string | string[] | undefined): boolean | null {
  * `?min-ucret=-1` bir seçim değil, bozuk bir girdi: ekranda "En az -1 ₺" diye
  * bir rozet çizmek kullanıcıya yapmadığı bir tercihi geri okurdu.
  *
+ * **Baştaki sıfır kırpılıyor, reddedilmiyor** — ve ayrım aynı ilkeden çıkıyor.
+ * `?min-ucret=007` eksi değerin aksine gerçek bir sınır taşıyor: düşürmek
+ * kullanıcının koyduğu süzgeci sessizce kaldırmak olurdu. Ama olduğu gibi
+ * taşımak ilkenin öbür yüzüne çarpıyordu, çünkü rozet o dizeyi ekrana basıyor:
+ * "En az 007,00 ₺", ve on yedi haneye kadar yazılabildiği için
+ * "En çok 00.000.000.000.000.005,00 ₺". İkisi de kullanıcıya yapmadığı bir
+ * tercihi geri okuyor. Kırpma `Number`'dan geçmiyor: `money.ts`'in bütün
+ * modülde kaçındığı şey süzgecin sınırında da yapılmıyor.
+ *
+ * Kırpma kalıptan **önce** çalışıyor. Kalıbın ölçtüğü şey sütunun
+ * taşıyabileceği büyüklük ve baştaki sıfır o büyüklüğü değiştirmiyor.
+ *
  * Ondalık ayracı yalnız nokta. Türkçe yazımdaki virgül bilerek kabul
  * edilmiyor: `1,50` ile `1.500` aynı tuşlarla yazılıyor ve hangisinin
  * kastedildiğini uydurmak, kullanıcının koymadığı bir sınırı sunucuya
@@ -644,7 +696,9 @@ function booleanParam(value: string | string[] | undefined): boolean | null {
 const salaryPattern = /^\d{1,17}(?:\.\d{1,2})?$/;
 
 function salaryParam(value: string | string[] | undefined): string | null {
-  const raw = single(value)?.trim();
+  // Sıfırlar yalnız ardından bir **rakam** gelirken kırpılıyor: `0.05` tam
+  // kısmındaki tek sıfırı korumalı, `.05` sunucuda `BigDecimal`'e bind edilmez.
+  const raw = single(value)?.trim().replace(/^0+(?=\d)/, "");
   return raw !== undefined && salaryPattern.test(raw) ? raw : null;
 }
 

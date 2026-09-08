@@ -10,10 +10,16 @@ const emptyCopy = {
    * `jobs`'tan ayrı bir metin, çünkü ayrı bir durum: "henüz ilan yok" sitede
    * hiç ilan olmadığını söyler ve süzgeci daraltmış kullanıcıya yanlış bir şey
    * öğretir — o kullanıcının yapabileceği bir şey var.
+   *
+   * İkinci satır hiçbir süzgeci **adıyla** anmıyor ve bu bilinçli: eskiden
+   * "başka bir il ya da kategori seçebilirsin" yazıyordu, yani on bir süzgecin
+   * ikisini tanıyıp gerisinde kullanıcıyı yanlış yere baktırıyordu. Hangi
+   * süzgeçlerin daralttığını çağıran taraf yazıyor (`JobResultList`), çünkü
+   * onu bilen tek yer seçili süzgeç listesi.
    */
   jobSearch: [
     "Bu süzgeçlere uyan ilan yok",
-    "Aramayı sadeleştirebilir, başka bir il ya da kategori seçebilirsin.",
+    "Sonucu daraltan süzgeçlerden birini kaldırıp yeniden deneyebilirsin.",
   ],
   /**
    * Menzil dışı sayfa — üçüncü bir hâl.

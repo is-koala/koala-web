@@ -21,7 +21,14 @@ import type { AddressWrite } from "@/address/contract";
 export const jobTypeValues = ["ONE_TIME", "RECURRING"] as const;
 export type JobType = (typeof jobTypeValues)[number];
 
-/** `SalaryType`. Bireysel ilanda saatlik ve günlük dışında bir değer yok. */
+/**
+ * `SalaryType`. Bireysel ilanda saatlik ve günlük dışında bir değer yok.
+ *
+ * Üç taraf okuyor: ilan formu, ilan aramasının `ucret-tipi` süzgeci ve yanıt
+ * çeviricisinin beyaz listesi (`@/server/api/dto`). Kopyalarından biri
+ * genişletildiğinde öbürleri sessizce eski kalır ve aynı enum ekranın üç
+ * yerinde farklı okunurdu.
+ */
 export const salaryTypeValues = ["HOURLY", "DAILY"] as const;
 export type SalaryType = (typeof salaryTypeValues)[number];
 
