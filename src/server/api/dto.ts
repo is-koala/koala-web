@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { AddressPrecision, SalaryType } from "@/jobs/contract";
-import type { JobEmployerType } from "@/jobs/employer-jobs";
+import { employerTypeValues, type JobEmployerType } from "@/jobs/employer-jobs";
+import { salaryTypeValues } from "@/lib/job-posting";
 
 /**
  * Backend yanıtlarını ekranın modeline daraltan ortak parçalar.
@@ -76,9 +77,17 @@ function isMember<T extends string>(values: ReadonlySet<T>, value: string): valu
   return (values as ReadonlySet<string>).has(value);
 }
 
-/** `SalaryType`; `UNKNOWN` kümede yok, `known` onu zaten yedek olarak yazıyor. */
-export const salaryTypes = new Set<SalaryType>(["HOURLY", "DAILY"]);
+/**
+ * `SalaryType`; `UNKNOWN` kümede yok, `known` onu zaten yedek olarak yazıyor.
+ *
+ * Değerler `salaryTypeValues`'tan geliyor, elle yazılmıyor —
+ * `employerTypeValues` ile aynı gerekçe: aynı enum'u iki taraf okuyor (yanıt
+ * çeviricisi tanımadığı değeri `UNKNOWN`'a düşürmek için, ilan araması adres
+ * çubuğundan gelen `ucret-tipi` seçimini sunucuya geçirmeden doğrulamak için)
+ * ve iki kopyadan biri genişletildiğinde öbürü sessizce eski kalırdı.
+ */
+export const salaryTypes = new Set<SalaryType>(salaryTypeValues);
 
-export const employerTypes = new Set<JobEmployerType>(["INDIVIDUAL", "COMPANY"]);
+export const employerTypes = new Set<JobEmployerType>(employerTypeValues);
 
 export const addressPrecisions = new Set<AddressPrecision>(["APPROXIMATE", "EXACT"]);

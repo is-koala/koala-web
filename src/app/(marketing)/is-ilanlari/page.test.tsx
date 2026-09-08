@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { JobSearchPage, JobSummary } from "@/jobs/search";
+import { jobSearchParamNames, type JobSearchPage, type JobSummary } from "@/jobs/search";
 import { ApiError } from "@/server/api/errors";
 
 import { generateMetadata, JobsPage } from "./page";
@@ -89,9 +89,15 @@ describe("herkese açık ilan listesi", () => {
       "href",
       `/is-ilanlari/${jobId}`,
     );
-    expect(screen.getByText("1.250,00 ₺ / günlük")).toBeVisible();
-    expect(screen.getByText("12 Eylül 2026")).toBeVisible();
-    expect(screen.getByText("Sigortalı çalışma")).toBeVisible();
+
+    // Kartın içine daraltılmış: süzgeç kutusundaki "Sigortalı çalışma"
+    // seçeneği kartın rozetiyle **bilerek** aynı sözcükleri kullanıyor
+    // (kullanıcı süzdüğü şeyi kartta aynı adla görmeli), o yüzden sayfa
+    // genelinde arayan bir sorgu iki düğüm bulur.
+    const card = screen.getByRole("article", { name: "Etkinlik görevlisi" });
+    expect(within(card).getByText("1.250,00 ₺ / günlük")).toBeVisible();
+    expect(within(card).getByText("12 Eylül 2026")).toBeVisible();
+    expect(within(card).getByText("Sigortalı çalışma")).toBeVisible();
   });
 
   it("yaklaşık konumu kesinmiş gibi göstermez ve koordinatı hiç yazmaz", async () => {
@@ -143,8 +149,125 @@ describe("herkese açık ilan listesi", () => {
       cityId,
       districtId: null,
       type: "ONE_TIME",
+      salaryType: null,
+      employerType: null,
+      minSalary: null,
+      maxSalary: null,
+      insuranceRequired: null,
+      experienceRequired: null,
       sort: "en-yeni",
     });
+  });
+
+  it("tam süzgeç setini sunucuya götürür", async () => {
+    await renderPage({
+      "ucret-tipi": "HOURLY",
+      isveren: "INDIVIDUAL",
+      "min-ucret": "250",
+      "max-ucret": "900.50",
+      sigorta: "evet",
+      deneyim: "hayir",
+      sirala: "baslik",
+    });
+
+    expect(searchJobs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        salaryType: "HOURLY",
+        employerType: "INDIVIDUAL",
+        minSalary: "250",
+        maxSalary: "900.50",
+        insuranceRequired: true,
+        experienceRequired: false,
+        sort: "baslik",
+      }),
+    );
+  });
+
+  it("beyaz liste dışı süzgeç değerini sunucuya hiç taşımaz", async () => {
+    // Spring bu alanları enum ve `BigDecimal`'e bind ediyor: bozuk bir değer
+    // 400 üretir ve herkese açık sayfa, ziyaretçinin düzeltemeyeceği bir
+    // hataya düşerdi.
+    await renderPage({
+      "ucret-tipi": "WEEKLY",
+      isveren: "UNKNOWN",
+      "min-ucret": "bedava",
+      "max-ucret": "-5",
+      sigorta: "true",
+      deneyim: "1",
+    });
+
+    expect(searchJobs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        salaryType: null,
+        employerType: null,
+        minSalary: null,
+        maxSalary: null,
+        insuranceRequired: null,
+        experienceRequired: null,
+      }),
+    );
+  });
+
+  it("altı yeni süzgeci klavyeyle kullanılabilir alanlar olarak çizer", async () => {
+    render(await renderPage({ "ucret-tipi": "DAILY", "min-ucret": "250", sigorta: "hayir" }));
+
+    expect(screen.getByLabelText("Ücret tipi")).toHaveValue("DAILY");
+    expect(screen.getByLabelText("İlanı veren")).toHaveValue("");
+    expect(screen.getByLabelText("En az ücret (₺)")).toHaveValue(250);
+    expect(screen.getByLabelText("En çok ücret (₺)")).toHaveValue(null);
+    // Üç durumlu: "hayır" seçili, "farketmez" değil.
+    expect(screen.getByLabelText("Sigorta")).toHaveValue("hayir");
+    expect(screen.getByLabelText("Deneyim")).toHaveValue("");
+  });
+
+  it("seçili süzgeçleri tek tek kaldırılabilir bağlantılar olarak listeler", async () => {
+    render(await renderPage({ il: cityId, "ucret-tipi": "DAILY", sayfa: "3" }));
+
+    const badges = screen.getByRole("list", { name: "Seçili süzgeçler" });
+    // Bağlantı, düğme değil: JavaScript kapalıyken de bir süzgeç kaldırılmalı.
+    expect(within(badges).getByRole("link", { name: "İstanbul süzgecini kaldır" })).toHaveAttribute(
+      "href",
+      "/is-ilanlari?ucret-tipi=DAILY",
+    );
+    // Süzgeç kalkınca sonuç kümesi değişiyor; kullanıcıyı eski kümenin üçüncü
+    // sayfasında bırakmak boş bir ekran gösterirdi.
+    expect(
+      within(badges).getByRole("link", { name: "Günlük ücret süzgecini kaldır" }),
+    ).toHaveAttribute("href", `/is-ilanlari?il=${cityId}`);
+  });
+
+  it("adres çubuğundaki her süzgeç formda bir alan olarak duruyor", async () => {
+    /*
+     * Bir süzgeç dokuz yerde biliniyor ve `tsc` bunların ayrışmasını
+     * görmüyordu: yedinci bir süzgeç eklenip yalnız üçüne yazıldığında
+     * derleyici sessiz kalıyor ve adres çubuğundan okunan ama formda kutusu
+     * olmayan bir süzgeç kapıdan geçiyordu. Bu iddia listeyi
+     * `jobSearchParamNames`'ten türetiyor, elle yazmıyor — yeni bir süzgeç
+     * kutusuz kaldığı anda kırmızıya dönüyor.
+     *
+     * `sayfa` bilerek dışarıda: yeni bir süzgeç yeni bir sonuç kümesi demek ve
+     * kullanıcıyı o kümenin yedinci sayfasında bırakmak boş bir ekran
+     * gösterirdi (`JobSearchForm` yorumu).
+     */
+    readJobFilterOptions.mockResolvedValue({
+      categories: [{ id: categoryId, name: "Garsonluk" }],
+      cities: [{ id: cityId, name: "İstanbul" }],
+      districts: [{ id: districtId, name: "Kadıköy" }],
+    });
+
+    const { container } = render(await renderPage({ il: cityId }));
+    const form = container.querySelector("form")!;
+
+    for (const [field, param] of Object.entries(jobSearchParamNames)) {
+      if (field === "page") continue;
+      expect(form.elements.namedItem(param), param).not.toBeNull();
+    }
+  });
+
+  it("süzgeç seçili değilken rozet şeridi hiç çizilmez", async () => {
+    render(await renderPage({ sirala: "ucret-artan", sayfa: "2" }));
+
+    expect(screen.queryByRole("list", { name: "Seçili süzgeçler" })).toBeNull();
   });
 
   it("uydurma bir sıralamayı sunucuya taşımaz, varsayılana düşer", async () => {
@@ -331,6 +454,65 @@ describe("ilan listesinin ekran durumları", () => {
     expect(screen.getByRole("link", { name: "Etkinlik görevlisi" })).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("sözlük okunamadığında formu göndermek il, ilçe ve kategori seçimini kaybettirmez", async () => {
+    /*
+     * Rozet şeridi bu üç seçimi "seçili" gösteriyor ama form onları
+     * taşımıyordu: sözlük ucu düştüğünde kutuların içi boş kalıyor, tarayıcı
+     * eşleşmeyen `defaultValue`'yu ilk seçeneğe (boş dize) düşürüyor ve ilçe
+     * kutusu ile onun gizli `ilce-ili` alanı hiç çizilmiyordu. Yani "İlanları
+     * süz"e basan kullanıcı — boş sonuç ekranının **tam da yapmasını
+     * söylediği** şey — süzgecini sessizce kaybediyordu.
+     *
+     * Ölçü gönderimin kendisi: `FormData`, ekrandaki kutu değil. Kutunun
+     * görünüşü doğru olup gönderim yine boş çıkabilirdi.
+     */
+    readJobFilterOptions.mockRejectedValue(
+      new ApiError({ status: 503, errorCode: "UNEXPECTED", errorCategory: "UNEXPECTED", message: "" }),
+    );
+    searchJobs.mockResolvedValue(page());
+
+    const { container } = render(
+      await renderPage({ kategori: categoryId, il: cityId, ilce: districtId, sigorta: "evet" }),
+    );
+    const submitted = Object.fromEntries(new FormData(container.querySelector("form")!));
+
+    expect(submitted).toMatchObject({
+      kategori: categoryId,
+      il: cityId,
+      ilce: districtId,
+      "ilce-ili": cityId,
+      sigorta: "evet",
+    });
+
+    // Kutuda okunan ad rozetteki adla birebir aynı; iki ayrı metin, aynı
+    // seçimin ekranın iki yerinde iki ayrı şey olarak görünmesi olurdu.
+    expect(screen.getByLabelText("İl")).toHaveValue(cityId);
+    expect(screen.getByRole("option", { name: "Seçili il" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Seçili süzgeçler" })).getByRole("link", {
+        name: "Seçili il süzgecini kaldır",
+      }),
+    ).toBeVisible();
+  });
+
+  it("boş sonuçta hangi süzgeçlerin daralttığını yazar", async () => {
+    /*
+     * Ters bir ücret aralığında daraltan şey ne il ne kategori: sabit metin
+     * ("başka bir il ya da kategori seçebilirsin") on bir süzgecin ikisini
+     * tanıyıp kullanıcıya yanlış yere baktırıyordu. Issue #20 metnin "hangi
+     * filtrelerin daralttığını **söylemesini**" istiyor.
+     */
+    searchJobs.mockResolvedValue(page({ content: [], totalElements: 0, totalPages: 0 }));
+
+    render(await renderPage({ "min-ucret": "1500", "max-ucret": "500" }));
+
+    const state = screen.getByRole("status");
+    expect(state).toHaveTextContent("Bu süzgeçlere uyan ilan yok");
+    expect(state).toHaveTextContent("En az 1.500,00 ₺");
+    expect(state).toHaveTextContent("En çok 500,00 ₺");
+    expect(state).not.toHaveTextContent("il ya da kategori");
+  });
 });
 
 describe("ilan listesinin indekslenmesi", () => {
@@ -347,9 +529,9 @@ describe("ilan listesinin indekslenmesi", () => {
     expect(metadata.robots).toBeUndefined();
   });
 
-  it("sıralama çeşidini canonical'a koymaz; dördü tek adreste birleşir", async () => {
+  it("sıralama çeşidini canonical'a koymaz; beşi tek adreste birleşir", async () => {
     // `hasJobFilters` sıralamayı bilerek süzgeç saymıyor, yani `?sirala=` bir
-    // `noindex` almıyor. Canonical de onu taşısaydı aynı ilan kümesi için dört
+    // `noindex` almıyor. Canonical de onu taşısaydı aynı ilan kümesi için beş
     // indekslenebilir URL olurdu — yinelenen içerik. Sayfa numarası ise
     // kalıyor: sayfa 2 başka ilanlar taşıyor.
     const sorted = await generateMetadata({
@@ -374,5 +556,32 @@ describe("ilan listesinin indekslenmesi", () => {
 
     expect(metadata.robots).toEqual({ index: false, follow: true });
     expect(metadata.alternates).toBeUndefined();
+  });
+
+  it("altı yeni süzgecin her biri tek başına noindex getirir", async () => {
+    /*
+     * Sıralamanın tersi: altısı da `JobDao.searchIds` içinde ayrı bir `where`
+     * koşulu ve sunucudan **başka** ilanlar döndürüyorlar. `sirala` gibi
+     * canonical'dan silinselerdi, süzülmüş bir sayfa "asıl adresim süzgeçsiz
+     * liste" derdi ve Google'ın gördüğü içerik ile işaret ettiği adres
+     * ayrışırdı.
+     */
+    const filtered: readonly Record<string, string>[] = [
+      { "ucret-tipi": "HOURLY" },
+      { isveren: "COMPANY" },
+      { "min-ucret": "500" },
+      { "max-ucret": "500" },
+      { sigorta: "evet" },
+      { deneyim: "hayir" },
+    ];
+
+    for (const searchParams of filtered) {
+      const metadata = await generateMetadata({ searchParams: Promise.resolve(searchParams) });
+      expect(metadata.robots, JSON.stringify(searchParams)).toEqual({
+        index: false,
+        follow: true,
+      });
+      expect(metadata.alternates, JSON.stringify(searchParams)).toBeUndefined();
+    }
   });
 });

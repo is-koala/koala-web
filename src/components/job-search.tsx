@@ -2,16 +2,27 @@ import Link from "next/link";
 
 import { LinkPending } from "@/components/link-pending";
 import { EmptyState } from "@/components/states";
+import { employerTypeValues } from "@/jobs/employer-jobs";
 import {
+  activeJobFilters,
+  booleanFilterChoice,
+  booleanFilterValues,
   districtCityParamName,
+  employerTypeFilterLabels,
+  experienceFilterLabels,
   hasJobFilters,
+  insuranceFilterLabels,
   isPageOutOfRange,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
   jobTypeLabels,
   lastJobPage,
+  referenceFieldOptions,
+  referenceFilterLabels,
+  salaryTypeFilterLabels,
   salaryTypeLabels,
+  type BooleanFilterValue,
   type JobFilterOptions,
   type JobSearchPage,
   type JobSearchQuery,
@@ -20,7 +31,7 @@ import {
 } from "@/jobs/search";
 import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
 import { formatJobDate } from "@/lib/dates";
-import { jobTypeValues } from "@/lib/job-posting";
+import { jobTypeValues, salaryTypeValues } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
 import { safeImageUrl } from "@/lib/urls";
 
@@ -69,6 +80,7 @@ export function JobSearchForm({
           placeholder="Tüm kategoriler"
           options={options.categories}
           selected={query.categoryId}
+          fallback={referenceFilterLabels.category}
         />
 
         <ReferenceField
@@ -78,6 +90,7 @@ export function JobSearchForm({
           placeholder="Tüm iller"
           options={options.cities}
           selected={query.cityId}
+          fallback={referenceFilterLabels.city}
         />
 
         {/*
@@ -85,8 +98,14 @@ export function JobSearchForm({
           /reference/cities/{cityId}/districts` ile geliyor, yani il olmadan
           sunulacak bir liste de yok. Gizli alan, listenin hangi ile ait
           olduğunu söylüyor; il değişip gönderildiğinde ilçe seçimi düşüyor.
+
+          Seçili bir ilçe kutuyu **tek başına** da açıyor: sözlük ucu
+          okunamadığında liste boş dönüyordu ve kutuyla birlikte gizli alan da
+          çizilmiyordu, yani gönderim ilçe seçimini götürmüyordu. Seçili ilçe
+          zaten bir il taşıyor (`districtParam` ilsiz ilçeyi düşürüyor), yani
+          gizli alanın yazacağı kimlik de yerinde.
         */}
-        {options.districts.length > 0 ? (
+        {options.districts.length > 0 || query.districtId !== null ? (
           <>
             <input type="hidden" name={districtCityParamName} value={query.cityId ?? ""} />
             <ReferenceField
@@ -96,25 +115,83 @@ export function JobSearchForm({
               placeholder="Tüm ilçeler"
               options={options.districts}
               selected={query.districtId}
+              fallback={referenceFilterLabels.district}
             />
           </>
         ) : null}
 
-        <div className="field">
-          <label htmlFor="job-filter-type">İlan türü</label>
-          <select
-            id="job-filter-type"
-            name={jobSearchParamNames.type}
-            defaultValue={query.type ?? ""}
-          >
-            <option value="">Tüm türler</option>
-            {jobTypeValues.map((type) => (
-              <option key={type} value={type}>
-                {jobTypeLabels[type]}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ChoiceField
+          id="job-filter-type"
+          label="İlan türü"
+          name={jobSearchParamNames.type}
+          placeholder="Tüm türler"
+          choices={jobTypeValues.map((type) => ({ value: type, label: jobTypeLabels[type] }))}
+          selected={query.type}
+        />
+
+        <ChoiceField
+          id="job-filter-salary-type"
+          label="Ücret tipi"
+          name={jobSearchParamNames.salaryType}
+          placeholder="Saatlik ve günlük"
+          choices={salaryTypeValues.map((value) => ({
+            value,
+            label: salaryTypeFilterLabels[value],
+          }))}
+          selected={query.salaryType}
+        />
+
+        <ChoiceField
+          id="job-filter-employer-type"
+          label="İlanı veren"
+          name={jobSearchParamNames.employerType}
+          placeholder="Herkes"
+          choices={employerTypeValues.map((value) => ({
+            value,
+            label: employerTypeFilterLabels[value],
+          }))}
+          selected={query.employerType}
+        />
+
+        <SalaryField
+          id="job-filter-min-salary"
+          label="En az ücret"
+          name={jobSearchParamNames.minSalary}
+          placeholder="Alt sınır yok"
+          value={query.minSalary}
+        />
+
+        <SalaryField
+          id="job-filter-max-salary"
+          label="En çok ücret"
+          name={jobSearchParamNames.maxSalary}
+          placeholder="Üst sınır yok"
+          value={query.maxSalary}
+        />
+
+        {/*
+          Üç durumlu, onay kutusu değil: sunucu `null` (süzme), `true` ve
+          `false`'ı ayrı okuyor ve işaretsiz bir onay kutusu hiç gönderilmediği
+          için "farketmez" ile "hayır" tek hâle katlanırdı — sigortasız işleri
+          arayan kullanıcı onları hiç süzemezdi.
+        */}
+        <ChoiceField
+          id="job-filter-insurance"
+          label="Sigorta"
+          name={jobSearchParamNames.insuranceRequired}
+          placeholder="Farketmez"
+          choices={booleanChoices(insuranceFilterLabels)}
+          selected={booleanFilterChoice(query.insuranceRequired)}
+        />
+
+        <ChoiceField
+          id="job-filter-experience"
+          label="Deneyim"
+          name={jobSearchParamNames.experienceRequired}
+          placeholder="Farketmez"
+          choices={booleanChoices(experienceFilterLabels)}
+          selected={booleanFilterChoice(query.experienceRequired)}
+        />
 
         <div className="field">
           <label htmlFor="job-filter-sort">Sıralama</label>
@@ -138,23 +215,73 @@ export function JobSearchForm({
           </Link>
         ) : null}
       </div>
+
+      <ActiveFilterBadges query={query} options={options} />
     </form>
   );
 }
 
-function ReferenceField({
+/**
+ * Seçili süzgeçler, tek tek silinebilir.
+ *
+ * Her rozet gerçek bir `<a href>`: JavaScript kapalıyken de bir süzgeç
+ * kaldırılabilmeli, ve düğme + istemci durumu bunu kapatırdı. Form
+ * gönderilmesi de gerekmiyor — bağlantı zaten doğru adresi taşıyor.
+ *
+ * Bağlantı `<form>`'un içinde duruyor ve bu geçerli: iç içe geçen şey bir form
+ * değil, bir liste. Rozetlerin süzgeç kutularının yanında durması gerekiyor
+ * çünkü ikisi aynı şeyi iki farklı okunurlukta söylüyor — kutular ne
+ * seçilebileceğini, rozetler ne seçili olduğunu.
+ */
+function ActiveFilterBadges({
+  query,
+  options,
+}: {
+  query: JobSearchQuery;
+  options: JobFilterOptions;
+}) {
+  const filters = activeJobFilters(query, options);
+  if (filters.length === 0) return null;
+
+  return (
+    <ul className="job-filter-badges" aria-label="Seçili süzgeçler">
+      {filters.map((filter) => (
+        <li key={filter.id}>
+          {/*
+            Görünen metin süzgecin kendisi, erişilebilir ad ise ne yapacağını
+            söylüyor: ekran okuyucuda tek başına "Kadıköy" bir bağlantı adı
+            olarak nereye gittiğini anlatmıyor.
+          */}
+          <Link href={jobSearchHref(filter.without)} aria-label={`${filter.label} süzgecini kaldır`}>
+            {filter.label}
+            <span aria-hidden="true">×</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Üç durumlu süzgecin iki yazılı seçeneği; üçüncüsü `placeholder`. */
+function booleanChoices(labels: Readonly<Record<BooleanFilterValue, string>>): readonly Choice[] {
+  return booleanFilterValues.map((value) => ({ value, label: labels[value] }));
+}
+
+type Choice = { value: string; label: string };
+
+function ChoiceField({
   id,
   label,
   name,
   placeholder,
-  options,
+  choices,
   selected,
 }: {
   id: string;
   label: string;
   name: string;
   placeholder: string;
-  options: readonly ReferenceOption[];
+  choices: readonly Choice[];
   selected: string | null;
 }) {
   return (
@@ -162,7 +289,85 @@ function ReferenceField({
       <label htmlFor={id}>{label}</label>
       <select id={id} name={name} defaultValue={selected ?? ""}>
         <option value="">{placeholder}</option>
-        {options.map((option) => (
+        {choices.map((choice) => (
+          <option key={choice.value} value={choice.value}>
+            {choice.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Ücret sınırı kutusu.
+ *
+ * `type="number"`: tarayıcı ondalık ayracı olarak **nokta** gönderiyor, yani
+ * Türkçe klavyede virgülle yazılan bir tutar da sunucuya `JobSearchCriteriaDto`
+ * `BigDecimal`'inin okuyabileceği biçimde gidiyor. `step` iki basamak, çünkü
+ * `jobs.salary` sütunu `NUMERIC(19, 2)`.
+ */
+function SalaryField({
+  id,
+  label,
+  name,
+  placeholder,
+  value,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  placeholder: string;
+  value: string | null;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label} (₺)</label>
+      <input
+        id={id}
+        name={name}
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        defaultValue={value ?? ""}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+/**
+ * Sözlükten beslenen süzgeç kutusu.
+ *
+ * `fallback` seçili maddenin sözlükte bulunamadığı hâlin adı. Kutu o maddeyi
+ * yine de bir seçenek olarak taşıyor — yoksa tarayıcı eşleşmeyen seçimi ilk
+ * seçeneğe düşürür ve gönderim kullanıcının süzgecini sessizce silerdi
+ * (`referenceFieldOptions`).
+ */
+function ReferenceField({
+  id,
+  label,
+  name,
+  placeholder,
+  options,
+  selected,
+  fallback,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  placeholder: string;
+  options: readonly ReferenceOption[];
+  selected: string | null;
+  fallback: string;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} name={name} defaultValue={selected ?? ""}>
+        <option value="">{placeholder}</option>
+        {referenceFieldOptions(options, selected, fallback).map((option) => (
           <option key={option.id} value={option.id}>
             {option.name}
           </option>
@@ -182,8 +387,22 @@ function ReferenceField({
  * numarası listenin dışındaysa var olan bir sayfaya dönülür. Tek bir metin
  * yazmak, ikinci ve üçüncü durumdaki kullanıcıya sitenin boş olduğunu
  * öğretirdi.
+ *
+ * Süzgeçli boşlukta metin **hangi** süzgeçlerin daralttığını da yazıyor. Sabit
+ * bir cümle ("başka bir il ya da kategori seçebilirsin") on bir süzgecin
+ * ikisini tanıyordu ve gerisinde yanlış yere baktırıyordu: ters bir ücret
+ * aralığında daraltan şey ne il ne kategori. Liste `activeJobFilters`'tan
+ * geliyor, yani rozet şeridiyle aynı sözcükler.
  */
-export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: JobSearchQuery }) {
+export function JobResultList({
+  jobs,
+  query,
+  options,
+}: {
+  jobs: JobSearchPage;
+  query: JobSearchQuery;
+  options: JobFilterOptions;
+}) {
   if (isPageOutOfRange(jobs)) {
     const lastPage = lastJobPage(jobs);
     return (
@@ -196,7 +415,20 @@ export function JobResultList({ jobs, query }: { jobs: JobSearchPage; query: Job
   }
 
   if (jobs.content.length === 0) {
-    return <EmptyState kind={hasJobFilters(query) ? "jobSearch" : "jobs"} />;
+    // Hangi metnin yazılacağına rozet listesinin **kendisi** karar veriyor,
+    // ayrı bir `hasJobFilters` çağrısı değil: iki soru da "seçili bir süzgeç
+    // var mı" ve ikisi ayrı okunsaydı ekran "bu süzgeçlere uyan ilan yok" deyip
+    // altında hiçbir süzgeç sayamayacağı bir hâle düşebilirdi.
+    const filters = activeJobFilters(query, options);
+    if (filters.length === 0) return <EmptyState kind="jobs" />;
+
+    return (
+      <EmptyState kind="jobSearch">
+        <p className="state-filters">
+          Şu an açık olanlar: {filters.map((filter) => filter.label).join(" · ")}
+        </p>
+      </EmptyState>
+    );
   }
 
   return (

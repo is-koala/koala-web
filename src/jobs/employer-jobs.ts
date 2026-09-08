@@ -17,8 +17,19 @@ import type { SalaryType } from "./contract";
  * okuyor ve içinde ağ çağrısı ya da gizli değer yok.
  */
 
+/**
+ * `JobEmployerType`'in sunucuda gerçekten bulunan iki değeri.
+ *
+ * Beyaz liste burada, çünkü iki taraf da onu okuyor: yanıt çeviricisi
+ * tanımadığı değeri `UNKNOWN`'a düşürmek için (`@/server/api/dto`), ilan
+ * araması ise adres çubuğundan gelen bir `isveren` seçimini sunucuya
+ * geçirmeden önce doğrulamak için. İki kopya olsaydı biri genişletildiğinde
+ * öbürü sessizce eski kalır ve aynı enum iki farklı yerde farklı okunurdu.
+ */
+export const employerTypeValues = ["INDIVIDUAL", "COMPANY"] as const;
+
 /** `JobEmployerType`; okunamayan bir değer rozet uydurmaz. */
-export type JobEmployerType = "INDIVIDUAL" | "COMPANY" | "UNKNOWN";
+export type JobEmployerType = (typeof employerTypeValues)[number] | "UNKNOWN";
 
 /** `JobSummaryDto`'nun bu listede okunan parçası. */
 export type EmployerJob = {

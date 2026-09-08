@@ -57,12 +57,22 @@ export async function generateMetadata({ searchParams }: JobsPageProps): Promise
  *
  * - **Sayfa kalıyor.** `?sayfa=2` sayfa 1'in kopyası değil, başka ilanlar
  *   taşıyor; canonical'ı sayfa 1'e çevirmek o ilanları indeksten düşürürdü.
- * - **Sıralama düşüyor.** Dört sıralama seçeneği aynı ilan kümesinin farklı
+ * - **Sıralama düşüyor.** Beş sıralama seçeneği aynı ilan kümesinin farklı
  *   dizilişi. `hasJobFilters` onu bilerek bir süzgeç saymıyor, yani
  *   `?sirala=ucret-artan` `noindex` almıyor; canonical de onu taşısaydı tek bir
- *   içerik dört indekslenebilir URL'ye açılırdı. Düşürülünce dördü tek adreste
+ *   içerik beş indekslenebilir URL'ye açılırdı. Düşürülünce beşi tek adreste
  *   birleşiyor ve `hasJobFilters`'ın gerekçesi ("aynı sonuç kümesinin farklı
  *   dilimleri, ayrı bir içerik değil") indeksleme tarafında da tutuyor.
+ *
+ * **Süzgeçler bu fonksiyona hiç uğramıyor** ve aynı akıl yürütmenin öbür ucu
+ * bu. `ucret-tipi`, `isveren`, `min-ucret`, `max-ucret`, `sigorta` ve
+ * `deneyim` sunucuda ayrı birer `where` koşulu, yani **başka** bir ilan kümesi
+ * döndürüyorlar — sıralamanın tersi. Onları da buradan silmek, süzülmüş bir
+ * sayfaya "asıl adresim süzgeçsiz liste" dedirtir ve Google'ın gördüğü içerik
+ * ile işaret ettiği adres ayrışırdı. Bu yüzden karar yukarıda veriliyor:
+ * `hasJobFilters` doğruysa sayfa `noindex, follow` alıp canonical'sız kalıyor
+ * ve `canonicalPath` çağrılmıyor bile. Gerekçenin karşılığı
+ * `hasJobFilters`'ın kendi yorumunda yazılı.
  */
 function canonicalPath(query: JobSearchQuery): string {
   const params = jobSearchParams({ ...query, sort: defaultJobSort });
@@ -121,7 +131,7 @@ export async function JobsPage({ searchParams }: JobsPageProps) {
         <ErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
       ) : (
         <>
-          <JobResultList jobs={result.jobs} query={query} />
+          <JobResultList jobs={result.jobs} query={query} options={options} />
           <JobPagination jobs={result.jobs} query={query} />
         </>
       )}
