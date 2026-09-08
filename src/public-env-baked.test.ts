@@ -1,10 +1,13 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const sourceRoot = path.resolve(import.meta.dirname);
-const dockerfile = path.resolve(sourceRoot, "..", "Dockerfile");
+const projectRoot = path.resolve(sourceRoot, "..");
+const dockerfile = path.join(projectRoot, "Dockerfile");
+const nextRootEntry = /^(?:instrumentation(?:-client)?|sentry\.(?:server|edge)\.config|next\.config|middleware|proxy)\.tsx?$/;
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -15,36 +18,127 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-function publicNames(source: string): string[] {
-  return [...source.matchAll(/NEXT_PUBLIC_[A-Z0-9_]+/g)].map((match) => match[0]);
+function shippedSourceFiles(): string[] {
+  const rootEntries = readdirSync(projectRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && nextRootEntry.test(entry.name))
+    .map((entry) => path.join(projectRoot, entry.name));
+  return [...sourceFiles(sourceRoot), ...rootEntries];
 }
 
-function declaredArgs(dockerfileContents: string): Set<string> {
-  // Yalnız ARG satırları sayılır. "Adı Dockerfile'da geçiyor mu" diye sormak
-  // yetmez: ENV satırı da aynı adı taşıdığı için ARG silinse bile iddia
-  // yeşil kalırdı — komşu düğümün tatmin ettiği bir iddia hiçbir şey ölçmez.
+function publicNames(file: string): string[] {
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const names: string[] = [];
+
+  function visit(node: ts.Node) {
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      isProcessEnv(node.expression) &&
+      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.name.text)
+    ) {
+      names.push(node.name.text);
+    }
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "requiredEnvironmentValue" &&
+      ts.isStringLiteral(node.arguments[0]) &&
+      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.arguments[0].text)
+    ) {
+      names.push(node.arguments[0].text);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return names;
+}
+
+function isProcessEnv(node: ts.Node): node is ts.PropertyAccessExpression {
+  return (
+    ts.isPropertyAccessExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "process" &&
+    node.name.text === "env"
+  );
+}
+
+function unsafeRequiredPublicReads(file: string): string[] {
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const unsafe: string[] = [];
+
+  function visit(node: ts.Node) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "requiredEnvironmentValue" &&
+      ts.isStringLiteral(node.arguments[0]) &&
+      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.arguments[0].text)
+    ) {
+      const name = node.arguments[0].text;
+      const value = node.arguments[1];
+      if (
+        !value ||
+        !ts.isPropertyAccessExpression(value) ||
+        !isProcessEnv(value.expression) ||
+        value.name.text !== name
+      ) {
+        unsafe.push(`${path.relative(projectRoot, file)}: ${name}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return unsafe;
+}
+
+function builderBeforeBuild(dockerfileContents: string): string {
+  const builder = dockerfileContents.match(
+    /^FROM .* AS builder\s*$([\s\S]*?)^FROM /m,
+  )?.[1];
+  expect(builder, "Dockerfile builder aşaması eksik").toBeDefined();
+  const build = builder!.indexOf("RUN npm run build");
+  expect(build, "builder aşamasında npm run build eksik").toBeGreaterThanOrEqual(0);
+  return builder!.slice(0, build);
+}
+
+function declaredArgs(builder: string): Set<string> {
   return new Set(
-    [...dockerfileContents.matchAll(/^ARG (NEXT_PUBLIC_[A-Z0-9_]+)\s*$/gm)].map(
+    [...builder.matchAll(/^ARG (NEXT_PUBLIC_[A-Z0-9_]+)\s*$/gm)].map(
       (match) => match[1],
     ),
   );
 }
 
 describe("public ortam değişkenleri derlemeye gömülüyor", () => {
+  it("zorunlu public değerleri Next'in inline edebildiği statik erişimle okuyor", () => {
+    const unsafe = shippedSourceFiles().flatMap(unsafeRequiredPublicReads);
+
+    expect(unsafe).toEqual([]);
+  });
+
   it("kodda okunan her NEXT_PUBLIC_ değişkeni Dockerfile'da ARG olarak tanımlı", () => {
     // `NEXT_PUBLIC_` değişkenleri `next build` sırasında bundle'a gömülür,
     // çalışma anında okunmaz. Dockerfile'da ARG olarak tanımlanmayan bir
     // değişken derlemede boş kalır ve hata vermez: sayfa açılır, özellik
     // sessizce çalışmaz. Sentry'nin üç değişkeni tam olarak böyle kalmıştı.
     const used = new Set(
-      sourceFiles(sourceRoot)
-        .flatMap((file) => publicNames(readFileSync(file, "utf8")))
-        // `server-only.test.ts` bu adı sızmadığını kanıtlamak için anıyor;
-        // gerçek bir okuma değil ve kasıtlı olarak hiçbir yere gömülmemeli.
-        .filter((name) => name !== "NEXT_PUBLIC_API"),
+      shippedSourceFiles().flatMap(publicNames),
     );
 
-    const declared = declaredArgs(readFileSync(dockerfile, "utf8"));
+    const declared = declaredArgs(
+      builderBeforeBuild(readFileSync(dockerfile, "utf8")),
+    );
     const missing = [...used].filter((name) => !declared.has(name)).sort();
 
     expect(missing).toEqual([]);
@@ -53,15 +147,15 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
   it("Dockerfile'da tanımlı her NEXT_PUBLIC_ değişkeni build aşamasında ENV'e de bağlanıyor", () => {
     // ARG tek başına yetmiyor: `npm run build` ancak ENV üzerinden görüyor.
     // ARG yazılıp ENV unutulursa değişken yine sessizce boş kalır.
-    const contents = readFileSync(dockerfile, "utf8");
-    const args = new Set(
-      [...contents.matchAll(/^ARG (NEXT_PUBLIC_[A-Z0-9_]+)$/gm)].map((match) => match[1]),
-    );
-    const envs = new Set(
-      [...contents.matchAll(/^ENV (NEXT_PUBLIC_[A-Z0-9_]+)=/gm)].map((match) => match[1]),
+    const builder = builderBeforeBuild(readFileSync(dockerfile, "utf8"));
+    const args = declaredArgs(builder);
+    const bindings = new Set(
+      [...builder.matchAll(/^ENV (NEXT_PUBLIC_[A-Z0-9_]+)=\$\1\s*$/gm)].map(
+        (match) => match[1],
+      ),
     );
 
-    const unbound = [...args].filter((name) => !envs.has(name)).sort();
+    const unbound = [...args].filter((name) => !bindings.has(name)).sort();
 
     expect(unbound).toEqual([]);
   });

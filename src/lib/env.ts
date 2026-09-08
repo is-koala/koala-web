@@ -5,8 +5,8 @@ const allowedSchemes = new Set(["koala-dev", "koala-staging", "koala"]);
  * hatayı vermeli; eksik değişkenin adı hata metninde geçtiği için sorun
  * loglardan tek okumada anlaşılır.
  */
-export function requiredEnvironmentValue(name: string) {
-  const value = process.env[name]?.trim();
+export function requiredEnvironmentValue(name: string, candidate = process.env[name]) {
+  const value = candidate?.trim();
   if (!value) {
     throw new Error(`Zorunlu ortam değişkeni eksik: ${name}`);
   }
@@ -22,8 +22,14 @@ export function assertAbsoluteUrl(value: string, name: string) {
 }
 
 export function publicEnvironment() {
-  const siteUrl = requiredEnvironmentValue("NEXT_PUBLIC_SITE_URL");
-  const appUrlScheme = requiredEnvironmentValue("NEXT_PUBLIC_APP_URL_SCHEME");
+  const siteUrl = requiredEnvironmentValue(
+    "NEXT_PUBLIC_SITE_URL",
+    process.env.NEXT_PUBLIC_SITE_URL,
+  );
+  const appUrlScheme = requiredEnvironmentValue(
+    "NEXT_PUBLIC_APP_URL_SCHEME",
+    process.env.NEXT_PUBLIC_APP_URL_SCHEME,
+  );
   assertAbsoluteUrl(siteUrl, "NEXT_PUBLIC_SITE_URL");
   if (!allowedSchemes.has(appUrlScheme)) {
     throw new Error(
