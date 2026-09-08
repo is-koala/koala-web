@@ -4,6 +4,8 @@ import {
   applicantPage,
   applicantPageSize,
   applicantsInFilter,
+  applicationDecisionGate,
+  isApplicationDecision,
   type JobApplicant,
 } from "./employer-review";
 
@@ -62,6 +64,113 @@ describe("işveren başvuru listesinin istemci tarafı dilimlemesi", () => {
 
     expect(applicantsInFilter(list, "APPLIED").map((item) => item.id)).toEqual(["a", "d"]);
     expect(applicantsInFilter(list, "ALL")).toEqual(list);
+  });
+});
+
+describe("başvuru karar kapısı", () => {
+  it("bekleyen başvuruda ve boş kontenjanda iki eylemi de açar", () => {
+    const gate = applicationDecisionGate({
+      status: "APPLIED",
+      headcountFull: false,
+      decidedNow: false,
+    });
+
+    expect(gate).toEqual({
+      canAccept: true,
+      canReject: true,
+      closedReason: null,
+      acceptClosedReason: null,
+    });
+  });
+
+  it("kontenjan dolduğunda yalnız kabulü kapatır ve nedenini yazar", () => {
+    // Sunucu dolu ilanda kabulü `JOB_APPLICATION_JOB_HEADCOUNT_FULL` (409) ile
+    // reddediyor ama **reddi** kabul etmeye devam ediyor
+    // (`assertOpeningAvailable` yalnız `accepted` dalında çağrılıyor). İki
+    // eylemi birlikte kapatmak, işvereni yapabildiği bir işten alıkoyardı.
+    const gate = applicationDecisionGate({
+      status: "APPLIED",
+      headcountFull: true,
+      decidedNow: false,
+    });
+
+    expect(gate.canAccept).toBe(false);
+    expect(gate.canReject).toBe(true);
+    expect(gate.closedReason).toBeNull();
+    expect(gate.acceptClosedReason).toMatch(/kontenjanı doldu/);
+  });
+
+  it("cevaplanmış başvuruda ikinci kararı kapatır", () => {
+    // `JOB_APPLICATION_ALREADY_RESPONDED`: sunucu ikinci kararı 409 ile
+    // reddediyor ve ekran bunu önden göstermezse kullanıcı geri alınamaz
+    // sandığı bir düğmeye basar.
+    for (const status of ["ACCEPTED", "REJECTED"] as const) {
+      const gate = applicationDecisionGate({ status, headcountFull: false, decidedNow: false });
+
+      expect(gate.canAccept).toBe(false);
+      expect(gate.canReject).toBe(false);
+      expect(gate.closedReason).toMatch(/geri alınamıyor/);
+    }
+  });
+
+  it("geri çekilmiş başvuruyu cevaplanmış başvurudan ayrı bir metinle kapatır", () => {
+    // İki hâl de kapalı ama sebepleri ayrı: birinde kararı işveren verdi,
+    // ötekinde aday çekildi. Tek metin, işverene kendi vermediği bir kararı
+    // verdiğini söylerdi.
+    const withdrawn = applicationDecisionGate({
+      status: "WITHDRAWN",
+      headcountFull: false,
+      decidedNow: false,
+    });
+    const answered = applicationDecisionGate({
+      status: "ACCEPTED",
+      headcountFull: false,
+      decidedNow: false,
+    });
+
+    expect(withdrawn.canAccept).toBe(false);
+    expect(withdrawn.canReject).toBe(false);
+    expect(withdrawn.closedReason).toMatch(/geri çekti/);
+    expect(withdrawn.closedReason).not.toEqual(answered.closedReason);
+  });
+
+  it("okunamayan durumda karar vermez", () => {
+    // `UNKNOWN` backend'in tanımadığımız bir değer göndermesi. Açık bırakmak,
+    // ne olduğu bilinmeyen bir kayda geri alınamaz bir karar vermek olurdu.
+    const gate = applicationDecisionGate({
+      status: "UNKNOWN",
+      headcountFull: false,
+      decidedNow: false,
+    });
+
+    expect(gate.canAccept).toBe(false);
+    expect(gate.canReject).toBe(false);
+    expect(gate.closedReason).toMatch(/durumu okunamadı/);
+  });
+
+  it("bu oturumda verilmiş karar, sunucu listesi hâlâ APPLIED derken de kapatır", () => {
+    // Liste sunucudan bir kez iniyor: karar verildikten sonra tazeleme
+    // dönene kadar aynı kayıt hâlâ `APPLIED` görünüyor. Kapı yalnız `status`e
+    // baksaydı kart o aralıkta ikinci bir karara açık kalırdı.
+    const gate = applicationDecisionGate({
+      status: "APPLIED",
+      headcountFull: false,
+      decidedNow: true,
+    });
+
+    expect(gate.canAccept).toBe(false);
+    expect(gate.canReject).toBe(false);
+    expect(gate.closedReason).toMatch(/geri alınamıyor/);
+  });
+
+  it("gövdeye yalnız sunucunun tanıdığı iki karar adını geçirir", () => {
+    // `respondToApplication` başka bir `ApplicationStatus` değerini
+    // `JOB_APPLICATION_INVALID_STATUS_TRANSITION` ile reddediyor.
+    expect(isApplicationDecision("ACCEPTED")).toBe(true);
+    expect(isApplicationDecision("REJECTED")).toBe(true);
+    expect(isApplicationDecision("WITHDRAWN")).toBe(false);
+    expect(isApplicationDecision("APPLIED")).toBe(false);
+    expect(isApplicationDecision("accepted")).toBe(false);
   });
 });
 

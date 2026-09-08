@@ -247,3 +247,134 @@ export function applicantPage(
     last: current >= totalPages - 1,
   };
 }
+
+/**
+ * İşverenin bir başvuruya verebileceği iki cevap.
+ *
+ * `AnswerApplicationDto.status` bir dize alanı ama `JobApplicationManager`
+ * yalnız bu ikisini kabul ediyor: başka bir `ApplicationStatus` değeri
+ * `JOB_APPLICATION_INVALID_STATUS_TRANSITION` ile geri dönüyor. Tür bu yüzden
+ * `ApplicationStatus`'un tamamı değil.
+ */
+export type ApplicationDecision = "ACCEPTED" | "REJECTED";
+
+/** Karar adı tarayıcıdan geliyor; gövdeye konmadan önce tanınması gerekiyor. */
+export function isApplicationDecision(value: string): value is ApplicationDecision {
+  return value === "ACCEPTED" || value === "REJECTED";
+}
+
+/**
+ * Kabul edilen başvurunun ardından kurulan atama.
+ *
+ * `JobApplicationDetailDto.assignment` yalnız **kabul** yanıtında dolu;
+ * reddedilen başvuruda alan hiç yok. Kimlik burada taşınıyor çünkü başvuru
+ * listesi ucu (`JobApplicantDto`) atama kimliği taşımıyor — karar anında
+ * öğrenilmezse bir daha bu ekrandan okunamıyor.
+ */
+export type ApplicationDecisionOutcome = {
+  readonly decision: ApplicationDecision;
+  readonly assignmentId: string | null;
+};
+
+/**
+ * Karar eyleminin durumu.
+ *
+ * Başvuru kimliği durumun içinde: liste tek bir `useActionState` paylaşıyor ve
+ * cevabın hangi karta ait olduğu başka türlü okunamazdı — aday panelinin
+ * `userId` taşımasıyla aynı sebep.
+ */
+export type ApplicationDecisionState =
+  | { readonly status: "idle" }
+  | {
+      readonly status: "done";
+      readonly applicationId: string;
+      readonly outcome: ApplicationDecisionOutcome;
+    }
+  | {
+      readonly status: "error";
+      readonly applicationId: string;
+      readonly errorCode: string;
+      readonly httpStatus: number;
+    };
+
+export const idleApplicationDecisionState: ApplicationDecisionState = { status: "idle" };
+
+export type ApplicationDecisionAction = (
+  state: ApplicationDecisionState,
+  formData: FormData,
+) => Promise<ApplicationDecisionState>;
+
+/**
+ * Red gerekçesinin sunucudaki üst sınırı.
+ *
+ * `JobApplication.rejectionReason` `@Column(length = 500)` ile saklanıyor ve
+ * `AnswerApplicationDto` üzerinde bir `@Size` yok: daha uzun bir metin
+ * doğrulamaya değil veritabanına çarpar ve kullanıcı düzeltilecek alanı
+ * göremezdi. Sınır bu yüzden istemcide duruyor.
+ */
+export const rejectionReasonMaxLength = 500;
+
+/**
+ * Bir kartın karar kapısı.
+ *
+ * Kabul ve red ayrı ayrı taşınıyor çünkü kapanma sebepleri ayrışıyor:
+ * kontenjan dolu bir ilanda red hâlâ açık, kabul değil. Kapalı olan her
+ * eylemin yanında **yazılı** bir sebep var — düğmeyi gizlemek ya da sebepsiz
+ * kapatmak, kullanıcıyı 409 yiyene kadar aramaya bırakırdı.
+ */
+export type ApplicationDecisionGate = {
+  readonly canAccept: boolean;
+  readonly canReject: boolean;
+  /** Karar tümüyle kapalıysa nedeni; açıkken `null`. */
+  readonly closedReason: string | null;
+  /** Yalnız kabulün kapalı olduğu hâlin nedeni; kabul açıkken `null`. */
+  readonly acceptClosedReason: string | null;
+};
+
+const decidedReason =
+  "Bu başvuruya karar verildi. Karar geri alınamıyor; kabul ettiğin adayın işini bırakması gerekiyorsa atama ekranından iptal edebilirsin.";
+
+const withdrawnReason =
+  "Aday başvurusunu geri çekti. Geri çekilmiş bir başvuru kabul de edilemiyor, reddedilemiyor da.";
+
+const unknownStatusReason =
+  "Bu başvurunun durumu okunamadı. Sayfayı yenileyip güncel durumu gör.";
+
+const headcountFullReason =
+  "İlanın kontenjanı doldu; yeni bir aday kabul edilemez. Kabul etmek istersen önce kurulmuş bir atamayı iptal etmen gerekiyor.";
+
+/**
+ * Karar kapısının tek kaynağı.
+ *
+ * Kural sunucudan okundu (`JobApplicationManager.respondToApplication`):
+ * `WITHDRAWN` başvuru `JOB_APPLICATION_ALREADY_WITHDRAWN`, cevaplanmış başvuru
+ * `JOB_APPLICATION_ALREADY_RESPONDED`, kontenjanı dolu ilanda kabul
+ * `JOB_APPLICATION_JOB_HEADCOUNT_FULL` ile reddediliyor — üçü de 409. Ekran
+ * bunları önden gösteriyor ki kullanıcı geri alınamaz bir düğmeye basıp
+ * sunucudan öğrenmesin.
+ *
+ * `decidedNow` bu oturumda verilmiş kararı taşıyor: sunucu listesi
+ * tazelenene kadar `status` hâlâ `APPLIED` görünüyor ve kart o aralıkta ikinci
+ * bir karara açık kalırdı.
+ */
+export function applicationDecisionGate(input: {
+  readonly status: ApplicationStatus;
+  readonly headcountFull: boolean;
+  readonly decidedNow: boolean;
+}): ApplicationDecisionGate {
+  if (input.decidedNow) return closed(decidedReason);
+  if (input.status === "ACCEPTED" || input.status === "REJECTED") return closed(decidedReason);
+  if (input.status === "WITHDRAWN") return closed(withdrawnReason);
+  if (input.status !== "APPLIED") return closed(unknownStatusReason);
+
+  return {
+    canAccept: !input.headcountFull,
+    canReject: true,
+    closedReason: null,
+    acceptClosedReason: input.headcountFull ? headcountFullReason : null,
+  };
+}
+
+function closed(reason: string): ApplicationDecisionGate {
+  return { canAccept: false, canReject: false, closedReason: reason, acceptClosedReason: null };
+}

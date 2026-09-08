@@ -7,13 +7,15 @@ import type {
   ApplicantProfile,
   ApplicantRatingSummary,
   ApplicantReview,
+  ApplicationDecision,
+  ApplicationDecisionOutcome,
   BadgeTier,
   JobApplicant,
   TalentPoolEntry,
   TalentPoolPage,
 } from "@/applications/employer-review";
 import { emptyBackendPage } from "@/lib/pagination";
-import { clean, type PageDto } from "@/server/api/dto";
+import { clean, known, type PageDto } from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -72,6 +74,13 @@ type BadgeDto = {
   code?: string | null;
   name?: string | null;
   tier?: string | null;
+};
+
+/** `JobApplicationDetailDto`; `assignment` yalnız kabul yanıtında dolu. */
+type ApplicationDecisionDto = {
+  id?: string | null;
+  status?: string | null;
+  assignment?: { id?: string | null } | null;
 };
 
 type TalentPoolEntryDto = {
@@ -241,6 +250,53 @@ export async function openApplicantConversation(
   const id = conversation?.id;
   if (!id) throw new Error("Conversation response is missing an identifier");
   return id;
+}
+
+/**
+ * `POST /job-applications/{applicationId}/respond` — kabul ya da red.
+ *
+ * Yol `backendPaths` içinde değil, komşusu `withdrawWorkerApplication` gibi
+ * burada yazılı: `/job-applications` bu iki çağrı dışında hiçbir yerden
+ * okunmuyor.
+ *
+ * Kabul **geri alınamaz** ve tek bir çağrının üç yan etkisi var
+ * (`JobApplicationManager.respondToApplication`): `PENDING_CONFIRMATION`
+ * durumunda bir `JobAssignment` kuruluyor, ilanın donmuş fiyatı atamaya
+ * kopyalanıyor, işçiye teklif bildirimi gidiyor — ve atama kurulduğu an
+ * ADR-0003 uyarınca tam iş adresi işçiye açılıyor. Ekran bunu karar anında
+ * söylemek zorunda; sonradan öğrenmek geri alınamaz bir ifşa demek.
+ *
+ * `rejectionReason` yalnız redde gövdeye giriyor. Sunucu alanı kabulde hiç
+ * okumuyor ve kabul edilen bir başvuruda saklanmış bir red gerekçesi kaydı
+ * kirletirdi.
+ */
+export async function respondToApplication(input: {
+  applicationId: string;
+  decision: ApplicationDecision;
+  rejectionReason: string;
+}): Promise<ApplicationDecisionOutcome> {
+  const detail = await apiRequest<ApplicationDecisionDto | null>(
+    `/job-applications/${encodeURIComponent(input.applicationId)}/respond`,
+    {
+      method: "POST",
+      body:
+        input.decision === "REJECTED"
+          ? { status: input.decision, rejectionReason: input.rejectionReason.trim() }
+          : { status: input.decision },
+    },
+  );
+
+  /*
+    Atama kimliği yalnız bu yanıtta var: başvuru listesi ucu (`JobApplicantDto`)
+    onu taşımıyor, yani karar anında okunmazsa bu ekrandan bir daha okunamıyor.
+    Yanıtın kararı kendi alanından geri alınıyor ve gönderilen değer
+    varsayılmıyor — sunucu son sözü söyleyen taraf.
+  */
+  const status = known<ApplicationStatus>(detail?.status, applicationStatuses);
+  return {
+    decision: status === "REJECTED" ? "REJECTED" : "ACCEPTED",
+    assignmentId: clean(detail?.assignment?.id),
+  };
 }
 
 function toJobApplicant(dto: JobApplicantDto): JobApplicant {
