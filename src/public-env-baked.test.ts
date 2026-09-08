@@ -7,7 +7,43 @@ import { describe, expect, it } from "vitest";
 const sourceRoot = path.resolve(import.meta.dirname);
 const projectRoot = path.resolve(sourceRoot, "..");
 const dockerfile = path.join(projectRoot, "Dockerfile");
-const nextRootEntry = /^(?:instrumentation(?:-client)?|sentry\.(?:server|edge)\.config|next\.config|middleware|proxy)\.tsx?$/;
+const nextRootEntry = /^(?:instrumentation(?:-client)?|sentry\.(?:server|edge)\.config|next\.config|mdx-components|middleware|proxy)\.tsx?$/;
+
+function unsupportedPublicReads(file: string, contents: string): string[] {
+  const source = ts.createSourceFile(
+    file,
+    contents,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const unsafe: string[] = [];
+
+  function report(name: string) {
+    unsafe.push(`${path.relative(projectRoot, file)}: ${name}`);
+  }
+
+  function visit(node: ts.Node) {
+    if (ts.isIdentifier(node) && /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.text)) {
+      const direct =
+        ts.isPropertyAccessExpression(node.parent) &&
+        node.parent.name === node &&
+        isProcessEnv(node.parent.expression);
+      if (!direct) report(node.text);
+    }
+    if (
+      ts.isElementAccessExpression(node) &&
+      isProcessEnv(node.expression) &&
+      ts.isStringLiteral(node.argumentExpression) &&
+      /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(node.argumentExpression.text)
+    ) {
+      report(node.argumentExpression.text);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return unsafe;
+}
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -121,6 +157,22 @@ function declaredArgs(builder: string): Set<string> {
 }
 
 describe("public ortam değişkenleri derlemeye gömülüyor", () => {
+  it.each([
+    ["env aliası", "const env = process.env; void env.NEXT_PUBLIC_ALIAS;"],
+    ["destructuring", "const { NEXT_PUBLIC_PICKED } = process.env;"],
+    ["bracket erişimi", 'void process.env["NEXT_PUBLIC_BRACKET"];'],
+  ])("inline edilmeyen %s biçimini reddediyor", (_, source) => {
+    expect(unsupportedPublicReads("fixture.ts", source)).not.toEqual([]);
+  });
+
+  it("gönderilen kaynakta inline edilmeyen public erişim bırakmıyor", () => {
+    const unsafe = shippedSourceFiles().flatMap((file) =>
+      unsupportedPublicReads(file, readFileSync(file, "utf8")),
+    );
+
+    expect(unsafe).toEqual([]);
+  });
+
   it("zorunlu public değerleri Next'in inline edebildiği statik erişimle okuyor", () => {
     const unsafe = shippedSourceFiles().flatMap(unsafeRequiredPublicReads);
 
