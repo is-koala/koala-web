@@ -3,7 +3,12 @@ import { jobTypeValues, salaryTypeValues, type JobType } from "@/lib/job-posting
 import { formatMoney } from "@/lib/money";
 import type { BackendPage } from "@/lib/pagination";
 
-import { jobPageSize, type AddressPrecision, type SalaryType } from "./contract";
+import {
+  jobPageSize,
+  type AddressPrecision,
+  type JobTypeValue,
+  type SalaryType,
+} from "./contract";
 import { employerTypeValues, type JobEmployerType } from "./employer-jobs";
 import type { JobStatus } from "./lifecycle";
 
@@ -19,9 +24,6 @@ import type { JobStatus } from "./lifecycle";
  * parametrenin adı değiştiğinde ikisi güncellenip üçüncüsü sessizce eski
  * kalırdı; okuyan taraf da yazan taraf da aynı tabloyu okumalı.
  */
-
-/** `JobType`; okunamayan değer rozet uydurmaz. */
-export type JobTypeValue = JobType | "UNKNOWN";
 
 /**
  * `JobSummaryDto`'nun **tamamı**.

@@ -46,14 +46,15 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
     // ya tokensız uçlar (giriş, kayıt, parola, yasal metinler, herkese açık
     // ilan araması) ya da yenilemenin kendisi.
     //
-    // İlan uçları dizin değil **tek tek dosya** olarak yazılı: kardeşleri
-    // `server/jobs/jobs.ts` oturumlu uçları taşıyor (başvuru, kapatma,
-    // iptal, "ilanlarım") ve dizin izni, onun bir gün sessizce `apiFetch`'e
-    // kaymasına kapıyı açardı. `public-jobs.ts` ayrı bir dosya olarak
-    // duruyor tam da bu yüzden: herkese açık ilan okuması oturumsuz olmak
-    // **zorunda** (ADR-0003 adres kesinliği bakan kişiye göre değişiyor) ve
-    // ayrımı dosya sınırına koymak, iznin oturumlu uçlara bulaşmasını
-    // engelliyor.
+    // İlan uçları dizin değil **tek tek dosya** olarak yazılı, ve iki satır
+    // olmaları tek bir kuralın iki kez yazılması değil: `server/jobs/` altında
+    // üç modül var ve üçü üç ayrı istek-bağlamı kademesinde duruyor
+    // (`public-jobs.ts` modül başlığı bunu açıyor). `jobs.ts` oturumlu uçları
+    // taşıyor (başvuru, kapatma, iptal, "ilanlarım") ve **listede olmamalı**;
+    // öbür ikisi oturumsuz ve olmalı. Dizin izni üçünü birden kapsar, yani
+    // `jobs.ts`'in bir gün sessizce `apiFetch`'e kaymasına kapıyı açardı —
+    // izin listesinin tek işi tam olarak bunu engellemek. İki satır, o üçlü
+    // ayrımın izin listesindeki karşılığı.
     const allowed = [
       path.join(sourceRoot, "server", "session", "session.ts"),
       path.join(sourceRoot, "server", "session", "refresh.ts"),

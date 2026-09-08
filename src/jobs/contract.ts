@@ -1,11 +1,25 @@
-import type { JobType as PostedJobType, PricingBreakdown } from "@/lib/job-posting";
+import type { JobType, PricingBreakdown } from "@/lib/job-posting";
 
 import type { JobStatus } from "./lifecycle";
 
 export type SalaryType = "HOURLY" | "DAILY" | "UNKNOWN";
 
-/** `JobType`; okunamayan değer `UNKNOWN` olur ve ekranda tür satırı düşer. */
-export type JobType = PostedJobType | "UNKNOWN";
+/**
+ * Bir **yanıttan** okunmuş ilan türü; okunamayan değer `UNKNOWN` olur ve
+ * ekranda tür satırı düşer.
+ *
+ * `JobType`'tan (`@/lib/job-posting`) ayrı bir ad taşıyor ve bu ayrım kasıtlı:
+ * o tip bir **seçim** kümesi — ilan formunun ve arama süzgecinin
+ * yazabileceği değerler — burada ise okunamamış olma ihtimali de var.
+ * `UNKNOWN`'ı seçim kümesine katmak, adres çubuğuna `?tur=UNKNOWN` yazılınca
+ * sunucuda karşılığı olmayan bir enum sabiti göndermek olurdu.
+ *
+ * Aynı tip daha önce iki addaydı — burada `JobType`, `jobs/search.ts` içinde
+ * `JobTypeValue` — ve buradaki ad `@/lib/job-posting`'inkiyle çakıştığı için
+ * iki dosya `PostedJobType` takma adı yazmak zorunda kalıyordu. Tek ad, ve
+ * çakışmayan olanı.
+ */
+export type JobTypeValue = JobType | "UNKNOWN";
 
 export type AddressPrecision = "APPROXIMATE" | "EXACT" | "UNKNOWN";
 
@@ -52,7 +66,7 @@ export type JobDetail = {
   readonly companyName: string | null;
   readonly companyLogoUrl: string | null;
   readonly employerName: string | null;
-  readonly type: JobType;
+  readonly type: JobTypeValue;
   readonly salaryType: SalaryType;
   readonly startsAt: string;
   readonly endsAt: string;
@@ -73,7 +87,7 @@ export type JobDetail = {
   readonly maxAge: number;
   readonly insuranceRequired: boolean;
   readonly experienceRequired: boolean;
-  /** `null` ise ilan sınırsız kişilik; sıfır saymak onu doluymuş gibi gösterirdi. */
+  /** İkisinin de okunma kuralı `openings` içinde (`@/server/api/dto`). */
   readonly headcount: number | null;
   readonly hiredCount: number;
   readonly images: readonly JobImage[];
@@ -87,7 +101,8 @@ export type JobDetail = {
    * Ekranda yalnız **etiket** seçiyor ("Yaklaşık konum" / "Konum"); hangi
    * alanların taşındığını seçmiyor. İkisi bilerek ayrı: `EXACT` yanıtı da
    * yalnız il ve ilçe taşıyor, yani bayrağın yanlış gelmesi bir sızıntıya
-   * dönüşemiyor.
+   * dönüşemiyor. Okunamayan değerin nereye düştüğü `precisionOf` içinde
+   * (`@/server/api/dto`).
    */
   readonly addressPrecision: AddressPrecision;
   /**

@@ -10,16 +10,16 @@ import {
   type JobSearchPage,
   type JobSearchQuery,
   type JobSummary,
-  type JobTypeValue,
   type ReferenceOption,
 } from "@/jobs/search";
-import { jobTypeValues } from "@/lib/job-posting";
 import { emptyBackendPage } from "@/lib/pagination";
 import {
-  addressPrecisions,
   clean,
   employerTypes,
+  jobTypes,
   known,
+  openings,
+  precisionOf,
   salaryTypes,
   type PageDto,
 } from "@/server/api/dto";
@@ -167,9 +167,6 @@ type JobSummaryDto = {
   addressPrecision?: string | null;
 };
 
-/** Yalnız bu listede okunuyor; `jobTypeValues` zaten tek kaynak. */
-const jobTypes = new Set<JobTypeValue>(jobTypeValues);
-
 function toJobSummary(dto: JobSummaryDto): JobSummary {
   return {
     id: dto.id ?? "",
@@ -198,15 +195,10 @@ function toJobSummary(dto: JobSummaryDto): JobSummary {
     companyName: clean(dto.companyName),
     coverImageUrl: clean(dto.coverImageUrl),
     applicationCount: dto.applicationCount ?? 0,
-    // `null` "sınırsız kişilik" demek; sıfır saymak ilanı doluymuş gibi gösterirdi.
-    headcount: dto.headcount ?? null,
-    hiredCount: dto.hiredCount ?? 0,
+    ...openings(dto),
     latitude: typeof dto.latitude === "number" ? dto.latitude : null,
     longitude: typeof dto.longitude === "number" ? dto.longitude : null,
-    // Okunamayan kesinlik `UNKNOWN` kalıyor ve ekran onu yaklaşık gibi ele
-    // alıyor: bilinmeyen bir bayrağı "kesin" saymak, gizlenmesi gereken bir
-    // adresi açığa çıkarırdı (ADR-0003).
-    addressPrecision: known(dto.addressPrecision, addressPrecisions),
+    addressPrecision: precisionOf(dto.addressPrecision),
   };
 }
 

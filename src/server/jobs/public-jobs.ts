@@ -2,40 +2,50 @@ import "server-only";
 
 import { cache } from "react";
 
-import {
-  jobTypeValues,
-  type JobType as PostedJobType,
-  type PricingBreakdown,
-} from "@/lib/job-posting";
+import type { PricingBreakdown } from "@/lib/job-posting";
 import { safeImageUrl } from "@/lib/urls";
 import type { JobDetail, JobImage } from "@/jobs/contract";
 import { jobStatuses } from "@/jobs/lifecycle";
 import {
-  addressPrecisions,
   clean,
+  jobTypes,
   known,
+  openings,
+  precisionOf,
   salaryTypes,
   type PageDto,
 } from "@/server/api/dto";
 import { apiFetch } from "@/server/api/client";
-import { backendPaths } from "@/server/contract";
+import { backendPaths, jobPath } from "@/server/contract";
 import { publicReaderCaller } from "@/server/session/session";
 
 /**
- * İlanların **herkese açık** okuma yüzeyi.
+ * İlanların **istek bağlamı taşımayan** okuma yüzeyi.
  *
- * Kardeşi `jobs.ts`'ten ayrı bir dosya ve bu bir düzen tercihi değil, bir
- * sınır. İki fark var ve ikisi de sınırın kendisi:
+ * Eksen "oturumlu/oturumsuz" **değil** ve daha önce öyle yazılmıştı: kardeşi
+ * `search.ts` de oturumsuz bir kamu okuması, yani o eksen bu dosyanın neden
+ * ayrı durduğunu açıklamıyordu. Ayıran şey istek bağlamı, ve üç kademe var:
  *
- * - **Oturum yok.** Buradaki çağrılar `apiRequest` değil `apiFetch` kullanıyor
- *   ve token taşımıyor. `jobs.ts` ise başvuru, kapatma ve iptal gibi oturumlu
- *   uçları taşıyor; `src/server/server-only.test.ts` ham istemciyi ada göre
- *   izin veriyor, tam da o dosyanın bir gün sessizce `apiFetch`'e kaymasını
- *   engellemek için. Ayrım dosya düzeyinde durmasa, o kural blunt'laşırdı.
- * - **İstek bağlamı yok.** Ne çerez ne başlık okunuyor, yani bu okumaları
- *   yapan sayfalar ISR ile üretilebiliyor ve ürettikleri HTML ziyaretçiden
- *   bağımsız — ADR-0003 adres kesinliğinin bir oturum kalıntısıyla
- *   `EXACT`e dönmemesi de buradan geliyor.
+ * 1. **Oturumlu** — `apiRequest` (`jobs.ts`): token taşıyor, 401'de yeniliyor,
+ *    yenileme de düşmüşse `/giris`'e yönlendiriyor. Başvuru, kapatma, iptal.
+ * 2. **Oturumsuz ama istek bağlamlı** — `anonymousCaller()` (`search.ts`):
+ *    token yok, ama çerezden cihaz kimliğini ve başlıktan ziyaretçinin
+ *    IP'sini okuyor. `cookies()`/`headers()` çağırdığı için kullandığı sayfa
+ *    dinamik render'a düşüyor — arama sayfası zaten `searchParams` okuduğu
+ *    için dinamik, yani kayıp yok.
+ * 3. **İstek bağlamı da yok** — `publicReaderCaller()` (bu dosya): ne çerez
+ *    ne başlık. Sayfalar ISR ile üretilebiliyor ve ürettikleri HTML
+ *    ziyaretçiden bağımsız; ADR-0003 adres kesinliğinin bir oturum
+ *    kalıntısıyla `EXACT`e dönmemesi de buradan geliyor.
+ *
+ * **2. kademe 3'e indirilemez** ve sebebi ölçülü: `RateLimitFilter`
+ * `/jobs` ile `/jobs/{jobId}`'yi `PUBLIC` kovasına koyuyor ve kovanın
+ * anahtarını `clientIpResolver.resolve(request)` ile, yani **istemci IP'siyle**
+ * kuruyor (`RateLimitFilter.java:179-186`). Arama her tuşta backend'e gidiyor;
+ * IP'yi iletmemek bütün ziyaretçileri Next sunucusunun tek IP'sinde aynı
+ * kovaya toplar ve tek bir yoğun kullanıcı siteyi herkese kapatırdı. Ayrıntı
+ * okuması ise ISR arkasında: aynı ilan için beş dakikada en çok bir kez
+ * backend'e gidiyor, yani paylaşılan kova bir yük üretmiyor.
  *
  * ADR-0011: tarayıcı `api.iskoala.com` ile hiç konuşmuyor; çağrı Next
  * sunucusundan çıkıyor.
@@ -44,8 +54,8 @@ import { publicReaderCaller } from "@/server/session/session";
 /**
  * `GET /jobs/{jobId}` — herkese açık ilan ayrıntısı.
  *
- * Çağrı `apiRequest` yerine **oturumsuz** yapılıyor, tıpkı ilan araması gibi
- * (`src/server/jobs/search.ts`), ve gerekçeleri aynı üçlü:
+ * İlk iki gerekçe ilan aramasıyla ortak (`src/server/jobs/search.ts`), üçüncüsü
+ * bu dosyayı ondan da ayıran şey:
  *
  * 1. `apiRequest` yenileme tokenı da süresi dolmuşsa kullanıcıyı `/giris`'e
  *    yönlendiriyor. Bu bir tanıtım sayfası; bayat bir çerez yüzünden ilan
@@ -55,8 +65,9 @@ import { publicReaderCaller } from "@/server/session/session";
  *    ilana bağlı, yani sayfa herkes için aynı ve bir oturum kalıntısı onu
  *    kişiye özel yapamıyor.
  * 3. Çağrı hiçbir istek-zamanı API'si okumuyor (`cookies`, `headers` yok),
- *    yani sayfa gerçekten ISR ile üretilebiliyor. `anonymousCaller()` çerez
- *    okuduğu için rotayı dinamikleştirirdi.
+ *    yani sayfa gerçekten ISR ile üretilebiliyor. Arama bunu karşılamıyor:
+ *    `anonymousCaller()` çerez ve başlık okuyor. Ayrımın bedeli ve karşılığı
+ *    modül başlığında.
  *
  * `React.cache`, aynı render içinde `generateMetadata` ile sayfanın ilanı iki
  * kez çekmesini engelliyor.
@@ -113,11 +124,6 @@ const sitemapPageSize = 100;
 
 /** 100 × 50 = 5.000 ilan; Next'in 50.000 URL sınırının çok altında ve sınırlı. */
 const sitemapPageLimit = 50;
-
-/** Kimlik tarayıcıdan geliyor; yola konmadan kaçırılır. */
-function jobPath(jobId: string): string {
-  return `${backendPaths.jobs}/${encodeURIComponent(jobId)}`;
-}
 
 /**
  * `JobDetailDto`'nun tel biçimi.
@@ -205,15 +211,11 @@ function toJobDetail(dto: JobDetailDto): JobDetail {
     maxAge: positiveAge(dto.maxAge),
     insuranceRequired: dto.insuranceRequired === true,
     experienceRequired: dto.experienceRequired === true,
-    headcount: dto.headcount ?? null,
-    hiredCount: dto.hiredCount ?? 0,
+    ...openings(dto),
     images: toJobImages(dto.images),
     cityName: clean(dto.address?.cityName),
     districtName: clean(dto.address?.districtName),
-    // Okunamayan kesinlik `UNKNOWN` kalıyor ve ekran onu yaklaşık gibi
-    // etiketliyor: bilinmeyen bir bayrağı "kesin" saymak, ziyaretçiye
-    // olduğundan daha kesin bir konum vaat ederdi.
-    addressPrecision: known(dto.addressPrecision, addressPrecisions),
+    addressPrecision: precisionOf(dto.addressPrecision),
     status: known(dto.status, jobStatuses),
   };
 }
@@ -255,6 +257,3 @@ function toJobImages(images: readonly GalleryImageDto[] | null | undefined): rea
       : [{ url, caption: clean(image?.caption), cover: image?.cover === true }];
   });
 }
-
-/** Yalnız bu çeviricide okunuyor; `jobTypeValues` zaten tek kaynak. */
-const jobTypes = new Set<PostedJobType>(jobTypeValues);

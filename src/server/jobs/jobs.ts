@@ -14,11 +14,12 @@ import {
   clean,
   employerTypes,
   known,
+  openings,
   salaryTypes,
   type PageDto,
 } from "@/server/api/dto";
 import { companyPath } from "@/server/company/company";
-import { backendPaths } from "@/server/contract";
+import { backendPaths, jobPath } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
 /**
@@ -69,14 +70,8 @@ export type JobDetail = {
   startDateTime: string;
   endDateTime: string;
   pricing: PricingBreakdown | null;
-  /** `null` ise ilan sınırsız kişilik; sıfır saymak onu doluymuş gibi gösterirdi. */
+  /** İkisinin de okunma kuralı `openings` içinde (`@/server/api/dto`). */
   headcount: number | null;
-  /**
-   * Backend her okumada sayıyor (`JobManager.java:293-299`) ve **yalnız**
-   * {CONFIRMED, IN_PROGRESS, COMPLETED} atamaları sayıyor. Kabul kapısı
-   * `PENDING_CONFIRMATION` teklifleri de yer kaplıyor sayıyor, yani bu sayı
-   * kalan kontenjanın üst sınırını verir, kesin değerini değil.
-   */
   hiredCount: number;
 };
 
@@ -177,7 +172,7 @@ type JobDetailResponse = Omit<JobDetail, "headcount" | "hiredCount"> & {
 
 export async function fetchJobDetail(jobId: string): Promise<JobDetail> {
   const dto = await apiRequest<JobDetailResponse>(jobPath(jobId));
-  return { ...dto, headcount: dto.headcount ?? null, hiredCount: dto.hiredCount ?? 0 };
+  return { ...dto, ...openings(dto) };
 }
 
 /**
@@ -202,11 +197,6 @@ export async function closeJob(jobId: string): Promise<void> {
  */
 export async function cancelJob(jobId: string): Promise<void> {
   await apiRequest(`${jobPath(jobId)}/cancel`, { method: "POST" });
-}
-
-/** Kimlik tarayıcıdan geliyor; yola konmadan kaçırılır. */
-function jobPath(jobId: string): string {
-  return `${backendPaths.jobs}/${encodeURIComponent(jobId)}`;
 }
 
 type JobApplicationDto = {
@@ -251,8 +241,7 @@ function toEmployerJob(dto: JobSummaryDto): EmployerJob {
     districtName: clean(dto.districtName),
     insuranceRequired: dto.insuranceRequired === true,
     applicationCount: dto.applicationCount ?? 0,
-    hiredCount: dto.hiredCount ?? 0,
-    headcount: dto.headcount ?? null,
+    ...openings(dto),
   };
 }
 
