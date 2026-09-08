@@ -1,3 +1,5 @@
+import { site } from "@/lib/site";
+
 import type { JobDetail } from "./contract";
 
 /**
@@ -73,11 +75,22 @@ export function jobPostingJsonLd(job: JobDetail, canonicalUrl: string): JobPosti
     "@type": "JobPosting",
     title: job.title,
     url: canonicalUrl,
-    ...optional("description", job.description),
+    /*
+     * Yedek `duties`, ve bu ekranın kendi yedeğiyle **aynı** karar:
+     * `page.tsx`'teki `describe()` arama sonucu açıklamasını zaten
+     * `description ?? duties` ile kuruyordu, şema ise yalnız `description`
+     * okuyup alanı sessizce düşürüyordu. `description` Google'ın `JobPosting`
+     * için zorunlu saydığı beş alandan biri: düştüğü ilan hiç zengin sonuç
+     * almıyor. Kısaltma **yok** — 155 karakter arama sonucu kartının sınırı,
+     * yapısal veri tam metni taşır.
+     */
+    ...optional("description", job.description ?? job.duties),
     ...optional("datePosted", job.createdAt),
     ...optional("validThrough", localDateTimeWithOffset(job.endsAt)),
     ...optional("employmentType", employmentTypes[job.type]),
-    ...optional("hiringOrganization", hiringOrganization(job)),
+    // `optional` yok: alan zorunlu ve `hiringOrganization` her dalda bir
+    // kuruluş döndürüyor.
+    hiringOrganization: hiringOrganization(job),
     ...optional("jobLocation", jobLocation(job)),
     ...optional("baseSalary", baseSalary(job)),
     ...optional("totalJobOpenings", job.headcount),
@@ -85,15 +98,26 @@ export function jobPostingJsonLd(job: JobDetail, canonicalUrl: string): JobPosti
 }
 
 /**
- * İşveren kuruluşu — yalnız şirket ilanlarında.
+ * İşveren kuruluşu — şirket ilanında şirket, bireysel ilanda **platform**.
  *
- * Bireysel işverende **hiç yazılmıyor** ve bu bir eksiklik değil, ADR-0003'ün
- * aynı gerekçesi: `creator` gerçek bir kişi, adı bir şirket unvanı değil.
- * `hiringOrganization`'a kişi adı yazmak, ilanı açan bireyin adını yapısal
- * veri olarak indekslenebilir hâle getirirdi.
+ * Kişi adı buraya hiç girmiyor ve bu ADR-0003'ün aynı gerekçesi: `creator`
+ * gerçek bir kişi, adı bir şirket unvanı değil, ve onu `hiringOrganization`
+ * yazmak ilanı açan bireyin adını yapısal veri olarak indekslenebilir hâle
+ * getirirdi.
+ *
+ * Ama alanı **boş bırakmak** da bir seçim değildi. `hiringOrganization`
+ * Google'ın `JobPosting` için zorunlu saydığı alanlardan biri; yazılmadığında
+ * bireysel ilan doğrulayıcıdan geçmiyor ve hiç zengin sonuç almıyor. Yani
+ * is-koala/koala-web#21'in iki şartı — "bireysel işverende kişi adı
+ * yazılmasın" ve "Rich Results hatasız" — alan boş kaldığında birbirini
+ * kesiyordu.
+ *
+ * İkisini birden karşılayan hâl bu: ilanı yayımlayan **platform** yazılıyor.
+ * Doğru da: ziyaretçi başvurusunu Koala üzerinden yapıyor, işe alan tarafın
+ * kimliği ise ekrandaki işveren kartında duruyor.
  */
-function hiringOrganization(job: JobDetail): JobPostingJsonLd | null {
-  if (job.companyName === null) return null;
+function hiringOrganization(job: JobDetail): JobPostingJsonLd {
+  if (job.companyName === null) return { "@type": "Organization", name: site.name };
   return {
     "@type": "Organization",
     name: job.companyName,

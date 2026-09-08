@@ -19,6 +19,7 @@ describe("JobPosting yapısal verisi", () => {
       datePosted: "2026-08-30T07:15:00Z",
       validThrough: "2026-09-12T18:00:00+03:00",
       employmentType: "TEMPORARY",
+      hiringOrganization: { "@type": "Organization", name: "Koala" },
       jobLocation: {
         "@type": "Place",
         address: {
@@ -47,17 +48,62 @@ describe("JobPosting yapısal verisi", () => {
     },
   );
 
-  it("bireysel işverende hiringOrganization yazmaz", () => {
+  it("bireysel işverende hiringOrganization olarak platformu yazar, kişiyi değil", () => {
     /*
      * `creator` gerçek bir kişi; adını `hiringOrganization` altına yazmak onu
      * yapısal veri olarak indekslenebilir hâle getirirdi. Fikstürde
      * `employerName` dolu, yani alan gerçekten mevcut olmasına rağmen
-     * düşürülüyor.
+     * kullanılmıyor.
+     *
+     * Alanı boş bırakmak da bir seçenek değildi: `hiringOrganization` Google'ın
+     * zorunlu saydığı alanlardan biri ve boş kaldığında bireysel ilan
+     * doğrulayıcıdan geçmiyordu. is-koala/koala-web#21 hem gizliliği hem
+     * "Rich Results hatasız"ı istiyor; ikisini birden karşılayan hâl,
+     * ilanı yayımlayan platformun yazılması.
      */
     const jsonLd = jobPostingJsonLd(jobDetailFixture(), canonical);
 
-    expect(jsonLd).not.toHaveProperty("hiringOrganization");
+    expect(jsonLd?.hiringOrganization).toEqual({ "@type": "Organization", name: "Koala" });
     expect(JSON.stringify(jsonLd)).not.toContain("Ayşe");
+    expect(JSON.stringify(jsonLd)).not.toContain("Yıldız");
+  });
+
+  it("company ve description'ı olmayan bireysel ilan zorunlu beş alanı taşır", () => {
+    /*
+     * Bu, tek tek alan iddialarının kaçırdığı **birleşik** dal:
+     * `company: null` ile `description: null` aynı ilanda birleştiğinde
+     * yapısal veri ne `hiringOrganization` ne `description` taşıyordu ve o
+     * ilan hiç zengin sonuç almıyordu. Google `JobPosting` için beşini
+     * zorunlu sayıyor; iddia beşini birden okuyor ki biri sonradan
+     * düştüğünde tek bir yer kırmızıya dönsün.
+     */
+    const jsonLd = jobPostingJsonLd(
+      jobDetailFixture({ companyName: null, companyLogoUrl: null, description: null }),
+      canonical,
+    );
+
+    for (const field of ["title", "description", "datePosted", "hiringOrganization", "jobLocation"]) {
+      expect(jsonLd, field).toHaveProperty(field);
+    }
+  });
+
+  it("açıklaması olmayan ilanda description'a görevleri yazar", () => {
+    /*
+     * Yedek `page.tsx`'teki `describe()` ile aynı: ekran arama sonucu
+     * açıklamasını zaten `description ?? duties` ile kuruyordu, şema ise
+     * yalnız `description` okuyup zorunlu alanı sessizce düşürüyordu.
+     */
+    const jsonLd = jobPostingJsonLd(jobDetailFixture({ description: null }), canonical);
+
+    expect(jsonLd?.description).toBe("Bilet kontrolü ve yönlendirme");
+  });
+
+  it("açıklaması da görevleri de olmayan ilanda description yazmaz", () => {
+    // Uydurulmuş bir açıklama, olmayan bir bilgiyi biliyormuş gibi bildirmek
+    // olurdu; alan yazılmıyor ve eksikliği doğrulayıcıda görünüyor.
+    expect(
+      jobPostingJsonLd(jobDetailFixture({ description: null, duties: null }), canonical),
+    ).not.toHaveProperty("description");
   });
 
   it("şirket ilanında hiringOrganization'ı logosuyla yazar", () => {
