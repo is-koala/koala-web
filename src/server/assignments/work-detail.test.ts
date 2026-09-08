@@ -166,6 +166,39 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
     );
   });
 
+  it("yalnız boşluktan ibaret iş metinlerini ekrana boş dize olarak taşımaz", async () => {
+    // Bu üç alan `clean` üzerinden geçiyor ve `clean` artık `@/server/api/dto`'da
+    // paylaşılan bir fonksiyon. Yerel kopya silinince koruma da bu dosyadan
+    // çıkmıştı: paylaşılan davranış başka bir çağıran için değiştirilirse
+    // buradaki üç alan sessizce boş dize taşımaya başlardı.
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page([assignmentDto()]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        id: jobId,
+        description: "   ",
+        duties: "\n\t ",
+        dressCode: "",
+        addressPrecision: "EXACT",
+        address: { displayAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4" },
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        feeRate: "0",
+        feeAmount: "0.00",
+        refundAmount: "1400.00",
+        noticeMinutes: 120,
+        cancellableNow: true,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkDetail(assignmentId);
+
+    expect(result?.description).toBeNull();
+    expect(result?.duties).toBeNull();
+    expect(result?.dressCode).toBeNull();
+  });
+
   it("backend kesin adresi artık döndürmüyorsa tarayıcı modeline adres koymaz", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, envelope(page([assignmentDto("COMPLETED")]))))

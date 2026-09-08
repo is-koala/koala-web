@@ -14,6 +14,7 @@ import {
   type AssignmentPageDto,
 } from "@/server/assignments/backend-contract";
 import { readWorkerAssignmentResolution } from "@/server/assignments/resolution";
+import { clean } from "@/server/api/dto";
 
 export { cancelAssignment, createAssignmentDispute } from "@/server/assignments/resolution";
 
@@ -57,9 +58,9 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
   return {
     observedAt: Date.now(),
     assignment: toWorkAssignment(assignment),
-    description: cleanText(job.description),
-    duties: cleanText(job.duties),
-    dressCode: cleanText(job.dressCode),
+    description: clean(job.description),
+    duties: clean(job.duties),
+    dressCode: clean(job.dressCode),
     fullAddress:
       job.addressPrecision === "EXACT" && displayAddress ? displayAddress : null,
     sessions: sessionDtos.map(toWorkSession),
@@ -122,7 +123,3 @@ function toWorkSession(dto: WorkSessionDto): WorkSession {
   };
 }
 
-function cleanText(value: string | null | undefined): string | null {
-  const cleaned = value?.trim();
-  return cleaned ? cleaned : null;
-}
