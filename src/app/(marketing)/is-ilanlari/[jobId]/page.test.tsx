@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { JobDetailState } from "@/components/job-detail-state";
+import { ApiError } from "@/server/api/errors";
 import { readJobDetail } from "@/server/jobs/public-jobs";
 
 import { jobDetailFixture, jobDetailId } from "../../../../../tests/support/job-detail";
@@ -25,6 +25,11 @@ const params = (id: string = jobId) => Promise.resolve({ jobId: id });
 function stubSiteEnvironment() {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://iskoala.com");
   vi.stubEnv("NEXT_PUBLIC_APP_URL_SCHEME", "koala");
+}
+
+/** `apiFetch`'in backend hatasında attığı şey; sayfa yalnız `status`'ü okuyor. */
+function apiFailure(status: number, errorCode: string): ApiError {
+  return new ApiError({ status, errorCode, errorCategory: "UNEXPECTED", message: "" });
 }
 
 describe("ilan ayrıntısı sayfası", () => {
@@ -61,19 +66,36 @@ describe("ilan ayrıntısı sayfası", () => {
     expect(readJobDetail).not.toHaveBeenCalled();
   });
 
-  it("404 hata durumunu backend mesajı olmadan sunar", () => {
-    render(
-      <JobDetailState state={{ status: "error", errorCode: "JOB_NOT_FOUND", httpStatus: 404 }} />,
-    );
-    expect(screen.getByRole("alert")).toHaveTextContent("İçerik bulunamadı");
+  it("backend 404'ünü notFound()'a çevirir", async () => {
+    // Kalıcı yokluk: cevap beş dakika sonra da aynı olacak, yani 404 yanıtının
+    // önbelleğe girmesi doğru.
+    vi.mocked(readJobDetail).mockRejectedValue(apiFailure(404, "JOB_NOT_FOUND"));
+
+    await expect(Page({ params: params() })).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
-  it("beklenmedik hata durumunu nötr metinle sunar", () => {
-    render(
-      <JobDetailState state={{ status: "error", errorCode: "UNEXPECTED", httpStatus: 500 }} />,
-    );
+  it.each([
+    ["503 geçici arıza", 503, "SERVICE_UNAVAILABLE"],
+    ["500 beklenmedik hata", 500, "UNEXPECTED"],
+  ])("%s önbelleğe girmesin diye yeniden atılıyor", async (_name, status, code) => {
+    /*
+     * Bu testin ölçtüğü şey bir ekran değil, bir **önbellek** kararı.
+     *
+     * Sayfa `revalidate = 300` ile üretiliyor. Geçici bir arızayı yakalayıp
+     * kendi hata kartıyla çizmek yanıtı 200 yapıyordu ve `s-maxage=300` onu
+     * beş dakika kilitliyordu: backend iyileşse bile ziyaretçi hata kartını
+     * almaya devam ediyor, istek backend'e hiç gitmiyordu. Next'in ISR
+     * rehberi bunun için hatanın atılmasını söylüyor — atılan render
+     * önbelleğe yazılmıyor ve bir sonraki istek yeniden deniyor.
+     *
+     * İddia `ApiError` tipini arıyor, çünkü `notFound()` bu dosyada düz bir
+     * `Error("NEXT_NOT_FOUND")` atıyor: tip, hatanın 404'e çevrilmediğini de
+     * söylüyor. 404'e çevrilen bir 503 yanıtı yeniden beş dakikalık
+     * önbelleğe sokardı.
+     */
+    vi.mocked(readJobDetail).mockRejectedValue(apiFailure(status, code));
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Bir sorun oluştu");
+    await expect(Page({ params: params() })).rejects.toThrow(ApiError);
   });
 });
 
@@ -95,6 +117,26 @@ describe("ilan ayrıntısı yapısal verisi", () => {
       "@type": "JobPosting",
       title: job.title,
     });
+  });
+
+  it("yapısal verinin url'i ile canonical aynı adres", async () => {
+    /*
+     * İki kol aynı ilanın mutlak adresini yayımlıyor — `<link rel=canonical>`
+     * ve JSON-LD `url` — ve daha önce ikisini ayrı ayrı kuran iki satır
+     * vardı. Ayrışma sessizdi: derleyici görmüyordu, hiçbir test
+     * karşılaştırmıyordu, arama motoru ise iki farklı adres okuyup kanonik
+     * seçimini kendi yapıyordu. İkisi artık `absoluteUrl`'den geliyor ve
+     * bu iddia onların ayrılmasını yakalıyor.
+     */
+    vi.mocked(readJobDetail).mockResolvedValue(job);
+
+    const { container } = render(await Page({ params: params() }));
+    const script = container.querySelector('script[type="application/ld+json"]');
+    const jsonLd = JSON.parse(script?.innerHTML ?? "{}") as { url?: string };
+    const metadata = await generateMetadata({ params: params() });
+
+    expect(jsonLd.url).toBe(metadata.alternates?.canonical);
+    expect(jsonLd.url).toBe(`https://iskoala.com/is-ilanlari/${jobId}`);
   });
 
   it("kapatılmış ilanda yapısal veriyi hiç yazmaz", async () => {

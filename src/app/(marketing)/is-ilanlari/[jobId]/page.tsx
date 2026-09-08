@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { notFound, unstable_rethrow } from "next/navigation";
 
-import { JobDetailState, type JobDetailLoadState } from "@/components/job-detail-state";
+import { JobDetailView } from "@/components/job-detail";
 import type { JobDetail } from "@/jobs/contract";
 import { jobPostingJsonLd } from "@/jobs/job-posting-schema";
 import { publicJobPath } from "@/lib/app-routes";
-import { publicEnvironment } from "@/lib/env";
 import { isUuid } from "@/lib/identifiers";
-import { pageMetadata } from "@/lib/metadata";
+import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { site } from "@/lib/site";
+import { notFoundStatus } from "@/server/contract";
 import { failureView } from "@/server/form";
 import { readJobDetail } from "@/server/jobs/public-jobs";
 
@@ -92,35 +92,23 @@ export default async function Page({ params }: JobDetailPageProps) {
   // Kimliği olmayan adres bir ilan değil; backend'e gitmeden 404.
   if (!isUuid(jobId)) notFound();
 
-  const result = await loadJob(jobId);
+  const job = await loadJob(jobId);
 
   /*
-   * `notFound()` bilerek `try` bloğunun **dışında**. Next onu bir istisnayla
-   * gerçekleştiriyor; aynı `try` içinde çağrılsaydı kendi `catch`'imize
-   * düşerdi ve 404 sessizce bir hata ekranına dönerdi. `unstable_rethrow` bu
-   * istisnayı tanıyıp geçiriyor, ama kararı kapsam dışına almak o inceliğe
-   * hiç yaslanmamak demek.
+   * `notFound()` bilerek `loadJob`'ın `try` bloğunun **dışında**. Next onu bir
+   * istisnayla gerçekleştiriyor; aynı `try` içinde çağrılsaydı kendi
+   * `catch`'imize düşerdi ve 404 sessizce bir hata ekranına dönerdi.
+   * `unstable_rethrow` bu istisnayı tanıyıp geçiriyor, ama kararı kapsam
+   * dışına almak o inceliğe hiç yaslanmamak demek.
    *
    * Boş gövde ile 404 aynı şey: ilan yok. Sayfanın kendi "bulunamadı"
    * kartını 200 ile çizmek yerine Next'in 404'ü veriliyor — yanındaki
    * `loading.tsx` kaldırıldığı için durum artık 200'de kilitlenmiyor
    * (`AGENTS.md` § "Yapı", is-koala/koala-web#94).
    */
-  if (result.job === null && (result.failure === null || result.failure.httpStatus === 404)) {
-    notFound();
-  }
+  if (job === null) notFound();
 
-  const state: JobDetailLoadState =
-    result.job === null
-      ? {
-          status: "error",
-          errorCode: result.failure?.errorCode ?? "UNEXPECTED",
-          httpStatus: result.failure?.httpStatus ?? 500,
-        }
-      : { status: "ready", job: result.job, applyAction: applyToJobAction.bind(null, jobId) };
-
-  const jsonLd =
-    result.job === null ? null : jobPostingJsonLd(result.job, canonicalUrl(result.job.id));
+  const jsonLd = jobPostingJsonLd(job, canonicalUrl(job.id));
 
   return (
     <>
@@ -136,25 +124,54 @@ export default async function Page({ params }: JobDetailPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replaceAll("<", "\\u003c") }}
         />
       )}
-      <JobDetailState state={state} />
+      <JobDetailView job={job} applyAction={applyToJobAction.bind(null, jobId)} />
     </>
   );
 }
 
 /**
- * İlanı okur ve başarısızlığı bir değere çevirir.
+ * İlanı okur; **kalıcı** yokluğu `null`'a çevirir, geçici arızayı atar.
  *
- * `try` bu fonksiyonun içinde kalıyor ki sayfanın 404 kararı istisna
- * akışından tamamen ayrılsın; çağıran yalnız iki alana bakıyor.
+ * Ayrım `revalidate = 300` yüzünden var. Sayfa ISR ile üretiliyor ve üretilen
+ * her yanıt beş dakika önbellekte kalıyor; bu yüzden "ilan yok" ile "backend
+ * şu an cevap veremiyor" aynı şekilde ele alınamaz:
+ *
+ * - **404 kalıcı.** İlan gerçekten yok, cevap beş dakika sonra da aynı
+ *   olacak, ve `notFound()` sayfası önbelleğe girsin.
+ * - **Öbür her hata geçici.** 503, ağ kopması, zaman aşımı — hepsi backend
+ *   iyileşince düzelir. Bunları sayfanın kendi hata kartıyla **200** olarak
+ *   çizmek iki şeyi birden bozuyordu: durum kodu ziyaretçiye, tarayıcıya ve
+ *   izlemeye "her şey yolunda" diyordu, ve `s-maxage=300` o hata kartını beş
+ *   dakika kilitliyordu. Ölçüldü: backend iyileştikten sonra üç istek de
+ *   önbellekten hata kartı aldı ve backend'e hiç gidilmedi.
+ *
+ * Hatayı yeniden atmak Next'in bunun için gösterdiği yol: ISR rehberi
+ * (`incremental-static-regeneration.md`) *"throw an error instead of returning
+ * so that the cache is not updated"* diyor ve devamında bir sonraki isteğin
+ * yeniden denendiğini yazıyor.
+ *
+ * **Bedeli ölçüldü ve kabul edildi.** Önbellekte olmayan bir ilan, arıza
+ * sırasında Next'in yerleşik 500 gövdesini alıyor: 21 baytlık, çevrilmemiş
+ * "Internal Server Error". Bölüme `error.tsx` konup denendi — ISR **üretimi**
+ * sırasında atılan hata için o sınır hiç çalışmıyor, `global-error.tsx` de
+ * öyle; `next build` + standalone `server.js` + `curl` ile bakıldı, dosya
+ * çalışmadığı için de bırakılmadı. `await connection()` ile hata dalında
+ * dinamik render'a düşmek de denendi: `revalidate` taşıyan rotada Next bunu
+ * `DYNAMIC_SERVER_USAGE` ile reddediyor ve sonuç yine 500.
+ *
+ * Karşılığında kazanılan üç şey ölçüldü: (1) arıza önbelleğe hiç girmiyor,
+ * (2) backend iyileşince **sonraki** istek gerçek ilanı çiziyor, (3) zaten
+ * önbellekte olan bir ilan arıza boyunca kendi doğru sayfasını sunmaya devam
+ * ediyor — eski davranışta o sayfa da beş dakikalığına hata kartına
+ * dönüşüyordu.
  */
-async function loadJob(
-  jobId: string,
-): Promise<{ job: JobDetail | null; failure: ReturnType<typeof failureView> | null }> {
+async function loadJob(jobId: string): Promise<JobDetail | null> {
   try {
-    return { job: await readJobDetail(jobId), failure: null };
+    return await readJobDetail(jobId);
   } catch (error) {
     unstable_rethrow(error);
-    return { job: null, failure: failureView(error) };
+    if (failureView(error).httpStatus === notFoundStatus) return null;
+    throw error;
   }
 }
 
@@ -202,8 +219,16 @@ function coverImageUrl(job: JobDetail): string | null {
   return cover?.url ?? null;
 }
 
+/**
+ * Yapısal verinin `url` alanı.
+ *
+ * `absoluteUrl` ile kuruluyor, yani `<link rel="canonical">`'i yazan
+ * `pageMetadata` ile **aynı** fonksiyondan. İki kol aynı ilanın adresini ayrı
+ * ayrı kurduğunda ayrışma sessizdi; `page.test.tsx` artık ikisinin eşitliğini
+ * ölçüyor.
+ */
 function canonicalUrl(jobId: string): string {
-  return new URL(publicJobPath(jobId), publicEnvironment().siteUrl).toString();
+  return absoluteUrl(publicJobPath(jobId));
 }
 
 /**
