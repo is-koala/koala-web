@@ -9,6 +9,10 @@ export const legalCatalog = {
 export type LegalDocumentSlug = keyof typeof legalCatalog;
 export type LegalDocumentVersion = "1.0" | "1.1";
 
+export function isLegalDocumentSlug(slug: string): slug is LegalDocumentSlug {
+  return Object.hasOwn(legalCatalog, slug);
+}
+
 function legalDocument<Version extends LegalDocumentVersion>(
   title: string,
   version: Version,
