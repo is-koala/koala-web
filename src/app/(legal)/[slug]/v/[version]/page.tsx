@@ -1,12 +1,16 @@
 import { notFound } from "next/navigation";
 
 import { LegalDocument } from "@/components/legal-document";
+import { isLegalDocumentSlug } from "@/content/legal/catalog";
 import {
   getLegalDocumentVersion,
   legalDocumentVersions,
-  type LegalDocumentSlug,
 } from "@/content/legal/documents";
 import { pageMetadata } from "@/lib/metadata";
+
+type VersionedLegalPageProps = {
+  params: Promise<{ slug: string; version: string }>;
+};
 
 export function generateStaticParams() {
   return Object.entries(legalDocumentVersions).flatMap(([slug, versions]) =>
@@ -14,16 +18,31 @@ export function generateStaticParams() {
   );
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string; version: string }> }) {
-  const { slug, version } = await params;
-  const document = getLegalDocumentVersion(slug as LegalDocumentSlug, version);
-  if (!document) return {};
-  return pageMetadata(`${document.title} — Sürüm ${version}`, `${document.title} dondurulmuş sürüm ${version}.`, `/${slug}/v/${version}`);
+function resolveLegalDocument(slug: string, version: string) {
+  if (!isLegalDocumentSlug(slug)) notFound();
+  const document = getLegalDocumentVersion(slug, version);
+  if (!document) notFound();
+  return { document, slug };
 }
 
-export default async function VersionedLegalPage({ params }: { params: Promise<{ slug: string; version: string }> }) {
+export async function generateMetadata({ params }: VersionedLegalPageProps) {
   const { slug, version } = await params;
-  const document = getLegalDocumentVersion(slug as LegalDocumentSlug, version);
-  if (!document) notFound();
-  return <main className="legal-shell"><LegalDocument slug={slug as LegalDocumentSlug} version={version} frozen /></main>;
+  const { document } = resolveLegalDocument(slug, version);
+  return pageMetadata(
+    `${document.title} — Sürüm ${version}`,
+    `${document.title} dondurulmuş sürüm ${version}.`,
+    `/${slug}/v/${version}`,
+  );
+}
+
+export default async function VersionedLegalPage({
+  params,
+}: VersionedLegalPageProps) {
+  const { slug, version } = await params;
+  const legalDocument = resolveLegalDocument(slug, version);
+  return (
+    <main className="legal-shell">
+      <LegalDocument slug={legalDocument.slug} version={version} frozen />
+    </main>
+  );
 }
