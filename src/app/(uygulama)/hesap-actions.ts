@@ -5,12 +5,16 @@ import { unstable_rethrow } from "next/navigation";
 
 import type { FormState } from "@/lib/form-state";
 import { passwordProblem, passwordRequirement, passwordsDoNotMatch } from "@/lib/password";
+import { ApiError, safeRequestId } from "@/server/api/errors";
 import {
+  type AccountDeletion,
   addBankAccount,
   confirmVerification,
   deleteBankAccount,
+  getAccountDeletion,
   markAllNotificationsRead,
   markNotificationRead,
+  requestAccountDeletion,
   revokeOtherSessions,
   revokeSession,
   selectPrimaryBankAccount,
@@ -31,6 +35,26 @@ export type SettingsAction = (
   state: SettingsActionState,
   formData: FormData,
 ) => Promise<SettingsActionState>;
+
+export type AccountDeletionActionState =
+  | { status: "idle" }
+  | {
+      status: "error";
+      errorCode: string;
+      httpStatus: number;
+      fieldErrors?: Readonly<Record<string, string>>;
+      requestId?: string | null;
+    }
+  | {
+      status: "done";
+      outcome: "created" | "already-requested";
+      deletion: AccountDeletion;
+    };
+
+export type AccountDeletionAction = (
+  state: AccountDeletionActionState,
+  formData: FormData,
+) => Promise<AccountDeletionActionState>;
 
 const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -160,6 +184,60 @@ export async function revokeOtherSessionsAction(
   void _formData;
   await requireSessionForCurrentPath();
   return runMutation(revokeOtherSessions);
+}
+
+export async function requestAccountDeletionAction(
+  _state: AccountDeletionActionState,
+  formData: FormData,
+): Promise<AccountDeletionActionState> {
+  await requireSessionForCurrentPath();
+  if (textField(formData, "confirmation") !== "account-deletion-irrevocable") {
+    return accountDeletionValidation({ confirmation: "Geri alınamaz etkiyi onaylamalısın." });
+  }
+  const reason = textField(formData, "reason").trim();
+  if (reason.length > 512) {
+    return accountDeletionValidation({ reason: "Silme nedeni en fazla 512 karakter olabilir." });
+  }
+  try {
+    const deletion = await requestAccountDeletion(reason || null);
+    revalidateSettings();
+    return { status: "done", outcome: "created", deletion };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (
+      error instanceof ApiError &&
+      error.status === 409 &&
+      error.errorCode === "LEGAL_DELETION_ALREADY_REQUESTED"
+    ) {
+      try {
+        const deletion = await getAccountDeletion();
+        revalidateSettings();
+        return { status: "done", outcome: "already-requested", deletion };
+      } catch (statusError) {
+        unstable_rethrow(statusError);
+        return accountDeletionFailure(error);
+      }
+    }
+    return accountDeletionFailure(error);
+  }
+}
+
+function accountDeletionFailure(error: unknown): AccountDeletionActionState {
+  const failure = failureState(error);
+  if (failure.status !== "error") throw new Error("Hata durumu üretilemedi.");
+  return {
+    status: "error",
+    errorCode: failure.errorCode,
+    httpStatus: failure.httpStatus,
+    ...(failure.fieldErrors ? { fieldErrors: failure.fieldErrors } : {}),
+    ...(error instanceof ApiError ? { requestId: safeRequestId(error.requestId) } : {}),
+  };
+}
+
+function accountDeletionValidation(
+  fieldErrors: Readonly<Record<string, string>>,
+): AccountDeletionActionState {
+  return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400, fieldErrors };
 }
 
 async function changeContact(

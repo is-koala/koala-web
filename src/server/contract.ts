@@ -73,6 +73,7 @@ export const sessionCookies = {
  * içinde birleştirilir: kimlikler tarayıcıdan geldiği için yola konmadan önce
  * UUID olduklarının doğrulanması gerekiyor.
  */export const backendPaths = {
+  accountDeletion: "/legal/account-deletion",
   addressCandidateReverse: "/locations/address-candidates/reverse",
   addressSearchSessions: "/locations/address-search-sessions",
   agreements: "/legal/agreements",

@@ -2,6 +2,8 @@ import { defineConfig } from "@playwright/test";
 
 const port = process.env.PLAYWRIGHT_PORT ?? "3100";
 const baseURL = `http://localhost:${port}`;
+const backendPort = process.env.PLAYWRIGHT_BACKEND_PORT ?? String(Number(port) + 1_000);
+const backendURL = `http://127.0.0.1:${backendPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -13,13 +15,22 @@ export default defineConfig({
     baseURL,
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
   },
-  webServer: {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-    env: {
-      API_URL: process.env.API_URL ?? "https://api.example.test",
-      APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
+  webServer: [
+    {
+      command: `node tests/support/e2e-backend.mjs ${backendPort}`,
+      url: `${backendURL}/__test__/health`,
+      reuseExistingServer: false,
     },
-    url: `${baseURL}/api/health`,
-    reuseExistingServer: false,
-  },
+    {
+      command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      env: {
+        // E2E hiçbir koşulda CI/staging API'sine çıkmaz; testler yalnız aşağıdaki
+        // süreçte başlatılan hermetik fixture ile konuşur.
+        API_URL: backendURL,
+        APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
+      },
+      url: `${baseURL}/api/health`,
+      reuseExistingServer: false,
+    },
+  ],
 });
