@@ -57,6 +57,18 @@ describe("arama motorlarına kapalı rotalar", () => {
     expect(privateHeaderSources).toContain("/api/disputes/:path*");
   });
 
+  it("dinamik ödeme sonucu API adresini Next ve robots sözdizimleriyle ayrı ayrı kapatır", () => {
+    /*
+     * `:assignmentId` Next'in yol kalıbı sözdizimidir; robots.txt bunu bir
+     * parametre olarak yorumlamaz. Aynı dize iki tüketiciye verilirse başlık
+     * eşleşse bile robots.txt anlamsız bir literal yayımlar.
+     */
+    expect(privateHeaderSources).toContain("/api/payments/:assignmentId/result");
+    expect(privateDisallowRules).toContain("/api/payments/*/result");
+    expect(privateDisallowRules.join("\n")).not.toContain(":assignmentId");
+    expect(blocked("/api/payments/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e/result")).toBe(true);
+  });
+
   it("hesap akışlarının tek tek yolları kapalı kalır", () => {
     for (const path of ["/giris", "/cikis", "/kayit", "/payment/result"]) {
       expect(blocked(path)).toBe(true);
