@@ -1,6 +1,7 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { errorPresentation } from "@/lib/errors";
+import { errorPresentation, errorRecoveryAction } from "@/lib/errors";
 
 import { ErrorRetryAction } from "./error-retry-action";
 
@@ -106,12 +107,18 @@ export function ErrorState({
   onRetry?: () => void;
 }) {
   const presentation = errorPresentation(errorCode, status);
+  const recovery = errorRecoveryAction(presentation.action);
   return (
     <div role="alert" className="state-card state-card-error">
       <h2>{presentation.title}</h2>
       <p>{presentation.message}</p>
-      {presentation.action === "retry" && onRetry ? (
-        <ErrorRetryAction label="Yeniden dene" onRetry={onRetry} />
+      {recovery?.kind === "link" ? (
+        <Link className="text-link state-action" href={recovery.href}>
+          {recovery.label}
+        </Link>
+      ) : null}
+      {recovery?.kind === "retry" && onRetry ? (
+        <ErrorRetryAction label={recovery.label} onRetry={onRetry} />
       ) : null}
     </div>
   );
