@@ -1,6 +1,7 @@
 import { site } from "@/lib/site";
 
 import type { JobDetail } from "./contract";
+import { jobIsOpen } from "./lifecycle";
 
 /**
  * İlan sayfasının `schema.org/JobPosting` yapısal verisi.
@@ -12,8 +13,9 @@ import type { JobDetail } from "./contract";
  * konabiliyor; ekranı çizmeden, sayfayı kurmadan.
  *
  * Google'ın süresi geçmiş ilan sayfalarına verdiği ceza yüzünden yapısal veri
- * yalnız `OPEN` ilanda yazılır; kararı `jobPostingJsonLd`'in `null` dönüşü
- * veriyor ve sayfa `<script>` etiketini o zaman hiç çizmiyor.
+ * yalnız backend'in başvuruya açık dediği `OPEN` ilanda yazılır; kararı
+ * `jobPostingJsonLd`'in `null` dönüşü veriyor ve sayfa `<script>` etiketini o
+ * zaman hiç çizmiyor.
  */
 
 /** JSON-LD gövdesi; `JSON.stringify` ile yazılacak düz nesne. */
@@ -65,10 +67,9 @@ const employmentTypes: Readonly<Record<string, string>> = {
  * nesnenin testte ortam kurmadan okunabilmesi demek.
  */
 export function jobPostingJsonLd(job: JobDetail, canonicalUrl: string): JobPostingJsonLd | null {
-  // Kapanmış, iptal edilmiş ya da durumu okunamayan ilan yapısal veri
-  // taşımaz: Google süresi geçmiş ilan sayfalarını cezalandırıyor ve
-  // `UNKNOWN` durumda "açık" varsaymak o cezayı sessizce davet ederdi.
-  if (job.status !== "OPEN") return null;
+  // Durum veya başvuru kapısı açık değilse yapısal veri taşımaz. İki alanı
+  // birlikte okumak, durumu hâlâ OPEN kalan süresi dolmuş ilanı da kapsar.
+  if (!jobIsOpen(job)) return null;
 
   return {
     "@context": "https://schema.org",

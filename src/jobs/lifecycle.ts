@@ -63,6 +63,20 @@ const unknownStatusLabel = "Durumu okunamadı";
 
 const unknownStatusReason = "Bu ilanın durumu okunamadığı için işlem yapılamıyor.";
 
+/**
+ * İlan arama ve başvuru açısından hâlâ açık mı?
+ *
+ * Durum ile bitiş anını web tekrar birleştirmiyor. Backend'in
+ * `acceptingApplications` alanı o iki kuralın tek sonucu; alan eksikse DTO
+ * adapter'ı `false` yazıyor. `status` denetimi de çelişkili bir yanıtta
+ * kapalı ilanı yanlışlıkla açmamak için savunmada kalıyor.
+ */
+export function jobIsOpen(
+  job: { readonly status: string; readonly acceptingApplications: boolean },
+): boolean {
+  return job.status === "OPEN" && job.acceptingApplications;
+}
+
 export function jobStatusLabel(status: string): string {
   return isJobStatus(status) ? statusLabels[status] : unknownStatusLabel;
 }
@@ -121,19 +135,26 @@ function cancelBlockedReason(status: JobStatus): string | null {
 /**
  * Bu ilanın başvuru yüzeyi neden kapalı; açıksa `null`.
  *
- * Kural burada yaşıyor çünkü backend'de **yok**: `JobApplicationManager`
- * başvuru alırken ilanın durumuna hiç bakmıyor, yani kapatılmış bir ilana
- * doğrudan bağlantıyla gelen kişi API'den hâlâ başvurabiliyor. Arama
- * kapatılmış ilanı zaten göstermiyor (`JobManager.search` yalnız `OPEN`
- * arıyor), ama paylaşılmış bir bağlantı o filtrenin dışından geliyor.
+ * Kuralın kaynağı backend'in `acceptingApplications` alanı; web onu başvuru
+ * denenmeden önce görünür bir duruma çeviriyor. Arama kapalı ilanı zaten
+ * göstermiyor, ama paylaşılmış bir bağlantı o filtrenin dışından geliyor.
  *
- * Tanınmayan bir durum **kapalı sayılmıyor**: alan yanıttan hiç gelmezse
- * `UNKNOWN` oluyor ve bilinmeyeni kapalı saymak, tek bir sözleşme
- * değişikliğinde her ilanın başvuru formunu sessizce kaldırırdı. Karar yalnız
- * sunucunun açıkça söylediği durumlardan çıkar.
+ * Alan eski bir backend yanıtında eksikse adapter `false` yazar. Bilinmeyeni
+ * açık saymak, süresi dolmuş ilanda form ve JobPosting verisini yeniden
+ * açardı; bu yüzden eksik sözleşme güvenli tarafta kalır.
  */
-export function jobApplicationsClosedReason(status: string): string | null {
-  return isJobStatus(status) ? (applicationsClosedReasons[status] ?? null) : null;
+export function jobApplicationsClosedReason(job: {
+  readonly status: string;
+  readonly acceptingApplications: boolean;
+}): string | null {
+  const statusReason = isJobStatus(job.status)
+    ? (applicationsClosedReasons[job.status] ?? null)
+    : null;
+  if (statusReason !== null) return statusReason;
+  if (jobIsOpen(job)) return null;
+  return job.status === "OPEN"
+    ? "Bu ilanın süresi doldu ve yeni başvuru almıyor."
+    : "Bu ilan yeni başvuru almıyor.";
 }
 
 const applicationsClosedReasons: Readonly<Partial<Record<JobStatus, string>>> = {

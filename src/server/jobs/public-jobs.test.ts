@@ -11,7 +11,7 @@ import {
   jobDetailDto,
 } from "../../../tests/support/job-detail";
 
-import { readJobDetail, readOpenJobIds } from "./public-jobs";
+import { readJobDetail } from "./public-jobs";
 
 const jobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 
@@ -39,6 +39,7 @@ describe("herkese açık ilan okumasının BFF sözleşmesi", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -83,6 +84,7 @@ describe("herkese açık ilan okumasının BFF sözleşmesi", () => {
       districtName: "Kadıköy",
       addressPrecision: "EXACT",
       status: "OPEN",
+      acceptingApplications: true,
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -150,7 +152,21 @@ describe("herkese açık ilan okumasının BFF sözleşmesi", () => {
     await expect(readJobDetail(jobId)).resolves.toMatchObject({ status: "CANCELLED" });
   });
 
-  it("durum alanı hiç gelmezse ilanı kapalı saymaz", async () => {
+  it.each([
+    ["false", false],
+    ["eksik", undefined],
+  ] as const)("acceptingApplications %s ise başvuru kapısını güvenli biçimde kapatır", async (_name, value) => {
+    const dto = jobDetailDto({ acceptingApplications: value });
+    if (value === undefined) delete (dto as { acceptingApplications?: unknown }).acceptingApplications;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(dto))));
+
+    await expect(readJobDetail(jobId)).resolves.toMatchObject({ acceptingApplications: false });
+  });
+
+  it("durum alanı hiç gelmezse UNKNOWN'a düşürüp yaşam döngüsü kapısını kapalı tutar", async () => {
+    // `acceptingApplications: true` tek başına yetmez: tüketiciler ayrıca
+    // durumun `OPEN` olmasını istiyor. Eksik tel alanı `UNKNOWN` olduğunda
+    // ilan bu yüzden başvuruya ve indekslemeye yanlışlıkla açılmaz.
     const dto = jobDetailDto();
     delete (dto as { status?: unknown }).status;
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(dto)));
@@ -159,36 +175,4 @@ describe("herkese açık ilan okumasının BFF sözleşmesi", () => {
     await expect(readJobDetail(jobId)).resolves.toMatchObject({ status: "UNKNOWN" });
   });
 
-  it("site haritası için açık ilanları sayfa sayfa, sunucunun süzgecine güvenerek toplar", async () => {
-    // `GET /jobs` zaten yalnız `OPEN` ilanları döndürüyor
-    // (`JobManager.search`); istemci o süzgeci tekrar etmiyor.
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse(200, envelope({ content: [{ id: "ilan-1" }, { id: "ilan-2" }], last: false })),
-      )
-      .mockResolvedValueOnce(jsonResponse(200, envelope({ content: [{ id: "ilan-3" }], last: true })));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(readOpenJobIds()).resolves.toEqual(["ilan-1", "ilan-2", "ilan-3"]);
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [firstUrl] = fetchMock.mock.calls[0] as [string];
-    const [secondUrl] = fetchMock.mock.calls[1] as [string];
-    expect(firstUrl).toContain("page=0&size=100");
-    expect(secondUrl).toContain("page=1&size=100");
-  });
-
-  it("son sayfaya gelince sayfalamayı durdurur", async () => {
-    // Sınırsız bir döngü build süresini backend'in ilan sayısına bağlardı;
-    // `last` doğruyken bir tur daha atmak o riski geri getirir.
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(200, envelope({ content: [{ id: "ilan-1" }], last: true })));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await readOpenJobIds();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
 });

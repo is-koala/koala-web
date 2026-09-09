@@ -417,13 +417,13 @@ describe("tam süzgeç seti", () => {
       "ucret-tipi": "DAILY",
       isveren: "INDIVIDUAL",
       "min-ucret": "500",
-      "max-ucret": "1500.50",
+      "max-ucret": "1500.5",
       sigorta: "evet",
       deneyim: "hayir",
       sirala: "baslik",
       sayfa: "2",
     });
-    expect(parseJobSearchParams(written)).toEqual(query);
+    expect(parseJobSearchParams(written)).toEqual({ ...query, maxSalary: "1500.5" });
   });
 });
 

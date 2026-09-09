@@ -7,6 +7,9 @@ if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
 
 const accountDeletionId = "bb58c5e0-e43b-4673-ae62-3525d4f7ec75";
 const userId = "2592914e-b7f0-4b5f-a5d4-5c632daf2d96";
+const expiredOpenJobId = "f62dc02c-70df-4e85-b1df-17b799ba17c1";
+const fixtureManifestCreatedAt = new Date().toISOString();
+const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
 const states = new Map();
 
@@ -27,6 +30,20 @@ const server = createServer(async (request, response) => {
     return state
       ? json(response, 200, state.accountDeletionRequests)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+  }
+
+  if (request.method === "GET" && url.pathname === `/jobs/${expiredOpenJobId}`) {
+    return backendSuccess(response, expiredOpenJob());
+  }
+  if (request.method === "GET" && url.pathname === "/sitemap/jobs/manifest") {
+    return backendSuccess(response, {
+      version: "11111111-1111-4111-8111-111111111111",
+      createdAt: fixtureManifestCreatedAt,
+      expiresAt: fixtureManifestExpiresAt,
+      entryCount: 0,
+      shardSize: 50_000,
+      shards: [],
+    });
   }
 
   const state = authorizedState(request);
@@ -152,6 +169,36 @@ function backendSuccess(response, data) {
     timeStamp: "2026-09-09T12:00:00Z",
     data,
   });
+}
+
+function expiredOpenJob() {
+  return {
+    id: expiredOpenJobId,
+    title: "Süresi dolmuş etkinlik görevlisi",
+    description: "Bu ilan yalnız arama motoru hijyeni kabulünde kullanılır.",
+    duties: "Etkinlik alanında yönlendirme",
+    dressCode: null,
+    category: { name: "Etkinlik" },
+    company: null,
+    creator: { firstName: "Ayşe", lastName: "Yıldız" },
+    type: "ONE_TIME",
+    salaryType: "DAILY",
+    startDateTime: "2026-09-08T09:00:00",
+    endDateTime: "2026-09-08T18:00:00",
+    createdAt: "2026-08-30T07:15:00Z",
+    pricing: null,
+    minAge: 18,
+    maxAge: 45,
+    insuranceRequired: true,
+    experienceRequired: false,
+    headcount: 2,
+    hiredCount: 0,
+    images: [],
+    address: { cityName: "İstanbul", districtName: "Kadıköy" },
+    addressPrecision: "APPROXIMATE",
+    status: "OPEN",
+    acceptingApplications: false,
+  };
 }
 
 function backendError(response, status, errorCode, errorCategory) {

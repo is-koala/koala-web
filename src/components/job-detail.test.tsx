@@ -95,11 +95,32 @@ describe("ilan ayrıntısı", () => {
     expect(screen.getByText("Bu ilan kapatıldı ve yeni başvuru almıyor.")).toBeVisible();
   });
 
+  it("başvuruya kapalı ilandan benzer ilan listesine gerçek bağlantı verir", () => {
+    render(<JobDetailView job={jobDetailFixture({ status: "CLOSED" })} applyAction={vi.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Benzer ilanları gör" })).toHaveAttribute(
+      "href",
+      "/is-ilanlari",
+    );
+  });
+
   it("iptal edilmiş ilanda başvuru formunu hiç çizmez", () => {
     render(<JobDetailView job={jobDetailFixture({ status: "CANCELLED" })} applyAction={vi.fn()} />);
 
     expect(screen.queryByRole("button", { name: "Başvuruyu gönder" })).toBeNull();
     expect(screen.getByText("Bu ilan iptal edildi ve yeni başvuru almıyor.")).toBeVisible();
+  });
+
+  it("durumu OPEN kalsa bile başvuru kabul etmeyen ilanda formu hiç çizmez", () => {
+    render(
+      <JobDetailView
+        job={jobDetailFixture({ status: "OPEN", acceptingApplications: false })}
+        applyAction={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Başvuruyu gönder" })).toBeNull();
+    expect(screen.getByText("Bu ilanın süresi doldu ve yeni başvuru almıyor.")).toBeVisible();
   });
 
   it("yayındaki ilanda başvuru formunu çizer", () => {

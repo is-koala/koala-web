@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+const expiredOpenJobId = "f62dc02c-70df-4e85-b1df-17b799ba17c1";
+
 /**
  * İlan ayrıntısının tarayıcıdan görünen sözleşmesi.
  *
- * Gerçek bir ilan buradan sürülemez: `GET /jobs/{jobId}` çağrısı BFF'ten
- * çıkıyor ve `playwright.config.ts` API'yi var olmayan bir adrese bağlıyor,
- * yani `page.route` onu hiç görmüyor (`is-ilanlari.spec.ts` aynı sınırı
- * yazıyor). Ölçülebilen şey rotanın biçimi ve HTTP durumu.
+ * Playwright API fikstürü tek, sabit bir süresi dolmuş OPEN ilan sunuyor;
+ * böylece BFF üzerinden çıkan gerçek HTTP/HTML davranışı deterministik biçimde
+ * ölçülüyor. Geçersiz UUID ise backend'e çıkmadan rota sınırında 404 oluyor.
  */
 
 test("bozuk ilan kimliği backend'e gitmeden 404 döner", async ({ page }) => {
@@ -21,4 +22,20 @@ test("bozuk ilan kimliği backend'e gitmeden 404 döner", async ({ page }) => {
   expect(response?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "Bu sayfa burada değil." })).toBeVisible();
   await expect(page.getByRole("banner")).toBeVisible();
+});
+
+test("süresi dolmuş OPEN ilan noindex taşır, yapısal veri ve başvuru göstermez", async ({
+  page,
+}) => {
+  const response = await page.goto(`/is-ilanlari/${expiredOpenJobId}`);
+
+  expect(response?.status()).toBe(200);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Başvuruyu gönder" })).toHaveCount(0);
+  await expect(page.getByText("Bu ilanın süresi doldu ve yeni başvuru almıyor.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Benzer ilanları gör" })).toHaveAttribute(
+    "href",
+    "/is-ilanlari",
+  );
 });

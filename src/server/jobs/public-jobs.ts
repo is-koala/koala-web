@@ -13,10 +13,9 @@ import {
   openings,
   precisionOf,
   salaryTypes,
-  type PageDto,
 } from "@/server/api/dto";
 import { apiFetch } from "@/server/api/client";
-import { backendPaths, jobPath } from "@/server/contract";
+import { jobPath } from "@/server/contract";
 import { publicReaderCaller } from "@/server/session/session";
 
 /**
@@ -81,51 +80,6 @@ export const readJobDetail = cache(async (jobId: string): Promise<JobDetail | nu
 });
 
 /**
- * Site haritasına girecek açık ilanların kimlikleri.
- *
- * `GET /jobs` zaten yalnız `OPEN` ve bitiş tarihi geçmemiş ilanları döndürüyor
- * (`JobManager.search`), yani "açık ilan" süzgeci burada tekrar edilmiyor —
- * sunucunun kuralı ile site haritasının kuralı iki yerde yazılsaydı biri
- * değiştiğinde öbürü sessizce eskirdi.
- *
- * Sayfalama **sınırlı**: site haritası bir tarama girişi, ilanların tam
- * dökümü değil, ve sınırsız bir döngü build'i backend'in ilan sayısına
- * bağlardı. Sınıra dayanıldığında liste kırpılıyor; tarayıcı kalan ilanlara
- * liste sayfasından ulaşıyor.
- *
- * Çağrı `publicReaderCaller` ile gidiyor: site haritası da ziyaretçiden
- * bağımsız ve istek-zamanı API'si okumamalı.
- */
-export async function readOpenJobIds(): Promise<readonly string[]> {
-  const ids: string[] = [];
-
-  for (let page = 0; page < sitemapPageLimit; page += 1) {
-    const search = new URLSearchParams({
-      page: String(page),
-      size: String(sitemapPageSize),
-      sort: "createdAt,desc",
-    });
-    const response = await apiFetch<PageDto<{ id?: string | null }> | null>(
-      `${backendPaths.jobs}?${search}`,
-      { ...publicReaderCaller(), cache: "force-cache" },
-    );
-
-    for (const job of response?.content ?? []) {
-      if (job?.id) ids.push(job.id);
-    }
-    if (response === null || response.last !== false) break;
-  }
-
-  return ids;
-}
-
-/** `PageableSanitizer.java:15` tavanı 100'de tutuyor; daha büyüğü sessizce kırpılır. */
-const sitemapPageSize = 100;
-
-/** 100 × 50 = 5.000 ilan; Next'in 50.000 URL sınırının çok altında ve sınırlı. */
-const sitemapPageLimit = 50;
-
-/**
  * `JobDetailDto`'nun tel biçimi.
  *
  * `address` bilerek **eksik** yazılmış: yanıt `components`, `position` ve
@@ -159,6 +113,7 @@ type JobDetailDto = {
   address?: { cityName?: string | null; districtName?: string | null } | null;
   addressPrecision?: string | null;
   status?: string | null;
+  acceptingApplications?: boolean | null;
 };
 
 /** `GalleryImageDto`; sıralama backend'den geliyor, kapak bayrağı ayrı bir alan. */
@@ -217,6 +172,9 @@ function toJobDetail(dto: JobDetailDto): JobDetail {
     districtName: clean(dto.address?.districtName),
     addressPrecision: precisionOf(dto.addressPrecision),
     status: known(dto.status, jobStatuses),
+    // Alan eski/eksik bir backend yanıtında yoksa başvuru ve indeksleme
+    // yüzeylerini açık bırakmak yerine güvenli biçimde kapat.
+    acceptingApplications: dto.acceptingApplications === true,
   };
 }
 

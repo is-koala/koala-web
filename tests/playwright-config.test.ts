@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
@@ -10,11 +12,18 @@ describe("Playwright test server isolation", () => {
     const config = await loadConfig();
     const webServers = Array.isArray(config.webServer) ? config.webServer : [config.webServer];
     const appServer = webServers.find((server) => server?.command.includes("npm run dev"));
+    const backendServer = webServers.find((server) =>
+      server?.command.includes("tests/support/e2e-backend.mjs"),
+    );
 
     expect(config.use?.baseURL).toBe("http://localhost:3100");
     expect(appServer?.command).toContain("--port 3100");
     expect(appServer?.url).toBe("http://localhost:3100/api/health");
-    expect(appServer?.reuseExistingServer).toBe(false);
+    expect(appServer?.env).toMatchObject({
+      NEXT_PUBLIC_SITE_URL: "https://iskoala.com",
+    });
+    expect(backendServer?.url).toBe("http://127.0.0.1:4100/__test__/health");
+    for (const server of webServers) expect(server?.reuseExistingServer).toBe(false);
   });
 
   it("CI API_URL değerini miras almak yerine hermetik E2E backend'ini zorlar", async () => {
@@ -26,6 +35,16 @@ describe("Playwright test server isolation", () => {
     expect(appServer).toMatchObject({
       env: { API_URL: "http://127.0.0.1:4100" },
     });
+  });
+
+  it("runs the production sitemap regression from the mandatory e2e script", () => {
+    const packageMetadata = JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf8"),
+    ) as { scripts?: Record<string, string> };
+
+    expect(packageMetadata.scripts?.["test:e2e"]).toContain(
+      "npm run test:e2e:sitemap-production",
+    );
   });
 });
 

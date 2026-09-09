@@ -186,6 +186,16 @@ describe("ilan ayrıntısı metadata'sı", () => {
     expect(metadata.robots).toEqual({ index: false, follow: true });
   });
 
+  it("durumu OPEN kalsa bile başvuru kabul etmeyen ilanı indeksten düşürür", async () => {
+    vi.mocked(readJobDetail).mockResolvedValue(
+      jobDetailFixture({ status: "OPEN", acceptingApplications: false }),
+    );
+
+    const metadata = await generateMetadata({ params: params() });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
   it("yayındaki ilanda robots kısıtı yazmaz", async () => {
     vi.mocked(readJobDetail).mockResolvedValue(job);
 

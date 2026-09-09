@@ -3,10 +3,9 @@ import { expect, test } from "@playwright/test";
 /**
  * Herkese açık ilan listesinin tarayıcıdan görünen sözleşmesi.
  *
- * Gerçek ilanlar buradan sürülemez: `GET /jobs` çağrısı BFF'ten çıkıyor ve
- * `playwright.config.ts` API'yi var olmayan bir adrese bağlıyor, yani
- * `page.route` onu hiç görmüyor (`uygulama.spec.ts` aynı sınırı yazıyor).
- * Ölçülebilen ve kırılması en pahalı olan davranış bu: sayfa adres
+ * Test API'si `GET /jobs` için bilerek 503 döndürüyor; liste içeriği yerine
+ * hata sınırı deterministik sürülüyor. Ölçülebilen ve kırılması en pahalı
+ * davranış bu: sayfa adres
  * çubuğundaki her girdiyle ayakta kalıyor mu, ve süzgeç JavaScript'siz
  * çalışıyor mu.
  */

@@ -49,6 +49,7 @@ export function jobDetailFixture(overrides: Partial<JobDetail> = {}): JobDetail 
     districtName: "Kadıköy",
     addressPrecision: "APPROXIMATE",
     status: "OPEN",
+    acceptingApplications: true,
     ...overrides,
   };
 }
@@ -97,6 +98,7 @@ export function jobDetailDto(overrides: Record<string, unknown> = {}) {
     endDateTime: "2026-09-12T18:00:00",
     createdAt: "2026-08-30T07:15:00Z",
     status: "OPEN",
+    acceptingApplications: true,
     address: exactAddressDto(),
     addressPrecision: "EXACT",
     creator: { firstName: "Ayşe", lastName: "Yıldız" },

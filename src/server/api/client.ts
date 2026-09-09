@@ -137,6 +137,7 @@ function apiError(response: Response, envelope: BackendEnvelope): ApiError {
     details: envelope.details,
     requestId: envelope.requestId,
     minimumAppVersion: response.headers.get(backendHeaders.minimumAppVersion),
+    retryAfter: response.headers.get("Retry-After"),
   });
 }
 

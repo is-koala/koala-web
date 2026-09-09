@@ -28,6 +28,8 @@ export default defineConfig({
         // süreçte başlatılan hermetik fixture ile konuşur.
         API_URL: backendURL,
         APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
+        NEXT_PUBLIC_SITE_URL: "https://iskoala.com",
+        NEXT_PUBLIC_APP_URL_SCHEME: process.env.NEXT_PUBLIC_APP_URL_SCHEME ?? "koala-dev",
       },
       url: `${baseURL}/api/health`,
       reuseExistingServer: false,
