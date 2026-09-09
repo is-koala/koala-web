@@ -84,6 +84,14 @@ describe("API hata sunumu", () => {
     });
   });
 
+  it("hesap silme duplicate kodunu yeni bir işlem önerisine çevirmeden açıklar", () => {
+    expect(errorPresentation("LEGAL_DELETION_ALREADY_REQUESTED", 409)).toEqual({
+      title: "Silme talebin zaten var",
+      message: "Bekleyen talebinin güncel durumunu görmek için sayfayı yenileyebilirsin.",
+      action: "retry",
+    });
+  });
+
   it("ödeme reddini backend mesajına ihtiyaç duymadan kullanıcı eylemine çevirir", () => {
     expect(errorPresentation("JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER", 400)).toEqual({
       title: "Fatura adresi eksik",

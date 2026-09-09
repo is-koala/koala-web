@@ -92,6 +92,11 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Koala'nın güncel sürümünü kullanmak için sayfayı yenile.",
     action: "retry",
   },
+  LEGAL_DELETION_ALREADY_REQUESTED: {
+    title: "Silme talebin zaten var",
+    message: "Bekleyen talebinin güncel durumunu görmek için sayfayı yenileyebilirsin.",
+    action: "retry",
+  },
   // Bireysel ilanın üç reddi. Üçü de aile metnine düşseydi ("Bilgileri kontrol
   // et" / "Bu işlem için yetkin yok") kullanıcı ne yapması gerektiğini
   // okuyamazdı: yapılacak iş her birinde farklı ve hiçbiri alanları gözden

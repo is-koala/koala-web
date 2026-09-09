@@ -81,6 +81,8 @@ h2 { font-size: clamp(1.45rem, 4vw, 2.65rem); line-height: 1.1; letter-spacing: 
 .checkbox-field { display: flex; align-items: flex-start; gap: 11px; }
 .checkbox-field input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--brand-primary); flex: none; }
 .checkbox-field label { font-size: .92rem; }
+.checkbox-field-with-error { display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 11px; row-gap: 7px; }
+.checkbox-field-with-error > .field-error { grid-column: 2; }
 .form-warning { background: #fff0ed; border: 1px solid #ffc8bd; border-radius: 16px; padding: 16px; margin: 0; font-size: .9rem; }
 .app-handoff { width: min(100%, 600px); margin-inline: auto; padding: 28px 0 0; border-top: 1px solid var(--line); }
 .state-card { border-radius: 20px; padding: 24px; background: var(--surface); }

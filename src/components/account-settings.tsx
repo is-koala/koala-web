@@ -1,6 +1,7 @@
 "use client";
 
 import { BankAccounts } from "@/components/account-settings/bank-accounts";
+import { AccountDeletionSettings } from "@/components/account-settings/account-deletion-settings";
 import { ContactSettings } from "@/components/account-settings/contact-settings";
 import { NotificationSettings } from "@/components/account-settings/notification-settings";
 import { PasswordSettings } from "@/components/account-settings/password-settings";
@@ -34,6 +35,7 @@ export function AccountSettings({
         <a href="#guvenlik">Güvenlik</a>
         <a href="#bildirimler">Bildirimler</a>
         <a href="#oturumlar">Oturumlar</a>
+        <a href="#hesap-silme">Hesap silme</a>
       </nav>
 
       <BankAccounts
@@ -58,6 +60,10 @@ export function AccountSettings({
         sessions={data.sessions}
         revokeAction={actions.revokeSession}
         revokeOtherAction={actions.revokeOtherSessions}
+      />
+      <AccountDeletionSettings
+        initialStatus={data.accountDeletion}
+        action={actions.requestAccountDeletion}
       />
     </section>
   );

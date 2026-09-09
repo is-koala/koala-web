@@ -17,6 +17,7 @@ import {
   markNotificationReadAction,
   revokeOtherSessionsAction,
   revokeSessionAction,
+  requestAccountDeletionAction,
   selectPrimaryBankAccountAction,
   updateContactAction,
   updatePasswordAction,
@@ -33,6 +34,7 @@ const actions: AccountSettingsActions = {
   markAllNotificationsRead: markAllNotificationsReadAction,
   revokeSession: revokeSessionAction,
   revokeOtherSessions: revokeOtherSessionsAction,
+  requestAccountDeletion: requestAccountDeletionAction,
 };
 
 export type AccountPageProps = {

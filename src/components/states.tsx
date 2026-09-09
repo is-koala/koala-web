@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 
 import { errorPresentation } from "@/lib/errors";
 
+import { ErrorRetryAction } from "./error-retry-action";
+
 const emptyCopy = {
   jobs: ["Henüz ilan yok", "Yeni ilanlar yayımlandığında burada görünecek."],
   /**
@@ -96,15 +98,21 @@ export function EmptyState({
 export function ErrorState({
   errorCode,
   status,
+  onRetry,
 }: {
   errorCode?: string;
   status: number;
+  /** Yalnız Client Component çağıranları retry kararının gerçek davranışını sağlar. */
+  onRetry?: () => void;
 }) {
   const presentation = errorPresentation(errorCode, status);
   return (
     <div role="alert" className="state-card state-card-error">
       <h2>{presentation.title}</h2>
       <p>{presentation.message}</p>
+      {presentation.action === "retry" && onRetry ? (
+        <ErrorRetryAction label="Yeniden dene" onRetry={onRetry} />
+      ) : null}
     </div>
   );
 }
