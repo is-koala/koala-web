@@ -9,6 +9,7 @@ import {
 
 import {
   confirmConversationAccessAction,
+  loadConversationSummaryAction,
   loadOlderMessagesAction,
   markConversationReadAction,
   sendMessageAction,
@@ -83,6 +84,43 @@ describe("mesajlaşma Server Action'ları", () => {
     });
     await expect(markConversationReadAction(conversationId)).resolves.toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("özet yenilemesinde oturum sahibini sunucuda çözüp gerçek kapalı durumu döndürür", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        id: "11111111-1111-4111-8111-111111111111",
+        firstName: "Deniz",
+        lastName: "Ak",
+        email: "deniz@example.test",
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        content: [{
+          id: conversationId,
+          jobId: null,
+          jobTitle: null,
+          kind: "GROUP",
+          participants: [],
+          lastMessageAt: null,
+          lastMessageBody: null,
+          unreadCount: 0,
+          closed: true,
+        }],
+        page: 0,
+        totalElements: 1,
+        totalPages: 1,
+        last: true,
+      })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadConversationSummaryAction(conversationId)).resolves.toMatchObject({
+      ok: true,
+      conversation: { id: conversationId, closed: true },
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.example.test/users/me",
+      "https://api.example.test/conversations?page=0&size=100",
+    ]);
   });
 
   it("reddedilen topic erişimini ham backend mesajını fırlatmadan false yapar", async () => {

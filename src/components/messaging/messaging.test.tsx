@@ -20,6 +20,194 @@ const conversationId = "33333333-3333-4333-8333-333333333333";
 afterEach(() => vi.restoreAllMocks());
 
 describe("mesajlaşma arayüzü", () => {
+  it("özet okunamazken geçmişi gösterir, hatayı ayrı sunar ve gönderimi kilitler", async () => {
+    const realtime = new FakeRealtime();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{
+          ok: false,
+          errorCode: "SERVICE_UNAVAILABLE",
+          status: 503,
+          blocked: false,
+        }}
+        initialMessages={messagePage([message("Geçmişteki mesaj", otherId)])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    expect(screen.getByText("Geçmişteki mesaj")).toBeVisible();
+    const alert = screen.getByRole("alert");
+    expect(within(alert).getByRole("heading", { name: "Konuşma bilgileri yüklenemedi" }))
+      .toBeVisible();
+    expect(within(alert).getByRole("button", { name: "Tekrar dene" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gönder" }))
+      .toHaveAttribute("data-disabled-kind", "permanent");
+  });
+
+  it("ilk özet isteği 403 olduğunda yeniden deneme yerine kalıcı engeli gösterir", () => {
+    render(
+      <ConversationThreadForSummary
+        initialSummary={{
+          ok: false,
+          errorCode: "MESSAGING_BLOCKED",
+          status: 403,
+          blocked: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bu konuşmada artık mesaj gönderemezsin.",
+    );
+    expect(screen.queryByText("Konuşma bilgileri yüklenemedi")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tekrar dene" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+  });
+
+  it("özet retry'ı 403 dönerse sonucu kalıcı engel olarak saklar", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConversationThreadForSummary
+        initialSummary={{
+          ok: false,
+          errorCode: "SERVICE_UNAVAILABLE",
+          status: 503,
+          blocked: false,
+        }}
+        loadSummary={vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: "MESSAGING_BLOCKED",
+          status: 403,
+          blocked: true,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tekrar dene" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bu konuşmada artık mesaj gönderemezsin.",
+    );
+    expect(screen.queryByText("Konuşma bilgileri yüklenemedi")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tekrar dene" })).toBeNull();
+  });
+
+  it("özet retry taşıma hatasında hata panelini yeniden denenebilir bırakır", async () => {
+    const user = userEvent.setup();
+    const loadSummary = vi.fn().mockRejectedValue(new Error("transport failed"));
+    render(
+      <ConversationThreadForSummary
+        initialSummary={{
+          ok: false,
+          errorCode: "SERVICE_UNAVAILABLE",
+          status: 503,
+          blocked: false,
+        }}
+        loadSummary={loadSummary}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tekrar dene" }));
+
+    expect(await screen.findByRole("button", { name: "Tekrar dene" })).toBeEnabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Konuşma bilgileri yüklenemedi");
+    expect(loadSummary).toHaveBeenCalledTimes(1);
+  });
+
+  it("özet bilinmiyorken boş geçmişi mesaj göndermeye çağırmadan nötr anlatır", () => {
+    render(
+      <ConversationThreadForSummary
+        initialSummary={{
+          ok: false,
+          errorCode: "SERVICE_UNAVAILABLE",
+          status: 503,
+          blocked: false,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Bu konuşmada henüz gösterilecek mesaj yok.")).toBeVisible();
+    expect(screen.queryByText("İlk mesajı göndererek konuşmayı başlatabilirsin.")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+  });
+
+  it("özet yeniden okununca gerçek kapalı durumu uygular", async () => {
+    const user = userEvent.setup();
+    const realtime = new FakeRealtime();
+    const closedConversation = { ...conversationPage().content[0]!, closed: true };
+    const loadSummary = vi.fn().mockResolvedValue({
+      ok: true,
+      conversation: closedConversation,
+    });
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{
+          ok: false,
+          errorCode: "SERVICE_UNAVAILABLE",
+          status: 503,
+          blocked: false,
+        }}
+        initialMessages={messagePage([message("Geçmişteki mesaj", otherId)])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        loadSummary={loadSummary}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tekrar dene" }));
+
+    expect(await screen.findByText("Bu konuşma kapandı; geçmişi okumaya devam edebilirsin."))
+      .toBeVisible();
+    expect(loadSummary).toHaveBeenCalledWith(conversationId);
+    expect(screen.queryByText("Konuşma bilgileri yüklenemedi")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+  });
+
+  it("composer'ı yalnız yenilenen özet konuşmanın açık olduğunu doğrulayınca açar", async () => {
+    const user = userEvent.setup();
+    const realtime = new FakeRealtime();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{
+          ok: false,
+          errorCode: "SERVICE_UNAVAILABLE",
+          status: 503,
+          blocked: false,
+        }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        loadSummary={vi.fn().mockResolvedValue({
+          ok: true,
+          conversation: conversationPage().content[0]!,
+        })}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    const composer = screen.getByRole("textbox", { name: "Mesaj" });
+    expect(composer).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Tekrar dene" }));
+    expect(composer).toBeEnabled();
+    await user.type(composer, "Merhaba");
+    expect(screen.getByRole("button", { name: "Gönder" })).toBeEnabled();
+  });
+
   it("listeyi tek kişisel kuyrukla günceller ve konuşma topic'lerine abone olmaz", async () => {
     const realtime = new FakeRealtime();
     const confirmPresence = vi.fn().mockResolvedValue(true);
@@ -206,7 +394,8 @@ describe("mesajlaşma arayüzü", () => {
     const confirmConversation = vi.fn(() => access);
     render(
       <ConversationThread
-        conversation={conversationPage().content[0]!}
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
         initialMessages={messagePage([])}
         viewerId={viewerId}
         basePath="/panel/mesajlar"
@@ -248,7 +437,8 @@ describe("mesajlaşma arayüzü", () => {
 
     render(
       <ConversationThread
-        conversation={conversationPage().content[0]!}
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
         initialMessages={{ ...messagePage([latest]), last: false, totalPages: 2 }}
         viewerId={viewerId}
         basePath="/panel/mesajlar"
@@ -297,7 +487,8 @@ describe("mesajlaşma arayüzü", () => {
 
     render(
       <ConversationThread
-        conversation={conversationPage().content[0]!}
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
         initialMessages={{ ...messagePage([message("Yeni mesaj", otherId)]), last: false, totalPages: 2 }}
         viewerId={viewerId}
         basePath="/panel/mesajlar"
@@ -328,7 +519,8 @@ describe("mesajlaşma arayüzü", () => {
     }));
     render(
       <ConversationThread
-        conversation={conversationPage().content[0]!}
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
         initialMessages={messagePage([])}
         viewerId={viewerId}
         basePath="/panel/mesajlar"
@@ -362,7 +554,8 @@ describe("mesajlaşma arayüzü", () => {
     }));
     render(
       <ConversationThread
-        conversation={conversationPage().content[0]!}
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
         initialMessages={messagePage([])}
         viewerId={viewerId}
         basePath="/panel/mesajlar"
@@ -393,7 +586,8 @@ describe("mesajlaşma arayüzü", () => {
     const realtime = new FakeRealtime();
     render(
       <ConversationThread
-        conversation={conversationPage().content[0]!}
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
         initialMessages={messagePage([])}
         viewerId={viewerId}
         basePath="/panel/mesajlar"
@@ -518,4 +712,29 @@ function event(type: RealtimeEvent["type"], value: Message): RealtimeEvent {
     at: value.sentAt,
     error: null,
   };
+}
+
+function ConversationThreadForSummary({
+  initialSummary,
+  loadSummary,
+  initialMessages = messagePage([]),
+}: {
+  initialSummary: React.ComponentProps<typeof ConversationThread>["initialSummary"];
+  loadSummary?: React.ComponentProps<typeof ConversationThread>["loadSummary"];
+  initialMessages?: Page<Message>;
+}) {
+  return (
+    <ConversationThread
+      conversationId={conversationId}
+      initialSummary={initialSummary}
+      initialMessages={initialMessages}
+      viewerId={viewerId}
+      basePath="/panel/mesajlar"
+      realtimeClient={new FakeRealtime()}
+      confirmConversation={vi.fn().mockResolvedValue(true)}
+      confirmPresence={vi.fn().mockResolvedValue(true)}
+      loadSummary={loadSummary}
+      markRead={vi.fn().mockResolvedValue(true)}
+    />
+  );
 }

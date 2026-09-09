@@ -36,6 +36,10 @@ export type MessagingActionFailure = {
   blocked: boolean;
 };
 
+export type LoadConversationSummaryResult =
+  | { ok: true; conversation: ConversationSummary }
+  | MessagingActionFailure;
+
 export type SendMessageResult =
   | { ok: true; message: Message }
   | MessagingActionFailure;

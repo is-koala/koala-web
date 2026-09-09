@@ -6,12 +6,13 @@ import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from
 import {
   confirmConversationAccessAction,
   confirmPresenceAccessAction,
+  loadConversationSummaryAction,
   loadOlderMessagesAction,
   markConversationReadAction,
   sendMessageAction,
 } from "@/app/(uygulama)/messaging-actions";
 import type {
-  ConversationSummary,
+  LoadConversationSummaryResult,
   LoadMessagesResult,
   Message,
   Page,
@@ -36,7 +37,8 @@ import { retainRealtimeClient, sharedRealtimeClient } from "@/realtime/shared-cl
 import { ConnectionStatus } from "./connection-status";
 
 type Props = {
-  conversation: ConversationSummary;
+  conversationId: string;
+  initialSummary: LoadConversationSummaryResult;
   initialMessages: Page<Message>;
   viewerId: string;
   basePath: string;
@@ -45,11 +47,13 @@ type Props = {
   confirmPresence?: (userId: string) => Promise<boolean>;
   sendMessage?: (conversationId: string, body: string) => Promise<SendMessageResult>;
   loadOlder?: (conversationId: string, page: number) => Promise<LoadMessagesResult>;
+  loadSummary?: (conversationId: string) => Promise<LoadConversationSummaryResult>;
   markRead?: (conversationId: string) => Promise<boolean>;
 };
 
 export function ConversationThread({
-  conversation,
+  conversationId,
+  initialSummary,
   initialMessages,
   viewerId,
   basePath,
@@ -58,14 +62,17 @@ export function ConversationThread({
   confirmPresence = confirmPresenceAccessAction,
   sendMessage = sendMessageAction,
   loadOlder = loadOlderMessagesAction,
+  loadSummary = loadConversationSummaryAction,
   markRead = markConversationReadAction,
 }: Props) {
+  const [summary, setSummary] = useState(initialSummary);
   const [thread, setThread] = useState(() => initialThreadState(initialMessages.content));
   const [body, setBody] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [sendError, setSendError] = useState(false);
   const [typing, setTyping] = useState(false);
-  const [online, setOnline] = useState(conversation.online);
+  const [online, setOnline] = useState(initialSummary.ok ? initialSummary.conversation.online : null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [connection, setConnection] = useState<RealtimeConnectionState>({ phase: "idle", mode: "rest" });
   const [olderPage, setOlderPage] = useState(initialMessages.page);
   const [hasOlder, setHasOlder] = useState(!initialMessages.last);
@@ -79,7 +86,10 @@ export function ConversationThread({
   const lastScrollTop = useRef(0);
   const pendingScrollAnchor = useRef<{ height: number; top: number } | null>(null);
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
-  const composerLocked = blocked || conversation.closed;
+  const conversation = summary.ok ? summary.conversation : null;
+  const summaryBlocked = !summary.ok && summary.blocked;
+  const permanentlyBlocked = blocked || summaryBlocked;
+  const composerLocked = permanentlyBlocked || conversation === null || conversation.closed;
   const sendUnavailable = composerLocked || !body.trim();
 
   useLayoutEffect(() => {
@@ -102,13 +112,13 @@ export function ConversationThread({
     const disposers: Array<() => void> = [];
     const removeState = client.onStateChange(setConnection);
     const receive = (event: RealtimeEvent) => {
-      if (event.conversationId !== conversation.id) return;
+      if (event.conversationId !== conversationId) return;
       if (event.type === "MESSAGE") {
         const message = messageFromRealtime(event.message);
         if (!message) return;
         setThread((current) => appendMessage(current, message));
         if (message.senderId !== viewerId && document.visibilityState !== "hidden") {
-          void markRead(conversation.id);
+          void markRead(conversationId);
         }
       }
       if (event.type === "READ" && event.userId !== viewerId) {
@@ -122,16 +132,16 @@ export function ConversationThread({
     };
     const removePersonal = client.listenToMessages(receive);
     void client.followConversation(
-      conversation.id,
+      conversationId,
       async () => {
-        if (!(await confirmConversation(conversation.id))) {
+        if (!(await confirmConversation(conversationId))) {
           throw new Error("conversation access not confirmed");
         }
       },
       receive,
       controller.signal,
     ).then((dispose) => disposers.push(dispose)).catch(() => undefined);
-    if (conversation.counterpartId) {
+    if (conversation?.counterpartId) {
       const userId = conversation.counterpartId;
       void client.followPresence(
         userId,
@@ -147,7 +157,7 @@ export function ConversationThread({
       ).then((dispose) => disposers.push(dispose)).catch(() => undefined);
     }
     const markVisible = () => {
-      if (document.visibilityState !== "hidden") void markRead(conversation.id);
+      if (document.visibilityState !== "hidden") void markRead(conversationId);
     };
     markVisible();
     document.addEventListener("visibilitychange", markVisible);
@@ -160,7 +170,7 @@ export function ConversationThread({
       removeState();
       release();
     };
-  }, [client, confirmConversation, confirmPresence, conversation.counterpartId, conversation.id, markRead, viewerId]);
+  }, [client, confirmConversation, confirmPresence, conversation?.counterpartId, conversationId, markRead, viewerId]);
 
   async function submitBody(rawBody: string) {
     const trimmed = rawBody.trim();
@@ -174,7 +184,7 @@ export function ConversationThread({
       body: trimmed,
       sentAt: new Date().toISOString(),
     }));
-    const result = await sendMessage(conversation.id, trimmed);
+    const result = await sendMessage(conversationId, trimmed);
     if (result.ok) {
       setThread((current) => reconcilePendingMessage(current, clientId, result.message));
       return;
@@ -193,7 +203,7 @@ export function ConversationThread({
     setBody(nextBody);
     const now = Date.now();
     if (nextBody.trim() && now - lastTypingSentAt.current >= 2_000) {
-      if (client.sendTyping(conversation.id)) lastTypingSentAt.current = now;
+      if (client.sendTyping(conversationId)) lastTypingSentAt.current = now;
     }
   }
 
@@ -201,7 +211,7 @@ export function ConversationThread({
     if (!hasOlder || loadingOlder) return;
     setLoadingOlder(true);
     setOlderLoadError(null);
-    const result = await loadOlder(conversation.id, olderPage + 1);
+    const result = await loadOlder(conversationId, olderPage + 1);
     setLoadingOlder(false);
     if (!result.ok) {
       setOlderLoadError({ errorCode: result.errorCode, status: result.status });
@@ -227,15 +237,32 @@ export function ConversationThread({
     if (movedUp && history.scrollTop < 40) void loadPrevious();
   }
 
+  async function retrySummary() {
+    if (summaryLoading) return;
+    setSummaryLoading(true);
+    try {
+      const result = await loadSummary(conversationId);
+      setSummary(result);
+      if (result.ok) setOnline(result.conversation.online);
+    } catch {
+      // Server Action'a ulaşamamak önceki hata durumunu geçersiz kılmaz;
+      // kullanıcı aynı güvenli, kilitli durumdan yeniden deneyebilir.
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   return (
     <section className="message-thread" aria-labelledby="thread-heading">
       <header className="thread-header">
         <Link className="thread-back" href={basePath}>← Konuşmalar</Link>
         <div className="thread-title-row">
           <div>
-            <p className="eyebrow">{conversation.jobTitle ?? "Mesajlaşma"}</p>
-            <h1 id="thread-heading">{conversation.displayName}</h1>
-            <p className="thread-presence">{online === true ? "Çevrimiçi" : "Çevrimdışı"}</p>
+            <p className="eyebrow">{conversation?.jobTitle ?? "Mesajlaşma"}</p>
+            <h1 id="thread-heading">{conversation?.displayName ?? "Konuşma"}</h1>
+            {conversation ? (
+              <p className="thread-presence">{online === true ? "Çevrimiçi" : "Çevrimdışı"}</p>
+            ) : null}
           </div>
           <ConnectionStatus state={connection} />
         </div>
@@ -254,12 +281,16 @@ export function ConversationThread({
           </div>
         ) : null}
         {thread.messages.length === 0 ? (
-          <p className="thread-empty">İlk mesajı göndererek konuşmayı başlatabilirsin.</p>
+          <p className="thread-empty">
+            {composerLocked
+              ? "Bu konuşmada henüz gösterilecek mesaj yok."
+              : "İlk mesajı göndererek konuşmayı başlatabilirsin."}
+          </p>
         ) : (
           <MessageGroups
             messages={thread.messages}
             viewerId={viewerId}
-            canRetry={!blocked}
+            canRetry={!permanentlyBlocked}
             retry={(message) => {
               if (!message.clientId) return;
               setThread((current) => removePendingMessage(current, message.clientId!));
@@ -267,16 +298,25 @@ export function ConversationThread({
             }}
           />
         )}
-        {typing ? <p className="typing-indicator" role="status">{conversation.displayName} yazıyor…</p> : null}
+        {typing ? <p className="typing-indicator" role="status">{conversation?.displayName ?? "Karşı taraf"} yazıyor…</p> : null}
       </div>
 
-      {blocked ? <p role="alert" className="composer-notice">Bu konuşmada artık mesaj gönderemezsin.</p> : null}
-      {conversation.closed ? <p role="status" className="composer-notice">Bu konuşma kapandı; geçmişi okumaya devam edebilirsin.</p> : null}
-      {sendError && !blocked ? <p role="alert" className="field-error">Mesaj gönderilemedi. Tekrar deneyebilirsin.</p> : null}
+      {!summary.ok && !summary.blocked ? (
+        <div className="state-card state-card-error" role="alert">
+          <h2>Konuşma bilgileri yüklenemedi</h2>
+          <p>{errorPresentation(summary.errorCode, summary.status).message}</p>
+          <button type="button" onClick={retrySummary} disabled={summaryLoading}>
+            {summaryLoading ? "Yeniden yükleniyor…" : "Tekrar dene"}
+          </button>
+        </div>
+      ) : null}
+      {permanentlyBlocked ? <p role="alert" className="composer-notice">Bu konuşmada artık mesaj gönderemezsin.</p> : null}
+      {conversation?.closed ? <p role="status" className="composer-notice">Bu konuşma kapandı; geçmişi okumaya devam edebilirsin.</p> : null}
+      {sendError && !permanentlyBlocked ? <p role="alert" className="field-error">Mesaj gönderilemedi. Tekrar deneyebilirsin.</p> : null}
       <form className="message-composer" onSubmit={submit}>
-        <label className="sr-only" htmlFor={`message-${conversation.id}`}>Mesaj</label>
+        <label className="sr-only" htmlFor={`message-${conversationId}`}>Mesaj</label>
         <textarea
-          id={`message-${conversation.id}`}
+          id={`message-${conversationId}`}
           name="message"
           value={body}
           onChange={(event) => notifyTyping(event.target.value)}
