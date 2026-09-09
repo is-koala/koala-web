@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
 import { newCompanyJobPath, publishedJobPath } from "@/lib/app-routes";
@@ -59,6 +59,7 @@ export async function publishCompanyJobAction(
   try {
     created = await createCompanyJob(companyId, body);
   } catch (error) {
+    unstable_rethrow(error);
     const failure = failureState(error);
     return failure.status === "error" && failure.fieldErrors
       ? { ...failure, fieldErrors: withJobFieldAliases(failure.fieldErrors) }

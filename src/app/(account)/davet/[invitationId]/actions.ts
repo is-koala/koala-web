@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { appShells, companyProfilePath } from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
@@ -49,6 +49,7 @@ export async function answerInvitationAction(
   try {
     answered = await answerInvitation(invitationId, accepted);
   } catch (error) {
+    unstable_rethrow(error);
     return failureState(error);
   }
 

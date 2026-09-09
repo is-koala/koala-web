@@ -9,7 +9,7 @@ import {
 } from "../../../../../tests/support/session-cookies";
 import { redirectTo } from "../../../../../tests/support/navigation";
 
-import { createEducationAction } from "./education-actions";
+import { createEducationAction, loadFacultiesAction } from "./education-actions";
 import { createExperienceAction } from "./experience-actions";
 import { updateNotificationPreferencesAction } from "./notification-actions";
 import {
@@ -20,12 +20,13 @@ import {
 const revalidatePath = vi.hoisted(() => vi.fn());
 
 vi.mock("next/cache", () => ({ revalidatePath }));
-vi.mock("next/navigation", async () => ({
-  redirect: (await import("../../../../../tests/support/navigation")).throwingRedirect(),
-  unstable_rethrow: (error: unknown) => {
-    if (error instanceof Error && error.message.startsWith("REDIRECT:")) throw error;
-  },
-}));
+vi.mock("next/navigation", async () => {
+  const navigation = await import("../../../../../tests/support/navigation");
+  return {
+    redirect: navigation.throwingRedirect(),
+    unstable_rethrow: navigation.rethrowTestNavigationError,
+  };
+});
 vi.mock("next/headers", async () => {
   const support = await import("../../../../../tests/support/session-cookies");
   return {
@@ -167,6 +168,50 @@ describe("profil Server Action'ları", () => {
 
     expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
     expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
+  });
+
+  it("eğitim referansı okunurken süresi dolan oturumu hata sonucuna çevirmeden girişe yönlendirir", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        jsonResponse(401, {
+          success: false,
+          errorCode: "UNAUTHORIZED",
+          errorCategory: "AUTHENTICATION",
+          message: "Oturum sona erdi.",
+        }),
+      ),
+    );
+
+    await expect(
+      loadFacultiesAction("11111111-1111-4111-8111-111111111111"),
+    ).rejects.toThrow(redirectTo("/giris?next=%2Fpanel%2Fprofil"));
+
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
+  });
+
+  it("eğitim referansının backend hatasını güvenli kod ve durumla döndürür", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        jsonResponse(503, {
+          success: false,
+          errorCode: "REFERENCE_DATA_UNAVAILABLE",
+          errorCategory: "TECHNICAL",
+          message: "ham backend metni",
+          requestId: "request-education-1",
+        }),
+      ),
+    );
+
+    await expect(
+      loadFacultiesAction("11111111-1111-4111-8111-111111111111"),
+    ).resolves.toEqual({
+      status: "error",
+      errorCode: "REFERENCE_DATA_UNAVAILABLE",
+      httpStatus: 503,
+    });
   });
 
   it("fotoğraf formundan yalnız image dosyasını multipart iletir", async () => {
