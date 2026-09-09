@@ -1,5 +1,7 @@
 "use server";
 
+import { unstable_rethrow } from "next/navigation";
+
 import type { FormState } from "@/lib/form-state";
 import {
   gradeTypeOptions,
@@ -71,6 +73,7 @@ export async function loadFacultiesAction(universityId: string): Promise<Referen
   try {
     return { status: "done", items: await getFaculties(universityId) };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }
@@ -81,6 +84,7 @@ export async function loadDepartmentsAction(facultyId: string): Promise<Referenc
   try {
     return { status: "done", items: await getDepartments(facultyId) };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }

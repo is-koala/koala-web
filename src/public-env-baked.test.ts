@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 const sourceRoot = path.resolve(import.meta.dirname);
 const projectRoot = path.resolve(sourceRoot, "..");
 const dockerfile = path.join(projectRoot, "Dockerfile");
+const environmentExample = path.join(projectRoot, ".env.example");
 const nextRootEntry = /^(?:instrumentation(?:-client)?|sentry\.(?:server|edge)\.config|next\.config|mdx-components|middleware|proxy)\.tsx?$/;
 
 function parsedSource(file: string, contents: string): ts.SourceFile {
@@ -163,9 +164,25 @@ function builderBeforeBuild(dockerfileContents: string): string {
   return builder!.slice(0, build);
 }
 
+function runnerStage(dockerfileContents: string): string {
+  const runner = dockerfileContents.match(
+    /^FROM .* AS runner\s*$([\s\S]*)$/m,
+  )?.[1];
+  expect(runner, "Dockerfile runner aşaması eksik").toBeDefined();
+  return runner!;
+}
+
 function declaredArgs(builder: string): Set<string> {
   return new Set(
     [...builder.matchAll(/^ARG (NEXT_PUBLIC_[A-Z0-9_]+)\s*$/gm)].map(
+      (match) => match[1],
+    ),
+  );
+}
+
+function configuredPublicNames(contents: string): Set<string> {
+  return new Set(
+    [...contents.matchAll(/^(NEXT_PUBLIC_[A-Z0-9_]+)=/gm)].map(
       (match) => match[1],
     ),
   );
@@ -268,6 +285,20 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
     expect(missing).toEqual([]);
   });
 
+  it("örnek yapılandırmadaki her public değişken Docker build arg'ı olarak kabul ediliyor", () => {
+    const configured = configuredPublicNames(
+      readFileSync(environmentExample, "utf8"),
+    );
+    const declared = declaredArgs(
+      builderBeforeBuild(readFileSync(dockerfile, "utf8")),
+    );
+    const missing = [...configured]
+      .filter((name) => !declared.has(name))
+      .sort();
+
+    expect(missing).toEqual([]);
+  });
+
   it("Dockerfile'da tanımlı her NEXT_PUBLIC_ değişkeni build aşamasında ENV'e de bağlanıyor", () => {
     // ARG tek başına yetmiyor: `npm run build` ancak ENV üzerinden görüyor.
     // ARG yazılıp ENV unutulursa değişken yine sessizce boş kalır.
@@ -282,5 +313,19 @@ describe("public ortam değişkenleri derlemeye gömülüyor", () => {
     const unbound = [...args].filter((name) => !bindings.has(name)).sort();
 
     expect(unbound).toEqual([]);
+  });
+
+  it("public build arg'larına runner aşamasında yeniden başvurmuyor", () => {
+    // Gerçek image metadata sözleşmesini Docker smoke ölçer. Buradaki daha
+    // dar koruma çok satırlı Docker talimatları dahil runner aşamasının public
+    // build girdilerine yeniden başvurmasını engeller.
+    const contents = readFileSync(dockerfile, "utf8");
+    const buildArgs = declaredArgs(builderBeforeBuild(contents));
+    const runner = runnerStage(contents);
+    const referenced = [...buildArgs]
+      .filter((name) => runner.includes(name))
+      .sort();
+
+    expect(referenced).toEqual([]);
   });
 });

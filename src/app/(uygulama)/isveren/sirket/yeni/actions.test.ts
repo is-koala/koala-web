@@ -13,7 +13,11 @@ import { createCompanyAction } from "./actions";
 
 const redirect = vi.hoisted(() => vi.fn());
 
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", async () => ({
+  redirect,
+  unstable_rethrow: (await import("../../../../../../tests/support/navigation"))
+    .rethrowTestNavigationError,
+}));
 vi.mock("next/headers", async () => {
   const support = await import("../../../../../../tests/support/session-cookies");
   return {

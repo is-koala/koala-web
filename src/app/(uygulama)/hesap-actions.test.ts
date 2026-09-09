@@ -11,6 +11,7 @@ import {
   markNotificationReadAction,
   revokeOtherSessionsAction,
   revokeSessionAction,
+  requestAccountDeletionAction,
   selectPrimaryBankAccountAction,
   updateContactAction,
   updatePasswordAction,
@@ -22,6 +23,8 @@ const rawIban = "TR330006100519786457841326";
 const accountId = "b4bca2a3-ced9-4fc5-8434-6e5a45c26e80";
 const notificationId = "d0bf18da-c745-4051-a417-b123e4b61016";
 const sessionId = "4ace3ee5-f9fd-420c-8926-b35f2b82915a";
+const deletionRequestId = "c563451e-eb1a-4cf1-a521-246abae16a57";
+const duplicateRequestId = "993e6b6d-a7ec-4a58-82e0-2f3a1fd21ef9";
 
 const revalidatePath = vi.hoisted(() => vi.fn());
 
@@ -67,6 +70,217 @@ describe("hesap ayarları action'ları", () => {
       redirectTo("/giris?next=%2Fpanel%2Fhesap"),
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("hesap silme action'ı doğrudan çağrıldığında da oturum kapısını aşamaz", async () => {
+    cookieStore.values.delete("koala_at");
+    cookieStore.values.delete("koala_rt");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      requestAccountDeletionAction(
+        { status: "idle" },
+        fields({
+          confirmation: "account-deletion-irrevocable",
+          reason: "Artık kullanmıyorum",
+        }),
+      ),
+    ).rejects.toThrow(redirectTo("/giris?next=%2Fpanel%2Fhesap"));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("hesap silme talebini açık ve sunucuda doğrulanan onay olmadan göndermez", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      requestAccountDeletionAction(
+        { status: "idle" },
+        fields({ reason: "Artık kullanmıyorum" }),
+      ),
+    ).resolves.toEqual({
+      status: "error",
+      errorCode: "VALIDATION_FAILED",
+      httpStatus: 400,
+      fieldErrors: { confirmation: "Geri alınamaz etkiyi onaylamalısın." },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("onaylı hesabı silme talebini gerekçeyle oluşturur ve oturumu bekleme süresince açık tutar", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        200,
+        envelope({
+          id: "1b1ad05a-e5a7-4b78-893e-ac0901818671",
+          subjectId: "38a790b9-5212-438b-a3cd-1305b5b35ebf",
+          status: "REQUESTED",
+          requestedAt: "2026-09-09T09:30:00Z",
+          processedAt: null,
+          blockedReason: null,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestAccountDeletionAction(
+      { status: "idle" },
+      fields({
+        confirmation: "account-deletion-irrevocable",
+        reason: "  Artık kullanmıyorum  ",
+      }),
+    );
+
+    expect(result).toEqual({
+      status: "done",
+      outcome: "created",
+      deletion: {
+        status: "REQUESTED",
+        requestedAt: "2026-09-09T09:30:00Z",
+        processedAt: null,
+        blockedReason: null,
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("subjectId");
+    expect(request(fetchMock, 0)).toEqual({
+      method: "POST",
+      body: { reason: "Artık kullanmıyorum" },
+      url: "https://api.example.test/legal/account-deletion",
+    });
+    expect(cookieStore.delete).not.toHaveBeenCalledWith("koala_at");
+    expect(cookieStore.delete).not.toHaveBeenCalledWith("koala_rt");
+    expect(revalidatePath).toHaveBeenCalledWith("/panel/hesap");
+    expect(revalidatePath).toHaveBeenCalledWith("/isveren/hesap");
+  });
+
+  it("512 karakteri aşan gerekçeyi backend'e göndermeden reddeder ve değeri state'e yansıtmaz", async () => {
+    const reason = "k".repeat(513);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestAccountDeletionAction(
+      { status: "idle" },
+      fields({ confirmation: "account-deletion-irrevocable", reason }),
+    );
+
+    expect(result).toEqual({
+      status: "error",
+      errorCode: "VALIDATION_FAILED",
+      httpStatus: 400,
+      fieldErrors: { reason: "Silme nedeni en fazla 512 karakter olabilir." },
+    });
+    expect(JSON.stringify(result)).not.toContain(reason);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("hesap silme hatasında backend metni yerine stabil kodu ve destek kimliğini döndürür", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(503, {
+          success: false,
+          errorCode: "UPSTREAM_UNAVAILABLE",
+          errorCategory: "UPSTREAM_FAILED",
+          message: "İç sistem ayrıntısı ve kişisel veri",
+          requestId: deletionRequestId,
+        }),
+      ),
+    );
+
+    const result = await requestAccountDeletionAction(
+      { status: "idle" },
+      fields({ confirmation: "account-deletion-irrevocable", reason: "" }),
+    );
+
+    expect(result).toEqual({
+      status: "error",
+      errorCode: "UPSTREAM_UNAVAILABLE",
+      httpStatus: 503,
+      requestId: deletionRequestId,
+    });
+    expect(JSON.stringify(result)).not.toContain("kişisel veri");
+  });
+
+  it("yarışta oluşan duplicate talebi mevcut bekleyen durumla idempotent gösterir", async () => {
+    const deletion = {
+      id: "1b1ad05a-e5a7-4b78-893e-ac0901818671",
+      subjectId: "38a790b9-5212-438b-a3cd-1305b5b35ebf",
+      status: "REQUESTED",
+      requestedAt: "2026-09-09T09:30:00Z",
+      processedAt: null,
+      blockedReason: "Devam eden işiniz varken hesabınız silinemez.",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(409, {
+          success: false,
+          errorCode: "LEGAL_DELETION_ALREADY_REQUESTED",
+          errorCategory: "DATA_CONFLICT",
+          message: "Ham duplicate metni",
+          requestId: duplicateRequestId,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, envelope(deletion)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestAccountDeletionAction(
+      { status: "idle" },
+      fields({ confirmation: "account-deletion-irrevocable", reason: "" }),
+    );
+
+    expect(result).toEqual({
+      status: "done",
+      outcome: "already-requested",
+      deletion: {
+        status: "REQUESTED",
+        requestedAt: "2026-09-09T09:30:00Z",
+        processedAt: null,
+        blockedReason: "Devam eden işiniz varken hesabınız silinemez.",
+      },
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.example.test/legal/account-deletion",
+      "https://api.example.test/legal/account-deletion",
+    ]);
+    expect((fetchMock.mock.calls[1]?.[1] as RequestInit).cache).toBe("no-store");
+  });
+
+  it("duplicate sonrası durum okunamazsa ilk stabil kodu ve requestId'yi korur", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(409, {
+          success: false,
+          errorCode: "LEGAL_DELETION_ALREADY_REQUESTED",
+          errorCategory: "DATA_CONFLICT",
+          message: "Ham duplicate metni",
+          requestId: duplicateRequestId,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(503, {
+          success: false,
+          errorCode: "UPSTREAM_UNAVAILABLE",
+          errorCategory: "UPSTREAM_FAILED",
+          message: "İç servis metni",
+          requestId: "3415e938-1978-49bc-a867-38fc46337151",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      requestAccountDeletionAction(
+        { status: "idle" },
+        fields({ confirmation: "account-deletion-irrevocable", reason: "" }),
+      ),
+    ).resolves.toEqual({
+      status: "error",
+      errorCode: "LEGAL_DELETION_ALREADY_REQUESTED",
+      httpStatus: 409,
+      requestId: duplicateRequestId,
+    });
   });
 
   it("mutation sırasında süresi dolan oturumu hata state'ine çevirmeden girişe yönlendirir", async () => {

@@ -1,7 +1,10 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import type { NotificationPreference } from "@/lib/profile";
-import { backendPaths } from "@/server/contract";
+import { ApiError, safeRequestId } from "@/server/api/errors";
+import { backendPaths, unexpectedError } from "@/server/contract";
 import { getNotificationPreferences } from "@/server/profile/profile";
 import { apiRequest } from "@/server/session/session";
 
@@ -51,6 +54,30 @@ export type AccountSession = {
   current: boolean;
 };
 
+/** Hesap silme talebinin kişisel gerekçeyi geri taşımayan güvenli görünümü. */
+export type AccountDeletion = {
+  /** Backend yeni bir yaşam döngüsü durumu ekleyebilir; sunum fail-closed davranır. */
+  status: string;
+  requestedAt: string;
+  processedAt: string | null;
+  blockedReason: string | null;
+};
+
+type AccountDeletionDto = AccountDeletion & {
+  id: string;
+  subjectId: string;
+};
+
+export type AccountDeletionLoadState =
+  | { kind: "not-requested" }
+  | { kind: "request"; deletion: AccountDeletion }
+  | {
+      kind: "error";
+      errorCode: string;
+      httpStatus: number;
+      requestId: string | null;
+    };
+
 type AccountSessionDto = AccountSession & {
   deviceId: string;
   ipAddress: string | null;
@@ -68,16 +95,18 @@ export type AccountSettingsData = {
   notifications: NotificationFeed;
   preferences: readonly NotificationPreference[];
   sessions: readonly AccountSession[];
+  accountDeletion: AccountDeletionLoadState;
 };
 
 export async function loadAccountSettings(notificationPage = 0): Promise<AccountSettingsData> {
-  const [bankAccounts, notifications, preferences, sessions] = await Promise.all([
+  const [bankAccounts, notifications, preferences, sessions, accountDeletion] = await Promise.all([
     listBankAccounts(),
     listNotifications(notificationPage),
     getNotificationPreferences(),
     listSessions(),
+    loadAccountDeletionStatus(),
   ]);
-  return { bankAccounts, notifications, preferences, sessions };
+  return { bankAccounts, notifications, preferences, sessions, accountDeletion };
 }
 
 export async function listBankAccounts(): Promise<readonly BankAccount[]> {
@@ -143,4 +172,56 @@ export async function revokeSession(sessionId: string): Promise<void> {
 
 export async function revokeOtherSessions(): Promise<number> {
   return apiRequest<number>(backendPaths.sessions, { method: "DELETE" });
+}
+
+export async function getAccountDeletion(): Promise<AccountDeletion> {
+  return deletionView(
+    await apiRequest<AccountDeletionDto>(backendPaths.accountDeletion, { cache: "no-store" }),
+  );
+}
+
+export async function requestAccountDeletion(reason: string | null): Promise<AccountDeletion> {
+  return deletionView(
+    await apiRequest<AccountDeletionDto>(backendPaths.accountDeletion, {
+      method: "POST",
+      body: { reason },
+    }),
+  );
+}
+
+export async function loadAccountDeletionStatus(): Promise<AccountDeletionLoadState> {
+  try {
+    return { kind: "request", deletion: await getAccountDeletion() };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (
+      error instanceof ApiError &&
+      error.status === 404 &&
+      error.errorCode === "LEGAL_DELETION_NOT_FOUND"
+    ) {
+      return { kind: "not-requested" };
+    }
+    return error instanceof ApiError
+      ? {
+          kind: "error",
+          errorCode: error.errorCode,
+          httpStatus: error.status,
+          requestId: safeRequestId(error.requestId),
+        }
+      : {
+          kind: "error",
+          errorCode: unexpectedError,
+          httpStatus: 500,
+          requestId: null,
+        };
+  }
+}
+
+function deletionView(deletion: AccountDeletionDto): AccountDeletion {
+  return {
+    status: deletion.status,
+    requestedAt: deletion.requestedAt,
+    processedAt: deletion.processedAt,
+    blockedReason: deletion.blockedReason,
+  };
 }

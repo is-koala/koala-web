@@ -297,18 +297,30 @@ export function CheckboxField({
   name,
   value,
   required = false,
+  error,
   children,
 }: {
   name: string;
   value: string;
   required?: boolean;
+  error?: string;
   children: ReactNode;
 }) {
   const id = `${name}-${value}`;
+  const errorId = error ? `${id}-error` : undefined;
   return (
-    <div className="checkbox-field">
-      <input id={id} name={name} type="checkbox" value={value} required={required} />
+    <div className={`checkbox-field${error ? " checkbox-field-with-error" : ""}`}>
+      <input
+        id={id}
+        name={name}
+        type="checkbox"
+        value={value}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={errorId}
+      />
       <label htmlFor={id}>{children}</label>
+      <FieldError id={errorId} message={error} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
 import { newIndividualJobPath, publishedJobPath } from "@/lib/app-routes";
@@ -36,6 +36,7 @@ export async function quotePriceAction(workerPayout: string): Promise<PriceQuote
   try {
     return { status: "ready", breakdown: await fetchPriceQuote(amount) };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }
@@ -73,6 +74,7 @@ export async function publishIndividualJobAction(
   try {
     created = await createIndividualJob(body);
   } catch (error) {
+    unstable_rethrow(error);
     const failure = failureState(error);
     return failure.status === "error" && failure.fieldErrors
       ? { ...failure, fieldErrors: withJobFieldAliases(failure.fieldErrors) }

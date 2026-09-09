@@ -1,3 +1,4 @@
+import { privateResponseHeaders } from "@/lib/private-routes";
 import { readPaymentResultPoll } from "@/server/payments/result-route";
 
 export async function GET(
@@ -8,6 +9,6 @@ export async function GET(
   const result = await readPaymentResultPoll(assignmentId);
   return Response.json(result.body, {
     status: result.status,
-    headers: { "Cache-Control": "no-store" },
+    headers: privateResponseHeaders,
   });
 }

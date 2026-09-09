@@ -21,3 +21,14 @@ export function throwingRedirect() {
     throw new Error(redirectTo(target));
   });
 }
+
+/**
+ * Test redirect'ini Next'in iç hata tipine bağlanmadan yeniden fırlatır.
+ *
+ * `unstable_rethrow` mock'ları bunu kullanır: yalnız `throwingRedirect`
+ * tarafından üretilen kontrol akışı geçer, sıradan uygulama hataları catch
+ * sınırının mevcut failure-state eşlemesine bırakılır.
+ */
+export function rethrowTestNavigationError(error: unknown): void {
+  if (error instanceof Error && error.message.startsWith(redirectPrefix)) throw error;
+}

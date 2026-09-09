@@ -1,4 +1,5 @@
 import type {
+  AccountDeletionAction,
   SettingsAction,
   SettingsActionState,
 } from "@/app/(uygulama)/hesap-actions";
@@ -21,6 +22,7 @@ export type AccountSettingsActions = {
   markAllNotificationsRead: SettingsAction;
   revokeSession: SettingsAction;
   revokeOtherSessions: SettingsAction;
+  requestAccountDeletion: AccountDeletionAction;
 };
 
 export const initialSettingsActionState: SettingsActionState = { status: "idle" };

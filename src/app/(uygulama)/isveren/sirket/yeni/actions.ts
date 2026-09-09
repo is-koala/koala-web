@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
 import { companyProfilePath, companySectionPath } from "@/lib/app-routes";
@@ -50,6 +50,7 @@ export async function createCompanyAction(
   try {
     created = await createCompany(body, logoOf(formData));
   } catch (error) {
+    unstable_rethrow(error);
     return failureState(error);
   }
 

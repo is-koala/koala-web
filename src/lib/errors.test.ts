@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { backendErrorFamilies } from "./backend-error-codes";
-import { errorPresentation, gateNotice } from "./errors";
+import { errorPresentation, errorRecoveryAction, gateNotice } from "./errors";
 import { gateModes, type GateId } from "./gates";
 import { privateRoutes } from "./private-routes";
 
 describe("API hata sunumu", () => {
+  it.each(["constructor", "__proto__", "javascript:alert(1)", null, {}, []])(
+    "%j eylemini tanımadığında kapalı kalır",
+    (action) => {
+      expect(errorRecoveryAction(action)).toBeNull();
+    },
+  );
+
   it("oturum hatasını yeniden giriş eylemine dönüştürür", () => {
     expect(errorPresentation("TOKEN_EXPIRED", 401)).toEqual({
       title: "Oturumun sona erdi",
@@ -80,6 +87,14 @@ describe("API hata sunumu", () => {
     expect(errorPresentation("NEW_INTERNAL_DETAIL", 500)).toEqual({
       title: "Bir sorun oluştu",
       message: "İşlemi şu anda tamamlayamadık. Biraz sonra yeniden dene.",
+      action: "retry",
+    });
+  });
+
+  it("hesap silme duplicate kodunu yeni bir işlem önerisine çevirmeden açıklar", () => {
+    expect(errorPresentation("LEGAL_DELETION_ALREADY_REQUESTED", 409)).toEqual({
+      title: "Silme talebin zaten var",
+      message: "Bekleyen talebinin güncel durumunu görmek için sayfayı yenileyebilirsin.",
       action: "retry",
     });
   });

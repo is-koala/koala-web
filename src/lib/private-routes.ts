@@ -8,25 +8,19 @@
  * `next.config.ts` onu göreli yoldan okuyor.
  */
 
-/** Tek başına kapanan, alt yolu olmayan adresler. */
-export const privateRoutes = [
-  "/giris",
-  "/cikis",
-  "/kayit",
-  "/sifre-unuttum",
-  "/hesap-dogrula",
-  "/sifre-belirle",
-  "/sifre-sifirla",
-  "/eposta-onayla",
-  "/uygulamayi-ac",
-  "/payment/result",
-] as const;
+type PrivateRouteDescriptor =
+  | { readonly kind: "exact"; readonly path: string }
+  | { readonly kind: "tree"; readonly path: string }
+  | {
+      readonly kind: "parameterized";
+      readonly headerSource: string;
+      readonly robotsRule: string;
+    };
 
 /**
- * Kendisiyle birlikte altındaki her yolun kapandığı ağaçlar.
+ * Private yol kayıtlarının tek doğruluk kaynağı.
  *
- * Ayrı bir liste, çünkü iki tüketici bir ağacı iki farklı biçimde yazıyor ve
- * ikisi de tek satırla yanlış yapılabiliyor:
+ * İki tüketici aynı yolu farklı sözdizimleriyle yazıyor:
  *
  * - `next.config.ts` yol kalıbı bekler; yalnız `/isveren` yazmak alt yolları
  *   başlıksız bırakır.
@@ -42,17 +36,65 @@ export const privateRoutes = [
  * için `app-routes.ts` kaydında karşılığı yok; ağaçların kabuk köklerini
  * **kapsadığı** ama onlardan ibaret olmadığı `app-routes.test.ts` içinde
  * yazılı.
+ *
+ * Parametreli rota iki gösterimi aynı kayıtta zorunlu tutar. `:assignmentId`
+ * Next'in yol parametresidir; robots.txt bunu anlamaz ve crawler tarafında
+ * gerçek URL'yi eşleştiren `*` kalıbı gerekir.
  */
-export const privateRouteTrees = ["/isveren", "/panel", "/davet", "/api/disputes"] as const;
+export const privateRouteDescriptors = [
+  { kind: "exact", path: "/giris" },
+  { kind: "exact", path: "/cikis" },
+  { kind: "exact", path: "/kayit" },
+  { kind: "exact", path: "/sifre-unuttum" },
+  { kind: "exact", path: "/hesap-dogrula" },
+  { kind: "exact", path: "/sifre-belirle" },
+  { kind: "exact", path: "/sifre-sifirla" },
+  { kind: "exact", path: "/eposta-onayla" },
+  { kind: "exact", path: "/uygulamayi-ac" },
+  { kind: "exact", path: "/payment/result" },
+  { kind: "tree", path: "/isveren" },
+  { kind: "tree", path: "/panel" },
+  { kind: "tree", path: "/davet" },
+  { kind: "tree", path: "/api/disputes" },
+  {
+    kind: "parameterized",
+    headerSource: "/api/payments/:assignmentId/result",
+    robotsRule: "/api/payments/*/result",
+  },
+] as const satisfies readonly PrivateRouteDescriptor[];
+
+/** Tek başına kapanan, alt yolu olmayan adresler. */
+export const privateRoutes: readonly string[] = privateRouteDescriptors.flatMap((route) =>
+  route.kind === "exact" ? [route.path] : [],
+);
+
+/** Kendisiyle birlikte altındaki her yolun kapandığı ağaçlar. */
+export const privateRouteTrees: readonly string[] = privateRouteDescriptors.flatMap((route) =>
+  route.kind === "tree" ? [route.path] : [],
+);
+
+/** Gizli sayfa ve BFF yanıtlarının ortak tarayıcı güvenlik politikası. */
+export const privateResponseHeaders = {
+  "X-Robots-Tag": "noindex, nofollow, noarchive",
+  "Referrer-Policy": "no-referrer",
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
+} as const;
 
 /** `next.config.ts` başlık kurallarının kaynak kalıpları. */
 export const privateHeaderSources: readonly string[] = [
-  ...privateRoutes,
-  ...privateRouteTrees.flatMap((root) => [root, `${root}/:path*`]),
+  ...privateRouteDescriptors.flatMap((route) => {
+    if (route.kind === "exact") return [route.path];
+    if (route.kind === "tree") return [route.path, `${route.path}/:path*`];
+    return [route.headerSource];
+  }),
 ];
 
 /** `robots.txt` içindeki `Disallow` satırları. */
 export const privateDisallowRules: readonly string[] = [
-  ...privateRoutes,
-  ...privateRouteTrees.flatMap((root) => [`${root}$`, `${root}/`]),
+  ...privateRouteDescriptors.flatMap((route) => {
+    if (route.kind === "exact") return [route.path];
+    if (route.kind === "tree") return [`${route.path}$`, `${route.path}/`];
+    return [route.robotsRule];
+  }),
 ];
