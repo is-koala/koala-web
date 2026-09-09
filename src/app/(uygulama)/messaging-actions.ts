@@ -2,9 +2,15 @@
 
 import { unstable_rethrow } from "next/navigation";
 
-import type { LoadMessagesResult, MessagingActionFailure, SendMessageResult } from "@/messaging/contract";
+import type {
+  LoadConversationSummaryResult,
+  LoadMessagesResult,
+  MessagingActionFailure,
+  SendMessageResult,
+} from "@/messaging/contract";
 import { failureView } from "@/server/form";
 import {
+  getConversation,
   getConversationMessages,
   getConversations,
   getUnreadState,
@@ -41,6 +47,24 @@ export async function loadUnreadStateAction() {
   await requireSessionForCurrentPath();
   try {
     return { ok: true as const, state: await getUnreadState() };
+  } catch (error) {
+    unstable_rethrow(error);
+    return actionFailure(error);
+  }
+}
+
+export async function loadConversationSummaryAction(
+  conversationId: string,
+): Promise<LoadConversationSummaryResult> {
+  await requireSessionForCurrentPath();
+  if (!uuidPattern.test(conversationId)) return validationFailure;
+  const { viewer } = await currentViewer();
+  if (viewer === null) return { ...validationFailure, errorCode: unexpectedError, status: 0 };
+  try {
+    const conversation = await getConversation(viewer.id, conversationId);
+    return conversation === null
+      ? { ...validationFailure, errorCode: unexpectedError, status: 0 }
+      : { ok: true, conversation };
   } catch (error) {
     unstable_rethrow(error);
     return actionFailure(error);

@@ -3,8 +3,9 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { ConversationList } from "@/components/messaging/conversation-list";
 import { ConversationThread } from "@/components/messaging/conversation-thread";
 import { ErrorState } from "@/components/states";
-import type { ConversationSummary } from "@/messaging/contract";
+import type { LoadConversationSummaryResult } from "@/messaging/contract";
 import { isNotFound } from "@/server/api/errors";
+import { unexpectedError } from "@/server/contract";
 import { failureView } from "@/server/form";
 import {
   getConversation,
@@ -45,14 +46,11 @@ export async function MessageThreadPage({
     const failure = failureView(messagesResult.reason);
     return <ErrorState status={failure.httpStatus} errorCode={failure.errorCode} />;
   }
-  if (conversationResult.status === "rejected") unstable_rethrow(conversationResult.reason);
-
-  const conversation = conversationResult.status === "fulfilled"
-    ? conversationResult.value
-    : null;
+  const initialSummary = conversationSummaryResult(conversationResult);
   return (
     <ConversationThread
-      conversation={conversation ?? fallbackConversation(conversationId)}
+      conversationId={conversationId}
+      initialSummary={initialSummary}
       initialMessages={messagesResult.value}
       viewerId={viewer.id}
       basePath={basePath}
@@ -60,19 +58,21 @@ export async function MessageThreadPage({
   );
 }
 
-function fallbackConversation(id: string): ConversationSummary {
+function conversationSummaryResult(
+  result: PromiseSettledResult<Awaited<ReturnType<typeof getConversation>>>,
+): LoadConversationSummaryResult {
+  if (result.status === "fulfilled") {
+    return result.value === null
+      ? { ok: false, errorCode: unexpectedError, status: 0, blocked: false }
+      : { ok: true, conversation: result.value };
+  }
+  unstable_rethrow(result.reason);
+  const failure = failureView(result.reason);
   return {
-    id,
-    jobId: null,
-    jobTitle: null,
-    displayName: "Konuşma",
-    profilePictureUrl: null,
-    counterpartId: null,
-    lastMessageAt: null,
-    lastMessageBody: null,
-    unreadCount: 0,
-    closed: false,
-    online: null,
+    ok: false,
+    errorCode: failure.errorCode,
+    status: failure.httpStatus,
+    blocked: failure.httpStatus === 403,
   };
 }
 
