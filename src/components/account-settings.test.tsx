@@ -2,13 +2,18 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { SettingsAction, SettingsActionState } from "@/app/(uygulama)/hesap-actions";
+import type {
+  AccountDeletionActionState,
+  SettingsAction,
+  SettingsActionState,
+} from "@/app/(uygulama)/hesap-actions";
 import type { AccountSettingsData } from "@/server/account-settings/settings";
 
 import { AccountSettings } from "./account-settings";
 
 const rawIban = "TR330006100519786457841326";
 const data: AccountSettingsData = {
+  accountDeletion: { kind: "not-requested" },
   bankAccounts: [
     {
       id: "b4bca2a3-ced9-4fc5-8434-6e5a45c26e80",
@@ -244,6 +249,16 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(within(sessions).getByRole("button", { name: "Diğer tüm oturumları kapat" })).toBeVisible();
   });
 
+  it("hesap silme talebini iki kabuğun ortak ayar ekranında sunar", () => {
+    renderSettings();
+
+    expect(screen.getByRole("link", { name: "Hesap silme" })).toHaveAttribute(
+      "href",
+      "#hesap-silme",
+    );
+    expect(screen.getByRole("region", { name: "Hesap silme" })).toBeVisible();
+  });
+
   it("tarihleri sunucunun TZ'sinden bağımsız İstanbul saatiyle çizer", () => {
     // Ekran `"use client"` taşıyor ama ilk HTML sunucuda çiziliyor ve üretimde
     // sunucunun dilimi `UTC`. Sabit olmasaydı ilk boya ile hidrasyon sonrası
@@ -308,6 +323,7 @@ function renderSettings(overrides: Overrides = {}) {
 
 function actions() {
   const idle = vi.fn(async (): Promise<SettingsActionState> => ({ status: "idle" }));
+  const deletionIdle = vi.fn(async (): Promise<AccountDeletionActionState> => ({ status: "idle" }));
   return {
     addBankAccount: idle,
     selectPrimaryBankAccount: idle,
@@ -319,5 +335,6 @@ function actions() {
     markAllNotificationsRead: idle,
     revokeSession: idle,
     revokeOtherSessions: idle,
-  } satisfies Record<string, SettingsAction>;
+    requestAccountDeletion: deletionIdle,
+  } satisfies Record<string, SettingsAction | typeof deletionIdle>;
 }

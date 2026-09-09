@@ -68,6 +68,19 @@ test("girişten sonra kullanıcı bıraktığı kabuk adresine döner", async ({
   await expect(page.locator("input[name='next']")).toHaveValue("/isveren/ilanlar");
 });
 
+test("hesap silme mutation yüzeyi same-origin ve oturum kapılarının arkasında kalır", async ({
+  request,
+}) => {
+  for (const headers of [undefined, { origin: "https://baska-site.example" }]) {
+    const response = await request.post("/panel/hesap", { headers });
+    expect(response.status()).toBe(403);
+  }
+
+  const page = await request.get("/panel/hesap", { maxRedirects: 0 });
+  expect(page.status()).toBe(307);
+  expect(page.headers().location).toBe("/giris?next=%2Fpanel%2Fhesap");
+});
+
 test("kabuk adresleri indekslenmez", async ({ request }) => {
   for (const path of [
     "/isveren",

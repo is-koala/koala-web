@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 
 import {
   cookieStore,
@@ -111,5 +112,55 @@ describe("hesap sayfası bildirim sayfalaması", () => {
 
     expect(cookieStore.delete).toHaveBeenCalledWith("koala_at");
     expect(cookieStore.delete).toHaveBeenCalledWith("koala_rt");
+  });
+
+  it("bekleyen hesap silme durumunu iki kabuğun ortak sayfasında çizer", async () => {
+    const feed = {
+      notifications: {
+        content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true,
+      },
+      unreadCount: 0,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope({
+            id: "38a790b9-5212-438b-a3cd-1305b5b35ebf",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada@example.test",
+            phoneNumber: "+905551112233",
+            emailVerified: true,
+            phoneVerified: true,
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(feed)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope({
+            id: "1b1ad05a-e5a7-4b78-893e-ac0901818671",
+            subjectId: "38a790b9-5212-438b-a3cd-1305b5b35ebf",
+            status: "REQUESTED",
+            requestedAt: "2026-09-09T09:30:00Z",
+            processedAt: null,
+            blockedReason: null,
+          }),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(await AccountPage());
+
+    expect(screen.getByRole("region", { name: "Hesap silme" })).toHaveTextContent("Talebin alındı");
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+      "https://api.example.test/legal/account-deletion",
+    );
   });
 });
