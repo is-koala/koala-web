@@ -1,23 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
+  blockConversationUserAction,
   confirmConversationAccessAction,
   confirmPresenceAccessAction,
   loadConversationSummaryAction,
   loadOlderMessagesAction,
   markConversationReadAction,
+  reportMessageAction,
   sendMessageAction,
+  unblockConversationUserAction,
 } from "@/app/(uygulama)/messaging-actions";
 import type {
   LoadConversationSummaryResult,
   LoadMessagesResult,
   Message,
+  MessageReportResult,
+  MessagingActionFailure,
+  MessagingMutationResult,
   Page,
+  ReportReason,
   SendMessageResult,
 } from "@/messaging/contract";
+import { reportReasonLabels, reportReasons } from "@/messaging/contract";
 import { errorPresentation } from "@/lib/errors";
 import { messageFromRealtime } from "@/messaging/realtime";
 import {
@@ -38,6 +56,7 @@ import { ConnectionStatus } from "./connection-status";
 
 type Props = {
   conversationId: string;
+  conversationPage?: number;
   initialSummary: LoadConversationSummaryResult;
   initialMessages: Page<Message>;
   viewerId: string;
@@ -47,12 +66,38 @@ type Props = {
   confirmPresence?: (userId: string) => Promise<boolean>;
   sendMessage?: (conversationId: string, body: string) => Promise<SendMessageResult>;
   loadOlder?: (conversationId: string, page: number) => Promise<LoadMessagesResult>;
-  loadSummary?: (conversationId: string) => Promise<LoadConversationSummaryResult>;
+  loadSummary?: (
+    conversationId: string,
+    sourcePage: number,
+  ) => Promise<LoadConversationSummaryResult>;
   markRead?: (conversationId: string) => Promise<boolean>;
+  initialBlockedByViewer?: boolean;
+  blockConversationUser?: (
+    conversationId: string,
+    sourcePage: number,
+  ) => Promise<MessagingMutationResult>;
+  unblockConversationUser?: (
+    conversationId: string,
+    sourcePage: number,
+  ) => Promise<MessagingMutationResult>;
+  reportMessage?: (
+    conversationId: string,
+    messageId: string,
+    reason: string,
+    description: string,
+  ) => Promise<MessageReportResult>;
+};
+
+const unexpectedMutationFailure: MessagingActionFailure = {
+  ok: false,
+  errorCode: "UNEXPECTED",
+  status: 500,
+  blocked: false,
 };
 
 export function ConversationThread({
   conversationId,
+  conversationPage = 0,
   initialSummary,
   initialMessages,
   viewerId,
@@ -64,11 +109,24 @@ export function ConversationThread({
   loadOlder = loadOlderMessagesAction,
   loadSummary = loadConversationSummaryAction,
   markRead = markConversationReadAction,
+  initialBlockedByViewer = false,
+  blockConversationUser = blockConversationUserAction,
+  unblockConversationUser = unblockConversationUserAction,
+  reportMessage = reportMessageAction,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
   const [thread, setThread] = useState(() => initialThreadState(initialMessages.content));
   const [body, setBody] = useState("");
-  const [blocked, setBlocked] = useState(false);
+  const [blockState, setBlockState] = useState<"open" | "viewer" | "unknown">(
+    initialBlockedByViewer ? "viewer" : "open",
+  );
+  const [safetyDialog, setSafetyDialog] = useState<"block" | "unblock" | null>(null);
+  const [safetyPending, setSafetyPending] = useState(false);
+  const [safetyError, setSafetyError] = useState<MessagingActionFailure | null>(null);
+  const [reportDialog, setReportDialog] = useState<{ messageId: string } | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason | "">("");
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportFeedback, setReportFeedback] = useState(false);
   const [sendError, setSendError] = useState(false);
   const [typing, setTyping] = useState(false);
   const [online, setOnline] = useState(initialSummary.ok ? initialSummary.conversation.online : null);
@@ -82,14 +140,20 @@ export function ConversationThread({
   const lastTypingSentAt = useRef(0);
   const pendingCounter = useRef(0);
   const historyRef = useRef<HTMLDivElement>(null);
+  const safetyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const reportTriggerRef = useRef<HTMLButtonElement | null>(null);
   const initialScrollPositioned = useRef(false);
   const lastScrollTop = useRef(0);
   const pendingScrollAnchor = useRef<{ height: number; top: number } | null>(null);
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
   const conversation = summary.ok ? summary.conversation : null;
   const summaryBlocked = !summary.ok && summary.blocked;
+  const summaryPermanentlyUnavailable = !summary.ok && summary.status === 0;
+  const blocked = blockState !== "open";
   const permanentlyBlocked = blocked || summaryBlocked;
-  const composerLocked = permanentlyBlocked || conversation === null || conversation.closed;
+  const dialogOpen = safetyDialog !== null || reportDialog !== null;
+  const composerLocked = permanentlyBlocked || conversation === null || conversation.closed
+    || (safetyPending && safetyDialog === "block");
   const sendUnavailable = composerLocked || !body.trim();
 
   useLayoutEffect(() => {
@@ -191,7 +255,7 @@ export function ConversationThread({
     }
     setThread((current) => failPendingMessage(current, clientId));
     setSendError(true);
-    if (result.blocked) setBlocked(true);
+    if (result.blocked) setBlockState("unknown");
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -241,7 +305,7 @@ export function ConversationThread({
     if (summaryLoading) return;
     setSummaryLoading(true);
     try {
-      const result = await loadSummary(conversationId);
+      const result = await loadSummary(conversationId, conversationPage);
       setSummary(result);
       if (result.ok) setOnline(result.conversation.online);
     } catch {
@@ -252,9 +316,57 @@ export function ConversationThread({
     }
   }
 
+  async function confirmSafetyMutation() {
+    const operation = safetyDialog;
+    if (operation === null || safetyPending) return;
+    setSafetyPending(true);
+    setSafetyError(null);
+    try {
+      const result = operation === "block"
+        ? await blockConversationUser(conversationId, conversationPage)
+        : await unblockConversationUser(conversationId, conversationPage);
+      if (!result.ok) {
+        setSafetyError(result);
+        return;
+      }
+      setBlockState(operation === "block" ? "viewer" : "open");
+      setSafetyDialog(null);
+    } catch {
+      setSafetyError(unexpectedMutationFailure);
+    } finally {
+      setSafetyPending(false);
+    }
+  }
+
+  async function submitReport() {
+    const target = reportDialog;
+    const reason = reportReason;
+    if (target === null || reason === "" || safetyPending) return;
+    setSafetyPending(true);
+    setSafetyError(null);
+    try {
+      const result = await reportMessage(
+        conversationId,
+        target.messageId,
+        reason,
+        reportDescription,
+      );
+      if (!result.ok) {
+        setSafetyError(result);
+        return;
+      }
+      setReportDialog(null);
+      setReportFeedback(true);
+    } catch {
+      setSafetyError(unexpectedMutationFailure);
+    } finally {
+      setSafetyPending(false);
+    }
+  }
+
   return (
     <section className="message-thread" aria-labelledby="thread-heading">
-      <header className="thread-header">
+      <header className="thread-header" inert={dialogOpen ? true : undefined}>
         <Link className="thread-back" href={basePath}>← Konuşmalar</Link>
         <div className="thread-title-row">
           <div>
@@ -264,11 +376,135 @@ export function ConversationThread({
               <p className="thread-presence">{online === true ? "Çevrimiçi" : "Çevrimdışı"}</p>
             ) : null}
           </div>
-          <ConnectionStatus state={connection} />
+          <div className="thread-safety-actions">
+            <ConnectionStatus state={connection} />
+            {conversation?.counterpartId ? (
+              blockState === "unknown" ? null : (
+                <button
+                  className="text-link"
+                  type="button"
+                  onClick={(event) => {
+                    safetyTriggerRef.current = event.currentTarget;
+                    setSafetyError(null);
+                    setSafetyDialog(blockState === "viewer" ? "unblock" : "block");
+                  }}
+                >
+                  {blockState === "viewer" ? "Engeli kaldır" : "Kullanıcıyı engelle"}
+                </button>
+              )
+            ) : null}
+          </div>
         </div>
       </header>
 
-      <div ref={historyRef} className="message-history" onScroll={handleHistoryScroll}>
+      {safetyDialog === "block" || safetyDialog === "unblock" ? (
+        <AccessibleDialog
+          labelledBy="block-user-dialog-title"
+          dismissDisabled={safetyPending}
+          returnFocus={safetyTriggerRef}
+          onDismiss={() => setSafetyDialog(null)}
+        >
+          <section className="assignment-dialog">
+            <h2 id="block-user-dialog-title">
+              {safetyDialog === "block" ? "Kullanıcıyı engelle" : "Engeli kaldır"}
+            </h2>
+            <p>
+              {safetyDialog === "block"
+                ? "Bu konuşmada iki taraf da mesaj gönderemeyecek. İşlemi daha sonra geri alabilirsin."
+                : "Engeli kaldırdığında iki taraf da bu konuşmada yeniden mesaj gönderebilir."}
+            </p>
+            {safetyError ? <SafetyError failure={safetyError} /> : null}
+            <div className="assignment-dialog-actions">
+              <button
+                className="button button-secondary button-small"
+                type="button"
+                disabled={safetyPending}
+                onClick={() => setSafetyDialog(null)}
+              >
+                Vazgeç
+              </button>
+              <button
+                className="button button-primary button-small"
+                type="button"
+                disabled={safetyPending}
+                onClick={() => void confirmSafetyMutation()}
+              >
+                {safetyPending
+                  ? (safetyDialog === "block" ? "Engelleniyor…" : "Engel kaldırılıyor…")
+                  : safetyError
+                    ? "Tekrar dene"
+                    : (safetyDialog === "block" ? "Engellemeyi onayla" : "Engeli kaldırmayı onayla")}
+              </button>
+            </div>
+          </section>
+        </AccessibleDialog>
+      ) : null}
+
+      {reportDialog !== null ? (
+        <AccessibleDialog
+          labelledBy="report-dialog-title"
+          dismissDisabled={safetyPending}
+          returnFocus={reportTriggerRef}
+          onDismiss={() => setReportDialog(null)}
+        >
+          <section className="assignment-dialog">
+            <h2 id="report-dialog-title">Mesajı şikâyet et</h2>
+            <p>Şikâyet moderasyon ekibine iletilir; karşı tarafa açıklaman gösterilmez.</p>
+            <label className="field">
+              <span>Gerekçe</span>
+              <select
+                value={reportReason}
+                disabled={safetyPending || isPermanentReportFailure(safetyError)}
+                onChange={(event) => setReportReason(event.target.value as ReportReason | "")}
+              >
+                <option value="">Gerekçe seç</option>
+                {reportReasons.map((reason) => (
+                  <option key={reason} value={reason}>{reportReasonLabels[reason]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Açıklama (isteğe bağlı)</span>
+              <textarea
+                value={reportDescription}
+                maxLength={2_000}
+                rows={4}
+                disabled={safetyPending || isPermanentReportFailure(safetyError)}
+                onChange={(event) => setReportDescription(event.target.value)}
+              />
+            </label>
+            {safetyError ? <SafetyError failure={safetyError} /> : null}
+            <div className="assignment-dialog-actions">
+              <button
+                className="button button-secondary button-small"
+                type="button"
+                disabled={safetyPending}
+                onClick={() => setReportDialog(null)}
+              >
+                {isPermanentReportFailure(safetyError) ? "Kapat" : "Vazgeç"}
+              </button>
+              {isPermanentReportFailure(safetyError) ? null : (
+                <button
+                  className="button button-primary button-small"
+                  type="button"
+                  disabled={safetyPending || reportReason === ""}
+                  data-disabled-kind={reportReason === "" ? "permanent" : undefined}
+                  onClick={() => void submitReport()}
+                >
+                  {safetyPending ? "Gönderiliyor…" : safetyError ? "Tekrar dene" : "Şikâyeti gönder"}
+                </button>
+              )}
+            </div>
+          </section>
+        </AccessibleDialog>
+      ) : null}
+
+      <div
+        ref={historyRef}
+        className="message-history"
+        inert={dialogOpen ? true : undefined}
+        onScroll={handleHistoryScroll}
+      >
         {hasOlder ? (
           <button className="load-older" type="button" onClick={loadPrevious} disabled={loadingOlder}>
             {loadingOlder ? "Eski mesajlar yükleniyor…" : "Eski mesajları yükle"}
@@ -291,6 +527,14 @@ export function ConversationThread({
             messages={thread.messages}
             viewerId={viewerId}
             canRetry={!permanentlyBlocked}
+            report={(messageId, trigger) => {
+              reportTriggerRef.current = trigger;
+              setSafetyError(null);
+              setReportReason("");
+              setReportDescription("");
+              setReportFeedback(false);
+              setReportDialog({ messageId });
+            }}
             retry={(message) => {
               if (!message.clientId) return;
               setThread((current) => removePendingMessage(current, message.clientId!));
@@ -301,7 +545,16 @@ export function ConversationThread({
         {typing ? <p className="typing-indicator" role="status">{conversation?.displayName ?? "Karşı taraf"} yazıyor…</p> : null}
       </div>
 
-      {!summary.ok && !summary.blocked ? (
+      {summaryPermanentlyUnavailable ? (
+        <div className="state-card state-card-error" role="alert">
+          <h2>Konuşma bilgileri kullanılamıyor</h2>
+          <p>
+            Bu eski konuşmanın ayrıntıları şu anda doğrulanamıyor. Mesajları okuyabilir ve
+            karşı tarafın bir mesajını şikâyet edebilirsin; engelleme ve yeni mesaj gönderme
+            kullanılamıyor.
+          </p>
+        </div>
+      ) : !summary.ok && !summary.blocked ? (
         <div className="state-card state-card-error" role="alert">
           <h2>Konuşma bilgileri yüklenemedi</h2>
           <p>{errorPresentation(summary.errorCode, summary.status).message}</p>
@@ -311,9 +564,10 @@ export function ConversationThread({
         </div>
       ) : null}
       {permanentlyBlocked ? <p role="alert" className="composer-notice">Bu konuşmada artık mesaj gönderemezsin.</p> : null}
+      {reportFeedback ? <p role="status" className="composer-notice">Şikâyetin alındı.</p> : null}
       {conversation?.closed ? <p role="status" className="composer-notice">Bu konuşma kapandı; geçmişi okumaya devam edebilirsin.</p> : null}
       {sendError && !permanentlyBlocked ? <p role="alert" className="field-error">Mesaj gönderilemedi. Tekrar deneyebilirsin.</p> : null}
-      <form className="message-composer" onSubmit={submit}>
+      <form className="message-composer" inert={dialogOpen ? true : undefined} onSubmit={submit}>
         <label className="sr-only" htmlFor={`message-${conversationId}`}>Mesaj</label>
         <textarea
           id={`message-${conversationId}`}
@@ -338,15 +592,97 @@ export function ConversationThread({
   );
 }
 
+function SafetyError({ failure }: { failure: MessagingActionFailure }) {
+  const presentation = errorPresentation(failure.errorCode, failure.status);
+  return (
+    <div role="alert" className="field-error">
+      <p>{presentation.message}</p>
+      {failure.requestId ? <p>İstek kodu: {failure.requestId}</p> : null}
+    </div>
+  );
+}
+
+function isPermanentReportFailure(failure: MessagingActionFailure | null) {
+  return failure?.errorCode === "REPORT_IDEMPOTENCY_CONFLICT" && failure.status === 409;
+}
+
+function AccessibleDialog({
+  labelledBy,
+  dismissDisabled,
+  returnFocus,
+  onDismiss,
+  children,
+}: {
+  labelledBy: string;
+  dismissDisabled: boolean;
+  returnFocus: RefObject<HTMLElement | null>;
+  onDismiss: () => void;
+  children: ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const returnFocusElement = returnFocus.current;
+    focusableElements(dialogRef.current)[0]?.focus();
+    return () => {
+      queueMicrotask(() => {
+        if (returnFocusElement?.isConnected) returnFocusElement.focus();
+      });
+    };
+  }, [returnFocus]);
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape" && !dismissDisabled) {
+      event.preventDefault();
+      onDismiss();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = focusableElements(event.currentTarget);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  return (
+    <div
+      ref={dialogRef}
+      className="assignment-dialog-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={labelledBy}
+      onKeyDown={handleKeyDown}
+    >
+      {children}
+    </div>
+  );
+}
+
+function focusableElements(container: HTMLElement | null): HTMLElement[] {
+  if (container === null) return [];
+  return [...container.querySelectorAll<HTMLElement>(
+    "a[href], button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+  )];
+}
+
 function MessageGroups({
   messages,
   viewerId,
   canRetry,
+  report,
   retry,
 }: {
   messages: readonly ThreadMessage[];
   viewerId: string;
   canRetry: boolean;
+  report: (messageId: string, trigger: HTMLButtonElement) => void;
   retry: (message: ThreadMessage) => void;
 }) {
   let previousDay = "";
@@ -368,6 +704,15 @@ function MessageGroups({
             ) : null}
             {message.delivery === "failed" && !canRetry ? <span>Gönderilemedi</span> : null}
             {mine && message.delivery === "sent" ? <span>{message.readAt ? "Okundu" : "Gönderildi"}</span> : null}
+            {!mine && message.delivery === "sent" ? (
+              <button
+                type="button"
+                aria-label={`Mesajı şikâyet et: ${messageTime(message.sentAt)} — ${messageSummary(message.body)}`}
+                onClick={(event) => report(message.id, event.currentTarget)}
+              >
+                Mesajı şikâyet et
+              </button>
+            ) : null}
           </footer>
         </article>
       </div>
@@ -390,4 +735,9 @@ function messageTime(value: string) {
     minute: "2-digit",
     timeZone: "Europe/Istanbul",
   }).format(new Date(value));
+}
+
+function messageSummary(body: string) {
+  const summary = body.replace(/\s+/g, " ").trim().slice(0, 80);
+  return summary || "İçeriksiz mesaj";
 }

@@ -4,6 +4,7 @@ import { ConversationList } from "@/components/messaging/conversation-list";
 import { ConversationThread } from "@/components/messaging/conversation-thread";
 import { ErrorState } from "@/components/states";
 import type { LoadConversationSummaryResult } from "@/messaging/contract";
+import { conversationListPageSize, isConversationSourcePage } from "@/messaging/contract";
 import { isNotFound } from "@/server/api/errors";
 import { unexpectedError } from "@/server/contract";
 import { failureView } from "@/server/form";
@@ -11,6 +12,7 @@ import {
   getConversation,
   getConversationMessages,
   getConversations,
+  isUserBlockedByViewer,
 } from "@/server/messaging/messaging";
 import { enterShell } from "@/server/session/viewer";
 
@@ -28,17 +30,22 @@ export async function MessagesPage({ basePath }: { basePath: string }) {
 export async function MessageThreadPage({
   basePath,
   params,
+  searchParams,
 }: {
   basePath: string;
   params: Promise<{ conversationId: string }>;
+  searchParams?: Promise<{ conversationPage?: string | string[] }>;
 }) {
   const { viewer } = await enterShell();
   if (!viewer) return null;
   const { conversationId } = await params;
+  const sourcePage = parseConversationSourcePage((await searchParams)?.conversationPage);
 
   const [messagesResult, conversationResult] = await Promise.allSettled([
     getConversationMessages(conversationId),
-    getConversation(viewer.id, conversationId),
+    sourcePage === null
+      ? Promise.resolve(null)
+      : getConversation(viewer.id, conversationId, sourcePage),
   ]);
   if (messagesResult.status === "rejected") {
     unstable_rethrow(messagesResult.reason);
@@ -47,13 +54,27 @@ export async function MessageThreadPage({
     return <ErrorState status={failure.httpStatus} errorCode={failure.errorCode} />;
   }
   const initialSummary = conversationSummaryResult(conversationResult);
+  let initialBlockedByViewer = false;
+  if (initialSummary.ok && initialSummary.conversation.counterpartId) {
+    try {
+      initialBlockedByViewer = await isUserBlockedByViewer(
+        initialSummary.conversation.counterpartId,
+      );
+    } catch (error) {
+      unstable_rethrow(error);
+      const failure = failureView(error);
+      return <ErrorState status={failure.httpStatus} errorCode={failure.errorCode} />;
+    }
+  }
   return (
     <ConversationThread
       conversationId={conversationId}
+      conversationPage={sourcePage ?? 0}
       initialSummary={initialSummary}
       initialMessages={messagesResult.value}
       viewerId={viewer.id}
       basePath={basePath}
+      initialBlockedByViewer={initialBlockedByViewer}
     />
   );
 }
@@ -78,9 +99,19 @@ function conversationSummaryResult(
 
 async function loadConversationPage(viewerId: string) {
   try {
-    return { ok: true as const, page: await getConversations(viewerId) };
+    return {
+      ok: true as const,
+      page: await getConversations(viewerId, 0, conversationListPageSize),
+    };
   } catch (error) {
     unstable_rethrow(error);
     return { ok: false as const, failure: failureView(error) };
   }
+}
+
+function parseConversationSourcePage(value: string | string[] | undefined): number | null {
+  if (value === undefined) return 0;
+  if (typeof value !== "string" || !/^(0|[1-9]\d*)$/.test(value)) return null;
+  const parsed = Number(value);
+  return isConversationSourcePage(parsed) ? parsed : null;
 }

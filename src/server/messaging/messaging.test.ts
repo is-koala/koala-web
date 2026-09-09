@@ -8,11 +8,16 @@ import {
 } from "../../../tests/support/session-cookies";
 
 import {
+  blockUser,
+  getConversation,
   getConversationMessages,
   getConversations,
   getUnreadState,
+  isUserBlockedByViewer,
   markConversationRead,
+  reportContent,
   sendConversationMessage,
+  unblockUser,
 } from "./messaging";
 
 vi.mock("next/headers", async () => {
@@ -89,6 +94,7 @@ describe("mesajlaşma backend modülü", () => {
         unreadCount: 2,
         closed: false,
         online: true,
+        sourcePage: 0,
       }],
       page: 0,
       totalPages: 1,
@@ -172,6 +178,123 @@ describe("mesajlaşma backend modülü", () => {
       url: `https://api.example.test/conversations/${conversationId}/read`,
       method: "POST",
     });
+  });
+
+  it("engelleme ve engel kaldırmayı oturum sahibinin kanonik uçlarına yollar", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(null)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(null)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await blockUser(otherId);
+    await unblockUser(otherId);
+
+    expect(requestOf(fetchMock, 0)).toMatchObject({
+      url: `https://api.example.test/users/me/blocks/${otherId}`,
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    expect(requestOf(fetchMock, 1)).toMatchObject({
+      url: `https://api.example.test/users/me/blocks/${otherId}`,
+      method: "DELETE",
+    });
+  });
+
+  it("şikâyeti yalnız seçilen hedef, gerekçe ve açıklamayla gönderir", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, envelope({
+      id: "99999999-9999-4999-8999-999999999999",
+      reason: "HARASSMENT",
+      description: "Israrlı mesajlar",
+      status: "OPEN",
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(reportContent(
+      { messageId: "77777777-7777-4777-8777-777777777777" },
+      "HARASSMENT",
+      "Israrlı mesajlar",
+    )).resolves.toMatchObject({ id: "99999999-9999-4999-8999-999999999999" });
+
+    expect(requestOf(fetchMock, 0)).toMatchObject({
+      url: "https://api.example.test/reports",
+      method: "POST",
+      body: JSON.stringify({
+        messageId: "77777777-7777-4777-8777-777777777777",
+        reason: "HARASSMENT",
+        description: "Israrlı mesajlar",
+      }),
+    });
+  });
+
+  it("engel durumunu yalnız oturum sahibinin engel listesinden belirler", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope([
+      {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        blocked: { id: otherId, firstName: "Ece", lastName: "Yılmaz" },
+        reason: "private moderation note",
+        createdAt: "2026-09-07T12:00:00Z",
+      },
+    ])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(isUserBlockedByViewer(otherId)).resolves.toBe(true);
+    expect(requestOf(fetchMock, 0)).toMatchObject({
+      url: "https://api.example.test/users/me/blocks",
+      method: "GET",
+    });
+  });
+
+  it("konuşma özetini yalnız server-doğrulamalı ipucu sayfasında arayıp fan-out yapmaz", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const page = Number(url.searchParams.get("page") ?? 0);
+      return jsonResponse(200, envelope({
+        content: page === 3 ? [{
+          id: conversationId,
+          kind: "GROUP",
+          participants: [{ id: viewerId }, { id: otherId }, { id: "third-user" }],
+          closed: false,
+        }] : [],
+        page,
+        totalPages: 4,
+        totalElements: 1,
+        last: page === 3,
+      }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getConversation(viewerId, conversationId, 3)).resolves.toMatchObject({
+      id: conversationId,
+      sourcePage: 3,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/conversations?page=3&size=100",
+      expect.anything(),
+    );
+  });
+
+  it("ipucu sayfasındaki farklı conversation kimliğini counterpart olarak kabul etmez", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      content: [{
+        id: conversationId,
+        kind: "DIRECT",
+        participants: [{ id: viewerId }, { id: otherId }],
+        closed: false,
+      }],
+      page: 3,
+      totalPages: 4,
+      totalElements: 301,
+      last: true,
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getConversation(
+      viewerId,
+      "99999999-9999-4999-8999-999999999999",
+      3,
+    )).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("üst bar için tüm sayfalardaki okunmamışları conversation kimliğiyle toplar", async () => {

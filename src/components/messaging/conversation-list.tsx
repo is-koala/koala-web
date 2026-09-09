@@ -175,7 +175,10 @@ export function ConversationList({
       <ul className="conversation-list">
         {conversations.map((conversation) => (
           <li key={conversation.id}>
-            <Link className="conversation-card" href={`${basePath}/${conversation.id}`}>
+            <Link
+              className="conversation-card"
+              href={`${basePath}/${conversation.id}?conversationPage=${conversation.sourcePage ?? 0}`}
+            >
               <Avatar name={conversation.displayName} online={conversation.online} />
               <span className="conversation-copy">
                 <span className="conversation-title-row">
@@ -239,6 +242,7 @@ function updateConversationFromEvent(
 ) {
   return {
     ...conversation,
+    sourcePage: 0,
     lastMessageAt: message.sentAt,
     lastMessageBody: message.body,
     unreadCount: message.senderId === viewerId

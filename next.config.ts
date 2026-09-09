@@ -5,6 +5,14 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 import { privateHeaderSources, privateResponseHeaders } from "./src/lib/private-routes";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_ISOLATED_TEST_BUILD === "messaging-safety"
+    ? ".next/messaging-safety"
+    : ".next",
+  typescript: {
+    tsconfigPath: process.env.NEXT_ISOLATED_TEST_BUILD === "messaging-safety"
+      ? "tsconfig.messaging-safety.json"
+      : "tsconfig.json",
+  },
   output: "standalone",
   pageExtensions: ["ts", "tsx", "md", "mdx"],
   experimental: {

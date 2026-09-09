@@ -99,6 +99,15 @@ describe("API hata sunumu", () => {
     });
   });
 
+  it("mesaj şikâyeti idempotency çakışmasını kalıcı ve eylemsiz açıklar", () => {
+    expect(errorPresentation("REPORT_IDEMPOTENCY_CONFLICT", 409)).toEqual({
+      title: "Bu mesaj için farklı bir şikâyetin var",
+      message:
+        "Bu mesajı daha önce farklı bilgilerle şikâyet ettin. Mevcut şikâyetin değiştirilemez; moderasyon ekibi onu inceleyecek.",
+      action: "none",
+    });
+  });
+
   it("ödeme reddini backend mesajına ihtiyaç duymadan kullanıcı eylemine çevirir", () => {
     expect(errorPresentation("JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER", 400)).toEqual({
       title: "Fatura adresi eksik",

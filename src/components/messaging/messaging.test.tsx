@@ -2,7 +2,12 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ConversationSummary, Message, Page } from "@/messaging/contract";
+import type {
+  ConversationSummary,
+  Message,
+  MessagingMutationResult,
+  Page,
+} from "@/messaging/contract";
 import type {
   RealtimeClient,
   RealtimeConnectionState,
@@ -137,6 +142,37 @@ describe("mesajlaşma arayüzü", () => {
     expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
   });
 
+  it("ilk sayfada bulunmayan eski konuşmayı sonuçsuz retry yerine sınırlı güvenli modda gösterir", () => {
+    const loadSummary = vi.fn();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{
+          ok: false,
+          errorCode: "UNEXPECTED",
+          status: 0,
+          blocked: false,
+        }}
+        initialMessages={messagePage([message("Geçmişteki karşı taraf mesajı", otherId)])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        loadSummary={loadSummary}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Bu eski konuşmanın ayrıntıları şu anda doğrulanamıyor",
+    );
+    expect(screen.queryByRole("button", { name: "Tekrar dene" })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Mesajı şikâyet et:/ })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Kullanıcıyı engelle" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Kullanıcıyı şikâyet et" })).toBeNull();
+    expect(loadSummary).not.toHaveBeenCalled();
+  });
+
   it("özet yeniden okununca gerçek kapalı durumu uygular", async () => {
     const user = userEvent.setup();
     const realtime = new FakeRealtime();
@@ -169,7 +205,7 @@ describe("mesajlaşma arayüzü", () => {
 
     expect(await screen.findByText("Bu konuşma kapandı; geçmişi okumaya devam edebilirsin."))
       .toBeVisible();
-    expect(loadSummary).toHaveBeenCalledWith(conversationId);
+    expect(loadSummary).toHaveBeenCalledWith(conversationId, 0);
     expect(screen.queryByText("Konuşma bilgileri yüklenemedi")).toBeNull();
     expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
   });
@@ -232,6 +268,60 @@ describe("mesajlaşma arayüzü", () => {
     expect(within(link).getByText("Yeni mesaj")).toBeVisible();
     expect(within(link).getByLabelText("3 okunmamış mesaj")).toBeVisible();
   });
+
+  it.each(["/panel/mesajlar", "/isveren/mesajlar"])(
+    "%s sonraki sayfa konuşma linkine server lookup ipucunu ekler",
+    (basePath) => {
+      const laterPage = {
+        ...conversationPage(),
+        page: 3,
+        content: [{ ...conversationPage().content[0]!, sourcePage: 3 }],
+      };
+      render(
+        <ConversationList
+          initialPage={laterPage}
+          viewerId={viewerId}
+          basePath={basePath}
+          realtimeClient={new FakeRealtime()}
+          confirmPresence={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+
+      expect(screen.getByRole("link", { name: /Ece Yılmaz/ })).toHaveAttribute(
+        "href",
+        `${basePath}/${conversationId}?conversationPage=3`,
+      );
+    },
+  );
+
+  it.each(["/panel/mesajlar", "/isveren/mesajlar"])(
+    "%s sonraki sayfadaki konuşma realtime mesajla üste taşınınca lookup ipucunu sıfırlar",
+    async (basePath) => {
+      const realtime = new FakeRealtime();
+      const laterPage = {
+        ...conversationPage(),
+        page: 3,
+        content: [{ ...conversationPage().content[0]!, sourcePage: 3 }],
+      };
+      render(
+        <ConversationList
+          initialPage={laterPage}
+          viewerId={viewerId}
+          basePath={basePath}
+          realtimeClient={realtime}
+          confirmPresence={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+
+      await waitFor(() => expect(realtime.personalListeners).toHaveLength(1));
+      act(() => realtime.emitPersonal(event("MESSAGE", message("Yeni mesaj", otherId))));
+
+      expect(screen.getByRole("link", { name: /Ece Yılmaz/ })).toHaveAttribute(
+        "href",
+        `${basePath}/${conversationId}?conversationPage=0`,
+      );
+    },
+  );
 
   it("kişisel kuyrukta yüklü olmayan konuşma gelince ilk sayfayı yenileyip konuşmayı üste taşır", async () => {
     const realtime = new FakeRealtime();
@@ -613,6 +703,418 @@ describe("mesajlaşma arayüzü", () => {
     expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Gönder" }))
       .toHaveAttribute("data-disabled-kind", "permanent");
+    expect(screen.queryByRole("button", { name: "Kullanıcıyı engelle" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Engeli kaldır" })).toBeNull();
+  });
+
+  it("erişilebilir onaydan sonra karşı tarafı engeller ve composer'ı anında kapatır", async () => {
+    const user = userEvent.setup();
+    const blockUser = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        conversationPage={3}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        blockConversationUser={blockUser}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Kullanıcıyı engelle" }));
+    const dialog = screen.getByRole("dialog", { name: "Kullanıcıyı engelle" });
+    expect(dialog).toHaveTextContent("iki taraf da mesaj gönderemeyecek");
+    await user.click(within(dialog).getByRole("button", { name: "Engellemeyi onayla" }));
+
+    await waitFor(() => expect(blockUser).toHaveBeenCalledWith(conversationId, 3));
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Engeli kaldır" })).toBeVisible();
+  });
+
+  it("engelleme onayı uçuşa geçtiği anda composer'ı kapatır ve hata halinde geri açar", async () => {
+    const user = userEvent.setup();
+    let settle!: (result: MessagingMutationResult) => void;
+    const blockUser = vi.fn(() => new Promise<MessagingMutationResult>((resolve) => {
+      settle = resolve;
+    }));
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        blockConversationUser={blockUser}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Kullanıcıyı engelle" }));
+    const dialog = screen.getByRole("dialog", { name: "Kullanıcıyı engelle" });
+    await user.click(within(dialog).getByRole("button", { name: "Engellemeyi onayla" }));
+
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+    act(() => settle({
+      ok: false,
+      errorCode: "SERVICE_UNAVAILABLE",
+      status: 503,
+      blocked: false,
+    }));
+    await within(dialog).findByRole("alert");
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeEnabled();
+  });
+
+  it("engelleme aksiyonu reject olursa modalı tekrar kullanılabilir ve composer'ı açık bırakır", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        blockConversationUser={vi.fn().mockRejectedValue(new Error("private rejection detail"))}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Kullanıcıyı engelle" }));
+    const dialog = screen.getByRole("dialog", { name: "Kullanıcıyı engelle" });
+    await user.click(within(dialog).getByRole("button", { name: "Engellemeyi onayla" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("İşlemi şu anda tamamlayamadık");
+    expect(alert).not.toHaveTextContent("private rejection detail");
+    expect(within(dialog).getByRole("button", { name: "Tekrar dene" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeEnabled();
+  });
+
+  it("diyaloğu klavyede çevreler, Escape ile kapatır ve odağı tetikleyiciye döndürür", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Kullanıcıyı engelle" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Kullanıcıyı engelle" });
+    const cancel = within(dialog).getByRole("button", { name: "Vazgeç" });
+    const confirm = within(dialog).getByRole("button", { name: "Engellemeyi onayla" });
+    expect(cancel).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("yalnız açık onaydan sonra kendi koyduğu engeli kaldırıp composer'ı açar", async () => {
+    const user = userEvent.setup();
+    const unblockUser = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        initialBlockedByViewer
+        unblockConversationUser={unblockUser}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Engeli kaldır" }));
+    const dialog = screen.getByRole("dialog", { name: "Engeli kaldır" });
+    expect(unblockUser).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Engeli kaldırmayı onayla" }));
+
+    await waitFor(() => expect(unblockUser).toHaveBeenCalledWith(conversationId, 0));
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Kullanıcıyı engelle" })).toBeVisible();
+  });
+
+  it("engel kaldırma aksiyonu reject olursa modalı açar ama composer kilidini korur", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        initialBlockedByViewer
+        unblockConversationUser={vi.fn().mockRejectedValue(new Error("private rejection detail"))}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Engeli kaldır" }));
+    const dialog = screen.getByRole("dialog", { name: "Engeli kaldır" });
+    await user.click(within(dialog).getByRole("button", { name: "Engeli kaldırmayı onayla" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("İşlemi şu anda tamamlayamadık");
+    expect(within(dialog).getByRole("button", { name: "Tekrar dene" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+  });
+
+  it("duplicate üretebilen kullanıcı-geneli şikâyet yüzeyini sunmaz", () => {
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([message("Şikâyet edilebilir mesaj", otherId)])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Kullanıcıyı şikâyet et" })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Mesajı şikâyet et:/ })).toBeVisible();
+  });
+
+  it("yalnız karşı tarafın mesajını konuşma bağlamıyla şikâyet eder", async () => {
+    const user = userEvent.setup();
+    const reportMessage = vi.fn().mockResolvedValue({
+      ok: true,
+      reportId: "88888888-8888-4888-8888-888888888888",
+    });
+    const theirs = message("Uygunsuz mesaj", otherId);
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([theirs])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        reportMessage={reportMessage}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Mesajı şikâyet et:/ }));
+    const dialog = screen.getByRole("dialog", { name: "Mesajı şikâyet et" });
+    await user.selectOptions(within(dialog).getByLabelText("Gerekçe"), "INAPPROPRIATE_CONTENT");
+    await user.click(within(dialog).getByRole("button", { name: "Şikâyeti gönder" }));
+
+    await waitFor(() => expect(reportMessage).toHaveBeenCalledWith(
+      conversationId,
+      theirs.id,
+      "INAPPROPRIATE_CONTENT",
+      "",
+    ));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("birden çok mesajın şikâyet düğmesini erişilebilir adında ayırt eder", () => {
+    const first = message("İlk uygunsuz mesaj", otherId);
+    const second = {
+      ...message("İkinci uygunsuz mesaj", otherId),
+      id: "55555555-5555-4555-8555-555555555555",
+      sentAt: "2026-09-06T11:05:00Z",
+    };
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([first, second])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /14:00.*İlk uygunsuz mesaj/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /14:05.*İkinci uygunsuz mesaj/ })).toBeVisible();
+  });
+
+  it("her yeni şikâyette başarı durumunu sıfırlayıp yeniden duyurur", async () => {
+    const user = userEvent.setup();
+    const theirs = message("Şikâyet edilebilir mesaj", otherId);
+    const reportMessage = vi.fn().mockResolvedValue({
+      ok: true,
+      reportId: "88888888-8888-4888-8888-888888888888",
+    });
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([theirs])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        reportMessage={reportMessage}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /^Mesajı şikâyet et:/ });
+    await user.click(trigger);
+    let dialog = screen.getByRole("dialog", { name: "Mesajı şikâyet et" });
+    await user.selectOptions(within(dialog).getByLabelText("Gerekçe"), "SPAM");
+    await user.click(within(dialog).getByRole("button", { name: "Şikâyeti gönder" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Şikâyetin alındı");
+
+    await user.click(trigger);
+    expect(screen.queryByRole("status")).toBeNull();
+    dialog = screen.getByRole("dialog", { name: "Mesajı şikâyet et" });
+    await user.selectOptions(within(dialog).getByLabelText("Gerekçe"), "OTHER");
+    await user.click(within(dialog).getByRole("button", { name: "Şikâyeti gönder" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Şikâyetin alındı");
+    expect(reportMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("şikâyet hatasını requestId ile gösterip aynı güvenli işlemi yeniden dener", async () => {
+    const user = userEvent.setup();
+    const theirs = message("Şikâyet edilebilir mesaj", otherId);
+    const reportMessage = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        errorCode: "SERVICE_UNAVAILABLE",
+        status: 503,
+        blocked: false,
+        requestId: "request-report-117",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        reportId: "88888888-8888-4888-8888-888888888888",
+      });
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([theirs])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        reportMessage={reportMessage}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Mesajı şikâyet et:/ }));
+    const dialog = screen.getByRole("dialog", { name: "Mesajı şikâyet et" });
+    await user.selectOptions(within(dialog).getByLabelText("Gerekçe"), "SPAM");
+    await user.click(within(dialog).getByRole("button", { name: "Şikâyeti gönder" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("request-report-117");
+    await user.click(within(dialog).getByRole("button", { name: "Tekrar dene" }));
+
+    await waitFor(() => expect(reportMessage).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("şikâyet aksiyonu reject olursa alanları ve güvenli tekrar denemeyi geri açar", async () => {
+    const user = userEvent.setup();
+    const theirs = message("Şikâyet edilebilir mesaj", otherId);
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([theirs])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        reportMessage={vi.fn().mockRejectedValue(new Error("private rejection detail"))}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Mesajı şikâyet et:/ }));
+    const dialog = screen.getByRole("dialog", { name: "Mesajı şikâyet et" });
+    await user.selectOptions(within(dialog).getByLabelText("Gerekçe"), "SPAM");
+    await user.click(within(dialog).getByRole("button", { name: "Şikâyeti gönder" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("İşlemi şu anda tamamlayamadık");
+    expect(alert).not.toHaveTextContent("private rejection detail");
+    expect(within(dialog).getByLabelText("Gerekçe")).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Tekrar dene" })).toBeEnabled();
+  });
+
+  it("farklı içerikle yinelenen mesaj şikâyetini kalıcı açıklar ve retry sunmaz", async () => {
+    const user = userEvent.setup();
+    const theirs = message("Şikâyet edilen mesaj", otherId);
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([theirs])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={new FakeRealtime()}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        reportMessage={vi.fn().mockResolvedValue({
+          ok: false,
+          errorCode: "REPORT_IDEMPOTENCY_CONFLICT",
+          status: 409,
+          blocked: false,
+          requestId: "request-report-conflict-117",
+        })}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Mesajı şikâyet et:/ }));
+    const dialog = screen.getByRole("dialog", { name: "Mesajı şikâyet et" });
+    await user.selectOptions(within(dialog).getByLabelText("Gerekçe"), "FRAUD");
+    await user.click(within(dialog).getByRole("button", { name: "Şikâyeti gönder" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Bu mesajı daha önce farklı bilgilerle şikâyet ettin",
+    );
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("request-report-conflict-117");
+    expect(within(dialog).queryByRole("button", { name: "Tekrar dene" })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: "Şikâyeti gönder" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Kapat" })).toBeEnabled();
+    expect(within(dialog).getByLabelText("Gerekçe")).toBeDisabled();
   });
 });
 
