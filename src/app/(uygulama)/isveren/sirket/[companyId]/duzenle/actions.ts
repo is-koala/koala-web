@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 
 import { companyProfilePath, editCompanyPath } from "@/lib/app-routes";
 import {
@@ -41,6 +42,7 @@ export async function updateCompanyAction(
   try {
     await updateCompany(companyId, companyUpdateBody(draft));
   } catch (error) {
+    unstable_rethrow(error);
     return failureState(error);
   }
 
@@ -76,6 +78,7 @@ export async function replaceCompanyLogoAction(
   try {
     await replaceCompanyLogo(companyId, logo);
   } catch (error) {
+    unstable_rethrow(error);
     return failureState(error);
   }
 
@@ -98,6 +101,7 @@ export async function removeCompanyLogoAction(
   try {
     await removeCompanyLogo(companyId);
   } catch (error) {
+    unstable_rethrow(error);
     return failureState(error);
   }
 

@@ -20,9 +20,13 @@ vi.mock("@/server/session/gates", async () => {
   );
   return { ...real, currentGates };
 });
-vi.mock("next/navigation", async () => ({
-  redirect: (await import("../../../../../../../../tests/support/navigation")).throwingRedirect(),
-}));
+vi.mock("next/navigation", async () => {
+  const navigation = await import("../../../../../../../../tests/support/navigation");
+  return {
+    redirect: navigation.throwingRedirect(),
+    unstable_rethrow: navigation.rethrowTestNavigationError,
+  };
+});
 vi.mock("next/headers", async () => {
   const support = await import("../../../../../../../../tests/support/session-cookies");
   return {
