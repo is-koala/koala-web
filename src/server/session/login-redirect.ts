@@ -3,6 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 
 import { loginPath } from "@/lib/site";
+import { safeInternalPath } from "@/lib/urls";
 import { requestPathHeader } from "@/server/contract";
 
 /**
@@ -16,7 +17,7 @@ import { requestPathHeader } from "@/server/contract";
  * kullanıcı giriş sonrası iki yoldan iki farklı yere düşerdi.
  */
 export function loginRedirect(nextPath: string): string {
-  const safe = sameSitePath(nextPath);
+  const safe = safeInternalPath(nextPath);
   return safe ? `${loginPath}?next=${encodeURIComponent(safe)}` : loginPath;
 }
 
@@ -44,30 +45,6 @@ export async function currentPathLoginRedirect(): Promise<string> {
   return loginRedirect(await currentRequestPath());
 }
 
-/** Çözümde kullanılan, gerçekte var olmayan origin. */
-const probeOrigin = "https://koala.invalid";
-
-/**
- * Karakter denetimi yerine adresi gerçekten çözer.
- *
- * "//host", "/\host" ve sekme/satır sonu saklayan "/<TAB>/host" hepsi
- * tarayıcıda dış adrese açılır; elle kalıp aramak bu biçimlerin ardından
- * koşmak demek. Çözülen adres kendi origin'imizde kalmıyorsa hedef
- * değildir. Ham değer değil, normalleştirilmiş yol döner: aksi hâlde sekme
- * `next` içinde saklanıp giriş sonrası yeniden çözülürdü.
- */
-function sameSitePath(candidate: string): string | null {
-  if (!candidate.startsWith("/")) return null;
-
-  try {
-    const resolved = new URL(candidate, probeOrigin);
-    if (resolved.origin !== probeOrigin) return null;
-    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
-  } catch {
-    return null;
-  }
-}
-
 /** Dönüş hedefi yokken kullanıcının bırakılacağı yer. */
 const defaultDestination = "/";
 
@@ -76,9 +53,9 @@ const defaultDestination = "/";
  *
  * Giriş formuna gelen değer tarayıcıdan geçtiği için `loginRedirect`'in
  * ürettiği hedefle aynı olduğu varsayılamaz: kullanıcı adres çubuğunda
- * değiştirebilir. Aynı `sameSitePath` denetiminden geçirmek, giriş sayfasının
+ * değiştirebilir. Aynı `safeInternalPath` denetiminden geçirmek, giriş sayfasının
  * açık yönlendirme aracına dönmesini engeller; hedef yoksa ana sayfaya düşer.
  */
 export function returnDestination(candidate: string | undefined | null): string {
-  return (candidate && sameSitePath(candidate)) || defaultDestination;
+  return safeInternalPath(candidate) || defaultDestination;
 }

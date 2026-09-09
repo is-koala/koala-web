@@ -1,6 +1,62 @@
 import { describe, expect, it } from "vitest";
 
-import { safeExternalUrl, safeImageUrl } from "./urls";
+import { safeExternalUrl, safeImageUrl, safeInternalPath } from "./urls";
+
+describe("site içi bağlantı adresi", () => {
+  it("aynı kökendeki yolu sorgu ve parçasıyla geçirir", () => {
+    expect(safeInternalPath("/giris?next=%2Fpanel%2Fislerim#form")).toBe(
+      "/giris?next=%2Fpanel%2Fislerim#form",
+    );
+  });
+
+  it("güvenli yol, sorgu, parça ve yüzde kodlamasını değiştirmez", () => {
+    expect(safeInternalPath("/ilanlar/%E2%9C%93?q=a%2Fb#c%20d")).toBe(
+      "/ilanlar/%E2%9C%93?q=a%2Fb#c%20d",
+    );
+    expect(safeInternalPath("/oran%2525?next=%2F%2Fexample.test#sonuc")).toBe(
+      "/oran%2525?next=%2F%2Fexample.test#sonuc",
+    );
+  });
+
+  it("üç decode katmanını kabul eder, dördüncü katmanda kapalı kalır", () => {
+    expect(safeInternalPath("/oran%252525?q=%2Fpanel#sonuc")).toBe(
+      "/oran%252525?q=%2Fpanel#sonuc",
+    );
+    expect(safeInternalPath("/oran%25252525?q=%2Fpanel#sonuc")).toBeNull();
+  });
+
+  it.each(["/a/..//evil.example", "/%2e%2e//evil.example"])(
+    "%s yolunun normalizasyonla dış hedefe dönüşmesine izin vermez",
+    (value) => {
+      expect(safeInternalPath(value)).toBeNull();
+    },
+  );
+
+  it.each([
+    "/%252e%252e/%252f%252fevil.example",
+    "/%252f%252fevil.example",
+    "/a/%255c%255cevil.example",
+    "/a/%2509/%252f%252fevil.example",
+  ])("%s yolundaki katmanlı kodlamayı güvenli hedef saymaz", (value) => {
+    expect(safeInternalPath(value)).toBeNull();
+  });
+
+  it.each([
+    "",
+    "giris",
+    "https://kotu.example/giris",
+    "javascript:alert(1)",
+    "//kotu.example/giris",
+    "/\\kotu.example/giris",
+    "/\t/kotu.example/giris",
+    "/\n/kotu.example/giris",
+    "/\r/kotu.example/giris",
+    null,
+    undefined,
+  ])("%j değerini site içi hedef saymaz", (value) => {
+    expect(safeInternalPath(value)).toBeNull();
+  });
+});
 
 describe("görsel adresi", () => {
   it("mutlak http ve https adresleri geçirir", () => {
