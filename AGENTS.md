@@ -189,6 +189,14 @@ Yeni veri ekranı yükleniyor, boş ve hata durumlarının üçünü de tanımla
 Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
 `errorCode` ile seç ve bilinmeyen kodda nötr Türkçe yedeği göster.
 
+Kapalı düğmeler iki ayrı durumu anlatır. Yalnız uçuşta olan bir istek yüzünden
+geçici kapanan `.button` varsayılan `cursor: wait` davranışını kullanır. Ürün
+veya durum önkoşulu yüzünden beklemekle açılmayacak bir düğme hem kapalılık
+gerekçesini yanında gösterir hem de `data-disabled-kind="permanent"` taşır;
+bu işaret imleci `not-allowed` yapar. `aria-disabled` bu görsel sınıflandırma
+için kullanılmaz: gerçek düğmede native `disabled` erişilebilirlik ve etkileşim
+sınırını zaten kurar.
+
 ### Önbelleklenen sayfada hata kartı çizme
 
 `revalidate` taşıyan bir sayfada (bugün yalnız ilan ayrıntısı) hata durumu

@@ -366,6 +366,8 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     await user.click(screen.getByText("İptal önizlemesi"));
 
     expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" }))
+      .toHaveAttribute("data-disabled-kind", "permanent");
     expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeDisabled();
     expect(screen.getByLabelText("İptal nedeni")).toBeDisabled();
     expect(screen.getByText(/şu anda bu atamadan çekilemezsin/i)).toBeVisible();

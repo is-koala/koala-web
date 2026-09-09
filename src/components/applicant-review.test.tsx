@@ -391,6 +391,7 @@ describe("başvuru kabul/red karar akışı", () => {
     try {
       expect(decisionAction).toHaveBeenCalledTimes(1);
       expect(send).toBeDisabled();
+      expect(send).not.toHaveAttribute("data-disabled-kind");
       await user.click(send);
       expect(decisionAction).toHaveBeenCalledTimes(1);
     } finally {
@@ -425,6 +426,10 @@ describe("başvuru kabul/red karar akışı", () => {
       expect(within(decision).getByText(/Karar geri alınamıyor/)).toBeInTheDocument();
       // Kapalı eylem **gizlenmiyor, kilitleniyor** — kabuk kapılarının
       // `blocking` kipi ve `WorkSecondaryActions.blockedReason` ile aynı kalıp.
+      expect(within(decision).getByRole("button", { name: "Kabul et" }))
+        .toHaveAttribute("data-disabled-kind", "permanent");
+      expect(within(decision).getByRole("button", { name: "Reddi gönder" }))
+        .toHaveAttribute("data-disabled-kind", "permanent");
       expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
       expect(within(decision).getByRole("button", { name: "Reddi gönder" })).toBeDisabled();
       expect(within(decision).getByLabelText("Red gerekçesi")).toBeDisabled();
@@ -448,6 +453,8 @@ describe("başvuru kabul/red karar akışı", () => {
     renderReview({ headcount: 1, hiredCount: 1 });
 
     const decision = screen.getByRole("region", { name: "Başvuru kararı" });
+    expect(within(decision).getByRole("button", { name: "Kabul et" }))
+      .toHaveAttribute("data-disabled-kind", "permanent");
     expect(within(decision).getByRole("button", { name: "Kabul et" })).toBeDisabled();
     expect(within(decision).getByText(/kontenjanı doldu/)).toBeInTheDocument();
     expect(within(decision).getByRole("button", { name: "Reddi gönder" })).toBeEnabled();
