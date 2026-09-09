@@ -113,6 +113,55 @@ describe("API hata sunumu", () => {
       action: "none",
     });
   });
+
+  it("kanıt hatalarını dosyaya uygun çözüm ve eylemle anlatır", () => {
+    expect(backendErrorFamilies.DISPUTE_EVIDENCE_EMPTY).toBe("validation");
+    expect(backendErrorFamilies.DISPUTE_EVIDENCE_TOO_LARGE).toBe("validation");
+    expect(backendErrorFamilies.DISPUTE_EVIDENCE_LIMIT_REACHED).toBe("conflict");
+    expect(backendErrorFamilies.DISPUTE_EVIDENCE_DISPUTE_CLOSED).toBe("conflict");
+    expect(backendErrorFamilies.DISPUTE_EVIDENCE_NOT_FOUND).toBe("notFound");
+    expect(backendErrorFamilies.DISPUTE_EVIDENCE_UPLOAD_FAILED).toBe("validation");
+    expect(errorPresentation("DISPUTE_EVIDENCE_EMPTY", 400)).toEqual({
+      title: "Kanıt dosyası boş",
+      message: "Boş bir dosya yüklenemez. İçeriği olan bir dosya seçip yeniden dene.",
+      action: "none",
+    });
+    expect(errorPresentation("DISPUTE_EVIDENCE_TOO_LARGE", 400)).toEqual({
+      title: "Kanıt dosyası çok büyük",
+      message: "Kanıt dosyası 10 MB sınırını aşıyor. Daha küçük bir dosya seçip yeniden dene.",
+      action: "none",
+    });
+    expect(errorPresentation("DISPUTE_EVIDENCE_LIMIT_REACHED", 409)).toEqual({
+      title: "Kanıt sınırına ulaşıldı",
+      message: "Bu uyuşmazlığa en fazla 5 kanıt dosyası eklenebilir; yeni dosya yükleyemezsin.",
+      action: "none",
+    });
+    expect(errorPresentation("DISPUTE_EVIDENCE_DISPUTE_CLOSED", 409)).toEqual({
+      title: "Uyuşmazlık sonuçlandı",
+      message: "Sonuçlanmış uyuşmazlığa yeni kanıt eklenemez. Güncel kararı sayfada görebilirsin.",
+      action: "none",
+    });
+    expect(errorPresentation("DISPUTE_EVIDENCE_UPLOAD_FAILED", 400)).toEqual({
+      title: "Kanıt yüklenemedi",
+      message: "Kanıt dosyasını şu anda yükleyemedik. Biraz sonra yeniden dene.",
+      action: "retry",
+    });
+    expect(errorPresentation("DISPUTE_EVIDENCE_NOT_FOUND", 404)).toEqual({
+      title: "Kanıt dosyası bulunamadı",
+      message: "Dosya kaldırılmış veya liste bu sırada değişmiş olabilir. Sayfayı yenileyip yeniden dene.",
+      action: "retry",
+    });
+    expect(errorPresentation("STORAGE_UNSUPPORTED_TYPE", 400)).toEqual({
+      title: "Dosya biçimi desteklenmiyor",
+      message: "PDF, PNG, JPG veya WEBP biçiminde geçerli bir dosya seçip yeniden dene.",
+      action: "none",
+    });
+    expect(errorPresentation("STORAGE_DOWNLOAD_FAILED", 502)).toEqual({
+      title: "Kanıt indirilemedi",
+      message: "Kanıt dosyasını şu anda indiremedik. Biraz sonra yeniden dene.",
+      action: "retry",
+    });
+  });
 });
 
 describe("şirket yetkilisi hataları", () => {

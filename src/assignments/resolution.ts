@@ -1,4 +1,4 @@
-export type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+export type RefundStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "UNKNOWN";
 
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "UNKNOWN";
 
@@ -37,6 +37,21 @@ export type AssignmentDispute = {
   resolutionNote: string | null;
   createdAt: string;
   resolvedAt: string | null;
+  evidence: DisputeEvidenceState;
+};
+
+export type DisputeEvidenceState =
+  | { status: "ready"; items: readonly DisputeEvidence[] }
+  | { status: "error"; errorCode: string; httpStatus: number };
+
+export type DisputeEvidence = {
+  id: string;
+  disputeId: string;
+  uploadedByName: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  createdAt: string;
 };
 
 export type AssignmentResolution = {
@@ -59,10 +74,104 @@ export type ResolutionCommand =
   | { type: "cancel"; reason: string }
   | { type: "dispute"; reason: string };
 
+export type DisputeEvidenceUploadResult = {
+  disputeId: string;
+  uploadedCount: number;
+  failedCount: number;
+};
+
 export type ResolutionActionState =
   | { status: "idle" }
   | { status: "done"; message: string }
+  | { status: "partial"; message: string }
   | { status: "error"; errorCode: string; httpStatus: number };
+
+export const disputeEvidenceLimits = {
+  maxFilesPerRequest: 1,
+  maxFileBytes: 10 * 1024 * 1024,
+  acceptedExtensions: ["pdf", "png", "jpg", "jpeg", "webp"],
+} as const;
+
+export type DisputeEvidenceUploadFeedback = {
+  kind: "notice" | "warning";
+  message: string;
+};
+
+export type DisputeEvidenceValidationErrorCode =
+  | "DISPUTE_EVIDENCE_REQUIRED"
+  | "DISPUTE_EVIDENCE_TOO_MANY"
+  | "DISPUTE_EVIDENCE_EMPTY"
+  | "DISPUTE_EVIDENCE_TOO_LARGE"
+  | "STORAGE_UNSUPPORTED_TYPE"
+  | "VALIDATION_FAILED";
+
+export function disputeEvidenceFilesFromFormData(formData: FormData): readonly File[] | null {
+  const files = disputeEvidenceEntries(formData);
+  if (files === null) return null;
+  return validateDisputeEvidenceFiles(files);
+}
+
+export function disputeEvidenceFormValidationError(
+  formData: FormData,
+  required = false,
+): DisputeEvidenceValidationErrorCode | null {
+  const files = disputeEvidenceEntries(formData);
+  return files === null ? "VALIDATION_FAILED" : disputeEvidenceValidationError(files, required);
+}
+
+export function validateDisputeEvidenceFiles(
+  value: unknown,
+  required = false,
+): readonly File[] | null {
+  if (disputeEvidenceValidationError(value, required) !== null) return null;
+  return value === undefined ? [] : value as readonly File[];
+}
+
+export function disputeEvidenceValidationError(
+  value: unknown,
+  required = false,
+): DisputeEvidenceValidationErrorCode | null {
+  if (value === undefined && !required) return null;
+  if (!Array.isArray(value) || value.some((file) => !(file instanceof File))) {
+    return "VALIDATION_FAILED";
+  }
+  if (value.length > disputeEvidenceLimits.maxFilesPerRequest) {
+    return "DISPUTE_EVIDENCE_TOO_MANY";
+  }
+  if (required && value.length === 0) return "DISPUTE_EVIDENCE_REQUIRED";
+
+  for (const file of value as File[]) {
+    if (file.size === 0) return "DISPUTE_EVIDENCE_EMPTY";
+    if (file.size > disputeEvidenceLimits.maxFileBytes) return "DISPUTE_EVIDENCE_TOO_LARGE";
+    const dot = file.name.lastIndexOf(".");
+    const extension = dot > 0 && dot < file.name.length - 1
+      ? file.name.slice(dot + 1).toLowerCase()
+      : "";
+    if (!disputeEvidenceLimits.acceptedExtensions.some((accepted) => accepted === extension)) {
+      return "STORAGE_UNSUPPORTED_TYPE";
+    }
+  }
+  return null;
+}
+
+export function disputeEvidenceUploadFeedback(
+  created: boolean,
+  result: DisputeEvidenceUploadResult,
+): DisputeEvidenceUploadFeedback {
+  if (result.failedCount > 0) {
+    return {
+      kind: "warning",
+      message: `${created ? "Uyuşmazlık açıldı. " : ""}${result.uploadedCount} kanıt yüklendi, ${result.failedCount} kanıt yüklenemedi.`,
+    };
+  }
+  return { kind: "notice", message: `${result.uploadedCount} kanıt dosyası yüklendi.` };
+}
+
+function disputeEvidenceEntries(formData: FormData): readonly File[] | null {
+  const entries = formData.getAll("evidence");
+  if (entries.some((entry) => typeof entry === "string")) return null;
+  return (entries as File[]).filter((file) => file.name !== "" || file.size > 0);
+}
 
 type DisputeGateState = {
   disputes: readonly Pick<AssignmentDispute, "status">[];

@@ -27,5 +27,50 @@ export function serverEnvironment(): ServerEnvironment {
     throw new Error("APP_VERSION 1.4.0 gibi noktayla ayrılmış sayılarla başlamalı.");
   }
 
+  // İsteğe bağlı olsa da yanlış allowlist güvenlik sınırıdır; uygulama açılışında
+  // doğrulanır, ilk kanıt indirmesinde sürpriz bir yapılandırma hatasına bırakılmaz.
+  evidenceStorageOrigins();
+  bffUpstreamTimeoutMs();
+
   return { apiUrl: apiUrl.replace(/\/+$/, ""), appVersion };
+}
+
+/** Kanıt BFF'sinin backend veya özel depo bağlantısını sonsuza dek açık tutmasını önler. */
+export function bffUpstreamTimeoutMs(): number {
+  const raw = process.env.BFF_UPSTREAM_TIMEOUT_MS?.trim() || "15000";
+  if (!/^\d+$/.test(raw)) {
+    throw new Error("BFF_UPSTREAM_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.");
+  }
+  const timeout = Number(raw);
+  if (timeout < 1000 || timeout > 60_000) {
+    throw new Error("BFF_UPSTREAM_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.");
+  }
+  return timeout;
+}
+
+/** İmzalı kanıt URL'leri için sunucu tarafında açıkça güvenilen özel origin'ler. */
+export function evidenceStorageOrigins(): ReadonlySet<string> {
+  const origins = process.env.EVIDENCE_STORAGE_ORIGINS?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean) ?? [];
+
+  return new Set(origins.map((origin) => {
+    let url: URL;
+    try {
+      url = new URL(origin);
+    } catch {
+      throw new Error("EVIDENCE_STORAGE_ORIGINS yalnız geçerli HTTPS origin'leri içermeli.");
+    }
+    if (
+      url.protocol !== "https:" ||
+      url.username !== "" ||
+      url.password !== "" ||
+      url.pathname !== "/" ||
+      url.search !== "" ||
+      url.hash !== ""
+    ) {
+      throw new Error("EVIDENCE_STORAGE_ORIGINS yalnız geçerli HTTPS origin'leri içermeli.");
+    }
+    return url.origin;
+  }));
 }

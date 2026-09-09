@@ -7,7 +7,11 @@ import {
   type WorkerAssignmentResolution,
 } from "@/assignments/resolution";
 import { formatDateTime } from "@/lib/dates";
+import { errorPresentation } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
+
+import { EvidenceDownloadButton } from "./evidence-download-button";
+import { EvidenceRetryButton } from "./evidence-retry-button";
 
 export function AssignmentResolutionPanel({
   resolution,
@@ -181,16 +185,84 @@ function DisputeSummary({ dispute }: { dispute: AssignmentDispute }) {
         <p><strong>Karar:</strong> {disputeResolutionLabel(dispute.resolution)}</p>
       ) : null}
       {dispute.resolutionNote ? <p>{dispute.resolutionNote}</p> : null}
+      <DisputeEvidenceList dispute={dispute} />
     </li>
   );
+}
+
+function DisputeEvidenceList({ dispute }: { dispute: AssignmentDispute }) {
+  if (dispute.evidence.status === "error") {
+    const presentation = errorPresentation(
+      dispute.evidence.errorCode,
+      dispute.evidence.httpStatus,
+    );
+    return (
+      <div className="state-card dispute-evidence-error">
+        <p role="alert">{presentation.message} Uyuşmazlık kaydı görünmeye devam ediyor.</p>
+        {presentation.action === "retry" ? <EvidenceRetryButton /> : null}
+      </div>
+    );
+  }
+  if (dispute.evidence.items.length === 0) {
+    return <p className="muted">Henüz kanıt dosyası eklenmedi.</p>;
+  }
+  return (
+    <div className="dispute-evidence">
+      <h4>Kanıt dosyaları</h4>
+      <ul aria-label="Uyuşmazlık kanıtları">
+        {dispute.evidence.items.map((evidence) => (
+          <li key={evidence.id}>
+            <EvidenceDownloadButton
+              href={`/api/disputes/${encodeURIComponent(dispute.id)}/evidence/${encodeURIComponent(evidence.id)}/download`}
+              fileName={evidence.fileName}
+            />
+            <span>
+              {evidence.uploadedByName} · {evidenceContentLabel(evidence.contentType)} · {formatFileSize(evidence.fileSize)}
+            </span>
+            <time dateTime={evidence.createdAt}>{formatDateTime(evidence.createdAt)}</time>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function evidenceContentLabel(contentType: string): string {
+  switch (contentType) {
+    case "application/pdf":
+      return "PDF belgesi";
+    case "image/png":
+      return "PNG görseli";
+    case "image/jpeg":
+      return "JPG görseli";
+    case "image/webp":
+      return "WEBP görseli";
+    default:
+      return "Dosya";
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bayt`;
+  if (bytes < 1024 * 1024) return `${formatFileSizeNumber(bytes / 1024)} KB`;
+  return `${formatFileSizeNumber(bytes / (1024 * 1024))} MB`;
+}
+
+function formatFileSizeNumber(value: number): string {
+  return new Intl.NumberFormat("tr-TR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function refundLabel(status: RefundStatus | null, hasRefund: boolean): string {
   if (!hasRefund) return "İade gerekmiyor";
   switch (status) {
     case null:
-      return "İade talebi alındı";
+      return "İade durumu bekleniyor";
     case "PENDING":
+      return "İade talep edildi";
+    case "PROCESSING":
       return "İade işleniyor";
     case "COMPLETED":
       return "İade edildi";

@@ -313,16 +313,21 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       <WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />,
     );
 
-    expect(screen.getByText("İptal önizlemesi")).toBeVisible();
-    await user.click(screen.getByText("İptal önizlemesi"));
+    expect(screen.getByText("Çalışmadan çekilme")).toBeVisible();
+    await user.click(screen.getByText("Çalışmadan çekilme"));
     expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
-    expect(screen.getByText(/çalışmadan çekilmiş olursun/i)).toBeVisible();
+    expect(screen.getByText(/bu atama için ödeme alamazsın/i)).toBeVisible();
+    expect(screen.getByText(/işverene ödemenin tamamının iade süreci başlar/i)).toBeVisible();
     expect(screen.queryByText("Kesinti")).toBeNull();
-    expect(screen.queryByText("İşverene iade")).toBeNull();
+    expect(screen.queryByText(/İşverene iade tutarı/i)).toBeNull();
     expect(screen.getByText("Uyuşmazlık aç")).toBeVisible();
     expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
 
     await user.click(screen.getByText("Uyuşmazlık aç"));
+    expect(screen.getByLabelText("Kanıt dosyaları (isteğe bağlı)")).toHaveAttribute(
+      "accept",
+      ".pdf,.png,.jpg,.jpeg,.webp",
+    );
     await user.type(screen.getByLabelText("Uyuşmazlık nedeni"), "Çalışma süresi yanlış");
     await user.click(screen.getByRole("button", { name: "Uyuşmazlığı gönder" }));
     expect(action).toHaveBeenCalledWith({ type: "dispute", reason: "Çalışma süresi yanlış" });
@@ -342,9 +347,55 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       },
     });
     rerender(<WorkDetailScreen key="completed" initialDetail={completed} action={action} locate={located} />);
-    expect(screen.queryByText("İptal önizlemesi")).toBeNull();
+    expect(screen.queryByText("Çalışmadan çekilme")).toBeNull();
     expect(screen.queryByText("Uyuşmazlık aç")).toBeNull();
     expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
+  });
+
+  it("ödeme alınmamış atamadan çekilmede olmayan bir iade vaat etmez", async () => {
+    const user = userEvent.setup();
+    const unpaid = workDetail({
+      assignment: { ...workDetail().assignment, paymentStatus: "PENDING_COLLECTION" },
+    });
+    render(<WorkDetailScreen
+      initialDetail={unpaid}
+      action={vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: unpaid })}
+      locate={located}
+    />);
+
+    await user.click(screen.getByText("Çalışmadan çekilme"));
+
+    expect(screen.getByText(/henüz ödeme alınmadığı için iade gerekmez/i)).toBeVisible();
+    expect(screen.queryByText(/işverene ödemenin tamamının iade süreci başlar/i)).toBeNull();
+  });
+
+  it("işçi uyuşmazlık gerekçesiyle seçtiği kanıtları action'a taşır", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn<WorkDetailAction>().mockResolvedValue({
+      status: "done",
+      detail: workDetail(),
+      feedback: {
+        kind: "warning",
+        message: "Uyuşmazlık açıldı. 0 kanıt yüklendi, 1 kanıt yüklenemedi.",
+      },
+    });
+    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />);
+
+    await user.click(screen.getByText("Uyuşmazlık aç"));
+    await user.type(screen.getByLabelText("Uyuşmazlık nedeni"), "Çalışma süresi yanlış");
+    const evidence = screen.getByLabelText("Kanıt dosyaları (isteğe bağlı)");
+    const file = new File(["png"], "vardiya.png", { type: "image/png" });
+    await user.upload(evidence, file);
+    await user.click(screen.getByRole("button", { name: "Uyuşmazlığı gönder" }));
+
+    expect(action).toHaveBeenCalledWith({
+      type: "dispute",
+      reason: "Çalışma süresi yanlış",
+      evidence: [file],
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Uyuşmazlık açıldı. 0 kanıt yüklendi, 1 kanıt yüklenemedi.",
+    );
   });
 
   it("iptal edilemeyen atamada önizlemeyi çizer, yalnız göndermeyi kapatır", async () => {
@@ -363,13 +414,13 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
 
     render(<WorkDetailScreen initialDetail={closed} action={vi.fn()} locate={located} />);
 
-    await user.click(screen.getByText("İptal önizlemesi"));
+    await user.click(screen.getByText("Çalışmadan çekilme"));
 
     expect(screen.getByText("Başlangıca kalan").closest("div")).toHaveTextContent("Başlangıca kalan2 sa");
-    expect(screen.getByRole("button", { name: "Atamayı iptal et" }))
+    expect(screen.getByRole("button", { name: "Atamadan çekil" }))
       .toHaveAttribute("data-disabled-kind", "permanent");
-    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeDisabled();
-    expect(screen.getByLabelText("İptal nedeni")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Atamadan çekil" })).toBeDisabled();
+    expect(screen.getByLabelText("Çekilme nedeni")).toBeDisabled();
     expect(screen.getByText(/şu anda bu atamadan çekilemezsin/i)).toBeVisible();
     // İşçi işverenin rakamlarını görmüyor: kesinti ve iade sunucuda kesiliyor.
     expect(screen.queryByText("Kesinti")).toBeNull();
@@ -382,14 +433,14 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     const user = userEvent.setup();
     render(<WorkDetailScreen initialDetail={workDetail()} action={vi.fn()} locate={located} />);
 
-    await user.click(screen.getByText("İptal önizlemesi"));
+    await user.click(screen.getByText("Çalışmadan çekilme"));
 
-    expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeEnabled();
-    expect(screen.getByLabelText("İptal nedeni")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Atamadan çekil" })).toBeEnabled();
+    expect(screen.getByLabelText("Çekilme nedeni")).toBeEnabled();
     expect(screen.queryByText(/şu anda bu atamadan çekilemezsin/i)).toBeNull();
   });
 
-  it("açık uyuşmazlık varken çalışana ikinci uyuşmazlık formu göstermez", () => {
+  it("açık uyuşmazlık varken ikinci uyuşmazlığı açmaz ama yeni kanıt kabul eder", () => {
     const activeDispute = workDetail({
       resolution: {
         ...workDetail().resolution,
@@ -401,6 +452,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
           resolutionNote: null,
           createdAt: "2026-09-06T10:00:00Z",
           resolvedAt: null,
+          evidence: { status: "ready", items: [] },
         }],
       },
     });
@@ -408,9 +460,47 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     render(<WorkDetailScreen initialDetail={activeDispute} action={vi.fn()} locate={located} />);
 
     expect(screen.queryByRole("button", { name: "Uyuşmazlığı gönder" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Kanıtları yükle" })).toBeVisible();
+    expect(screen.getByLabelText("Yeni kanıt dosyaları")).not.toHaveAttribute("multiple");
     // İptal bloğu da çizilmiyor: nedeni yukarıdaki kalıcı uyuşmazlık şeridinde
     // zaten yazılı, blok içinde ikinci kez tekrar edilmesi gerekmiyor.
-    expect(screen.queryByText("İptal önizlemesi")).toBeNull();
+    expect(screen.queryByText("Çalışmadan çekilme")).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("açık bir uyuşmazlık var");
+  });
+
+  it("işçi kanıtı başarıyla yükleyince dosya seçimini sıfırlar", async () => {
+    const user = userEvent.setup();
+    const activeDispute = workDetail({
+      resolution: {
+        ...workDetail().resolution,
+        disputes: [{
+          id: "dispute-1",
+          status: "UNDER_REVIEW",
+          reason: "Çalışma süresi yanlış",
+          resolution: null,
+          resolutionNote: null,
+          createdAt: "2026-09-06T10:00:00Z",
+          resolvedAt: null,
+          evidence: { status: "ready", items: [] },
+        }],
+      },
+    });
+    const action = vi.fn<WorkDetailAction>().mockResolvedValue({
+      status: "done",
+      detail: activeDispute,
+    });
+    render(<WorkDetailScreen initialDetail={activeDispute} action={action} locate={located} />);
+    const input = screen.getByLabelText<HTMLInputElement>("Yeni kanıt dosyaları");
+    const file = new File(["png"], "vardiya.png", { type: "image/png" });
+
+    await user.upload(input, file);
+    fireEvent.submit(input.closest("form")!);
+
+    await vi.waitFor(() => expect(action).toHaveBeenCalledWith({
+      type: "evidence",
+      disputeId: "dispute-1",
+      evidence: [file],
+    }));
+    await vi.waitFor(() => expect(input.files).toHaveLength(0));
   });
 });

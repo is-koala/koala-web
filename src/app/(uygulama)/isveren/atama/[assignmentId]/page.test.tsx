@@ -84,6 +84,7 @@ describe("işveren atama ayrıntısı", () => {
         resolutionNote: null,
         createdAt: "2026-09-06T10:00:00Z",
         resolvedAt: null,
+        evidence: { status: "ready", items: [] },
       }],
     });
   });

@@ -3,6 +3,7 @@ import "server-only";
 import { apiFetch } from "@/server/api/client";
 import { isNotFound, isUnauthorized } from "@/server/api/errors";
 import { backendPaths } from "@/server/contract";
+import { bffUpstreamTimeoutMs } from "@/server/env";
 
 /** `TokenResponseDto`. */
 export type TokenPair = {
@@ -17,6 +18,8 @@ export type RefreshInput = {
   refreshToken: string;
   deviceId: string;
   clientIp?: string | null;
+  /** Yalnız bu bekleyiciyi iptal eder; paylaşılan yenileme diğer çağıranlar için sürer. */
+  signal?: AbortSignal;
 };
 
 /**
@@ -47,13 +50,13 @@ const inFlight = new Map<string, Promise<TokenPair>>();
  */
 export function refreshTokenPair(input: RefreshInput): Promise<TokenPair> {
   const pending = inFlight.get(input.refreshToken);
-  if (pending) return pending;
+  if (pending) return waitForRefresh(pending, input.signal);
 
   const request = requestRefresh(input).finally(() => {
     inFlight.delete(input.refreshToken);
   });
   inFlight.set(input.refreshToken, request);
-  return request;
+  return waitForRefresh(request, input.signal);
 }
 
 async function requestRefresh(input: RefreshInput): Promise<TokenPair> {
@@ -65,6 +68,9 @@ async function requestRefresh(input: RefreshInput): Promise<TokenPair> {
       accessToken: input.accessToken,
       deviceId: input.deviceId,
       clientIp: input.clientIp,
+      // Bir istemcinin iptali paylaşılan isteği kesmez; bu bağımsız üst sınır
+      // askıda kalan isteğin ve inFlight girdisinin sonlu kalmasını sağlar.
+      signal: AbortSignal.timeout(bffUpstreamTimeoutMs()),
       body: { refreshToken: input.refreshToken },
     });
   } catch (error) {
@@ -78,4 +84,30 @@ async function requestRefresh(input: RefreshInput): Promise<TokenPair> {
     }
     throw error;
   }
+}
+
+function waitForRefresh(
+  request: Promise<TokenPair>,
+  signal: AbortSignal | undefined,
+): Promise<TokenPair> {
+  if (!signal) return request;
+  if (signal.aborted) return Promise.reject(signal.reason);
+
+  return new Promise<TokenPair>((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    request.then(
+      (pair) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(pair);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
 }

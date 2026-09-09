@@ -11,7 +11,7 @@ import {
 } from "../../../tests/support/session-cookies";
 
 import { SessionExpiredError } from "./refresh";
-import { apiRequest } from "./session";
+import { apiRequest, apiRequestResponse } from "./session";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 
@@ -112,6 +112,72 @@ describe("BFF oturum katmanı", () => {
 
     const retryHeaders = new Headers((fetchMock.mock.calls[2] as [string, RequestInit])[1].headers);
     expect(retryHeaders.get("Authorization")).toBe("Bearer yeni-access-placeholder");
+  });
+
+  it("dosya yanıtını 401 sonrası yenileyip ham gövdesiyle döndürür", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(unauthorized())
+      .mockResolvedValueOnce(
+        jsonResponse(200, envelope({
+          token: "yeni-access-placeholder",
+          refreshToken: "refresh-placeholder",
+          refreshExpiresAt: "2026-10-06T00:00:00Z",
+        })),
+      )
+      .mockResolvedValueOnce(new Response("kanıt", {
+        status: 200,
+        headers: { "content-type": "application/pdf" },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await apiRequestResponse("/disputes/1/evidence/2/download", {
+      cache: "no-store",
+    });
+
+    expect(await response.text()).toBe("kanıt");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const retryHeaders = new Headers((fetchMock.mock.calls[2] as [string, RequestInit])[1].headers);
+    expect(retryHeaders.get("Authorization")).toBe("Bearer yeni-access-placeholder");
+  });
+
+  it("dosya isteği iptal edilince paylaşılan yenilemeyi bozmadan beklemeyi bırakır", async () => {
+    const controller = new AbortController();
+    let releaseRefresh: (response: Response) => void = () => undefined;
+    let refreshSignal: AbortSignal | null = null;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(unauthorized())
+      .mockImplementationOnce((_url: string, init: RequestInit) => {
+        refreshSignal = init.signal as AbortSignal;
+        return new Promise<Response>((resolve) => {
+          releaseRefresh = resolve;
+        });
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = apiRequestResponse("/disputes/1/evidence/2/download", {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    controller.abort();
+
+    try {
+      const outcome = await Promise.race([
+        pending.then(() => "resolved", () => "aborted"),
+        new Promise<string>((resolve) => setTimeout(() => resolve("still-pending"), 50)),
+      ]);
+      expect(outcome).toBe("aborted");
+      expect(refreshSignal).toBeInstanceOf(AbortSignal);
+      expect((refreshSignal as unknown as AbortSignal).aborted).toBe(false);
+    } finally {
+      releaseRefresh(jsonResponse(200, envelope({
+        token: "yeni-access-placeholder",
+        refreshToken: "refresh-placeholder",
+        refreshExpiresAt: "2026-10-06T00:00:00Z",
+      })));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
   });
 
   it("yenilenen tokenları HttpOnly çerezlere yazar", async () => {

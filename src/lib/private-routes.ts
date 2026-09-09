@@ -43,7 +43,7 @@ export const privateRoutes = [
  * **kapsadığı** ama onlardan ibaret olmadığı `app-routes.test.ts` içinde
  * yazılı.
  */
-export const privateRouteTrees = ["/isveren", "/panel", "/davet"] as const;
+export const privateRouteTrees = ["/isveren", "/panel", "/davet", "/api/disputes"] as const;
 
 /** `next.config.ts` başlık kurallarının kaynak kalıpları. */
 export const privateHeaderSources: readonly string[] = [

@@ -13,6 +13,8 @@ import { formatNotice, formatRate } from "@/components/work-detail/presenters";
 import { errorPresentation } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
 
+import { DisputeEvidenceFields } from "./dispute-evidence-fields";
+
 type ResolutionAction = (
   state: ResolutionActionState,
   formData: FormData,
@@ -35,6 +37,7 @@ export function EmployerResolutionActions({
   const preview = resolution.cancellationPreview;
   const canCancel = canCancelAssignment({ assignmentStatus, resolution });
   const activeDispute = hasActiveDispute(resolution);
+  const activeDisputeRecord = resolution.disputes.find((dispute) => dispute.status !== "RESOLVED");
   const canDispute = canOpenAssignmentDispute({ assignmentStatus, paymentStatus, resolution });
   /*
     Önizleme `cancellableNow: false` iken de çiziliyor, gizlenmiyor.
@@ -55,6 +58,7 @@ export function EmployerResolutionActions({
       <h2 id="employer-resolution-actions-title">İşlemler</h2>
 
       {state.status === "done" ? <p role="status" className="work-location-notice">{state.message}</p> : null}
+      {state.status === "partial" ? <p role="alert" className="form-warning">{state.message}</p> : null}
       {state.status === "error" ? (
         <p role="alert" className="form-warning">
           {resolutionErrorMessage(state.errorCode, state.httpStatus)}
@@ -109,13 +113,23 @@ export function EmployerResolutionActions({
               maxLength={2000}
               action={submit}
               pending={pending}
+              withEvidence
             />
           </div>
         </details>
       ) : null}
 
       {activeDispute ? (
-        <p className="muted">Mevcut uyuşmazlık sonuçlanana kadar yeni bir kayıt açılamaz.</p>
+        <>
+          <p className="muted">Mevcut uyuşmazlık sonuçlanana kadar yeni bir kayıt açılamaz.</p>
+          {activeDisputeRecord ? (
+            <EvidenceForm
+              disputeId={activeDisputeRecord.id}
+              action={submit}
+              pending={pending}
+            />
+          ) : null}
+        </>
       ) : null}
     </section>
   );
@@ -129,6 +143,7 @@ function ReasonForm({
   action,
   pending,
   blockedReason = null,
+  withEvidence = false,
 }: {
   operation: "cancel" | "dispute";
   label: string;
@@ -138,6 +153,7 @@ function ReasonForm({
   pending: boolean;
   /** Eylem kapalıysa nedeni; açıkken `null`. Kapalı form gizlenmiyor. */
   blockedReason?: string | null;
+  withEvidence?: boolean;
 }) {
   const id = `employer-${operation}-reason`;
   const blocked = blockedReason !== null;
@@ -148,6 +164,9 @@ function ReasonForm({
         <label htmlFor={id}>{label}</label>
         <textarea id={id} name="reason" required maxLength={maxLength} rows={4} disabled={blocked} />
       </div>
+      {withEvidence ? (
+        <DisputeEvidenceFields id="employer-dispute-evidence" label="Kanıt dosyaları (isteğe bağlı)" />
+      ) : null}
       <button
         className="button button-danger button-small"
         disabled={blocked || pending}
@@ -156,6 +175,27 @@ function ReasonForm({
         {button}
       </button>
       {blockedReason ? <p className="muted">{blockedReason}</p> : null}
+    </form>
+  );
+}
+
+function EvidenceForm({
+  disputeId,
+  action,
+  pending,
+}: {
+  disputeId: string;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  return (
+    <form className="form compact-form" action={action}>
+      <input type="hidden" name="operation" value="evidence" />
+      <input type="hidden" name="disputeId" value={disputeId} />
+      <DisputeEvidenceFields id={`employer-evidence-${disputeId}`} label="Yeni kanıt dosyaları" required />
+      <button className="button button-secondary button-small" disabled={pending}>
+        Kanıtları yükle
+      </button>
     </form>
   );
 }

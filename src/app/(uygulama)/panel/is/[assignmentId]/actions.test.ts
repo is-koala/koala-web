@@ -11,6 +11,8 @@ const readWorkDetail = vi.hoisted(() => vi.fn());
 const checkpoint = vi.hoisted(() => vi.fn());
 const cancelAssignment = vi.hoisted(() => vi.fn());
 const createAssignmentDispute = vi.hoisted(() => vi.fn());
+const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
+const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const createAssignmentReview = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
@@ -19,6 +21,8 @@ vi.mock("@/server/assignments/work-detail", () => ({
   checkpoint,
   cancelAssignment,
   createAssignmentDispute,
+  createAssignmentDisputeWithEvidence,
+  uploadAssignmentDisputeEvidence,
   createAssignmentReview,
 }));
 
@@ -152,6 +156,85 @@ describe("iş ayrıntısı action sözleşmesi", () => {
     expect(createAssignmentDispute).toHaveBeenCalledWith(assignmentId, "Süre yanlış");
     expect(createAssignmentReview).toHaveBeenCalledWith(assignmentId, 5, "Harikaydı");
     expect(readWorkDetail).toHaveBeenCalledTimes(3);
+  });
+
+  it("uyuşmazlık açılıp tek kanıt yüklenemezse güncel kaydı ve uyarıyı döndürür", async () => {
+    createAssignmentDisputeWithEvidence.mockResolvedValueOnce({
+      disputeId: "dispute-1",
+      uploadedCount: 0,
+      failedCount: 1,
+    });
+    const files = [new File(["png"], "vardiya.png", { type: "image/png" })];
+
+    await expect(workDetailAction(assignmentId, {
+      type: "dispute",
+      reason: "  Süre yanlış  ",
+      evidence: files,
+    })).resolves.toEqual({
+      detail,
+      feedback: {
+        kind: "warning",
+        message: "Uyuşmazlık açıldı. 0 kanıt yüklendi, 1 kanıt yüklenemedi.",
+      },
+      status: "done",
+    });
+    expect(createAssignmentDisputeWithEvidence).toHaveBeenCalledWith(
+      assignmentId,
+      "Süre yanlış",
+      files,
+    );
+  });
+
+  it("bir Server Action komutunda birden fazla kanıtı kabul etmez", async () => {
+    const files = [
+      new File(["png"], "vardiya.png", { type: "image/png" }),
+      new File(["pdf"], "tutanak.pdf", { type: "application/pdf" }),
+    ];
+
+    await expect(workDetailAction(assignmentId, {
+      type: "dispute",
+      reason: "Süre yanlış",
+      evidence: files,
+    })).resolves.toEqual({
+      status: "error",
+      errorCode: "DISPUTE_EVIDENCE_TOO_MANY",
+      httpStatus: 400,
+    });
+    expect(createAssignmentDisputeWithEvidence).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [new File([], "bos.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_EMPTY"],
+    [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "buyuk.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_TOO_LARGE"],
+    [new File(["veri"], "pdf", { type: "application/pdf" }), "STORAGE_UNSUPPORTED_TYPE"],
+  ])("geçersiz kanıt komutunda dosya hata kodunu korur: %s", async (file, errorCode) => {
+    await expect(workDetailAction(assignmentId, {
+      type: "dispute",
+      reason: "Süre yanlış",
+      evidence: [file],
+    })).resolves.toEqual({ status: "error", errorCode, httpStatus: 400 });
+    expect(createAssignmentDisputeWithEvidence).not.toHaveBeenCalled();
+  });
+
+  it("açık uyuşmazlığa sonradan kanıt ekler", async () => {
+    const disputeId = "8b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6a";
+    const files = [new File(["pdf"], "tutanak.pdf", { type: "application/pdf" })];
+    uploadAssignmentDisputeEvidence.mockResolvedValueOnce({
+      disputeId,
+      uploadedCount: 1,
+      failedCount: 0,
+    });
+
+    await expect(workDetailAction(assignmentId, {
+      type: "evidence",
+      disputeId,
+      evidence: files,
+    })).resolves.toEqual({
+      status: "done",
+      detail,
+      feedback: { kind: "notice", message: "1 kanıt dosyası yüklendi." },
+    });
+    expect(uploadAssignmentDisputeEvidence).toHaveBeenCalledWith(disputeId, files);
   });
 
   it("geçersiz kimlik, koordinat ve form değerlerini backend'e taşımaz", async () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchResponse } from "./client";
 import { ApiError, isUpgradeRequired } from "./errors";
 
 const deviceId = "webdevice0000000000000000000test";
@@ -124,6 +124,49 @@ describe("BFF API istemcisi", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.body).toBe(body);
     expect(new Headers(init.headers).has("Content-Type")).toBe(false);
+  });
+
+  it("dosya yanıtını zarf diye okumadan BFF başlıklarıyla taşır", async () => {
+    const fetchMock = stubFetch(new Response("kanıt", {
+      status: 200,
+      headers: {
+        "content-type": "application/pdf",
+        "content-disposition": "attachment; filename=kanit.pdf",
+      },
+    }));
+
+    const signal = new AbortController().signal;
+    const response = await apiFetchResponse("/disputes/1/evidence/2/download", {
+      deviceId,
+      accessToken: "access-token-placeholder",
+      cache: "no-store",
+      signal,
+    });
+
+    expect(await response.text()).toBe("kanıt");
+    expect(response.headers.get("content-disposition")).toBe("attachment; filename=kanit.pdf");
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer access-token-placeholder");
+    expect(init.cache).toBe("no-store");
+    expect(init.signal).toBe(signal);
+  });
+
+  it("dosya indirme yönlendirmesini kimlik başlıklarıyla otomatik izlemez", async () => {
+    const fetchMock = stubFetch(new Response(null, {
+      status: 302,
+      headers: { location: "https://bucket.s3.eu-central-1.amazonaws.com/evidence.pdf" },
+    }));
+
+    const response = await apiFetchResponse("/disputes/1/evidence/2/download", {
+      deviceId,
+      accessToken: "access-token-placeholder",
+      cache: "no-store",
+      redirect: "manual",
+    });
+
+    expect(response.status).toBe(302);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.redirect).toBe("manual");
   });
 
   it("erişim tokenı yokken Authorization başlığı göndermez", async () => {

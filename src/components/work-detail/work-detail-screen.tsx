@@ -33,7 +33,7 @@ export function WorkDetailScreen({
 }) {
   const [detail, setDetail] = useState<WorkDetail | null>(initialDetail);
   const [feedback, setFeedback] = useState<
-    { kind: "error" | "notice"; message: string } | null
+    { kind: "error" | "notice" | "warning"; message: string } | null
   >(null);
   const [isPending, startTransition] = useTransition();
   const activeSessionId = detail?.sessions.find((session) => session.checkOutAt === null)?.id;
@@ -44,7 +44,7 @@ export function WorkDetailScreen({
   ) => {
     if (result.status === "done") {
       setDetail(result.detail);
-      setFeedback(notice ? { kind: "notice", message: notice } : null);
+      setFeedback(result.feedback ?? (notice ? { kind: "notice", message: notice } : null));
       return;
     }
     if ("detail" in result) setDetail(result.detail ?? null);
@@ -55,9 +55,16 @@ export function WorkDetailScreen({
   }, []);
 
   const run = useCallback((command: WorkDetailCommand, notice: string | null = null) => {
-    startTransition(async () => {
-      const result = await action(command);
-      applyResult(result, notice);
+    return new Promise<WorkDetailActionResult>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          const result = await action(command);
+          applyResult(result, notice);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
     });
   }, [action, applyResult]);
 
@@ -70,7 +77,7 @@ export function WorkDetailScreen({
   }, [action, applyResult, locate]);
 
   useEffect(() => {
-    const refresh = () => run({ type: "refresh" });
+    const refresh = () => void run({ type: "refresh" });
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh();
     };
@@ -122,13 +129,13 @@ export function WorkDetailScreen({
 function Feedback({
   feedback,
 }: {
-  feedback: { kind: "error" | "notice"; message: string } | null;
+  feedback: { kind: "error" | "notice" | "warning"; message: string } | null;
 }) {
   if (!feedback) return null;
   return (
     <p
-      className={feedback.kind === "error" ? "form-warning" : "work-location-notice"}
-      role={feedback.kind === "error" ? "alert" : "status"}
+      className={feedback.kind === "notice" ? "work-location-notice" : "form-warning"}
+      role={feedback.kind === "notice" ? "status" : "alert"}
     >
       {feedback.message}
     </p>

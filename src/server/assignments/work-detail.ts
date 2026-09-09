@@ -16,7 +16,12 @@ import {
 import { readWorkerAssignmentResolution } from "@/server/assignments/resolution";
 import { clean } from "@/server/api/dto";
 
-export { cancelAssignment, createAssignmentDispute } from "@/server/assignments/resolution";
+export {
+  cancelAssignment,
+  createAssignmentDispute,
+  createAssignmentDisputeWithEvidence,
+  uploadAssignmentDisputeEvidence,
+} from "@/server/assignments/resolution";
 
 type JobDetailDto = {
   description?: string | null;
@@ -122,4 +127,3 @@ function toWorkSession(dto: WorkSessionDto): WorkSession {
     minutes: dto.minutes ?? null,
   };
 }
-
