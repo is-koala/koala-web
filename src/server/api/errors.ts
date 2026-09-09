@@ -63,3 +63,15 @@ export function isUnauthorized(error: unknown): error is ApiError {
 export function isNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === notFoundStatus;
 }
+
+/**
+ * Kullanıcının destekle paylaşacağı korelasyon kimliği.
+ *
+ * Backend zarfı ağ sınırından geldiği için değer serbest metin kabul edilmez;
+ * böylece yanlış yapılandırılmış bir upstream token veya PII'ı arayüze taşıyamaz.
+ */
+export function safeRequestId(requestId: string | null | undefined): string | null {
+  return requestId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestId)
+    ? requestId
+    : null;
+}

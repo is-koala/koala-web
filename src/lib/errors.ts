@@ -2,6 +2,8 @@ import { serviceAreaNotice } from "@/address/contract";
 
 import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
 import type { GateId } from "./gates";
+import { loginPath } from "./site";
+import { safeInternalPath } from "./urls";
 
 export type ErrorAction = "login" | "home" | "retry" | "none";
 
@@ -10,6 +12,38 @@ export type ErrorPresentation = {
   message: string;
   action: ErrorAction;
 };
+
+export type ErrorRecoveryAction =
+  | Readonly<{ kind: "link"; href: string; label: string }>
+  | Readonly<{ kind: "retry"; label: string }>;
+
+/**
+ * Hata kataloğundaki karar ile tıklanabilir arayüz arasındaki tek kapı.
+ *
+ * Link hedefleri çağırandan ya da backend'den alınmaz. Yine de çalışma
+ * zamanında `safeInternalPath` üzerinden geçerler: tipler silindikten sonra
+ * bozulmuş bir katalog girdisi dış yönlendirmeye dönüşemez. `retry` ise burada
+ * handler taşımaz; aynı hata bir GET, form mutasyonu ya da error boundary'de
+ * görülebilir ve yeniden denemenin ne demek olduğunu yalnız çağıran bilir.
+ */
+const errorRecoveryActions = {
+  login: { kind: "link", href: loginPath, label: "Giriş yap" },
+  home: { kind: "link", href: "/", label: "Ana sayfaya dön" },
+  retry: { kind: "retry", label: "Yeniden dene" },
+  none: null,
+} as const satisfies Readonly<Record<ErrorAction, ErrorRecoveryAction | null>>;
+
+/** Bilinmeyen eylem, prototip anahtarı veya güvensiz hedefte kapalı kalır. */
+export function errorRecoveryAction(action: unknown): ErrorRecoveryAction | null {
+  if (typeof action !== "string" || !Object.hasOwn(errorRecoveryActions, action)) return null;
+
+  const recovery = errorRecoveryActions[action as ErrorAction];
+  if (!recovery) return null;
+  if (recovery.kind === "retry") return recovery;
+
+  const href = safeInternalPath(recovery.href);
+  return href ? { ...recovery, href } : null;
+}
 
 const exactErrors: Record<string, ErrorPresentation> = {
   AUTHENTICATION_REQUIRED: {
@@ -90,6 +124,11 @@ const exactErrors: Record<string, ErrorPresentation> = {
   UPGRADE_REQUIRED: {
     title: "Sayfayı yenilemen gerekiyor",
     message: "Koala'nın güncel sürümünü kullanmak için sayfayı yenile.",
+    action: "retry",
+  },
+  LEGAL_DELETION_ALREADY_REQUESTED: {
+    title: "Silme talebin zaten var",
+    message: "Bekleyen talebinin güncel durumunu görmek için sayfayı yenileyebilirsin.",
     action: "retry",
   },
   // Bireysel ilanın üç reddi. Üçü de aile metnine düşseydi ("Bilgileri kontrol

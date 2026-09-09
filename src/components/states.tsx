@@ -1,6 +1,9 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { errorPresentation } from "@/lib/errors";
+import { errorPresentation, errorRecoveryAction } from "@/lib/errors";
+
+import { ErrorRetryAction } from "./error-retry-action";
 
 const emptyCopy = {
   jobs: ["Henüz ilan yok", "Yeni ilanlar yayımlandığında burada görünecek."],
@@ -96,15 +99,27 @@ export function EmptyState({
 export function ErrorState({
   errorCode,
   status,
+  onRetry,
 }: {
   errorCode?: string;
   status: number;
+  /** Yalnız Client Component çağıranları retry kararının gerçek davranışını sağlar. */
+  onRetry?: () => void;
 }) {
   const presentation = errorPresentation(errorCode, status);
+  const recovery = errorRecoveryAction(presentation.action);
   return (
     <div role="alert" className="state-card state-card-error">
       <h2>{presentation.title}</h2>
       <p>{presentation.message}</p>
+      {recovery?.kind === "link" ? (
+        <Link className="text-link state-action" href={recovery.href}>
+          {recovery.label}
+        </Link>
+      ) : null}
+      {recovery?.kind === "retry" && onRetry ? (
+        <ErrorRetryAction label={recovery.label} onRetry={onRetry} />
+      ) : null}
     </div>
   );
 }

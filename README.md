@@ -74,9 +74,26 @@ paylaşmaz.
 Web haritası yalnız `NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY` kullanır. Bu anahtar
 tarayıcıya iner; bu nedenle staging ve production için ayrıdır, yalnız Maps
 JavaScript API'ye yetkilidir ve exact HTTP referrer listesiyle kısıtlanır.
-Production anahtarına localhost eklenmez. Places ve Geocoding web service
-çağrıları backend'in sağlayıcıdan bağımsız adres uçlarında ve sunucu anahtarıyla
-kalır.
+Production anahtarına localhost eklenmez. Bir sunucu sırrı değildir:
+Docker build sırasında `NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY` adlı build arg olarak
+verilir ve build-time client kodunun kullanımına sunulur. İstemci kodu değeri
+okuduğunda Next onu browser bundle'a gömer; final image'ın runtime env
+metadata'sına taşınmaz. Çalışan container'a sonradan eklemek bundle'ı
+değiştirmez. Anahtar verilmeden Docker image build edilebilir; anahtarı tüketen
+UI bu durumda haritasız güvenli yedek davranışı korumalıdır.
+
+Places ve Geocoding web service çağrıları backend'in sağlayıcıdan bağımsız
+adres uçlarında ve ayrı sunucu anahtarıyla kalır. Bu sunucu anahtarı ile
+`API_URL` gibi sırlar `NEXT_PUBLIC_` öneki almaz ve Docker build arg olarak
+verilmez; yalnız ilgili sunucunun runtime secret store'unda tanımlanır.
+
+Bu Docker sözleşmesini gerçek builder ve final image üzerinde doğrulamak için
+Docker daemon çalışırken `npm run test:docker-contract` kullanılır. Komut yalnız
+sentetik bir değer kullanır; değerin builder'daki gerçek `.next/static` client
+çıktısına ulaştığını, fakat final image metadata/runtime env alanına taşınmadığını
+ölçer. Public değer ileride harita kodu tarafından tüketildiğinde final filesystem
+ve image arşivindeki client bundle'da bulunması beklenir; bu bir secret sızıntısı
+değildir. Komut ürettiği image ve container'ları çıkışta temizler.
 
 Google Cloud'da günlük Maps JS kotası harcama sınırıdır; bütçe uyarısı yalnız
 bildirim üretir. Gerçek anahtar hiçbir tracked dosyaya, issue'ya veya CI loguna
