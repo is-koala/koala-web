@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 import {
+  isLegalDocumentSlug,
   legalCatalog,
   type LegalDocumentSlug,
   type LegalDocumentVersion,
@@ -55,8 +56,9 @@ export const legalDocuments = Object.fromEntries(
 ) as Record<LegalDocumentSlug, LegalDocumentRecord>;
 
 export function getLegalDocumentVersion(
-  slug: LegalDocumentSlug,
+  slug: string,
   version: string,
 ): LegalDocumentRecord | undefined {
+  if (!isLegalDocumentSlug(slug)) return undefined;
   return legalDocumentVersions[slug][version as LegalDocumentVersion];
 }
