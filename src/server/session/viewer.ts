@@ -73,6 +73,8 @@ export type Viewer = {
 export type ViewerFailure = {
   status: number;
   errorCode: string;
+  /** Destekle paylaşılabilir sunucu takip kimliği; ham hata metni değildir. */
+  requestId?: string;
 };
 
 export type ViewerContext = {
@@ -132,7 +134,14 @@ export async function loadViewer(): Promise<ViewerContext> {
     // dönemeyeceği bir ekranda bırakırdı.
     if (error.status === unauthorizedStatus) redirect(await currentPathLoginRedirect());
 
-    return { viewer: null, failure: { status: error.status, errorCode: error.errorCode } };
+    return {
+      viewer: null,
+      failure: {
+        status: error.status,
+        errorCode: error.errorCode,
+        ...(error.requestId ? { requestId: error.requestId } : {}),
+      },
+    };
   }
 }
 

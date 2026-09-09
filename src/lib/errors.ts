@@ -131,6 +131,12 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "Bekleyen talebinin güncel durumunu görmek için sayfayı yenileyebilirsin.",
     action: "retry",
   },
+  REPORT_IDEMPOTENCY_CONFLICT: {
+    title: "Bu mesaj için farklı bir şikâyetin var",
+    message:
+      "Bu mesajı daha önce farklı bilgilerle şikâyet ettin. Mevcut şikâyetin değiştirilemez; moderasyon ekibi onu inceleyecek.",
+    action: "none",
+  },
   // Bireysel ilanın üç reddi. Üçü de aile metnine düşseydi ("Bilgileri kontrol
   // et" / "Bu işlem için yetkin yok") kullanıcı ne yapması gerektiğini
   // okuyamazdı: yapılacak iş her birinde farklı ve hiçbiri alanları gözden

@@ -2,7 +2,13 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
-import type { ConversationSummary, Message, Page } from "@/messaging/contract";
+import type {
+  ConversationSummary,
+  Message,
+  Page,
+  ReportReason,
+} from "@/messaging/contract";
+import { conversationListPageSize, isConversationSourcePage } from "@/messaging/contract";
 import { apiRequest } from "@/server/session/session";
 
 type BackendUser = {
@@ -32,6 +38,10 @@ type BackendPresence = {
   online?: boolean | null;
 };
 
+type BackendUserBlock = {
+  blocked?: { id?: string | null } | null;
+};
+
 type BackendPage<T> = {
   content?: readonly T[] | null;
   page?: number | null;
@@ -44,17 +54,29 @@ type BackendPage<T> = {
 export async function getConversations(
   viewerId: string,
   page = 0,
-  size = 20,
+  size = conversationListPageSize,
+): Promise<Page<ConversationSummary>> {
+  return getConversationPage(viewerId, page, size, true);
+}
+
+async function getConversationPage(
+  viewerId: string,
+  page: number,
+  size: number,
+  includePresence: boolean,
 ): Promise<Page<ConversationSummary>> {
   const response = await apiRequest<BackendPage<BackendConversation>>(
     `/conversations?${new URLSearchParams({ page: String(page), size: String(size) })}`,
     { method: "GET", cache: "no-store" },
   );
-  const content = (response.content ?? []).map((item) => toConversation(item, viewerId));
+  const content = (response.content ?? []).map((item) => ({
+    ...toConversation(item, viewerId),
+    sourcePage: page,
+  }));
   const counterpartIds = [...new Set(content.flatMap((item) =>
     item.counterpartId === null ? [] : [item.counterpartId],
   ))];
-  const presence = await getPresenceSafely(counterpartIds);
+  const presence = includePresence ? await getPresenceSafely(counterpartIds) : new Map();
 
   return pageOf(response, content.map((item) => ({
     ...item,
@@ -80,17 +102,19 @@ export async function getConversationMessages(
 export async function getConversation(
   viewerId: string,
   conversationId: string,
+  sourcePage = 0,
 ): Promise<ConversationSummary | null> {
-  let page = 0;
-  let last = false;
-  do {
-    const result = await getConversations(viewerId, page, 100);
-    const match = result.content.find((conversation) => conversation.id === conversationId);
-    if (match) return match;
-    last = result.last;
-    page += 1;
-  } while (!last);
-  return null;
+  if (!isConversationSourcePage(sourcePage)) return null;
+  // Backend tek konuşma özeti sunmuyor. Liste linkindeki sayfa yalnız bir
+  // lookup ipucudur: hedef ve katılımcılar yine participant-filtered backend
+  // sayfasından çıkarılır; eşleşme yoksa istemci verisine güvenmeden kapanır.
+  const hinted = await getConversationPage(
+    viewerId,
+    sourcePage,
+    conversationListPageSize,
+    false,
+  );
+  return hinted.content.find((conversation) => conversation.id === conversationId) ?? null;
 }
 
 export function sendConversationMessage(conversationId: string, body: string): Promise<Message> {
@@ -103,6 +127,42 @@ export function sendConversationMessage(conversationId: string, body: string): P
 export async function markConversationRead(conversationId: string): Promise<void> {
   await apiRequest(`/conversations/${encodeURIComponent(conversationId)}/read`, {
     method: "POST",
+  });
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  await apiRequest(`/users/me/blocks/${encodeURIComponent(userId)}`, {
+    method: "POST",
+    body: {},
+  });
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  await apiRequest(`/users/me/blocks/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function isUserBlockedByViewer(userId: string): Promise<boolean> {
+  const blocks = await apiRequest<readonly BackendUserBlock[]>("/users/me/blocks", {
+    method: "GET",
+    cache: "no-store",
+  });
+  return blocks.some((block) => block.blocked?.id === userId);
+}
+
+export async function reportContent(
+  target: { messageId: string },
+  reason: ReportReason,
+  description?: string,
+): Promise<{ id: string }> {
+  return apiRequest<{ id: string }>("/reports", {
+    method: "POST",
+    body: {
+      ...target,
+      reason,
+      ...(description === undefined ? {} : { description }),
+    },
   });
 }
 
