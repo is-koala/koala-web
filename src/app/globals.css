@@ -257,6 +257,7 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .notification-meta { color: var(--muted); font-size: .78rem; margin-bottom: 5px; }
 .notification-item h3 { margin-bottom: 5px; }
 .button:disabled { cursor: wait; opacity: .65; transform: none; box-shadow: none; }
+.button:disabled[data-disabled-kind="permanent"] { cursor: not-allowed; }
 .applications-page > .lede { margin-bottom: 0; }
 .application-list { display: flex; flex-direction: column; gap: 22px; margin-top: 28px; }
 .application-list > .state-card { margin-top: 0; }

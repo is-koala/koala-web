@@ -448,6 +448,7 @@ function ApplicantDecision({
           type="button"
           onClick={onAcceptRequested}
           disabled={!gate.canAccept || pending}
+          data-disabled-kind={!gate.canAccept ? "permanent" : undefined}
         >
           Kabul et
         </button>
@@ -477,6 +478,7 @@ function ApplicantDecision({
           <button
             className="button button-danger button-small"
             disabled={!gate.canReject || pending}
+            data-disabled-kind={!gate.canReject ? "permanent" : undefined}
           >
             Reddi gönder
           </button>
