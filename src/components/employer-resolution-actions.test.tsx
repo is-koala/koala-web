@@ -36,6 +36,50 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.getByRole("button", { name: "Uyuşmazlık aç" })).toBeVisible();
   });
 
+  it("uyuşmazlık formunda her istekte tek güvenli kanıt dosyası seçtirir", () => {
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={vi.fn()}
+    />);
+
+    fireEvent.click(screen.getByText("Uyuşmazlık aç", { selector: "summary" }));
+    const evidence = screen.getByLabelText("Kanıt dosyaları (isteğe bağlı)");
+    expect(evidence).not.toHaveAttribute("multiple");
+    expect(evidence).toHaveAttribute("accept", ".pdf,.png,.jpg,.jpeg,.webp");
+    expect(screen.getByText(/her yüklemede 1 dosya/i)).toBeVisible();
+  });
+
+  it("kanıt yükleme reddini hata kodundan Türkçe çözüme çevirir", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({
+      status: "error" as const,
+      errorCode: "DISPUTE_EVIDENCE_TOO_LARGE",
+      httpStatus: 400,
+    }));
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={action}
+    />);
+
+    await user.click(screen.getByText("Uyuşmazlık aç", { selector: "summary" }));
+    await user.type(screen.getByLabelText("Gerekçe ve kanıt açıklaması"), "Süre kaydı yanlış");
+    await user.upload(
+      screen.getByLabelText("Kanıt dosyaları (isteğe bağlı)"),
+      new File(["png"], "vardiya.png", { type: "image/png" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Uyuşmazlık aç" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kanıt dosyası 10 MB sınırını aşıyor. Daha küçük bir dosya seçip yeniden dene.",
+    );
+  });
+
   it("önizlemenin dört alanını da yazar", () => {
     // Kabul kriteri dördünü birlikte istiyor: ücret oranı, ücret tutarı, iade
     // tutarı ve ihbar süresi. Oran ve süre eksik kalırsa kullanıcı kesintinin
@@ -132,7 +176,7 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.queryByText(/iptal edilebilir saymıyor/i)).toBeNull();
   });
 
-  it("açık uyuşmazlık varken iptal ve ikinci uyuşmazlık formlarını açmaz", () => {
+  it("açık uyuşmazlık varken ikinci uyuşmazlığı açmaz ama yeni kanıt kabul eder", () => {
     render(<EmployerResolutionActions
       assignmentStatus="CONFIRMED"
       paymentStatus="HELD_IN_ESCROW"
@@ -146,6 +190,7 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
           resolutionNote: null,
           createdAt: "2026-09-06T10:00:00Z",
           resolvedAt: null,
+          evidence: { status: "ready", items: [] },
         }],
       }}
       currency="TRY"
@@ -154,6 +199,12 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
 
     expect(screen.queryByRole("button", { name: "Atamayı iptal et" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Uyuşmazlık aç" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Kanıtları yükle" })).toBeVisible();
+    expect(screen.getByLabelText("Yeni kanıt dosyaları")).toHaveAttribute(
+      "accept",
+      ".pdf,.png,.jpg,.jpeg,.webp",
+    );
+    expect(screen.getByLabelText("Yeni kanıt dosyaları")).not.toHaveAttribute("multiple");
     expect(screen.getByText(/mevcut uyuşmazlık sonuçlanana kadar/i)).toBeVisible();
   });
 

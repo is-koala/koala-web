@@ -41,11 +41,16 @@ export type WorkDetailCommand =
       point: { latitude: number; longitude: number } | null;
     }
   | { type: "cancel"; reason: string }
-  | { type: "dispute"; reason: string }
+  | { type: "dispute"; reason: string; evidence?: readonly File[] }
+  | { type: "evidence"; disputeId: string; evidence: readonly File[] }
   | { type: "review"; rating: number; comment: string };
 
 export type WorkDetailActionResult =
-  | { status: "done"; detail: WorkDetail }
+  | {
+      status: "done";
+      detail: WorkDetail;
+      feedback?: { kind: "notice" | "warning"; message: string };
+    }
   | {
       status: "error";
       errorCode: string;

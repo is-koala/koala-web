@@ -35,6 +35,8 @@ export type ApiRequestOptions = ApiCaller & {
   method?: HttpMethod;
   body?: unknown;
   cache?: RequestCache;
+  redirect?: RequestRedirect;
+  signal?: AbortSignal;
 };
 
 type BackendEnvelope = {
@@ -55,6 +57,23 @@ type BackendEnvelope = {
  * hiç görmez.
  */
 export async function apiFetch<T>(path: string, options: ApiRequestOptions): Promise<T> {
+  const response = await apiFetchResponse(path, options);
+  const body = await readBody(response);
+  const envelope = body.envelope ?? {};
+  const unreadable = body.present && body.envelope === null;
+
+  if (unreadable || envelope.success === false) {
+    throw apiError(response, envelope);
+  }
+
+  return (envelope.data ?? null) as T;
+}
+
+/** Zarf taşımayan dosya yanıtları için aynı güvenli backend kapısının ham biçimi. */
+export async function apiFetchResponse(
+  path: string,
+  options: ApiRequestOptions,
+): Promise<Response> {
   // Backend kalıba uymayan kimliği sessizce yok sayar; hata web login ve
   // refresh çağrılarında ilgisiz bir doğrulama mesajı olarak geri döner.
   // Kimliği src/proxy.ts ürettiği için buraya düşmesi yapılandırma hatasıdır.
@@ -95,25 +114,30 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions): Pro
     headers,
     body: requestBody,
     cache: options.cache,
+    redirect: options.redirect,
+    signal: options.signal,
   });
 
-  const body = await readBody(response);
-  const envelope = body.envelope ?? {};
-  const unreadable = body.present && body.envelope === null;
-
-  if (!response.ok || unreadable || envelope.success === false) {
-    throw new ApiError({
-      status: response.status,
-      errorCode: envelope.errorCode ?? fallbackErrorCode(response.status),
-      errorCategory: envelope.errorCategory ?? unexpectedError,
-      message: envelope.message ?? "",
-      details: envelope.details,
-      requestId: envelope.requestId,
-      minimumAppVersion: response.headers.get(backendHeaders.minimumAppVersion),
-    });
+  if (options.redirect === "manual" && response.status >= 300 && response.status < 400) {
+    return response;
   }
+  if (!response.ok) {
+    const body = await readBody(response);
+    throw apiError(response, body.envelope ?? {});
+  }
+  return response;
+}
 
-  return (envelope.data ?? null) as T;
+function apiError(response: Response, envelope: BackendEnvelope): ApiError {
+  return new ApiError({
+    status: response.status,
+    errorCode: envelope.errorCode ?? fallbackErrorCode(response.status),
+    errorCategory: envelope.errorCategory ?? unexpectedError,
+    message: envelope.message ?? "",
+    details: envelope.details,
+    requestId: envelope.requestId,
+    minimumAppVersion: response.headers.get(backendHeaders.minimumAppVersion),
+  });
 }
 
 /**

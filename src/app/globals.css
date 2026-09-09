@@ -467,6 +467,8 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .assignment-resolution-heading .eyebrow { margin-bottom: 5px; }
 .assignment-resolution-heading h3 { margin: 0; font-size: 1.15rem; }
 .assignment-resolution-heading time { color: var(--muted); font-size: .82rem; }
+.dispute-evidence .button-link { appearance: none; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-align: left; text-decoration: underline; cursor: pointer; }
+.dispute-evidence .button-link:disabled { color: var(--muted); cursor: wait; }
 .legal-shell { width: min(800px, calc(100% - 40px)); padding-block: 70px 100px; }
 .legal-document h1 { font-size: clamp(2.5rem, 7vw, 4.7rem); }
 .legal-document h2 { margin-top: 40px; }

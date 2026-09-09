@@ -51,6 +51,12 @@ describe("arama motorlarına kapalı rotalar", () => {
     expect(privateHeaderSources).toContain("/davet/:path*");
   });
 
+  it("uyuşmazlık kanıtı BFF adreslerini ağaç olarak kapatır", () => {
+    expect(blocked("/api/disputes")).toBe(true);
+    expect(blocked("/api/disputes/dispute-id/evidence/evidence-id/download")).toBe(true);
+    expect(privateHeaderSources).toContain("/api/disputes/:path*");
+  });
+
   it("hesap akışlarının tek tek yolları kapalı kalır", () => {
     for (const path of ["/giris", "/cikis", "/kayit", "/payment/result"]) {
       expect(blocked(path)).toBe(true);

@@ -2,8 +2,19 @@
 
 import type { FormEvent } from "react";
 
-import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
-import { canCancelAssignment, showsCancellationPreview } from "@/assignments/resolution";
+import type {
+  WorkDetail,
+  WorkDetailActionResult,
+  WorkDetailCommand,
+} from "@/assignments/work-detail";
+import {
+  canCancelAssignment,
+  showsCancellationPreview,
+} from "@/assignments/resolution";
+import {
+  DisputeEvidenceFields,
+  selectedDisputeEvidence,
+} from "@/components/dispute-evidence-fields";
 
 import { canOpenDispute, formatNotice } from "./presenters";
 
@@ -14,7 +25,7 @@ export function WorkSecondaryActions({
 }: {
   detail: WorkDetail;
   pending: boolean;
-  onCommand: (command: WorkDetailCommand, notice?: string) => void;
+  onCommand: CommandRunner;
 }) {
   const preview = detail.resolution.cancellationPreview;
   // Görünürlük ile eylem ayrı: blok önizleme geldiği sürece duruyor, gönderme
@@ -27,27 +38,30 @@ export function WorkSecondaryActions({
   });
   const canReview = detail.assignment.status === "COMPLETED";
   const showDispute = canOpenDispute(detail);
-  if (!showsCancellation && !showDispute && !canReview) return null;
+  const activeDispute = detail.resolution.disputes.find((dispute) => dispute.status !== "RESOLVED");
+  if (!showsCancellation && !showDispute && !canReview && !activeDispute) return null;
 
   return (
     <section className="work-detail-section work-secondary-actions" aria-labelledby="other-actions-heading">
       <h2 id="other-actions-heading">Diğer işlemler</h2>
       {showsCancellation && preview ? (
         <details>
-          <summary>İptal önizlemesi</summary>
+          <summary>Çalışmadan çekilme</summary>
           <div className="work-action-body">
             <dl className="cancellation-facts">
               <div><dt>Başlangıca kalan</dt><dd>{formatNotice(preview.noticeMinutes)}</dd></div>
             </dl>
             <p className="muted">
-              Onayladığında bu atamadaki çalışmadan çekilmiş olursun.
+              {detail.assignment.paymentStatus === "HELD_IN_ESCROW"
+                ? "Onayladığında atama sona erer; bu atama için ödeme alamazsın ve işverene ödemenin tamamının iade süreci başlar."
+                : "Onayladığında atama sona erer ve bu atama için ödeme alamazsın. İşverenden henüz ödeme alınmadığı için iade gerekmez."}
             </p>
             <ActionForm
-              label="İptal nedeni"
-              button="Atamayı iptal et"
+              label="Çekilme nedeni"
+              button="Atamadan çekil"
               maxLength={1000}
               pending={pending}
-              onSubmit={(reason) => onCommand({ type: "cancel", reason }, "Atama iptal edildi.")}
+              onSubmit={(reason) => onCommand({ type: "cancel", reason }, "Atamadan çekildin.")}
               blockedReason={canCancel ? null : cancellationClosedReason}
             />
           </div>
@@ -64,10 +78,20 @@ export function WorkSecondaryActions({
               button="Uyuşmazlığı gönder"
               maxLength={2000}
               pending={pending}
-              onSubmit={(reason) => onCommand({ type: "dispute", reason }, "Uyuşmazlık kaydın alındı.")}
+              withEvidence
+              onSubmit={(reason, evidence) => onCommand(
+                evidence.length > 0
+                  ? { type: "dispute", reason, evidence }
+                  : { type: "dispute", reason },
+                "Uyuşmazlık kaydın alındı.",
+              )}
             />
           </div>
         </details>
+      ) : null}
+
+      {activeDispute ? (
+        <EvidenceUploadForm disputeId={activeDispute.id} pending={pending} onCommand={onCommand} />
       ) : null}
 
       {canReview ? (
@@ -102,14 +126,16 @@ function ActionForm({
   pending,
   onSubmit,
   blockedReason = null,
+  withEvidence = false,
 }: {
   label: string;
   button: string;
   maxLength: number;
   pending: boolean;
-  onSubmit: (reason: string) => void;
+  onSubmit: (reason: string, evidence: readonly File[]) => void;
   /** Eylem kapalıysa nedeni; açıkken `null`. Kapalı form gizlenmiyor. */
   blockedReason?: string | null;
+  withEvidence?: boolean;
 }) {
   const id = `reason-${maxLength}`;
   const blocked = blockedReason !== null;
@@ -119,6 +145,9 @@ function ActionForm({
         <label htmlFor={id}>{label}</label>
         <textarea id={id} name="reason" required maxLength={maxLength} rows={4} disabled={blocked} />
       </div>
+      {withEvidence ? (
+        <DisputeEvidenceFields id="worker-dispute-evidence" label="Kanıt dosyaları (isteğe bağlı)" />
+      ) : null}
       <button
         className="button button-danger button-small"
         disabled={blocked || pending}
@@ -127,6 +156,28 @@ function ActionForm({
         {button}
       </button>
       {blockedReason ? <p className="muted">{blockedReason}</p> : null}
+    </form>
+  );
+}
+
+function EvidenceUploadForm({
+  disputeId,
+  pending,
+  onCommand,
+}: {
+  disputeId: string;
+  pending: boolean;
+  onCommand: CommandRunner;
+}) {
+  return (
+    <form
+      className="form compact-form"
+      onSubmit={(event) => void submitEvidence(event, disputeId, onCommand)}
+    >
+      <DisputeEvidenceFields id={`worker-evidence-${disputeId}`} label="Yeni kanıt dosyaları" required />
+      <button className="button button-secondary button-small" disabled={pending}>
+        Kanıtları yükle
+      </button>
     </form>
   );
 }
@@ -150,16 +201,41 @@ const cancellationClosedReason =
 
 function submitReason(
   event: FormEvent<HTMLFormElement>,
-  onSubmit: (reason: string) => void,
+  onSubmit: (reason: string, evidence: readonly File[]) => void,
 ) {
   event.preventDefault();
-  const reason = String(new FormData(event.currentTarget).get("reason") ?? "");
-  onSubmit(reason);
+  const form = new FormData(event.currentTarget);
+  const reason = String(form.get("reason") ?? "");
+  onSubmit(reason, selectedDisputeEvidence(event.currentTarget));
+}
+
+type CommandRunner = (
+  command: WorkDetailCommand,
+  notice?: string,
+) => Promise<WorkDetailActionResult>;
+
+async function submitEvidence(
+  event: FormEvent<HTMLFormElement>,
+  disputeId: string,
+  onCommand: CommandRunner,
+) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const files = selectedDisputeEvidence(form);
+  const result = await onCommand(
+    { type: "evidence", disputeId, evidence: files },
+    `${files.length} kanıt dosyası yüklendi.`,
+  );
+  if (result.status === "done") {
+    form.reset();
+    const input = form.elements.namedItem("evidence");
+    if (input instanceof HTMLInputElement) input.value = "";
+  }
 }
 
 function submitReview(
   event: FormEvent<HTMLFormElement>,
-  onCommand: (command: WorkDetailCommand, notice?: string) => void,
+  onCommand: CommandRunner,
 ) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);

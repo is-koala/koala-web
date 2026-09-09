@@ -7,13 +7,21 @@ import type {
   WorkDetailActionResult,
   WorkDetailCommand,
 } from "@/assignments/work-detail";
+import {
+  disputeEvidenceUploadFeedback,
+  disputeEvidenceValidationError,
+  validateDisputeEvidenceFiles,
+  type DisputeEvidenceUploadResult,
+} from "@/assignments/resolution";
 import { isUuid } from "@/lib/identifiers";
 import {
   cancelAssignment,
   checkpoint,
   createAssignmentDispute,
+  createAssignmentDisputeWithEvidence,
   createAssignmentReview,
   readWorkDetail,
+  uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/work-detail";
 import { failureView } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
@@ -24,12 +32,21 @@ export async function workDetailAction(
 ): Promise<WorkDetailActionResult> {
   await requireSessionForCurrentPath();
   const validated = validateCommand(command);
-  if (!isUuid(assignmentId) || !validated) return validationFailure;
+  if (!isUuid(assignmentId)) return validationFailure;
+  if (!validated) {
+    const evidenceError = commandEvidenceValidationError(command);
+    return evidenceError === null
+      ? validationFailure
+      : { status: "error", errorCode: evidenceError, httpStatus: 400 };
+  }
 
   try {
-    await execute(assignmentId, validated);
+    const upload = await execute(assignmentId, validated);
     const detail = await readWorkDetail(assignmentId);
-    return detail ? { status: "done", detail } : assignmentNotFound;
+    if (!detail) return assignmentNotFound;
+    return upload
+      ? { status: "done", detail, feedback: disputeEvidenceUploadFeedback(validated.type === "dispute", upload) }
+      : { status: "done", detail };
   } catch (error) {
     unstable_rethrow(error);
     const failure = failureView(error);
@@ -46,22 +63,39 @@ export async function workDetailAction(
   }
 }
 
-async function execute(assignmentId: string, command: WorkDetailCommand): Promise<void> {
+async function execute(
+  assignmentId: string,
+  command: WorkDetailCommand,
+): Promise<DisputeEvidenceUploadResult | null> {
   switch (command.type) {
     case "refresh":
-      return;
+      return null;
     case "checkpoint":
-      return checkpoint(assignmentId, command.kind, command.point);
+      await checkpoint(assignmentId, command.kind, command.point);
+      return null;
     case "cancel":
-      return cancelAssignment(assignmentId, command.reason);
-    case "dispute":
-      return createAssignmentDispute(assignmentId, command.reason);
+      await cancelAssignment(assignmentId, command.reason);
+      return null;
+    case "dispute": {
+      if (command.evidence && command.evidence.length > 0) {
+        return createAssignmentDisputeWithEvidence(
+          assignmentId,
+          command.reason,
+          command.evidence,
+        );
+      }
+      await createAssignmentDispute(assignmentId, command.reason);
+      return null;
+    }
+    case "evidence":
+      return uploadAssignmentDisputeEvidence(command.disputeId, command.evidence);
     case "review":
-      return createAssignmentReview(
+      await createAssignmentReview(
         assignmentId,
         command.rating,
         command.comment,
       );
+      return null;
   }
 }
 
@@ -103,7 +137,15 @@ function validateCommand(value: unknown): WorkDetailCommand | null {
     const reason = value.reason.trim();
     const maxLength = value.type === "cancel" ? 1000 : 2000;
     if (!reason || reason.length > maxLength) return null;
-    return { type: value.type, reason };
+    if (value.type === "cancel") return { type: "cancel", reason };
+    const evidence = validateDisputeEvidenceFiles(value.evidence);
+    return evidence === null ? null : { type: "dispute", reason, evidence };
+  }
+
+  if (value.type === "evidence") {
+    if (typeof value.disputeId !== "string" || !isUuid(value.disputeId)) return null;
+    const evidence = validateDisputeEvidenceFiles(value.evidence, true);
+    return evidence === null ? null : { type: "evidence", disputeId: value.disputeId, evidence };
   }
 
   if (value.type === "review") {
@@ -118,6 +160,21 @@ function validateCommand(value: unknown): WorkDetailCommand | null {
     return { type: "review", rating: value.rating, comment: value.comment.trim() };
   }
 
+  return null;
+}
+
+function commandEvidenceValidationError(value: unknown): string | null {
+  if (!isRecord(value)) return null;
+  if (value.type === "dispute") {
+    if (typeof value.reason !== "string") return null;
+    const reason = value.reason.trim();
+    if (!reason || reason.length > 2000) return null;
+    return disputeEvidenceValidationError(value.evidence);
+  }
+  if (value.type === "evidence") {
+    if (typeof value.disputeId !== "string" || !isUuid(value.disputeId)) return null;
+    return disputeEvidenceValidationError(value.evidence, true);
+  }
   return null;
 }
 

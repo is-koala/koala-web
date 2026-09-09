@@ -3,7 +3,12 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { apiFetch, type ApiCaller, type HttpMethod } from "@/server/api/client";
+import {
+  apiFetch,
+  apiFetchResponse,
+  type ApiCaller,
+  type HttpMethod,
+} from "@/server/api/client";
 import { isUnauthorized } from "@/server/api/errors";
 import { ingressClientIpHeader, sessionCookies } from "@/server/contract";
 
@@ -23,6 +28,8 @@ export type SessionRequestOptions = {
   body?: unknown;
   clientIp?: string | null;
   cache?: RequestCache;
+  redirect?: RequestRedirect;
+  signal?: AbortSignal;
 };
 
 export async function readSession(): Promise<Session> {
@@ -100,8 +107,32 @@ export async function apiRequest<T>(
   } catch (error) {
     if (!isUnauthorized(error) || !session.refreshToken) throw error;
 
-    const renewed = await renew(session, session.refreshToken, clientIp);
+    const renewed = await renew(session, session.refreshToken, clientIp, options.signal);
     return apiFetch<T>(path, { ...options, ...callerFrom(session, renewed, clientIp) });
+  }
+}
+
+/** Oturum yenilemeyi koruyarak zarf taşımayan dosya yanıtını döndürür. */
+export async function apiRequestResponse(
+  path: string,
+  options: SessionRequestOptions = {},
+): Promise<Response> {
+  const session = await readSession();
+  const clientIp = options.clientIp ?? (await ingressClientIp());
+
+  try {
+    return await apiFetchResponse(path, {
+      ...options,
+      ...callerFrom(session, session.accessToken, clientIp),
+    });
+  } catch (error) {
+    if (!isUnauthorized(error) || !session.refreshToken) throw error;
+
+    const renewed = await renew(session, session.refreshToken, clientIp, options.signal);
+    return apiFetchResponse(path, {
+      ...options,
+      ...callerFrom(session, renewed, clientIp),
+    });
   }
 }
 
@@ -116,13 +147,19 @@ async function ingressClientIp() {
 }
 
 /** `apiRequest` yenileme tokenının varlığını doğruladıktan sonra çağırır. */
-async function renew(session: Session, refreshToken: string, clientIp: string | null | undefined) {
+async function renew(
+  session: Session,
+  refreshToken: string,
+  clientIp: string | null | undefined,
+  signal?: AbortSignal,
+) {
   try {
     const pair = await refreshTokenPair({
       accessToken: session.accessToken,
       refreshToken,
       deviceId: session.deviceId,
       clientIp,
+      signal,
     });
     await writeSessionCookies(pair);
     return pair.token;

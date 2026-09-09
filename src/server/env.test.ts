@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { serverEnvironment } from "./env";
+import { bffUpstreamTimeoutMs, serverEnvironment } from "./env";
 
 function stubServerEnv(apiUrl: string, appVersion: string) {
   vi.stubEnv("API_URL", apiUrl);
@@ -30,6 +30,29 @@ describe("sunucu ortam doğrulaması", () => {
     expect(() => serverEnvironment()).toThrow(
       "APP_VERSION 1.4.0 gibi noktayla ayrılmış sayılarla başlamalı.",
     );
+  });
+
+  it("kanıt deposu allowlist'inde HTTPS olmayan origin'i açılışta reddeder", () => {
+    stubServerEnv("https://api.iskoala.com", "1.4.0");
+    vi.stubEnv("EVIDENCE_STORAGE_ORIGINS", "http://objects.example.test");
+
+    expect(() => serverEnvironment()).toThrow(
+      "EVIDENCE_STORAGE_ORIGINS yalnız geçerli HTTPS origin'leri içermeli.",
+    );
+  });
+
+  it("kanıt indirme timeout'unu kısa ve pozitif bir tam sayı olarak doğrular", () => {
+    expect(bffUpstreamTimeoutMs()).toBe(15_000);
+
+    for (const value of ["0", "999", "60001", "1.5", "sonsuz"]) {
+      vi.stubEnv("BFF_UPSTREAM_TIMEOUT_MS", value);
+      expect(() => bffUpstreamTimeoutMs()).toThrow(
+        "BFF_UPSTREAM_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+      );
+    }
+
+    vi.stubEnv("BFF_UPSTREAM_TIMEOUT_MS", "8000");
+    expect(bffUpstreamTimeoutMs()).toBe(8000);
   });
 
   it("geçerli değerlerde backend adresinin sonundaki eğik çizgiyi atar", () => {

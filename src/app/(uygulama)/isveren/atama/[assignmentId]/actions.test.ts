@@ -5,6 +5,8 @@ import { ApiError } from "@/server/api/errors";
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
 const cancelAssignment = vi.hoisted(() => vi.fn());
 const createAssignmentDispute = vi.hoisted(() => vi.fn());
+const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
+const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const completeAssignment = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 
@@ -12,6 +14,8 @@ vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
 vi.mock("@/server/assignments/resolution", () => ({
   cancelAssignment,
   createAssignmentDispute,
+  createAssignmentDisputeWithEvidence,
+  uploadAssignmentDisputeEvidence,
 }));
 vi.mock("@/server/assignments/employer-tracking", () => ({ completeAssignment }));
 vi.mock("next/cache", () => ({ revalidatePath }));
@@ -46,6 +50,77 @@ describe("işveren atama sonuçlandırma action'ı", () => {
     await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
       .resolves.toEqual({ status: "done", message: "Uyuşmazlık kaydınız alındı." });
     expect(createAssignmentDispute).toHaveBeenCalledWith(assignmentId, "Süre kaydı yanlış");
+  });
+
+  it("uyuşmazlık açılıp tek kanıt yüklenemezse kaydı yenileyip kısmi sonucu açıklar", async () => {
+    createAssignmentDisputeWithEvidence.mockResolvedValueOnce({
+      disputeId: "dispute-1",
+      uploadedCount: 0,
+      failedCount: 1,
+    });
+    const form = new FormData();
+    form.set("operation", "dispute");
+    form.set("reason", "Süre kaydı yanlış");
+    form.append("evidence", new File(["png"], "vardiya.png", { type: "image/png" }));
+
+    await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
+      .resolves.toEqual({
+        status: "partial",
+        message: "Uyuşmazlık açıldı. 0 kanıt yüklendi, 1 kanıt yüklenemedi.",
+      });
+    expect(createAssignmentDisputeWithEvidence).toHaveBeenCalledWith(
+      assignmentId,
+      "Süre kaydı yanlış",
+      [expect.objectContaining({ name: "vardiya.png" })],
+    );
+    expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
+  });
+
+  it("bir Server Action isteğinde birden fazla kanıtı kabul etmez", async () => {
+    const form = new FormData();
+    form.set("operation", "dispute");
+    form.set("reason", "Süre kaydı yanlış");
+    form.append("evidence", new File(["png"], "vardiya.png", { type: "image/png" }));
+    form.append("evidence", new File(["pdf"], "tutanak.pdf", { type: "application/pdf" }));
+
+    await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
+      .resolves.toEqual({ status: "error", errorCode: "DISPUTE_EVIDENCE_TOO_MANY", httpStatus: 400 });
+    expect(createAssignmentDisputeWithEvidence).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [new File([], "bos.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_EMPTY"],
+    [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "buyuk.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_TOO_LARGE"],
+    [new File(["veri"], "pdf", { type: "application/pdf" }), "STORAGE_UNSUPPORTED_TYPE"],
+  ])("geçersiz kanıtı gerekçe hatası gibi göstermeden reddeder: %s", async (file, errorCode) => {
+    const form = new FormData();
+    form.set("operation", "dispute");
+    form.set("reason", "Süre kaydı yanlış");
+    form.append("evidence", file);
+
+    await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
+      .resolves.toEqual({ status: "error", errorCode, httpStatus: 400 });
+    expect(createAssignmentDisputeWithEvidence).not.toHaveBeenCalled();
+  });
+
+  it("açık uyuşmazlığa sonradan kanıt ekler", async () => {
+    const disputeId = "8b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6a";
+    uploadAssignmentDisputeEvidence.mockResolvedValueOnce({
+      disputeId,
+      uploadedCount: 1,
+      failedCount: 0,
+    });
+    const form = new FormData();
+    form.set("operation", "evidence");
+    form.set("disputeId", disputeId);
+    form.append("evidence", new File(["pdf"], "tutanak.pdf", { type: "application/pdf" }));
+
+    await expect(employerResolutionAction(assignmentId, { status: "idle" }, form))
+      .resolves.toEqual({ status: "done", message: "1 kanıt dosyası yüklendi." });
+    expect(uploadAssignmentDisputeEvidence).toHaveBeenCalledWith(
+      disputeId,
+      [expect.objectContaining({ name: "tutanak.pdf" })],
+    );
   });
 
   it("bozuk kimlik ve boş nedeni backend'e göndermez", async () => {

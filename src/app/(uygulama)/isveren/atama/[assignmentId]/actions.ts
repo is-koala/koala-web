@@ -4,12 +4,20 @@ import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import type { CompletionActionState } from "@/assignments/employer-tracking";
-import type { ResolutionActionState } from "@/assignments/resolution";
+import {
+  disputeEvidenceFilesFromFormData,
+  disputeEvidenceFormValidationError,
+  disputeEvidenceUploadFeedback,
+  type DisputeEvidenceUploadResult,
+  type ResolutionActionState,
+} from "@/assignments/resolution";
 import { isUuid } from "@/lib/identifiers";
 import { completeAssignment } from "@/server/assignments/employer-tracking";
 import {
   cancelAssignment,
   createAssignmentDispute,
+  createAssignmentDisputeWithEvidence,
+  uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/resolution";
 import { failureView, textField } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
@@ -25,22 +33,45 @@ export async function employerResolutionAction(
   const operation = textField(formData, "operation");
   const reason = textField(formData, "reason").trim();
   const maxLength = operation === "cancel" ? 1000 : 2000;
+  const disputeId = textField(formData, "disputeId").trim();
+  const evidenceError = disputeEvidenceFormValidationError(
+    formData,
+    operation === "evidence",
+  );
+  const files = disputeEvidenceFilesFromFormData(formData);
   if (
     !isUuid(assignmentId) ||
-    (operation !== "cancel" && operation !== "dispute") ||
-    !reason ||
-    reason.length > maxLength
+    (operation !== "cancel" && operation !== "dispute" && operation !== "evidence") ||
+    (operation !== "evidence" && (!reason || reason.length > maxLength)) ||
+    (operation === "evidence" && !isUuid(disputeId))
   ) {
+    return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+  }
+  if (evidenceError !== null) {
+    return { status: "error", errorCode: evidenceError, httpStatus: 400 };
+  }
+  if (files === null) {
     return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
   }
 
   try {
+    let upload: DisputeEvidenceUploadResult | null = null;
     if (operation === "cancel") {
       await cancelAssignment(assignmentId, reason);
-    } else {
+    } else if (operation === "dispute" && files.length === 0) {
       await createAssignmentDispute(assignmentId, reason);
+    } else if (operation === "dispute") {
+      upload = await createAssignmentDisputeWithEvidence(assignmentId, reason, files);
+    } else {
+      upload = await uploadAssignmentDisputeEvidence(disputeId, files);
     }
     revalidatePath(`/isveren/atama/${assignmentId}`);
+    if (upload) {
+      const feedback = disputeEvidenceUploadFeedback(operation === "dispute", upload);
+      return feedback.kind === "warning"
+        ? { status: "partial", message: feedback.message }
+        : { status: "done", message: feedback.message };
+    }
     return {
       status: "done",
       message: operation === "cancel"

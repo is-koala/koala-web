@@ -4,6 +4,7 @@ import type { AssignmentResolution } from "./resolution";
 import {
   canCancelAssignment,
   canOpenAssignmentDispute,
+  disputeEvidenceValidationError,
   hasActiveDispute,
 } from "./resolution";
 
@@ -24,6 +25,7 @@ const activeDisputeResolution: AssignmentResolution = {
     resolutionNote: null,
     createdAt: "2026-09-06T10:00:00Z",
     resolvedAt: null,
+    evidence: { status: "ready", items: [] },
   }],
 };
 
@@ -64,5 +66,24 @@ describe("atama sonuçlandırma kapıları", () => {
     expect(hasActiveDispute({
       disputes: [{ status: "UNKNOWN" }],
     })).toBe(true);
+  });
+});
+
+describe("uyuşmazlık kanıt dosyası doğrulaması", () => {
+  it.each([
+    [new File([], "bos.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_EMPTY"],
+    [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "buyuk.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_TOO_LARGE"],
+    [new File(["veri"], "zararli.exe", { type: "application/octet-stream" }), "STORAGE_UNSUPPORTED_TYPE"],
+    [new File(["veri"], "pdf", { type: "application/pdf" }), "STORAGE_UNSUPPORTED_TYPE"],
+  ])("%s için nedenini koruyan hata kodu döndürür", (file, errorCode) => {
+    expect(disputeEvidenceValidationError([file])).toBe(errorCode);
+  });
+
+  it("zorunlu seçim ile bir istekteki dosya sınırını ayrı anlatır", () => {
+    expect(disputeEvidenceValidationError([], true)).toBe("DISPUTE_EVIDENCE_REQUIRED");
+    expect(disputeEvidenceValidationError([
+      new File(["a"], "a.pdf"),
+      new File(["b"], "b.pdf"),
+    ])).toBe("DISPUTE_EVIDENCE_TOO_MANY");
   });
 });
