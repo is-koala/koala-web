@@ -90,6 +90,7 @@ export function EmployerAssignmentTracking({
           <button
             className="button button-primary"
             disabled={!completion.available || pending}
+            data-disabled-kind={!completion.available ? "permanent" : undefined}
           >
             {pending ? "İşaretleniyor" : "İşi tamamlandı işaretle"}
           </button>

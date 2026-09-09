@@ -148,7 +148,11 @@ function ReasonForm({
         <label htmlFor={id}>{label}</label>
         <textarea id={id} name="reason" required maxLength={maxLength} rows={4} disabled={blocked} />
       </div>
-      <button className="button button-danger button-small" disabled={blocked || pending}>
+      <button
+        className="button button-danger button-small"
+        disabled={blocked || pending}
+        data-disabled-kind={blocked ? "permanent" : undefined}
+      >
         {button}
       </button>
       {blockedReason ? <p className="muted">{blockedReason}</p> : null}

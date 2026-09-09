@@ -340,7 +340,10 @@ describe("mesajlaşma arayüzü", () => {
       />,
     );
 
+    expect(screen.getByRole("button", { name: "Gönder" }))
+      .toHaveAttribute("data-disabled-kind", "permanent");
     await user.type(screen.getByRole("textbox", { name: "Mesaj" }), "Geliyorum");
+    expect(screen.getByRole("button", { name: "Gönder" })).not.toHaveAttribute("data-disabled-kind");
     await user.click(screen.getByRole("button", { name: "Gönder" }));
     expect(screen.getByText("Gönderiliyor…")).toBeVisible();
 
@@ -414,6 +417,8 @@ describe("mesajlaşma arayüzü", () => {
 
     await screen.findByText("Bu konuşmada artık mesaj gönderemezsin.");
     expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Gönder" }))
+      .toHaveAttribute("data-disabled-kind", "permanent");
   });
 });
 

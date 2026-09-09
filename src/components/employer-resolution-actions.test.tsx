@@ -79,9 +79,40 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.getByText("%7,5")).toBeVisible();
     expect(screen.getByText("925,00 ₺")).toBeVisible();
     expect(screen.getByText("1 sa")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Atamayı iptal et" }))
+      .toHaveAttribute("data-disabled-kind", "permanent");
     expect(screen.getByRole("button", { name: "Atamayı iptal et" })).toBeDisabled();
     expect(screen.getByLabelText("İptal nedeni")).toBeDisabled();
     expect(screen.getByText(/iptal edilebilir saymıyor/i)).toBeVisible();
+  });
+
+  it("yalnız istek uçuştayken kalıcı kapalılık işareti koymaz", async () => {
+    const user = userEvent.setup();
+    let release = () => {};
+    const action = vi.fn(
+      () => new Promise<{ status: "idle" }>((resolve) => {
+        release = () => resolve({ status: "idle" });
+      }),
+    );
+    render(<EmployerResolutionActions
+      assignmentStatus="CONFIRMED"
+      paymentStatus="HELD_IN_ESCROW"
+      resolution={resolution}
+      currency="TRY"
+      action={action}
+    />);
+
+    await user.click(screen.getByText("Atamayı iptal et", { selector: "summary" }));
+    await user.type(screen.getByLabelText("İptal nedeni"), "Plan değişti");
+    const cancel = screen.getByRole("button", { name: "Atamayı iptal et" });
+    await user.click(cancel);
+
+    try {
+      expect(cancel).toBeDisabled();
+      expect(cancel).not.toHaveAttribute("data-disabled-kind");
+    } finally {
+      release();
+    }
   });
 
   it("iptal açıkken gerekçe metnini yazmaz", () => {

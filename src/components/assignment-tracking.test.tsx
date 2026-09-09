@@ -89,10 +89,34 @@ describe("işveren atama takibi", () => {
       },
     });
 
-    expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeDisabled();
+    const button = screen.getByRole("button", { name: "İşi tamamlandı işaretle" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("data-disabled-kind", "permanent");
     expect(
       screen.getByText("İşçi atamayı onaylamadan iş tamamlandı olarak işaretlenemez."),
     ).toBeVisible();
+  });
+
+  it("tamamlama gönderilirken geçici kapalılığı kalıcı diye işaretlemez", async () => {
+    const user = userEvent.setup();
+    let release = () => {};
+    const action = vi.fn(
+      () =>
+        new Promise<{ status: "idle" }>((resolve) => {
+          release = () => resolve({ status: "idle" });
+        }),
+    );
+    renderTracking({ action });
+
+    const button = screen.getByRole("button", { name: "İşi tamamlandı işaretle" });
+    await user.click(button);
+
+    try {
+      expect(button).toBeDisabled();
+      expect(button).not.toHaveAttribute("data-disabled-kind");
+    } finally {
+      release();
+    }
   });
 
   it.each([

@@ -75,6 +75,7 @@ export function AssignmentDialog({
               className="button button-primary button-small"
               type="submit"
               disabled={blockedReason !== null || pending}
+              data-disabled-kind={blockedReason !== null ? "permanent" : undefined}
             >
               {pending ? pendingLabel : confirmLabel}
             </button>
