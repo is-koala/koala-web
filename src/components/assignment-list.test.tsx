@@ -187,4 +187,69 @@ describe("çalışan atama listesi", () => {
     expect(submitted.get("decision")).toBe("page");
     expect(submitted.get("targetPage")).toBe("1");
   });
+
+  it("sayfa sınırındaki gezinme düğmesini kalıcı olarak işaretler", () => {
+    const firstPage = { ...pageOf(baseAssignment), totalPages: 2, last: false };
+    const lastPage = { ...pageOf(baseAssignment), page: 1, totalPages: 2, first: false };
+    const { rerender } = render(<AssignmentList
+      initialPage={firstPage}
+      respondAction={unusedAction}
+      acceptanceAction={detailAction}
+    />);
+
+    const previous = screen.getByRole("button", { name: "Önceki sayfa" });
+    expect(previous).toBeDisabled();
+    expect(previous).toHaveAttribute("data-disabled-kind", "permanent");
+    expect(screen.getByRole("button", { name: "Sonraki sayfa" })).not.toHaveAttribute(
+      "data-disabled-kind",
+    );
+
+    rerender(<AssignmentList
+      initialPage={lastPage}
+      respondAction={unusedAction}
+      acceptanceAction={detailAction}
+    />);
+
+    const next = screen.getByRole("button", { name: "Sonraki sayfa" });
+    expect(next).toBeDisabled();
+    expect(next).toHaveAttribute("data-disabled-kind", "permanent");
+    expect(screen.getByRole("button", { name: "Önceki sayfa" })).not.toHaveAttribute(
+      "data-disabled-kind",
+    );
+  });
+
+  it("sayfa isteği sürerken kapanan gezinme düğmelerini kalıcı işaretlemez", async () => {
+    const user = userEvent.setup();
+    let release = () => {};
+    const respondAction = vi.fn(
+      () => new Promise<{ status: "idle" }>((resolve) => {
+        release = () => resolve({ status: "idle" });
+      }),
+    );
+    const middlePage = {
+      ...pageOf(baseAssignment),
+      page: 1,
+      totalPages: 3,
+      first: false,
+      last: false,
+    };
+    render(<AssignmentList
+      initialPage={middlePage}
+      respondAction={respondAction}
+      acceptanceAction={detailAction}
+    />);
+
+    await user.click(screen.getByRole("button", { name: "Sonraki sayfa" }));
+
+    try {
+      const previous = screen.getByRole("button", { name: "Önceki sayfa" });
+      const next = screen.getByRole("button", { name: "Sonraki sayfa" });
+      expect(previous).toBeDisabled();
+      expect(next).toBeDisabled();
+      expect(previous).not.toHaveAttribute("data-disabled-kind");
+      expect(next).not.toHaveAttribute("data-disabled-kind");
+    } finally {
+      release();
+    }
+  });
 });

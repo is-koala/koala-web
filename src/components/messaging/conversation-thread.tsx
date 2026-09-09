@@ -80,6 +80,7 @@ export function ConversationThread({
   const pendingScrollAnchor = useRef<{ height: number; top: number } | null>(null);
   const client = useMemo(() => realtimeClient ?? sharedRealtimeClient(), [realtimeClient]);
   const composerLocked = blocked || conversation.closed;
+  const sendUnavailable = composerLocked || !body.trim();
 
   useLayoutEffect(() => {
     const history = historyRef.current;
@@ -284,7 +285,12 @@ export function ConversationThread({
           rows={2}
           disabled={composerLocked}
         />
-        <button className="button button-primary button-small" type="submit" disabled={composerLocked || !body.trim()}>
+        <button
+          className="button button-primary button-small"
+          type="submit"
+          disabled={sendUnavailable}
+          data-disabled-kind={sendUnavailable ? "permanent" : undefined}
+        >
           Gönder
         </button>
       </form>

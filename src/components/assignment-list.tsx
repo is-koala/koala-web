@@ -121,7 +121,11 @@ export function AssignmentList({
           <form action={formAction}>
             <input type="hidden" name="decision" value="page" />
             <input type="hidden" name="targetPage" value={Math.max(0, page.page - 1)} />
-            <button className="button button-secondary button-small" disabled={page.first || isPending}>
+            <button
+              className="button button-secondary button-small"
+              disabled={page.first || isPending}
+              data-disabled-kind={page.first ? "permanent" : undefined}
+            >
               Önceki sayfa
             </button>
           </form>
@@ -131,7 +135,11 @@ export function AssignmentList({
           <form action={formAction}>
             <input type="hidden" name="decision" value="page" />
             <input type="hidden" name="targetPage" value={page.page + 1} />
-            <button className="button button-secondary button-small" disabled={page.last || isPending}>
+            <button
+              className="button button-secondary button-small"
+              disabled={page.last || isPending}
+              data-disabled-kind={page.last ? "permanent" : undefined}
+            >
               Sonraki sayfa
             </button>
           </form>
