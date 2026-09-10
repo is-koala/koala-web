@@ -123,6 +123,22 @@ describe("ilan ayrıntısı", () => {
     expect(screen.getByText("Bu ilanın süresi doldu ve yeni başvuru almıyor.")).toBeVisible();
   });
 
+  it("okunamayan durumda başvuru formunu fail-open çizmez", () => {
+    render(
+      <JobDetailView
+        job={jobDetailFixture({ status: "UNKNOWN", acceptingApplications: true })}
+        applyAction={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Başvuruyu gönder" })).toBeNull();
+    expect(screen.getByText("Bu ilan yeni başvuru almıyor.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Benzer ilanları gör" })).toHaveAttribute(
+      "href",
+      "/is-ilanlari",
+    );
+  });
+
   it("yayındaki ilanda başvuru formunu çizer", () => {
     render(<JobDetailView job={job} applyAction={vi.fn()} />);
 

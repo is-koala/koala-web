@@ -116,4 +116,13 @@ describe("kapalı ilana başvuru", () => {
       "Bu ilan yeni başvuru almıyor.",
     );
   });
+
+  it("backend başvuru kabul etse bile tanınmayan durumda formu açmaz", () => {
+    expect(jobApplicationsClosedReason({ status: "UNKNOWN", acceptingApplications: true })).toBe(
+      "Bu ilan yeni başvuru almıyor.",
+    );
+    expect(jobApplicationsClosedReason({ status: "DRAFT", acceptingApplications: true })).toBe(
+      "Bu ilan yeni başvuru almıyor.",
+    );
+  });
 });

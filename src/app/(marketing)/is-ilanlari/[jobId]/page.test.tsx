@@ -146,6 +146,16 @@ describe("ilan ayrıntısı yapısal verisi", () => {
 
     expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
   });
+
+  it("okunamayan durumda yapısal veriyi hiç yazmaz", async () => {
+    vi.mocked(readJobDetail).mockResolvedValue(
+      jobDetailFixture({ status: "UNKNOWN", acceptingApplications: true }),
+    );
+
+    const { container } = render(await Page({ params: params() }));
+
+    expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
 });
 
 describe("ilan ayrıntısı metadata'sı", () => {
@@ -189,6 +199,16 @@ describe("ilan ayrıntısı metadata'sı", () => {
   it("durumu OPEN kalsa bile başvuru kabul etmeyen ilanı indeksten düşürür", async () => {
     vi.mocked(readJobDetail).mockResolvedValue(
       jobDetailFixture({ status: "OPEN", acceptingApplications: false }),
+    );
+
+    const metadata = await generateMetadata({ params: params() });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
+  it("okunamayan durumda ilanı indeksten düşürür", async () => {
+    vi.mocked(readJobDetail).mockResolvedValue(
+      jobDetailFixture({ status: "UNKNOWN", acceptingApplications: true }),
     );
 
     const metadata = await generateMetadata({ params: params() });
