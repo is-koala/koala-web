@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 /**
  * Herkese açık ilan listesinin tarayıcıdan görünen sözleşmesi.
  *
- * Test API'si `GET /jobs` için bilerek 503 döndürüyor; liste içeriği yerine
- * hata sınırı deterministik sürülüyor. Ölçülebilen ve kırılması en pahalı
- * davranış bu: sayfa adres
- * çubuğundaki her girdiyle ayakta kalıyor mu, ve süzgeç JavaScript'siz
- * çalışıyor mu.
+ * Test API'si varsayılan `GET /jobs` için sabit bir açık ilan döndürüyor;
+ * hata durumu `?ara=__backend_failure__` ile süzülüyor. Ölçülebilen ve
+ * kırılması en pahalı davranış bu: sayfa adres çubuğundaki her girdiyle
+ * ayakta kalıyor mu, süzgeç JavaScript'siz çalışıyor mu, ve boş listeden
+ * ayrı bir hata durumu duruyor mu.
  */
 
 test("adres çubuğundaki bozuk sayfa ve sıralama değerleri sayfayı kırmaz", async ({ page }) => {
@@ -39,11 +39,10 @@ test("sayfa JavaScript kapalıyken de çiziliyor ve süzgeç GET ile URL'ye yaz�
   await page.goto("/is-ilanlari");
 
   // Kabuk ve süzgeç sunucudan geliyor: istemci JavaScript'i olmadan da
-  // görünüyorlar. (Backend erişilemez olduğu için liste yerine hata durumu
-  // çiziliyor; ölçülen şey listenin içeriği değil, sayfanın SSR'da tam
-  // kurulduğu ve formun gerçek bir HTML formu olduğu.)
+  // görünüyorlar.
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "İş İlanları" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Etkinlik görevlisi" })).toBeVisible();
 
   await page.getByLabel("Ne arıyorsun?").fill("garson");
   await page.getByRole("button", { name: "İlanları süz" }).click();
@@ -56,9 +55,9 @@ test("sayfa JavaScript kapalıyken de çiziliyor ve süzgeç GET ile URL'ye yaz�
 });
 
 test("liste okunamadığında boş listeden ayrı bir hata durumu çiziliyor", async ({ page }) => {
-  // Backend erişilemez; boş bir liste ile başarısız bir yükleme aynı
-  // görünmemeli (`AGENTS.md` § "Ekran durumları").
-  await page.goto("/is-ilanlari");
+  // Fikstürün açık hata girdisi, boş bir liste ile başarısız bir yüklemenin
+  // aynı görünmediğini korur (`AGENTS.md` § "Ekran durumları").
+  await page.goto("/is-ilanlari?ara=__backend_failure__");
 
   // `getByRole("alert")` Next'in kendi rota duyurucusunu da yakalıyor; ölçülen
   // şey hata kartının kendisi.

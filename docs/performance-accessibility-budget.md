@@ -1,0 +1,76 @@
+# Performans ve erişilebilirlik bütçesi
+
+Bu bütçe, mobil veri kullanan orta/alt segment Android cihazları temsil eden tekrarlanabilir
+bir laboratuvar regresyon kapısıdır. Ana sayfa, ilan listesi ve sabit test ilanı ayrıntısı her CI
+çalışmasında Lighthouse ile; ana sayfa, ilan listesi/ayrıntısı, giriş ve kayıt ise axe ile ölçülür.
+
+## Bütçeler
+
+| Ölçüm | Ürün hedefi | CI regresyon sınırı | 2026-09-10 baz çizgisi |
+| --- | ---: | ---: | ---: |
+| İlk yük JavaScript aktarımı | ≤ 250 KiB (256.000 bayt) | ≤ 256.000 bayt | 233.340–244.567 bayt |
+| LCP | ≤ 2.500 ms (p75 alan) | ≤ 12.000 ms (laboratuvar) | 6.613–8.118 ms |
+| INP | ≤ 200 ms (p75 alan) | Doğrudan laboratuvar kapısı yok | Alan verisi henüz yok |
+| TBT (INP laboratuvar vekili) | < 200 ms | ≤ 300 ms | 29–64 ms |
+| CLS | ≤ 0,1 | ≤ 0,1 | 0 |
+| Lighthouse performans puanı | ≥ 0,90 | ≥ 0,70 | 0,75–0,77 |
+
+Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
+kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;
+Raspberry Pi koşucunun daha düşük `benchmarkIndex` değeri için CI tavanı 12 saniyedir. Her
+iyileştirmeden sonra regresyon sınırları aşağı çekilir; ürün hedefleri gevşetilmez. Lighthouse ilk yük navigasyonunda gerçek INP üretmediği için INP,
+gerçek kullanıcı izlemesinde 28 günlük pencerenin p75 değeriyle ölçülmelidir. CI'da TBT yalnızca
+erken bir regresyon sinyalidir ve INP'nin yerine geçtiği varsayılmaz.
+
+## Ölçüm profili ve kapı davranışı
+
+`lighthouserc.cjs`, Lighthouse'un `mobileRegular3G` profilini açıkça sabitler: 300 ms RTT,
+700 Kbit/sn aktarım, 4× CPU yavaşlatma ve 412×823 / 1,75 DPR mobil ekran. Bu profil,
+Lighthouse kaynak kodunda Chrome UX Report'un 3G tanımına yaklaşık olarak hizalanır.
+
+CI maliyetini Raspberry Pi koşucuda sınırlamak için rota başına iki ölçüm alınır. `optimistic`
+toplama, tek bir gürültülü koşunun PR'ı kırmasını engeller; bütçe ihlalinin iki koşuda da görünmesi
+kapıyı kırar. Kaydedilen raporlar `.lighthouseci/reports` altında yerel artefakt olarak kalır.
+
+Yerel CI eşdeğeri:
+
+```bash
+npm ci
+npx playwright install chromium
+npm run build
+npm run test:performance
+npm run test:accessibility
+```
+
+Tam kalite kapısında `npm run lint`, `npm run typecheck` ve `npm test` de çalıştırılır.
+
+## Erişilebilirlik kabulü
+
+- axe, beş kamu rotasında WCAG 2 A/AA/2.1 A/AA/2.2 AA etiketlerini tarar; `serious` veya
+  `critical` etki düzeyi CI'ı kırar.
+- Klavye testleri görünür atlama bağlantısını, ilan filtresini, ilan ayrıntısındaki başvuruyu,
+  giriş ve kayıt gönderimini fare olmadan tamamlar.
+- Temel metin kontrastı en az 4,5:1, odak göstergeleri görünür, sayfa dili `tr` ve formlar
+  erişilebilir adlara sahiptir.
+
+## Bilinen artıklar ve korunan kapsam
+
+İlk ziyaret çerez onayı istemci hidrasyonundan sonra çizildiği için mevcut laboratuvar LCP'si iyi
+ürün hedefinin üzerindedir. Bu belge gerilemeyi durdurur; onay durumunu sunucuda güvenle okumadan
+banner'ı daha erken çizdirmek geri dönen kullanıcılarda yanlış bir flaşa yol açacağından ayrı bir
+iyileştirme işi olarak kalır.
+
+Issue #28 kapsamındaki Maps JavaScript yükleme davranışı ve issue #35 kapsamındaki ilan galerisi/
+görsel dönüşümü bu değişiklikte düzenlenmedi. Kapı, haritanın ilan listesi/ayrıntısı global
+bundle'ına girmemesini ve `next/image` format/boyut sınırlarını tutar. Bu özellikler birleştiğinde
+yalnız ihtiyaç duyan rotada etkileşimle yükleme, depolama kökeni `remotePatterns` ve yeni ayrıntı
+fikstürü aynı bütçe kapısına eklenmelidir.
+
+## Dayanaklar
+
+- [Largest Contentful Paint: 2,5 saniye ve p75](https://web.dev/articles/lcp)
+- [Interaction to Next Paint: 200 ms ve p75](https://web.dev/articles/optimize-inp)
+- [Total Blocking Time: 200 ms ve INP ile ilişkisi](https://web.dev/articles/tbt)
+- [WCAG 2.2](https://www.w3.org/WAI/WCAG22/)
+- [Lighthouse CI yapılandırması ve bütçe ifadeleri](https://github.com/GoogleChrome/lighthouse-ci/blob/main/docs/configuration.md)
+- [axe-core Playwright kullanımı](https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright)
