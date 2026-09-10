@@ -5,10 +5,8 @@ import type { MetadataRoute } from "next";
 import { legalCatalog } from "@/content/legal/catalog";
 import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
 import { publicEnvironment } from "@/lib/env";
-import { apiFetch } from "@/server/api/client";
 import { ApiError } from "@/server/api/errors";
-import { backendPaths, jobSitemapShardPath } from "@/server/contract";
-import { publicReaderCaller } from "@/server/session/session";
+import { fetchJobSitemapManifest, fetchJobSitemapShard } from "@/server/jobs/public-jobs";
 
 const publicPaths = [
   "",
@@ -38,7 +36,6 @@ export type SitemapShardTarget =
 
 const sitemapEntryLimit = 50_000;
 const jobShardIndexLimit = sitemapEntryLimit - 1;
-const backendTimeoutMilliseconds = 30_000;
 const maximumCacheSeconds = 300;
 const defaultCacheWindow = { freshSeconds: 300, staleSeconds: 300 } as const;
 
@@ -55,7 +52,7 @@ export async function readSitemapIndex(): Promise<SitemapIndexDocument> {
   } as const;
   let rawManifest: unknown;
   try {
-    rawManifest = await apiFetch<unknown>(backendPaths.jobSitemapManifest, sitemapRequest());
+    rawManifest = await fetchJobSitemapManifest();
   } catch (error) {
     // Rate limit arama motoruna aynen görünür; ağ/backend arızası ise yerel,
     // güvenilir pazarlama ve yasal URL'leri sitemap'ten gereksiz yere düşürmez.
@@ -79,10 +76,7 @@ export async function readSitemapShard(target: SitemapShardTarget): Promise<Site
   if (target.kind === "static") return staticEntries();
 
   const dto = sitemapShard(
-    await apiFetch<unknown>(
-      jobSitemapShardPath(target.version, target.shard),
-      sitemapRequest(),
-    ),
+    await fetchJobSitemapShard(target.version, target.shard),
     target,
   );
   const { siteUrl } = publicEnvironment();
@@ -179,14 +173,6 @@ type SitemapShard = {
   readonly shard: number;
   readonly entries: readonly { readonly id: string; readonly updatedAt: string | null }[];
 };
-
-function sitemapRequest() {
-  return {
-    ...publicReaderCaller(),
-    cache: "no-store" as const,
-    signal: AbortSignal.timeout(backendTimeoutMilliseconds),
-  };
-}
 
 function sitemapManifest(value: unknown): SitemapManifest {
   if (

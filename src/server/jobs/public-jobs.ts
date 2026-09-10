@@ -15,7 +15,7 @@ import {
   salaryTypes,
 } from "@/server/api/dto";
 import { apiFetch } from "@/server/api/client";
-import { jobPath } from "@/server/contract";
+import { backendPaths, jobPath, jobSitemapShardPath } from "@/server/contract";
 import { publicReaderCaller } from "@/server/session/session";
 
 /**
@@ -78,6 +78,29 @@ export const readJobDetail = cache(async (jobId: string): Promise<JobDetail | nu
   });
   return dto === null ? null : toJobDetail(dto);
 });
+
+const sitemapBackendTimeoutMilliseconds = 30_000;
+
+/**
+ * İlan sitemap manifesti de bu katmanın kamu okumasıdır: token yok, çerez
+ * yok, IP yok. Ham `apiFetch`'i SEO katmanına açmak, oturumlu yenileme
+ * kapısını o dosyadan sessizce atlatırdı.
+ */
+export function fetchJobSitemapManifest(): Promise<unknown> {
+  return apiFetch<unknown>(backendPaths.jobSitemapManifest, sitemapPublicRequest());
+}
+
+export function fetchJobSitemapShard(version: string, shard: number): Promise<unknown> {
+  return apiFetch<unknown>(jobSitemapShardPath(version, shard), sitemapPublicRequest());
+}
+
+function sitemapPublicRequest() {
+  return {
+    ...publicReaderCaller(),
+    cache: "no-store" as const,
+    signal: AbortSignal.timeout(sitemapBackendTimeoutMilliseconds),
+  };
+}
 
 /**
  * `JobDetailDto`'nun tel biçimi.

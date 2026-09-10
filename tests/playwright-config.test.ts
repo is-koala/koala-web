@@ -2,6 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// `defineConfig` kimlik fonksiyonu: asıl paket tam Vitest süitinde 5 sn
+// zaman sınırını aşıyor. İzolasyon iddiaları yine gerçek config dosyasını
+// değerlendirir; reuseExistingServer ve iki webServer tanımı değişmez.
+vi.mock("@playwright/test", () => ({
+  defineConfig: <T>(config: T) => config,
+}));
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.resetModules();
@@ -52,5 +59,8 @@ async function loadConfig() {
   vi.stubEnv("PLAYWRIGHT_PORT", "3100");
   vi.stubEnv("PLAYWRIGHT_BACKEND_PORT", "4100");
   vi.resetModules();
+  vi.doMock("@playwright/test", () => ({
+    defineConfig: <T>(config: T) => config,
+  }));
   return (await import("../playwright.config")).default;
 }
