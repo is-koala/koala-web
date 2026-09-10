@@ -506,10 +506,11 @@ function JobCard({ job }: { job: JobSummary }) {
     <article className="job-card" aria-labelledby={titleId}>
       {cover === null ? null : (
         /*
-          `next/image` değil düz `<img>`: `next.config.ts` içinde `images`
-          bloğu yok ve kapak görselleri backend'in depolama kökeninden geliyor
-          (`StorageUrlResolver`), yani optimize edici onları reddederdi.
-          Adres backend'den geldiği için `safeImageUrl` kapısından geçiyor.
+          `next/image` değil düz `<img>`: depolama kökeni henüz
+          `images.remotePatterns`'e girmedi (is-koala/koala-web#35), yani
+          optimize edici kapakları reddederdi. Format/boyut bütçesi
+          `src/lib/image-budget.ts` içinde duruyor. Adres backend'den geldiği
+          için `safeImageUrl` kapısından geçiyor.
         */
         // eslint-disable-next-line @next/next/no-img-element
         <img className="job-card-cover" src={cover} alt="" loading="lazy" decoding="async" />

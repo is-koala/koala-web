@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { LegalDocument } from "@/components/legal-document";
+import { MainContent } from "@/components/main-content";
 import { isLegalDocumentSlug } from "@/content/legal/catalog";
 import {
   getLegalDocumentVersion,
@@ -41,8 +42,8 @@ export default async function VersionedLegalPage({
   const { slug, version } = await params;
   const legalDocument = resolveLegalDocument(slug, version);
   return (
-    <main className="legal-shell">
+    <MainContent className="legal-shell">
       <LegalDocument slug={legalDocument.slug} version={version} frozen />
-    </main>
+    </MainContent>
   );
 }

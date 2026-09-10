@@ -3,6 +3,7 @@ import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 import { privateHeaderSources, privateResponseHeaders } from "./src/lib/private-routes";
+import { imageBudget } from "./src/lib/image-budget";
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_ISOLATED_TEST_BUILD === "messaging-safety"
@@ -15,6 +16,7 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   pageExtensions: ["ts", "tsx", "md", "mdx"],
+  images: imageBudget,
   experimental: {
     // Fotoğraf veya kanıtın 10 MB dosya sınırına multipart başlık/boundary payı eklenir.
     serverActions: { bodySizeLimit: "11mb" },

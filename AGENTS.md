@@ -247,6 +247,10 @@ cevabını beklemek geri bildirimi yavaşlatır. Dördü de yeşil olmadan PR a�
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
+Build'den sonra Playwright E2E (`npm run test:e2e`) ve Lighthouse bütçesi
+(`npm run test:performance`) de yeşil olur; ikincisinin sayıları
+`docs/performance-accessibility-budget.md` içindedir.
+
 Bu komut CI'da da birebir aynı biçimde koşuyor. Pi'ye özgü kısıt
 (tek worker, uzun zaman sınırı) `vitest.config.ts` ve `playwright.config.ts`
 içinde `process.env.CI`'a bağlı; iş akışından bayrak geçirilmez, yoksa

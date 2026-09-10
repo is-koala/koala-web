@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Wordmark } from "@/brand/Wordmark";
 import { GateAdvisories } from "@/components/employer-gate";
+import { MainContent } from "@/components/main-content";
 import { ErrorState } from "@/components/states";
 import type { AppSection, AppShell as AppShellDefinition } from "@/lib/app-routes";
 import type { GateId } from "@/lib/gates";
@@ -79,7 +80,7 @@ export function AppShell({ shell, context, advisories, children, headerActions }
           </details>
         )}
 
-        <main className="app-main">
+        <MainContent className="app-main">
           {failure === null ? null : (
             <ErrorState errorCode={failure.errorCode} status={failure.status} />
           )}
@@ -90,7 +91,7 @@ export function AppShell({ shell, context, advisories, children, headerActions }
            */}
           <GateAdvisories gates={advisories} />
           {children}
-        </main>
+        </MainContent>
       </div>
     </div>
   );

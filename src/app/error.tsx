@@ -2,6 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { MainContent } from "@/components/main-content";
 import { ErrorState } from "@/components/states";
 
 type ErrorPageProps = {
@@ -15,10 +16,10 @@ export default function ErrorPage({ error, retry }: ErrorPageProps) {
     Sentry.captureException(error);
   }, [error]);
   return (
-    <main className="account-shell">
+    <MainContent className="account-shell">
       <section className="account-card">
         <ErrorState status={500} onRetry={retry} />
       </section>
-    </main>
+    </MainContent>
   );
 }

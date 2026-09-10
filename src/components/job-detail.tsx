@@ -118,10 +118,11 @@ function JobEmployerCard({ job }: { job: JobDetail }) {
     <div className="job-detail-employer">
       {job.companyName !== null && job.companyLogoUrl !== null ? (
         /*
-          `next/image` değil düz `<img>`: `next.config.ts` içinde `images`
-          bloğu yok ve logolar backend'in depolama kökeninden geliyor
-          (`StorageUrlResolver`), yani optimize edici onları reddederdi.
-          Adres `safeImageUrl` kapısından `toJobDetail` içinde geçiyor.
+          `next/image` değil düz `<img>`: depolama kökeni henüz
+          `images.remotePatterns`'e girmedi (is-koala/koala-web#35), yani
+          optimize edici logoları reddederdi. Format/boyut bütçesi
+          `src/lib/image-budget.ts` içinde duruyor. Adres `safeImageUrl`
+          kapısından `toJobDetail` içinde geçiyor.
         */
         // eslint-disable-next-line @next/next/no-img-element
         <img className="job-detail-logo" src={job.companyLogoUrl} alt="" decoding="async" />

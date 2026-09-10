@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Manrope } from "next/font/google";
 import { ConsentManager } from "@/components/consent-manager";
 import { publicEnvironment } from "@/lib/env";
+import { mainContentId } from "@/lib/landmarks";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -22,6 +23,9 @@ export default function RootLayout({
   return (
     <html lang="tr" data-scroll-behavior="smooth">
       <body className={`${bodyFont.variable} ${displayFont.variable}`}>
+        <a className="skip-link" href={`#${mainContentId}`}>
+          Ana içeriğe geç
+        </a>
         {children}
         <ConsentManager />
       </body>

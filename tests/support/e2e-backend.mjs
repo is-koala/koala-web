@@ -8,6 +8,7 @@ if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
 const accountDeletionId = "bb58c5e0-e43b-4673-ae62-3525d4f7ec75";
 const userId = "2592914e-b7f0-4b5f-a5d4-5c632daf2d96";
 const expiredOpenJobId = "f62dc02c-70df-4e85-b1df-17b799ba17c1";
+const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
@@ -34,6 +35,23 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && url.pathname === `/jobs/${expiredOpenJobId}`) {
     return backendSuccess(response, expiredOpenJob());
+  }
+  if (request.method === "GET" && url.pathname === `/jobs/${openJobId}`) {
+    return backendSuccess(response, openJob());
+  }
+  if (request.method === "GET" && url.pathname === "/jobs") {
+    if (url.searchParams.get("query") === "__backend_failure__") {
+      return backendError(response, 503, "TEST_BACKEND_UNAVAILABLE", "SERVICE_UNAVAILABLE");
+    }
+    return backendSuccess(response, {
+      content: [openJobSummary()],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
   }
   if (request.method === "GET" && url.pathname === "/sitemap/jobs/manifest") {
     return backendSuccess(response, {
@@ -198,6 +216,74 @@ function expiredOpenJob() {
     addressPrecision: "APPROXIMATE",
     status: "OPEN",
     acceptingApplications: false,
+  };
+}
+
+function openJob() {
+  return {
+    id: openJobId,
+    title: "Etkinlik görevlisi",
+    description: "Festival alanında misafirleri karşıla.",
+    duties: "Bilet kontrolü ve yönlendirme",
+    dressCode: "Siyah kıyafet",
+    category: { id: "category-1", name: "Etkinlik", code: "EVENT" },
+    company: { name: "Koala Etkinlik", logoUrl: null },
+    creator: { firstName: "Ayşe", lastName: "Yıldız" },
+    type: "ONE_TIME",
+    salaryType: "DAILY",
+    startDateTime: "2026-09-20T09:00:00",
+    endDateTime: "2026-09-20T18:00:00",
+    createdAt: "2026-08-30T07:15:00Z",
+    pricing: {
+      pricingVersion: "2026-09",
+      currency: "TRY",
+      workerPayout: "1250.00",
+      serviceFeeRate: "0.20",
+      serviceFeeAmount: "250.00",
+      employerTotal: "1500.00",
+    },
+    minAge: 18,
+    maxAge: 45,
+    insuranceRequired: true,
+    experienceRequired: false,
+    headcount: 4,
+    hiredCount: 1,
+    images: [],
+    address: { cityName: "İstanbul", districtName: "Kadıköy" },
+    addressPrecision: "APPROXIMATE",
+    status: "OPEN",
+    acceptingApplications: true,
+  };
+}
+
+function openJobSummary() {
+  const job = openJob();
+  return {
+    id: job.id,
+    title: job.title,
+    position: "Karşılama",
+    sector: "Etkinlik",
+    category: job.category,
+    employerType: "COMPANY",
+    type: job.type,
+    salaryType: job.salaryType,
+    salary: "1250.00",
+    pricing: job.pricing,
+    insuranceRequired: job.insuranceRequired,
+    experienceRequired: job.experienceRequired,
+    startDateTime: job.startDateTime,
+    endDateTime: job.endDateTime,
+    status: job.status,
+    cityName: job.address.cityName,
+    districtName: job.address.districtName,
+    companyName: job.company.name,
+    coverImageUrl: null,
+    applicationCount: 4,
+    headcount: job.headcount,
+    hiredCount: job.hiredCount,
+    latitude: 40.99,
+    longitude: 29.03,
+    addressPrecision: job.addressPrecision,
   };
 }
 

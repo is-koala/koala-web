@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/brand/Wordmark";
+import { MainContent } from "@/components/main-content";
 
 /**
  * Hesap akışlarında gezinme menüsü yok: kullanıcı e-postadan gelip tek bir
@@ -11,7 +12,7 @@ export default function AccountLayout({
   return (
     <div className="account-shell">
       <Wordmark />
-      <main>{children}</main>
+      <MainContent>{children}</MainContent>
       <Link href="/" className="text-link">Ana sayfaya dön</Link>
     </div>
   );
