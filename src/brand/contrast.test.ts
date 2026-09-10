@@ -17,13 +17,14 @@ describe("metin kontrast bütçesi", () => {
   });
 
   it("koyu manifesto kaşlığı da AA eşiğini geçiyor", () => {
-    expect(contrast(cssVariable("--manifesto-eyebrow"), ink)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(brandTokens.manifestoEyebrow, ink)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("CSS değişkenleri adlandırılmış marka tokenlarıyla aynı kalıyor", () => {
     expect(cssVariable("--brand-primary")).toBe(brandTokens.brandPrimary);
     expect(cssVariable("--brand-accent")).toBe(brandTokens.brandAccent);
     expect(cssVariable("--ink")).toBe(brandTokens.ink);
+    expect(cssVariable("--manifesto-eyebrow")).toBe(brandTokens.manifestoEyebrow);
   });
 });
 
