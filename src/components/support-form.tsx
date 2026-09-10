@@ -31,7 +31,7 @@ export function SupportForm({ action }: { action: FormAction }) {
       <FormAlert state={state} />
 
       <div className="honeypot-field" aria-hidden="true">
-        <label htmlFor="website">Website</label>
+        <label htmlFor="website">Web sitesi</label>
         <input
           id="website"
           name="website"

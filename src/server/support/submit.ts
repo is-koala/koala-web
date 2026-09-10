@@ -1,17 +1,10 @@
 import "server-only";
 
+import { supportContent } from "@/content/support";
 import type { FormState } from "@/lib/form-state";
 import { validationState } from "@/server/form";
 
-export const supportTopics = ["destek", "kvkk", "sikayet", "diger"] as const;
-export type SupportTopic = (typeof supportTopics)[number];
-
-export const supportTopicLabels = {
-  destek: "Destek",
-  kvkk: "KVKK",
-  sikayet: "Şikayet",
-  diger: "Diğer",
-} as const satisfies Record<SupportTopic, string>;
+type SupportTopic = (typeof supportContent.topics)[number]["value"];
 
 export type SupportMail = {
   to: string;
@@ -65,9 +58,9 @@ export async function submitSupportRequest(
     await deps.mailer.send({
       to: deps.mailbox,
       replyTo: email,
-      subject: `[Koala] ${supportTopicLabels[topic]} — ${name}`,
+      subject: `[Koala] ${topicLabel(topic)} — ${name}`,
       text: [
-        `Konu: ${supportTopicLabels[topic]}`,
+        `Konu: ${topicLabel(topic)}`,
         `Ad: ${name}`,
         `E-posta: ${email}`,
         "",
@@ -109,7 +102,11 @@ function requestErrors(input: SupportRequestInput): Record<string, string> | nul
 }
 
 function isSupportTopic(value: string): value is SupportTopic {
-  return (supportTopics as readonly string[]).includes(value);
+  return supportContent.topics.some((topic) => topic.value === value);
+}
+
+function topicLabel(topic: SupportTopic): string {
+  return supportContent.topics.find((item) => item.value === topic)?.label ?? topic;
 }
 
 function isEmail(value: string): boolean {
