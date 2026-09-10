@@ -96,6 +96,8 @@ export const sessionCookies = {
    * snapshot'ı `pricing` alanında bu uçtan okunuyor.
    */
   jobs: "/jobs",
+  /** `GET /sitemap/jobs/manifest` — değişmez ilan sitemap snapshot kaydı. */
+  jobSitemapManifest: "/sitemap/jobs/manifest",
   /** `GET /users/me/job-templates` — `EmployerToolsController.java:101-102`. */
   jobTemplates: "/users/me/job-templates",
   login: "/auth/login",
@@ -147,6 +149,16 @@ export const sessionCookies = {
  */
 export function jobPath(jobId: string): string {
   return `${backendPaths.jobs}/${encodeURIComponent(jobId)}`;
+}
+
+/**
+ * Manifest version'ına bağlı değişmez sitemap shard'ı.
+ *
+ * Çağıran bu değerleri route sınırında UUID ve signed 32-bit integer olarak
+ * doğrular; kaçırma burada yine defense-in-depth olarak kalır.
+ */
+export function jobSitemapShardPath(version: string, shard: number): string {
+  return `/sitemap/jobs/manifests/${encodeURIComponent(version)}/shards/${encodeURIComponent(String(shard))}`;
 }
 
 /** Erişim tokenı reddedildiğinde backend bu durumu döner. */

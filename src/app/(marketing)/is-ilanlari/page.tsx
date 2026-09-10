@@ -28,26 +28,28 @@ type JobsPageProps = {
 /**
  * Sayfalı ve süzgeçli listenin metadata'sı.
  *
- * `pageMetadata` tek bir `path` alıp tek bir canonical üretiyor ve bu, sonsuz
- * sayıda süzgeç kombinasyonu için yetmiyor. Karar iki parçalı:
+ * Ham sorgu dizesi aynı süzgeç kümesini farklı sırada, varsayılan değerlerle
+ * ya da geçersiz değerlerle yazabiliyor. Canonical her iki dalda da parse
+ * edilmiş `JobSearchQuery` üzerinden kuruluyor; böylece tek içerik tek adrese
+ * iniyor. İndeksleme kararı ayrıca veriliyor:
  *
  * - **Süzgeçsiz** sayfalar (`/is-ilanlari`, `?sayfa=2`) indekslenir ve her biri
  *   kendi canonical'ını taşır. Sayfa 2 sayfa 1'in kopyası değil, ayrı bir
  *   ilan kümesi; birinin canonical'ını öbürüne çevirmek onu indeksten düşürürdü.
- * - **Süzgeçli** URL'ler `noindex, follow` alır ve canonical **taşımaz**. Bir
- *   arama motoru için noindex ile canonical çelişen iki sinyal; ikisini
- *   birlikte göndermek hangisine uyacağını belirsiz bırakır. `follow`
- *   kalıyor ki süzgeçli bir sayfadaki ilan bağlantıları yine taransın.
+ * - **Süzgeçli** URL'ler kendi normalize edilmiş canonical'ını ve
+ *   `noindex, follow` taşır. Canonical'ın yokluğu issue #22'deki "her sayfada"
+ *   sözleşmesini bozuyordu; `follow` kalıyor ki ilan bağlantıları taransın.
  */
 export async function generateMetadata({ searchParams }: JobsPageProps): Promise<Metadata> {
   const query = parseJobSearchParams(await searchParams);
   const pageTitle = query.page > 1 ? `${title} – Sayfa ${query.page}` : title;
+  const metadata = pageMetadata(pageTitle, description, canonicalPath(query));
 
   if (hasJobFilters(query)) {
-    return { title: pageTitle, description, robots: { index: false, follow: true } };
+    return { ...metadata, robots: { index: false, follow: true } };
   }
 
-  return pageMetadata(pageTitle, description, canonicalPath(query));
+  return metadata;
 }
 
 /**
@@ -64,15 +66,11 @@ export async function generateMetadata({ searchParams }: JobsPageProps): Promise
  *   birleşiyor ve `hasJobFilters`'ın gerekçesi ("aynı sonuç kümesinin farklı
  *   dilimleri, ayrı bir içerik değil") indeksleme tarafında da tutuyor.
  *
- * **Süzgeçler bu fonksiyona hiç uğramıyor** ve aynı akıl yürütmenin öbür ucu
- * bu. `ucret-tipi`, `isveren`, `min-ucret`, `max-ucret`, `sigorta` ve
- * `deneyim` sunucuda ayrı birer `where` koşulu, yani **başka** bir ilan kümesi
- * döndürüyorlar — sıralamanın tersi. Onları da buradan silmek, süzülmüş bir
- * sayfaya "asıl adresim süzgeçsiz liste" dedirtir ve Google'ın gördüğü içerik
- * ile işaret ettiği adres ayrışırdı. Bu yüzden karar yukarıda veriliyor:
- * `hasJobFilters` doğruysa sayfa `noindex, follow` alıp canonical'sız kalıyor
- * ve `canonicalPath` çağrılmıyor bile. Gerekçenin karşılığı
- * `hasJobFilters`'ın kendi yorumunda yazılı.
+ * **Süzgeçler kalıyor.** `ucret-tipi`, `isveren`, `min-ucret`, `max-ucret`,
+ * `sigorta` ve `deneyim` sunucuda ayrı birer `where` koşulu, yani sıralamanın
+ * tersine başka ilan kümesi döndürüyorlar. Onları silmek süzülmüş sayfaya
+ * "asıl adresim süzgeçsiz liste" dedirtir; burada yalnız parser'ın tanıdığı,
+ * normalize ettiği süzgeçler deterministik sırayla yazılıyor.
  */
 function canonicalPath(query: JobSearchQuery): string {
   const params = jobSearchParams({ ...query, sort: defaultJobSort });

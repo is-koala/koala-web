@@ -17,6 +17,8 @@ export type ApiErrorInit = {
   requestId?: string | null;
   /** Yalnız 426 yanıtında dolu: backend'in beklediği en düşük web sürümü. */
   minimumAppVersion?: string | null;
+  /** Upstream 429 yanıtındaki standart bekleme ipucu; web tarafından üretilmez. */
+  retryAfter?: string | null;
 };
 
 /**
@@ -33,6 +35,7 @@ export class ApiError extends Error {
   readonly details: readonly ApiFieldError[];
   readonly requestId: string | null;
   readonly minimumAppVersion: string | null;
+  readonly retryAfter: string | null;
 
   constructor(init: ApiErrorInit) {
     super(init.message);
@@ -43,6 +46,7 @@ export class ApiError extends Error {
     this.details = init.details ?? [];
     this.requestId = init.requestId ?? null;
     this.minimumAppVersion = init.minimumAppVersion ?? null;
+    this.retryAfter = init.retryAfter ?? null;
   }
 }
 

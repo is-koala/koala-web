@@ -106,10 +106,12 @@ export type JobDetail = {
    */
   readonly addressPrecision: AddressPrecision;
   /**
-   * `JobStatus`. Başvuru formunun çizilip çizilmeyeceğine bu karar veriyor;
-   * okunamayan bir değer `UNKNOWN` olur ve başvuruyu kapatmaz.
+   * `JobStatus`; kullanıcıya gösterilecek kapanma nedenini ayrıştırır.
+   * Başvurunun gerçekten açık olup olmadığını `acceptingApplications` verir.
    */
   readonly status: JobStatus | "UNKNOWN";
+  /** Backend'in durum ve bitiş anını birlikte değerlendirerek verdiği başvuru kapısı. */
+  readonly acceptingApplications: boolean;
 };
 
 /** Başarılı 201 zarfından bu akışın kullandığı tek alan. */

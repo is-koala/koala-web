@@ -4,6 +4,7 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { JobDetailView } from "@/components/job-detail";
 import type { JobDetail } from "@/jobs/contract";
 import { jobPostingJsonLd } from "@/jobs/job-posting-schema";
+import { jobIsOpen } from "@/jobs/lifecycle";
 import { publicJobPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
@@ -60,10 +61,11 @@ type JobDetailPageProps = {
  * konumla yapılıyor; marka son eki kökteki `title.template`'ten geliyor, yani
  * ayrı bir ayraç kullanmıyor ve site geneliyle aynı biçimde bitiyor.
  *
- * **Kapalı, iptal edilmiş ya da durumu okunamayan ilan `noindex` alıyor.**
- * Google süresi geçmiş ilan sayfalarını cezalandırıyor; sayfa erişilebilir
- * kalıyor (paylaşılmış bağlantı ölmüyor) ama indekse girmiyor. Aynı kararı
- * yapısal veri tarafında `jobPostingJsonLd` veriyor.
+ * **Başvuru kabul etmeyen ilan `noindex` alıyor.** Backend'in
+ * `acceptingApplications` alanı durum ile bitiş anını tek kararda birleştirir;
+ * böylece durumu hâlâ `OPEN` görünen ama süresi dolmuş ilan da indeksten
+ * çıkar. Sayfa erişilebilir kalıyor (paylaşılmış bağlantı ölmüyor), aynı
+ * kararı yapısal veri tarafında `jobPostingJsonLd` veriyor.
  *
  * Okunamayan ilan burada `notFound()` çağırmıyor: metadata ile sayfa aynı
  * `readJobDetail`'i paylaşıyor (`React.cache`) ve 404 kararını tek yerde,
@@ -82,7 +84,7 @@ export async function generateMetadata({ params }: JobDetailPageProps): Promise<
     coverImageUrl(job),
   );
 
-  return job.status === "OPEN"
+  return jobIsOpen(job)
     ? metadata
     : { ...metadata, robots: { index: false, follow: true } };
 }

@@ -90,33 +90,30 @@ describe("ilan durumu etiketleri", () => {
 
 describe("kapalı ilana başvuru", () => {
   it("yayındaki ilanda başvuruyu engellemez", () => {
-    expect(jobApplicationsClosedReason("OPEN")).toBeNull();
+    expect(jobApplicationsClosedReason({ status: "OPEN", acceptingApplications: true })).toBeNull();
   });
 
   it("kapatılmış ilanda başvuru yüzeyini nedeniyle kapatır", () => {
     // Kabul maddesi: kapatma sonrası ilan yeni başvuru almaz. Backend
     // `JobApplicationManager` ilanın durumuna hiç bakmıyor, yani bu kuralı
     // web kendi yüzeyinde tutmak zorunda.
-    expect(jobApplicationsClosedReason("CLOSED")).toBe(
+    expect(jobApplicationsClosedReason({ status: "CLOSED", acceptingApplications: false })).toBe(
       "Bu ilan kapatıldı ve yeni başvuru almıyor.",
     );
   });
 
   it("iptal edilmiş ve tamamlanmış ilanda da başvuru almaz", () => {
-    expect(jobApplicationsClosedReason("CANCELLED")).toBe(
+    expect(jobApplicationsClosedReason({ status: "CANCELLED", acceptingApplications: false })).toBe(
       "Bu ilan iptal edildi ve yeni başvuru almıyor.",
     );
-    expect(jobApplicationsClosedReason("COMPLETED")).toBe(
+    expect(jobApplicationsClosedReason({ status: "COMPLETED", acceptingApplications: false })).toBe(
       "Bu ilan tamamlandı ve yeni başvuru almıyor.",
     );
   });
 
-  it("durumu okunamayan ilanda başvuruyu sessizce kapatmaz", () => {
-    // Alan yanıttan hiç gelmezse durum `UNKNOWN` olur. Bilinmeyeni "kapalı"
-    // saymak, tek bir sözleşme değişikliğinde her ilanın başvuru formunu
-    // sessizce kaldırırdı; kapatma kararı yalnız sunucunun **söylediği**
-    // durumlardan çıkar.
-    expect(jobApplicationsClosedReason("UNKNOWN")).toBeNull();
-    expect(jobApplicationsClosedReason("DRAFT")).toBeNull();
+  it("durumu okunamayan ilanda başvuru kapısını güvenli tarafta tutar", () => {
+    expect(jobApplicationsClosedReason({ status: "UNKNOWN", acceptingApplications: false })).toBe(
+      "Bu ilan yeni başvuru almıyor.",
+    );
   });
 });

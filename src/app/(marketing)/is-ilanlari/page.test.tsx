@@ -546,16 +546,34 @@ describe("ilan listesinin indekslenmesi", () => {
     expect(sortedPageTwo.robots).toBeUndefined();
   });
 
-  it("süzgeçli URL noindex alır ve canonical taşımaz", async () => {
+  it("süzgeçli URL noindex ve normalize edilmiş kendi canonical'ını taşır", async () => {
     // Süzgeç kombinasyonları sonsuz sayıda URL demek; hepsi indekslenirse
-    // Google yinelenen içerik görür. noindex ile canonical birlikte
-    // gönderilirse de çelişen iki sinyal olur.
+    // Google yinelenen içerik görür. Canonical ham sorgu sırasını ve geçersiz
+    // değerleri değil, parse edilmiş süzgeç kümesini tek sırada yazar.
     const metadata = await generateMetadata({
       searchParams: Promise.resolve({ il: cityId, ara: "garson" }),
     });
 
     expect(metadata.robots).toEqual({ index: false, follow: true });
-    expect(metadata.alternates).toBeUndefined();
+    expect(metadata.alternates?.canonical).toBe(
+      `https://iskoala.com/is-ilanlari?ara=garson&il=${cityId}`,
+    );
+  });
+
+  it("canonical UUID harflerini ve eşdeğer BigDecimal ölçeklerini tek biçime indirir", async () => {
+    const metadata = await generateMetadata({
+      searchParams: Promise.resolve({
+        kategori: categoryId.toUpperCase(),
+        il: cityId.toUpperCase(),
+        ilce: districtId.toUpperCase(),
+        "min-ucret": "005.00",
+        "max-ucret": "1500.50",
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      `https://iskoala.com/is-ilanlari?kategori=${categoryId}&il=${cityId}&ilce=${districtId}&min-ucret=5&max-ucret=1500.5`,
+    );
   });
 
   it("altı yeni süzgecin her biri tek başına noindex getirir", async () => {
@@ -581,7 +599,9 @@ describe("ilan listesinin indekslenmesi", () => {
         index: false,
         follow: true,
       });
-      expect(metadata.alternates, JSON.stringify(searchParams)).toBeUndefined();
+      expect(metadata.alternates?.canonical, JSON.stringify(searchParams)).toBe(
+        `https://iskoala.com/is-ilanlari?${new URLSearchParams(searchParams)}`,
+      );
     }
   });
 });

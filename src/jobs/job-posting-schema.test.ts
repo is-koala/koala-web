@@ -48,6 +48,15 @@ describe("JobPosting yapısal verisi", () => {
     },
   );
 
+  it("durumu OPEN kalsa bile başvuru kabul etmeyen ilan için hiç yapısal veri üretmez", () => {
+    expect(
+      jobPostingJsonLd(
+        jobDetailFixture({ status: "OPEN", acceptingApplications: false }),
+        canonical,
+      ),
+    ).toBeNull();
+  });
+
   it("bireysel işverende hiringOrganization olarak platformu yazar, kişiyi değil", () => {
     /*
      * `creator` gerçek bir kişi; adını `hiringOrganization` altına yazmak onu

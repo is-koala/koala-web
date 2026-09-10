@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:docker-contract": "sh ops/test-docker-public-env-contract.sh",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test && npm run test:e2e:sitemap-production",
+    "test:e2e:sitemap-production": "SITEMAP_PRODUCTION_HTTP=1 playwright test --config playwright.sitemap-production.config.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.73.0",

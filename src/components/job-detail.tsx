@@ -1,6 +1,9 @@
+import Link from "next/link";
+
 import type { JobDetail, JobImage } from "@/jobs/contract";
 import { jobApplicationsClosedReason } from "@/jobs/lifecycle";
 import { jobTypeLabels, salaryTypeLabels } from "@/jobs/search";
+import { publicJobsPath } from "@/lib/app-routes";
 import { formatJobDate } from "@/lib/dates";
 import type { FormAction } from "@/lib/form-state";
 import { formatMoney } from "@/lib/money";
@@ -18,10 +21,9 @@ import { JobApplicationForm } from "./job-application-form";
  * yok (`src/jobs/contract.ts`, ADR-0003).
  */
 export function JobDetailView({ job, applyAction }: { job: JobDetail; applyAction: FormAction }) {
-  // Backend başvuru alırken ilanın durumuna bakmıyor; kapatılmış bir ilana
-  // doğrudan bağlantıyla gelen kişiye çalışan bir form göstermek, işverenin
-  // kapattığı ilana başvuru düşürmek olurdu.
-  const applicationsClosed = jobApplicationsClosedReason(job.status);
+  // Backend'in başvuru kapısı yine son güvenlik sınırı; web aynı kararı
+  // önceden gösterir ki süresi dolmuş bağlantı çalışan bir form vaat etmesin.
+  const applicationsClosed = jobApplicationsClosedReason(job);
   const openings = remainingOpenings(job);
 
   return (
@@ -87,7 +89,11 @@ export function JobDetailView({ job, applyAction }: { job: JobDetail; applyActio
             <>
               <h2 id="application-title">Bu ilan başvuruya kapalı</h2>
               <p>{applicationsClosed}</p>
-              <p className="muted">Benzer ilanları iş ilanları sayfasından bulabilirsin.</p>
+              <p>
+                <Link className="text-link" href={publicJobsPath}>
+                  Benzer ilanları gör
+                </Link>
+              </p>
             </>
           )}
         </aside>

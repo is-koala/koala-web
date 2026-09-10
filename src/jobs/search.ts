@@ -369,8 +369,12 @@ export function jobSearchParams(query: JobSearchQuery): URLSearchParams {
   if (query.employerType !== null) {
     params.set(jobSearchParamNames.employerType, query.employerType);
   }
-  if (query.minSalary !== null) params.set(jobSearchParamNames.minSalary, query.minSalary);
-  if (query.maxSalary !== null) params.set(jobSearchParamNames.maxSalary, query.maxSalary);
+  if (query.minSalary !== null) {
+    params.set(jobSearchParamNames.minSalary, canonicalSalary(query.minSalary));
+  }
+  if (query.maxSalary !== null) {
+    params.set(jobSearchParamNames.maxSalary, canonicalSalary(query.maxSalary));
+  }
   if (query.insuranceRequired !== null) {
     params.set(jobSearchParamNames.insuranceRequired, booleanFilterParam(query.insuranceRequired));
   }
@@ -403,7 +407,8 @@ export function jobSearchParams(query: JobSearchQuery): URLSearchParams {
  * ilanlar** dönüyor. Onları da canonical'dan silmek, içeriği süzülmüş bir
  * sayfaya "asıl adresim süzgeçsiz liste" dedirtirdi: Google'ın gördüğü sayfa
  * ile işaret ettiği adres aynı ilanları taşımazdı. Bu yüzden süzgeçli URL
- * `noindex, follow` alıyor ve canonical **hiç** taşımıyor.
+ * `noindex, follow` alıyor; canonical ise süzgeci düşürmeden UUID harflerini,
+ * ücret ölçeğini ve parametre sırasını tek biçime indiriyor.
  */
 export function hasJobFilters(query: JobSearchQuery): boolean {
   return (
@@ -646,7 +651,13 @@ function textParam(value: string | string[] | undefined): string | null {
 
 function uuidParam(value: string | string[] | undefined): string | null {
   const raw = single(value);
-  return raw !== null && isUuid(raw) ? raw : null;
+  return raw !== null && isUuid(raw) ? raw.toLowerCase() : null;
+}
+
+/** Eşdeğer BigDecimal ölçeklerini paylaşılan URL'de tek yazıma indirir. */
+function canonicalSalary(value: string): string {
+  if (!value.includes(".")) return value;
+  return value.replace(/0+$/, "").replace(/\.$/, "");
 }
 
 /** Beyaz listedeki enum sabiti; dışındaki her şey seçilmemiş sayılır. */
