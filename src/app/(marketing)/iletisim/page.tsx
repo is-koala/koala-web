@@ -1,19 +1,24 @@
+import { ControllerIdentity } from "@/components/controller-identity";
+import { SupportForm } from "@/components/support-form";
+import { supportContent } from "@/content/support";
 import { pageMetadata } from "@/lib/metadata";
-import { contactContent } from "@/content/marketing";
+
+import { submitSupportAction } from "./actions";
 
 export const metadata = pageMetadata(
   "Koala ile İletişim",
-  "Koala ekibine e-posta ile ulaş.",
+  "Koala ekibine destek, KVKK başvurusu ve şikayet için ulaş.",
   "/iletisim",
 );
 
 export default function Page() {
   return (
     <article className="hero hero-compact">
-      <p className="eyebrow">{contactContent.eyebrow}</p>
-      <h1>{contactContent.title}</h1>
-      <p className="lede">{contactContent.intro}</p>
-      <a className="button button-primary" href={`mailto:${contactContent.email}`}>{contactContent.email}</a>
+      <p className="eyebrow">{supportContent.eyebrow}</p>
+      <h1>{supportContent.title}</h1>
+      <p className="lede">{supportContent.intro}</p>
+      <ControllerIdentity heading="Şirket ve başvuru bilgileri" />
+      <SupportForm action={submitSupportAction} />
     </article>
   );
 }
