@@ -71,13 +71,6 @@ export const homeContent = {
   manifesto: "İş bulmak da, destek bulmak da yorucu olmamalı.",
 } as const;
 
-export const contactContent = {
-  eyebrow: "İletişim",
-  title: "Birlikte çözelim.",
-  intro: "Soru ve görüşlerin için bize e-posta gönder.",
-  email: "info@iskoala.com",
-} as const;
-
 export const faqContent = {
   eyebrow: "Merak edilenler",
   title: "Sıkça Sorulan Sorular",

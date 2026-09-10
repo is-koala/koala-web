@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { homeContent } from "@/content/marketing";
+import { controllerIdentity } from "@/content/support";
 import { pageMetadata } from "@/lib/metadata";
 import { publicEnvironment } from "@/lib/env";
 import { site } from "@/lib/site";
@@ -34,7 +35,7 @@ export default function HomePage() {
         "@type": "Organization",
         name: site.name,
         url: publicEnvironment().siteUrl,
-        email: "info@iskoala.com",
+        email: controllerIdentity.email,
       }) }} />
     </div>
   );

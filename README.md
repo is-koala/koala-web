@@ -18,6 +18,14 @@ yalnız çalışma ortamında tanımlanır.
 Kalite kapısı: `npm run lint && npm run typecheck && npm test && npm run build`
 ve ardından `npm run test:e2e`.
 
+## Destek kutusu
+
+`/iletisim` formu BFF üzerinden SMTP ile `SUPPORT_MAILBOX` adresine düşer
+(varsayılan `info@iskoala.com`). Kutuyu bugün ürün sahibi izler; kişilik
+ataması ve canlı SMTP kimliği insan kapısıdır. `SMTP_HOST` yoksa gönderim
+`EMAIL_SEND_FAILED` döner, site ayağa kalkmaya devam eder. Testler sahte
+postacı kullanır; canlı kutuya otomatik mail gitmez.
+
 ## Stil kararı
 
 Tailwind CSS, küçük yardımcı sınıfları ve proje büyüdüğünde tutarlı responsive
