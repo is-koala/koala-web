@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { CanonicalAddress } from "@/address/contract";
+import { canonicalAddressFrom } from "@/address/read";
 import type { CompanyCreateBody, CompanyUpdateBody } from "@/lib/company";
 import type { CompanyContact } from "@/lib/company-contacts";
 import { apiRequest } from "@/server/session/session";
@@ -190,14 +191,5 @@ function toCompany(response: CompanyResponse | null): Company {
 }
 
 function toAddress(address: CompanyAddressResponse | null | undefined): CanonicalAddress | null {
-  if (!address) return null;
-
-  return {
-    countryName: address.countryName ?? "",
-    cityName: address.cityName ?? "",
-    districtName: address.districtName ?? "",
-    components: address.components ?? {},
-    displayAddress: address.displayAddress ?? null,
-    needsReview: address.needsReview === true,
-  };
+  return canonicalAddressFrom(address);
 }

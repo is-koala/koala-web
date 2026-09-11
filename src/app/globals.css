@@ -515,6 +515,15 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .address-position .button-row { margin-top: 0; }
 .address-view { font-style: normal; }
 .address-view p { margin: 0 0 4px; }
+.address-map-picker { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+.address-map { position: relative; display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.address-map-frame { position: relative; width: 100%; }
+.address-map-canvas { width: 100%; min-height: 280px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.address-map-pin { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin-left: -9px; margin-top: -18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--brand-primary); pointer-events: none; box-shadow: 0 4px 10px rgba(40,40,40,.28); }
+.address-map-coords { margin: 0; font-variant-numeric: tabular-nums; font-weight: 700; }
+.address-map-preview { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.address-current { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.address-current h2 { font-size: 1.1rem; }
 .message-badge-link { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; font-size: .82rem; font-weight: 800; }
 .message-badge-link:hover { color: var(--brand-accent); }
 .message-badge { display: grid; place-items: center; min-width: 22px; height: 22px; padding-inline: 6px; border-radius: 999px; background: var(--brand-primary); color: white; font-size: .72rem; }

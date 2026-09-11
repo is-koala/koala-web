@@ -1,4 +1,5 @@
 import { serviceAreaNotice } from "@/address/contract";
+import { employerBillingAddressPath } from "@/lib/app-routes";
 
 import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
 import type { GateId } from "./gates";
@@ -511,10 +512,10 @@ export type GateNotice = {
 };
 
 /**
- * Kimlik doğrulama ve adres düzenleme web'de henüz yok: KYC akışı
- * is-koala/koala-web#18, adres yazma #28, şirket profili #29 ile geliyor.
- * O zamana kadar kapı kullanıcıyı boşluğa değil, işi bugün yapabildiği yere —
- * mobil uygulamaya — bırakır. Bu üç issue indiğinde değişecek tek yer burası.
+ * Kimlik doğrulama web'de henüz yok: KYC akışı is-koala/koala-web#18.
+ * Fatura adresi #28 ile `/isveren/adres` üzerinde; şirket adresi şirket
+ * profilinden düzenlenir. O zamana kadar kimlik kapısı kullanıcıyı işi
+ * bugün yapabildiği yere — mobil uygulamaya — bırakır.
  */
 const openAppPath = "/uygulamayi-ac";
 
@@ -563,8 +564,8 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   individualBillingAddress: {
     title: "Fatura adresin eksik",
     message:
-      "Ödemeyi başlatabilmek için kendi fatura adresine ihtiyacımız var. Adresini şimdilik Koala uygulamasındaki profilinden ekleyebilirsin.",
-    remedy: { href: openAppPath, label: "Adresini uygulamada ekle" },
+      "Ödemeyi başlatabilmek için kendi fatura adresine ihtiyacımız var. Adresini bu siteden kaydedebilirsin.",
+    remedy: { href: employerBillingAddressPath, label: "Fatura adresini ekle" },
     errorCodes: ["JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER"],
   },
   companyBillingAddress: {

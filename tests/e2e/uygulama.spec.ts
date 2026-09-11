@@ -25,6 +25,7 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
     ],
     ["/panel/hesap", "/giris?next=%2Fpanel%2Fhesap"],
     ["/isveren/hesap", "/giris?next=%2Fisveren%2Fhesap"],
+    ["/isveren/adres", "/giris?next=%2Fisveren%2Fadres"],
     ["/isveren/atamalar", "/giris?next=%2Fisveren%2Fatamalar"],
     ["/isveren/odemeler", "/giris?next=%2Fisveren%2Fodemeler"],
     [
@@ -87,6 +88,7 @@ test("kabuk adresleri indekslenmez", async ({ request }) => {
     "/isveren/ilanlar",
     "/isveren/mesajlar",
     "/isveren/hesap",
+    "/isveren/adres",
     "/isveren/atamalar",
     "/isveren/odemeler",
     "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",

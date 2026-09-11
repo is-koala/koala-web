@@ -318,6 +318,15 @@ describe("kapı metinleri", () => {
     expect(notice.remedy?.href).toBe("/uygulamayi-ac");
   });
 
+  it("bireysel fatura adresi kapısını web kayıt ekranına yollar", () => {
+    const notice = gateNotice("individualBillingAddress");
+
+    expect(notice.remedy).toEqual({
+      href: "/isveren/adres",
+      label: "Fatura adresini ekle",
+    });
+  });
+
   it("iki fatura adresi kapısını farklı metinlerle anlatır", () => {
     // Ödeme, şirket ilanında **şirketin** adresini okuyor
     // (`JobAssignmentManager.java:316-326`), kullanıcınınkini değil; tek metin

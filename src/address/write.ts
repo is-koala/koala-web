@@ -161,3 +161,22 @@ function writeComponents(draft: AddressDraft): AddressComponents {
   }
   return components;
 }
+
+/**
+ * `PUT /users/me/address` alan hataları. Gövde kök DTO olduğu için
+ * `components.postalCode` gibi yollar formun düz alan adına kırpılır.
+ */
+export function writeFieldErrors(
+  fieldErrors: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const [field, message] of Object.entries(fieldErrors)) {
+    const name = field.startsWith("components.")
+      ? field.slice("components.".length)
+      : field.startsWith("position.")
+        ? "position"
+        : field;
+    errors[name] = message;
+  }
+  return errors;
+}

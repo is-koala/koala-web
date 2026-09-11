@@ -99,6 +99,14 @@ export const companySectionPath = "/isveren/sirket";
 export const newCompanyPath = `${companySectionPath}/yeni`;
 
 /**
+ * Bireysel fatura adresi. Menüde yok: kapı şeridinden ve hesap ayarlarından
+ * açılıyor, şirket formu gibi tek seferlik bir eylem değil ama kalıcı bir
+ * bölüm de değil — `[...section]` onu tanısaydı gerçek sayfanın önüne
+ * "henüz açılmadı" koyardı.
+ */
+export const employerBillingAddressPath = "/isveren/adres";
+
+/**
  * Bir şirketin profili.
  *
  * Seçili şirket **rotada** taşınıyor, yerel durumda değil: bir kullanıcı
