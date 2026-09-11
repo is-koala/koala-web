@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { privateDisallowRules, privateHeaderSources, privateRouteTrees } from "./private-routes";
+import {
+  privateDisallowRules,
+  privateHeaderSources,
+  privateRouteTrees,
+  privateRoutes,
+} from "./private-routes";
 
 /**
  * robots.txt eşleşme kuralının bağımsız uygulaması.
@@ -23,7 +28,7 @@ const blocked = (path: string) => privateDisallowRules.some((rule) => disallows(
 
 describe("arama motorlarına kapalı rotalar", () => {
   it("kabuk köklerini ve altındaki her yolu robots.txt'te kapatır", () => {
-    for (const path of ["/isveren", "/isveren/ilanlar", "/isveren/ilan/yeni", "/panel", "/panel/islerim", "/panel/profil"]) {
+    for (const path of ["/isveren", "/isveren/ilanlar", "/isveren/ilan/yeni", "/isveren/adres", "/panel", "/panel/islerim", "/panel/profil", "/panel/adres"]) {
       expect(blocked(path)).toBe(true);
     }
   });
@@ -67,6 +72,14 @@ describe("arama motorlarına kapalı rotalar", () => {
     expect(privateDisallowRules).toContain("/api/payments/*/result");
     expect(privateDisallowRules.join("\n")).not.toContain(":assignmentId");
     expect(blocked("/api/payments/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e/result")).toBe(true);
+  });
+
+  it("kabuk altında olmayan kimlikli adres ekranlarını tek tek kapatır", () => {
+    // Ağaç zaten `/panel/` ve `/isveren/` altını kapatır. Exact kayıt, kapı
+    // şeridinin (`errors.test.ts` fatura adresi) ve başvuru çözümünün
+    // `privateRoutes` kümesinde durması için durur.
+    expect(privateRoutes).toContain("/isveren/adres");
+    expect(privateRoutes).toContain("/panel/adres");
   });
 
   it("hesap akışlarının tek tek yolları kapalı kalır", () => {

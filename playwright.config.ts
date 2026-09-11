@@ -30,6 +30,9 @@ export default defineConfig({
         APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
         NEXT_PUBLIC_SITE_URL: "https://iskoala.com",
         NEXT_PUBLIC_APP_URL_SCHEME: process.env.NEXT_PUBLIC_APP_URL_SCHEME ?? "koala-dev",
+        // CI'daki Maps anahtarı bu sürece sızmasın: boş anahtar betik indirmez
+        // ve klavye yolu formun varsayılanıdır (is-koala/koala-web#133).
+        NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY: "",
       },
       url: `${baseURL}/api/health`,
       reuseExistingServer: false,

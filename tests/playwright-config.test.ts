@@ -28,6 +28,7 @@ describe("Playwright test server isolation", () => {
     expect(appServer?.url).toBe("http://localhost:3100/api/health");
     expect(appServer?.env).toMatchObject({
       NEXT_PUBLIC_SITE_URL: "https://iskoala.com",
+      NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY: "",
     });
     expect(backendServer?.url).toBe("http://127.0.0.1:4100/__test__/health");
     for (const server of webServers) expect(server?.reuseExistingServer).toBe(false);

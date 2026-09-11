@@ -98,11 +98,9 @@ export type ViewerContext = {
 export const currentViewer: () => Promise<ViewerContext> = cache(loadViewer);
 
 /**
- * Fatura adresi ekranının okuduğu kayıtlı adres.
- *
- * Aynı `GET /users/me` turundan gelir; değeri Viewer'a koymak her kabuk
- * sayfasının RSC yüküne sokak adresini yazardı. Kapılar yalnız `hasAddress`
- * sorar.
+ * Kayıtlı adres. Fatura ve başvuru ekranları aynı `GET /users/me` turundan
+ * okur; değeri Viewer'a koymak her kabuk sayfasının RSC yüküne sokak
+ * adresini yazardı. Kapılar yalnız `hasAddress` sorar.
  */
 export function currentUserAddress(): Promise<CanonicalAddress | null> {
   return loadProfile().then((loaded) => loaded.address);

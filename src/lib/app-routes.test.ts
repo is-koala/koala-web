@@ -14,6 +14,7 @@ import {
   sectionAt,
   talentPoolPath,
   employerBillingAddressPath,
+  workerApplicantAddressPath,
 } from "./app-routes";
 import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
@@ -307,6 +308,13 @@ describe("kabuk rota kaydı", () => {
     // açılmadı" ekranı koyardı.
     expect(employerBillingAddressPath).toBe("/isveren/adres");
     expect(sectionAt("employer", ["adres"])).toBeUndefined();
+  });
+
+  it("iş arayan adres ekranını bölüm saymadan adresler", () => {
+    // Başvuru kapısı buraya düşer; menüde kalıcı madde değil. `[...section]`
+    // onu tanısaydı gerçek sayfanın önüne "henüz açılmadı" koyardı.
+    expect(workerApplicantAddressPath).toBe("/panel/adres");
+    expect(sectionAt("worker", ["adres"])).toBeUndefined();
   });
 
   it("bir kabuğun bölümünü öbür kabukta tanımaz", () => {

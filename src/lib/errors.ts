@@ -513,9 +513,10 @@ export type GateNotice = {
 
 /**
  * Kimlik doğrulama web'de henüz yok: KYC akışı is-koala/koala-web#18.
- * Fatura adresi #28 ile `/isveren/adres` üzerinde; şirket adresi şirket
- * profilinden düzenlenir. O zamana kadar kimlik kapısı kullanıcıyı işi
- * bugün yapabildiği yere — mobil uygulamaya — bırakır.
+ * Fatura adresi #28 ile `/isveren/adres` üzerinde; iş arayan adresi #133
+ * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir.
+ * O zamana kadar kimlik kapısı kullanıcıyı işi bugün yapabildiği yere —
+ * mobil uygulamaya — bırakır.
  */
 const openAppPath = "/uygulamayi-ac";
 

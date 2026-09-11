@@ -7,10 +7,11 @@ import { backendPaths, unexpectedError } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
 /**
- * Fatura adresini yazar.
+ * Kullanıcının kendi adresini yazar.
  *
  * Gövde çağıranda `readAddressWrite` ile süzülmüş olmalı: fazladan alan
- * `REQUEST_MALFORMED` olur ve kullanıcı nötr yedeği görür.
+ * `REQUEST_MALFORMED` olur ve kullanıcı nötr yedeği görür. Aynı uç hem
+ * fatura (#28) hem başvuru (#133) ekranından çağrılır.
  */
 export async function updateCurrentUserAddress(body: AddressWrite): Promise<CanonicalAddress> {
   const saved = canonicalAddressFrom(
