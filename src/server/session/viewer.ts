@@ -3,9 +3,11 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
+import type { CanonicalAddress } from "@/address/contract";
+import { canonicalAddressFrom } from "@/address/read";
+import type { Education, Experience } from "@/lib/profile";
 import { ApiError } from "@/server/api/errors";
 import { backendPaths, unauthorizedStatus, unexpectedError } from "@/server/contract";
-import type { Education, Experience } from "@/lib/profile";
 
 import { requireSessionForCurrentPath } from "./guard";
 import { currentPathLoginRedirect } from "./login-redirect";
@@ -96,6 +98,17 @@ export type ViewerContext = {
 export const currentViewer: () => Promise<ViewerContext> = cache(loadViewer);
 
 /**
+ * Fatura adresi ekranının okuduğu kayıtlı adres.
+ *
+ * Aynı `GET /users/me` turundan gelir; değeri Viewer'a koymak her kabuk
+ * sayfasının RSC yüküne sokak adresini yazardı. Kapılar yalnız `hasAddress`
+ * sorar.
+ */
+export function currentUserAddress(): Promise<CanonicalAddress | null> {
+  return loadProfile().then((loaded) => loaded.address);
+}
+
+/**
  * Kabuk layout'unun tek satırı: önce oturum kapısı, sonra bağlam.
  *
  * İki kabuk da aynı sırayı izlemek zorunda. Bağlam kapıdan önce okunsaydı
@@ -112,15 +125,26 @@ export async function enterShell(): Promise<ViewerContext> {
  * sürebilsin diye dışa açık; üretimde `currentViewer` çağrılır.
  */
 export async function loadViewer(): Promise<ViewerContext> {
+  const { viewer, failure } = await loadProfile();
+  return { viewer, failure };
+}
+
+type ProfileLoad = ViewerContext & { address: CanonicalAddress | null };
+
+const loadProfile: () => Promise<ProfileLoad> = cache(async () => {
   try {
     const response = await apiRequest<UserMeResponse | null>(backendPaths.usersMe);
 
     // `apiFetch` gövdesiz başarılı yanıtı `null` olarak döndürür. `/users/me`
     // için bu bir sözleşme ihlali; adı ve bayrakları boş bir kullanıcıyla
     // kabuğu çizmek, arızayı kullanıcının hesabıymış gibi gösterirdi.
-    if (response === null) return { viewer: null, failure: unusableProfile };
+    if (response === null) return { viewer: null, failure: unusableProfile, address: null };
 
-    return { viewer: toViewer(response), failure: null };
+    return {
+      viewer: toViewer(response),
+      failure: null,
+      address: canonicalAddressFrom(response.address),
+    };
   } catch (error) {
     // Yalnız backend hatası ekrana dönüşür. Oturum render ortasında bitmişse
     // `apiRequest` kullanıcıyı girişe yönlendirir ve o akış bir istisnayla
@@ -141,9 +165,10 @@ export async function loadViewer(): Promise<ViewerContext> {
         errorCode: error.errorCode,
         ...(error.requestId ? { requestId: error.requestId } : {}),
       },
+      address: null,
     };
   }
-}
+});
 
 /** HTTP başarılı, gövde kullanılamaz: durum kodu yok, nötr metne düşülür. */
 const unusableProfile: ViewerFailure = { status: 0, errorCode: unexpectedError };

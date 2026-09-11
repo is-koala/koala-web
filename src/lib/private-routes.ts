@@ -52,6 +52,7 @@ export const privateRouteDescriptors = [
   { kind: "exact", path: "/eposta-onayla" },
   { kind: "exact", path: "/uygulamayi-ac" },
   { kind: "exact", path: "/payment/result" },
+  { kind: "exact", path: "/isveren/adres" },
   { kind: "tree", path: "/isveren" },
   { kind: "tree", path: "/panel" },
   { kind: "tree", path: "/davet" },

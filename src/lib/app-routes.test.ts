@@ -13,6 +13,7 @@ import {
   publishedJobPath,
   sectionAt,
   talentPoolPath,
+  employerBillingAddressPath,
 } from "./app-routes";
 import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
@@ -298,6 +299,14 @@ describe("kabuk rota kaydı", () => {
     expect(sectionAt("employer", ["ilanlar", "yeni"])).toBeUndefined();
     // Form `/isveren/ilan/yeni`; `/isveren/ilan` tek başına bir bölüm değil.
     expect(sectionAt("employer", ["ilan"])).toBeUndefined();
+  });
+
+  it("fatura adresi ekranını bölüm saymadan adresler", () => {
+    // Menüde kalıcı bir madde değil: kapı şeridinden ve hesap ayarlarından
+    // açılıyor. `[...section]` onu tanısaydı gerçek sayfanın önüne "henüz
+    // açılmadı" ekranı koyardı.
+    expect(employerBillingAddressPath).toBe("/isveren/adres");
+    expect(sectionAt("employer", ["adres"])).toBeUndefined();
   });
 
   it("bir kabuğun bölümünü öbür kabukta tanımaz", () => {

@@ -46,4 +46,18 @@ describe("salt okunur adres görünümü", () => {
 
     expect(screen.getByText(/kontrol edilmesi gerekiyor/)).toBeInTheDocument();
   });
+
+  it("kayıtlı koordinatı altı ondalıkla gösterir", () => {
+    render(
+      <AddressView
+        address={{
+          ...address,
+          displayAddress: "Backend'in yazdığı adres",
+          position: { latitude: 41.081235, longitude: 29.008765 },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("41.081235, 29.008765")).toBeInTheDocument();
+  });
 });

@@ -161,6 +161,40 @@ describe("kanonik adres formu", () => {
       source: "USER_CONFIRMED_PIN",
     });
     expect(written && "candidateToken" in written).toBe(false);
+    expect(screen.queryByText(/Adres verileri:/)).not.toBeInTheDocument();
+  });
+
+  it("ters çözümleme 502 verdiğinde pini korur ve önceki kanıtı düşürür", async () => {
+    const gateway = fakeGateway({
+      reverse: vi.fn(async () => {
+        throw new AddressGatewayError("ADDRESS_SEARCHPROVIDER_UNAVAILABLE", 502);
+      }),
+    });
+    const { user, body } = renderForm(gateway);
+
+    await pickFromSearch(user);
+    await user.click(screen.getByRole("button", { name: "Bu konumdan adres öner" }));
+
+    await screen.findByRole("alert");
+    const written = body();
+    expect(written?.position).toEqual({
+      latitude: 41.081235,
+      longitude: 29.008765,
+      source: "USER_CONFIRMED_PIN",
+    });
+    expect(written && "candidateToken" in written).toBe(false);
+    expect(screen.getByLabelText("Enlem")).toBeEnabled();
+  });
+
+  it("sunucunun konum alan hatasını konum bölümünde gösterir", () => {
+    render(
+      <CanonicalAddressForm
+        gateway={fakeGateway()}
+        fieldErrors={{ position: "Konumu onaylaman gerekiyor." }}
+      />,
+    );
+
+    expect(screen.getByText("Konumu onaylaman gerekiyor.")).toBeInTheDocument();
   });
 
   it("konumdan adres önerisi istendiğinde ters çözümleme kaynağını işaretler", async () => {

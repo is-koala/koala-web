@@ -13,12 +13,10 @@ import { ErrorState } from "@/components/states";
 /**
  * Konum onayının sözleşmesi.
  *
- * Harita seçici (is-koala/koala-web#28) bu arayüzü uygulayan bir bileşenle
- * gelecek: Maps JavaScript anahtarı yalnız karo çizimi için istemciye inecek,
- * adres çözümleme yine `suggestFromPosition` üzerinden backend'de kalacak.
- * Kaynak ayrımı burada bitiyor — `confirmPosition` kullanıcının kendi
- * onayıdır (`USER_CONFIRMED_PIN`), `suggestFromPosition` sağlayıcının
- * doğruladığı konumdur (`REVERSE_GEOCODE_CONFIRMED`).
+ * Harita seçici bu arayüzü uygular: Maps JavaScript anahtarı yalnız karo
+ * çizimi için istemciye iner, adres çözümleme yine `suggestFromPosition` /
+ * `lookupFromPosition` üzerinden backend'de kalır. `confirmPosition`
+ * kullanıcının kendi onayıdır (`USER_CONFIRMED_PIN`).
  */
 export type PositionPickerProps = {
   position: AddressPosition | null;
@@ -30,6 +28,7 @@ export type PositionPickerProps = {
   status: "idle" | "loading" | "error";
   errorCode: string | null;
   httpStatus: number;
+  fieldError?: string;
 };
 
 /**
@@ -47,6 +46,7 @@ export function PositionPicker({
   status,
   errorCode,
   httpStatus,
+  fieldError,
 }: PositionPickerProps) {
   const latitudeId = useId();
   const longitudeId = useId();
@@ -76,8 +76,8 @@ export function PositionPicker({
     <section className="address-position" aria-label="Konum onayı">
       <h3>Konum</h3>
       <p className="field-hint">
-        Harita seçici hazır olana kadar konumu enlem ve boylamla onaylayabilirsin. Koala yalnız
-        İstanbul sınırlarında ({serviceArea.south}–{serviceArea.north} /{" "}
+        Konumu enlem ve boylamla da onaylayabilirsin. Koala yalnız İstanbul
+        sınırlarında ({serviceArea.south}–{serviceArea.north} /{" "}
         {serviceArea.west}–{serviceArea.east}) çalışıyor.
       </p>
 
@@ -133,6 +133,7 @@ export function PositionPicker({
       )}
 
       {message && <p className="field-error">{message}</p>}
+      {fieldError && <p className="field-error">{fieldError}</p>}
       {status === "error" && (
         <ErrorState errorCode={errorCode ?? undefined} status={httpStatus} />
       )}

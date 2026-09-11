@@ -1,4 +1,4 @@
-import type { CanonicalAddress } from "@/address/contract";
+import { formatCoordinate, type CanonicalAddress } from "@/address/contract";
 
 /**
  * Kayıtlı adresin salt okunur hâli (şirket profili, ilan detayı).
@@ -59,6 +59,11 @@ export function AddressView({
       )}
       {address.needsReview && (
         <p className="field-error">Bu adresin kontrol edilmesi gerekiyor.</p>
+      )}
+      {address.position && (
+        <p className="muted">
+          {formatCoordinate(address.position.latitude)}, {formatCoordinate(address.position.longitude)}
+        </p>
       )}
       {attribution && <p className="muted">Adres verileri: {attribution}</p>}
     </address>

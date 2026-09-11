@@ -24,7 +24,8 @@ import { addressDraftErrors, addressWriteBody } from "@/address/write";
 import { TextField } from "@/components/form-controls";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 
-import { PositionPicker, type PositionPickerProps } from "./address-position-picker";
+import { AddressMapPicker } from "./address-map-picker";
+import { type PositionPickerProps } from "./address-position-picker";
 
 export type { PositionPickerProps };
 
@@ -41,9 +42,8 @@ export type CanonicalAddressFormProps = {
    */
   fieldErrors?: Readonly<Record<string, string>>;
   /**
-   * Konum onayının çizimi. Varsayılan haritasız; harita seçici
-   * (is-koala/koala-web#28) buraya Maps JavaScript tabanlı bir pin koyacak ve
-   * formun geri kalanı değişmeyecek.
+   * Konum onayının çizimi. Varsayılan harita seçici; anahtar boşken haritasız
+   * yedekle aynı sözleşmeyi uygular (is-koala/koala-web#28).
    */
   renderPositionPicker?: (props: PositionPickerProps) => React.ReactNode;
 };
@@ -166,23 +166,25 @@ export function CanonicalAddressForm({
     // Konumu kullanıcı taşıdı: sağlayıcı kanıtı artık bu koordinata ait
     // değil ve `verifyAndConsume` token taşıyan bu gövdeyi reddederdi.
     // `needsReview` yerinde kalır: onay adayın eksik bileşenleri içindi ve
-    // koordinatı doğrulamak o eksiği kapatmıyor.
+    // koordinatı doğrulamak o eksiği kapatmıyor. Ters çözümleme hatası
+    // silinmez: pin onayı sağlayıcının düşmesini gizlemesin.
     setDraft((current) => ({
       ...current,
       position,
       source: "USER_CONFIRMED_PIN",
       candidateToken: null,
+      attribution: null,
     }));
-    setReverse({ status: "idle", errorCode: null, httpStatus: 0 });
     return null;
   }, []);
 
-  const suggestFromPosition = useCallback(
+  const lookupFromPosition = useCallback(
     async (position: Coordinates) => {
       setReverse({ status: "loading", errorCode: null, httpStatus: 0 });
       try {
-        applyCandidate(await gateway.reverse(position));
+        const candidate = await gateway.reverse(position);
         setReverse({ status: "idle", errorCode: null, httpStatus: 0 });
+        return candidate;
       } catch (error) {
         const failure = error instanceof AddressGatewayError ? error : null;
         setReverse({
@@ -190,9 +192,22 @@ export function CanonicalAddressForm({
           errorCode: failure?.errorCode ?? "UNEXPECTED",
           httpStatus: failure?.httpStatus ?? 500,
         });
+        throw error;
       }
     },
-    [applyCandidate, gateway],
+    [gateway],
+  );
+
+  const suggestFromPosition = useCallback(
+    async (position: Coordinates) => {
+      try {
+        applyCandidate(await lookupFromPosition(position));
+      } catch {
+        // Pin yazma konumudur; kanıt düşmezse eski token başka bir noktayla gider.
+        confirmPosition(position);
+      }
+    },
+    [applyCandidate, confirmPosition, lookupFromPosition],
   );
 
   const changeQuery = (value: string) => {
@@ -226,6 +241,9 @@ export function CanonicalAddressForm({
     ? { ...draft.position, source: draft.source }
     : null;
 
+  const errorFor = (field: string) =>
+    fieldErrors?.[field] ?? (touched.has(field) ? draftErrors[field] : undefined);
+
   const pickerProps: PositionPickerProps = {
     position,
     defaultCenter: defaultMapCenter,
@@ -235,10 +253,8 @@ export function CanonicalAddressForm({
     status: reverse.status,
     errorCode: reverse.errorCode,
     httpStatus: reverse.httpStatus,
+    fieldError: errorFor("position"),
   };
-
-  const errorFor = (field: string) =>
-    fieldErrors?.[field] ?? (touched.has(field) ? draftErrors[field] : undefined);
 
   return (
     <div className="address-form">
@@ -358,7 +374,15 @@ export function CanonicalAddressForm({
         ))}
       </div>
 
-      {renderPositionPicker ? renderPositionPicker(pickerProps) : <PositionPicker {...pickerProps} />}
+      {renderPositionPicker ? (
+        renderPositionPicker(pickerProps)
+      ) : (
+        <AddressMapPicker
+          {...pickerProps}
+          lookupFromPosition={lookupFromPosition}
+          applyCandidate={applyCandidate}
+        />
+      )}
     </div>
   );
 }

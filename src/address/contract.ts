@@ -35,6 +35,13 @@ export const istanbulServiceArea = {
 /** Sultanahmet. Harita seçici (#28) kamerayı buradan açacak. */
 export const defaultMapCenter = { latitude: 41.008238, longitude: 28.978359 } as const;
 
+/** Mobil `app_map.dart` / `b_location_picker_page.dart` ile aynı kamera aralığı. */
+export const mapCameraLimits = {
+  defaultZoom: 15,
+  minZoom: 10,
+  maxZoom: 20,
+} as const;
+
 /**
  * `@Digits(fraction = 6)` ve `BigDecimal.setScale(6)`. Daha uzun bir ondalık
  * hem doğrulamaya takılır hem de tek kullanımlık aday kanıtının koordinat
@@ -163,6 +170,8 @@ export type CanonicalAddress = {
   /** Backend'in biçimlendirdiği tek satır; yoksa bileşenlerden kurulur. */
   displayAddress: string | null;
   needsReview: boolean;
+  /** Kayıtlı pin. Eski yanıtlarda yok; görünüm o zaman koordinatı yazmaz. */
+  position?: Coordinates | null;
 };
 
 /** `/reference` uçlarının döndürdüğü ülke, il ve ilçe kaydı. */
@@ -247,5 +256,27 @@ export function isInsideServiceArea(position: Coordinates): boolean {
     position.longitude >= istanbulServiceArea.west &&
     position.longitude <= istanbulServiceArea.east
   );
+}
+
+/**
+ * Kameranın çıktığı tek sayı.
+ *
+ * Harita `double` üretir; backend kanıtı altı ondalıkla arıyor. Yuvarlama
+ * bir yerde olmazsa ekranda bir değer, gövdede başka bir değer gider.
+ */
+export function formatCoordinate(value: number): string {
+  return roundCoordinate(value).toFixed(coordinateDecimals);
+}
+
+/** Harita dışına taşan pini dikdörtgenin kenarına çeker, sonra yuvarlar. */
+export function clampToServiceArea(position: Coordinates): Coordinates {
+  return {
+    latitude: roundCoordinate(
+      Math.min(istanbulServiceArea.north, Math.max(istanbulServiceArea.south, position.latitude)),
+    ),
+    longitude: roundCoordinate(
+      Math.min(istanbulServiceArea.east, Math.max(istanbulServiceArea.west, position.longitude)),
+    ),
+  };
 }
 

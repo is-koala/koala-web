@@ -127,6 +127,11 @@ export const sessionCookies = {
    */
   talentPool: "/users/me/talent-pool",
   /**
+   * `PUT /users/me/address`. Adı `usersMe` ile başlamıyor: `server-only.test.ts`
+   * kabuğun tek `GET /users/me` çağrısını o önekle arıyor ve bu bambaşka bir uç.
+   */
+  currentUserAddress: "/users/me/address",
+  /**
    * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta
    * taşıyor — `isEmployer`, `identityVerified`, `maskedTcIdentityNumber`,
    * `address` ve `companies[].approved` — bu yüzden şirket onayı için ikinci
