@@ -65,7 +65,7 @@ function FieldShell({
 }
 
 export type TextFieldProps = FieldPresentation & {
-  type?: "text" | "email" | "password";
+  type?: "text" | "email" | "password" | "date";
   /** Mobil klavyeyi alana göre açar; `type` tek başına her tarayıcıda yetmiyor. */
   inputMode?: "text" | "email";
   autoComplete?: string;

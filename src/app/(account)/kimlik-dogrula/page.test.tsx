@@ -5,38 +5,33 @@ const enterShell = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
-vi.mock("@/lib/env", () => ({
-  publicEnvironment: () => ({
-    siteUrl: "https://iskoala.com",
-    appUrlScheme: "koala",
-    androidPackageId: "com.iskoala.koala",
-    iosAppStoreId: "123456",
-  }),
-}));
-vi.mock("@/components/open-in-app", () => ({
-  OpenInApp: ({ deepLink }: { deepLink: string }) => <a href={deepLink}>Uygulamada aç</a>,
-}));
 vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("@/app/(account)/kimlik-dogrula/actions", () => ({
+  submitIdentityDocumentsAction: async () => ({ status: "idle" }),
+}));
 
 import Page from "./page";
 
-describe("kimlik aktarım ekranı", () => {
+describe("kimlik belge ekranı", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     enterShell.mockResolvedValue({
-      viewer: { identityVerified: false, firstName: "Ayşe" },
+      viewer: { identityVerified: false, firstName: "Ayşe", lastName: "Yılmaz" },
       failure: null,
     });
   });
 
-  it("oturum kapısının arkasında Türkçe gerekçeyi ve uygulama aktarımını çizer", async () => {
+  it("oturum kapısının arkasında TCKK ön ve arka yükleme formunu çizer", async () => {
     render(await Page({ searchParams: Promise.resolve({}) }));
 
     expect(enterShell).toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Kimliğini uygulamada doğrula" })).toBeVisible();
-    expect(screen.getByText(/kimlik belgenin çipini/i)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Uygulamada aç" })).toHaveAttribute("href", "koala://");
-    expect(screen.queryByLabelText(/t\.?c\.?|kimlik no|belge/i)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Kimliğini belgelerle doğrula" })).toBeVisible();
+    expect(screen.getByText(/ön ve arka yüzünün fotoğrafını/i)).toBeVisible();
+    expect(screen.getByLabelText("Kimlik ön yüzü")).toBeVisible();
+    expect(screen.getByLabelText("Kimlik arka yüzü")).toBeVisible();
+    expect(screen.getByLabelText("T.C. kimlik numarası")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Uygulamada aç" })).toBeNull();
+    expect(screen.queryByLabelText(/sod|dg1|çip/i)).toBeNull();
   });
 
   it("dönüş yolunu doğrulama sonrası devam bağlantısında taşır", async () => {

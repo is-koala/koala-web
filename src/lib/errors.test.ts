@@ -267,7 +267,7 @@ describe("şirket yetkilisi hataları", () => {
     const presentation = errorPresentation("USER_MUST_VERIFY_IDENTITY", 400);
 
     expect(presentation.title).toBe("Kimliğini doğrulaman gerekiyor");
-    expect(presentation.message).toContain("Koala uygulamasından");
+    expect(presentation.message).toContain("ön ve arka fotoğrafını");
     expect(presentation.action).toBe("none");
   });
 
@@ -342,11 +342,11 @@ describe("kapı metinleri", () => {
     expect(notice.remedy?.href).toBe("/kimlik-dogrula");
   });
 
-  it("tarayıcının çip PA üretemediğini uygulamaya gönderir", () => {
+  it("tarayıcının çip PA üretemediğini belge yüklemeye yönlendirir", () => {
     expect(errorPresentation("IDENTITY_CHIP_PA_NOT_AVAILABLE_ON_WEB", 501)).toEqual({
-      title: "Kimlik doğrulaması uygulamada tamamlanır",
+      title: "Tarayıcı çip okuyamaz",
       message:
-        "Tarayıcı kimlik belgesinin çipini okuyamaz. Doğrulamayı Koala uygulamasından tamamla.",
+        "Tarayıcı kimlik belgesinin çipini okuyamaz. T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
       action: "none",
     });
   });

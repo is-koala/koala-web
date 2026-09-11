@@ -1,15 +1,13 @@
 import { safeInternalPath } from "@/lib/urls";
 
 /**
- * Kimlik doğrulama web'de tamamlanamaz.
+ * Kimlik doğrulama web'de çiple tamamlanamaz; belge yolu tamamlanır.
  *
  * Backend `POST /users/me/identity-verification` bayrak açıkken `sod` + `dg1`
- * ister; Active Authentication açıksa bir de `dg15` + `challenge` +
- * `activeAuthenticationSignature` zorunlu. Bu kanıt ISO 14443 çipten
- * `INTERNAL AUTHENTICATE` ile çıkar. Tarayıcıda Web NFC / WebUSB o protokolü
- * bitirmiyor; beş alanı elle doldurmak ise yalnız
- * `IDENTITY_PASSIVE_AUTH_ENABLED=false` iken geçen geçici bir delik — doğrulama
- * değil. Bu yüzden web, doğrulanmamış kullanıcıyı uygulamaya bırakır.
+ * ister. Tarayıcıda Web NFC / WebUSB o protokolü bitirmiyor. Beş alanlık form
+ * damgalamaz. Ürün yolu `POST /users/me/identity-documents` (TCKK ön/arka) +
+ * personel onayı. Çip BFF uçları hâlâ 501 döner; kapı `/kimlik-dogrula`'ya
+ * düşer.
  */
 export const identityVerificationPath = "/kimlik-dogrula";
 

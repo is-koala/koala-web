@@ -57,9 +57,9 @@ export const emailVerificationContent = {
 
 export const identityHandoffContent = {
   eyebrow: "Kimlik doğrulama",
-  title: "Kimliğini uygulamada doğrula",
+  title: "Kimliğini belgelerle doğrula",
   body:
-    "İlan açmak, şirket kurmak ve başvuru yapmak için kimlik belgenin çipini Koala uygulamasında okutman gerekiyor. Tarayıcı bu doğrulamayı tamamlayamıyor.",
+    "İlan açmak, şirket kurmak ve başvuru yapmak için T.C. kimlik kartının ön ve arka yüzünün fotoğrafını yükle. Personel onayından sonra kimliğin doğrulanır; tarayıcı çip okuyamaz.",
   continueLabel: "Doğruladıktan sonra devam et",
 } as const;
 

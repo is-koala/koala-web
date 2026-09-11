@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { OpenInApp } from "@/components/open-in-app";
+import { IdentityDocumentForm } from "@/components/identity/document-form";
 import { identityHandoffContent } from "@/content/account";
-import { buildOpenAppLink, storeUrl } from "@/handoff/links";
 import { identityVerificationPath } from "@/identity/handoff";
-import { publicEnvironment } from "@/lib/env";
 import { safeInternalPath } from "@/lib/urls";
 import { enterShell } from "@/server/session/viewer";
 
@@ -18,8 +16,8 @@ export const metadata: Metadata = {
 /**
  * Kimlik kapısının web ekranı.
  *
- * Çip PA tarayıcıda tamamlanamaz (`src/identity/handoff.ts`); bu sayfa
- * doğrulanmamış kullanıcıyı uygulamaya bırakır ve `next` ile geldiği eyleme
+ * Çip PA tarayıcıda üretilmez; beş alanlık form da damgalamaz. Ürün yolu
+ * TCKK ön/arka fotoğrafı + personel onayı (koala-backend#193). `next` güvenliyse
  * dönüş yolunu taşır.
  */
 export default async function Page({
@@ -35,20 +33,14 @@ export default async function Page({
 
   if (viewer?.identityVerified) redirect(destination);
 
-  const env = publicEnvironment();
-  const deepLink = buildOpenAppLink(env.appUrlScheme);
-  const iosStore = storeUrl("ios", env);
-  const androidStore = storeUrl("android", env);
-
   return (
     <section className="account-card">
       <p className="eyebrow">{identityHandoffContent.eyebrow}</p>
       <h1>{identityHandoffContent.title}</h1>
       <p className="lede">{identityHandoffContent.body}</p>
-      <OpenInApp
-        deepLink={deepLink}
-        storeLink={iosStore}
-        androidStoreLink={androidStore}
+      <IdentityDocumentForm
+        firstName={viewer?.firstName ?? ""}
+        lastName={viewer?.lastName ?? ""}
       />
       {nextPath && nextPath !== identityVerificationPath ? (
         <p>
@@ -57,21 +49,6 @@ export default async function Page({
           </Link>
         </p>
       ) : null}
-      <noscript>
-        <p>
-          <a href={deepLink}>Koala uygulamasını aç</a>
-        </p>
-        {iosStore ? (
-          <p>
-            <a href={iosStore}>App Store&apos;a git</a>
-          </p>
-        ) : null}
-        {androidStore ? (
-          <p>
-            <a href={androidStore}>Play Store&apos;a git</a>
-          </p>
-        ) : null}
-      </noscript>
     </section>
   );
 }

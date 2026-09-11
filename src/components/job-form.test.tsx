@@ -206,7 +206,7 @@ describe("bireysel ilan formu — yayımlama kapısı", () => {
     expect(screen.getByLabelText("İlan başlığı")).toBeEnabled();
     expect(screen.getByRole("button", { name: "İlanı yayımla" })).toBeDisabled();
     expect(screen.getByText("Kimliğini doğrulaman gerekiyor")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Uygulamada doğrula" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Kimliğini doğrula" })).toHaveAttribute(
       "href",
       "/kimlik-dogrula?next=%2Fisveren%2Filan%2Fyeni",
     );
