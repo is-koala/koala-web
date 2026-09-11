@@ -166,13 +166,11 @@ describe("yayımlanmış ilan sayfası", () => {
   });
 
   it("backend enum'undaki her durumu adlandırır", async () => {
-    // `JobStatus` beş değer taşıyor; `IN_PROGRESS` sayfada etiketsiz kalırsa
-    // kullanıcı durumunun okunamadığını sanır.
-    fetchJobDetail.mockResolvedValue(jobDetail("IN_PROGRESS"));
+    fetchJobDetail.mockResolvedValue(jobDetail("CANCELLED"));
 
     render(await Page({ params: Promise.resolve({ id: jobId }) }));
 
-    expect(screen.getByText("İş sürüyor")).toBeVisible();
+    expect(screen.getByText("İptal edildi")).toBeVisible();
   });
 });
 

@@ -38,7 +38,7 @@ describe("JobPosting yapısal verisi", () => {
     });
   });
 
-  it.each(["CLOSED", "CANCELLED", "COMPLETED", "IN_PROGRESS", "UNKNOWN"] as const)(
+  it.each(["CLOSED", "CANCELLED", "UNKNOWN"] as const)(
     "%s durumundaki ilan için hiç yapısal veri üretmez",
     (status) => {
       // Google süresi geçmiş ilan sayfalarını cezalandırıyor. `UNKNOWN` de

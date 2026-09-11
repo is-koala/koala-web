@@ -3,16 +3,16 @@
  *
  * Kuralı sunucu koyuyor ve burada **tekrar edilmiyor, yansıtılıyor**:
  * `JobManager.closeJob` yalnız `OPEN` durumundan geçiyor (`:446-456`),
- * `JobManager.cancelJob` ise `CANCELLED` ve `COMPLETED` dışındaki her
- * durumdan (`:388-402`). Ekranın işi bu iki satırı okunur hâle getirmek;
+ * `JobManager.cancelJob` ise yalnız `CANCELLED` dışındaki her
+ * durumdan. Ekranın işi bu iki satırı okunur hâle getirmek;
  * mümkün olmayan bir geçişi düğme olarak gösterip 409 yemek değil.
  *
  * `server-only` yok, bilerek: hem sayfa hem istemci bileşeni aynı tabloyu
  * okuyor. İçinde ağ çağrısı ya da gizli değer taşımıyor.
  */
 
-/** `JobStatus`; backend enum'unun beş değeri. */
-export type JobStatus = "OPEN" | "CLOSED" | "IN_PROGRESS" | "CANCELLED" | "COMPLETED";
+/** `JobStatus`; backend enum'unun üç değeri (#115). */
+export type JobStatus = "OPEN" | "CLOSED" | "CANCELLED";
 
 export type JobLifecycleOperation = "close" | "cancel";
 
@@ -49,14 +49,7 @@ export function isJobLifecycleOperation(value: string): value is JobLifecycleOpe
 const statusLabels: Readonly<Record<JobStatus, string>> = {
   OPEN: "Yayında — başvurulara açık",
   CLOSED: "Kapatıldı — yeni başvuru alınmıyor",
-  // `JobStatus` bugün yalnız `OPEN`, `CLOSED` ve `CANCELLED` değerlerine
-  // yazılıyor (`JobManager.java:166,244,399,453`); `IN_PROGRESS` ve
-  // `COMPLETED` enum'da duruyor ama hiçbir kod onları atamıyor. Yine de
-  // etiketleri var: eksik bir etiket kullanıcıya İngilizce bir sabit
-  // gösterirdi ve enum bugün sessizce kullanılmaya başlanabilir.
-  IN_PROGRESS: "İş sürüyor",
   CANCELLED: "İptal edildi",
-  COMPLETED: "Tamamlandı",
 };
 
 const unknownStatusLabel = "Durumu okunamadı";
@@ -112,7 +105,7 @@ export function jobLifecycleActions(status: string): readonly JobAction[] {
         "İptal edilen ilan geçersiz olur ve başvuranlara bildirim gider. Bu işlem geri alınamaz; başvuru geçmişi silinmez.",
       // Sunucunun kendi kuralı bir dışlama listesi; aynı biçimde yazılıyor ki
       // backend'e yeni bir durum eklendiğinde ekran onu sessizce kilitlemesin.
-      available: known && status !== "CANCELLED" && status !== "COMPLETED",
+      available: known && status !== "CANCELLED",
       blockedReason: known ? cancelBlockedReason(status) : unknownStatusReason,
     },
   ];
@@ -122,13 +115,11 @@ function closeBlockedReason(status: JobStatus): string | null {
   if (status === "OPEN") return null;
   if (status === "CLOSED") return "Bu ilan zaten kapalı; yeniden kapatılamaz.";
   if (status === "CANCELLED") return "İptal edilmiş bir ilan kapatılamaz.";
-  if (status === "COMPLETED") return "Tamamlanmış bir ilan kapatılamaz.";
-  return "İşi süren bir ilan kapatılamaz.";
+  return "Bu ilan kapatılamaz.";
 }
 
 function cancelBlockedReason(status: JobStatus): string | null {
   if (status === "CANCELLED") return "Bu ilan zaten iptal edildi.";
-  if (status === "COMPLETED") return "Tamamlanmış bir ilan iptal edilemez.";
   return null;
 }
 
@@ -160,8 +151,6 @@ export function jobApplicationsClosedReason(job: {
 const applicationsClosedReasons: Readonly<Partial<Record<JobStatus, string>>> = {
   CLOSED: "Bu ilan kapatıldı ve yeni başvuru almıyor.",
   CANCELLED: "Bu ilan iptal edildi ve yeni başvuru almıyor.",
-  COMPLETED: "Bu ilan tamamlandı ve yeni başvuru almıyor.",
-  IN_PROGRESS: "Bu ilanın işi başladı; yeni başvuru alınmıyor.",
 };
 
 /** `known()` yardımcısının tanıdığı değerler; sözleşme tek yerden okunur. */
