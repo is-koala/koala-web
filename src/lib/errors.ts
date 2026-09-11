@@ -75,13 +75,24 @@ const exactErrors: Record<string, ErrorPresentation> = {
   },
   APPLICANT_IDENTITY_NOT_VERIFIED: {
     title: "Kimliğini doğrulaman gerekiyor",
-    message: "Başvuru yapmadan önce kimlik doğrulamanı tamamlamalısın.",
+    message: "Başvuru yapmadan önce kimlik kartının ön ve arka fotoğrafını yüklemelisin.",
+    action: "none",
+  },
+  IDENTITY_DOCUMENTS_ALREADY_PENDING: {
+    title: "Belgelerin zaten incelemede",
+    message:
+      "Gönderdiğin kimlik fotoğrafları hâlâ inceleniyor. Sonuçlanmadan yeni bir yükleme yapılamaz.",
+    action: "none",
+  },
+  IDENTITY_DOCUMENTS_REQUIRED: {
+    title: "Kimlik fotoğrafları eksik",
+    message: "T.C. kimlik kartının ön ve arka yüzünün fotoğrafını birlikte yüklemelisin.",
     action: "none",
   },
   [identityChipPaUnavailableErrorCode]: {
-    title: "Kimlik doğrulaması uygulamada tamamlanır",
+    title: "Tarayıcı çip okuyamaz",
     message:
-      "Tarayıcı kimlik belgesinin çipini okuyamaz. Doğrulamayı Koala uygulamasından tamamla.",
+      "Tarayıcı kimlik belgesinin çipini okuyamaz. T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
     action: "none",
   },
   APPLICANT_ADDRESS_REQUIRED: {
@@ -158,7 +169,7 @@ const exactErrors: Record<string, ErrorPresentation> = {
   JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "İlanı yayımlayabilmen için önce kimliğini doğrulamalısın. Doğrulamayı şimdilik Koala uygulamasından tamamlayabilirsin.",
+      "İlanı yayımlayabilmen için önce kimliğini doğrulamalısın. Kimlik kartının ön ve arka fotoğrafını yükleyebilirsin.",
     action: "none",
   },
   JOB_USER_IS_NOT_EMPLOYER: {
@@ -412,7 +423,7 @@ const exactErrors: Record<string, ErrorPresentation> = {
   USER_MUST_VERIFY_IDENTITY: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "Şirket kurabilmen için önce kimliğini doğrulamalısın. Doğrulamayı şimdilik Koala uygulamasından tamamlayabilirsin.",
+      "Şirket kurabilmen için önce kimliğini doğrulamalısın. Kimlik kartının ön ve arka fotoğrafını yükleyebilirsin.",
     action: "none",
   },
   // `CompanyManager.java:94-97` enum'a çeviremediği türü 400 ile reddediyor.
@@ -552,8 +563,8 @@ export type GateNotice = {
  * Fatura adresi #28 ile `/isveren/adres` üzerinde; iş arayan adresi #133
  * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir.
  *
- * Kimlik kapısı `/kimlik-dogrula`'ya düşer (is-koala/koala-web#18): tarayıcı
- * çip PA kanıtı üretemediği için ekran kullanıcıyı uygulamaya bırakır.
+ * Kimlik kapısı `/kimlik-dogrula`'ya düşer: tarayıcı çip PA üretemez; ekran
+ * TCKK ön/arka yüklemesini alır (koala-backend#193).
  */
 const openAppPath = "/uygulamayi-ac";
 
@@ -561,8 +572,8 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   identityVerification: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Doğrulamayı Koala uygulamasından, kimlik belgesinin çipini okutarak tamamlayabilirsin.",
-    remedy: { href: identityVerificationPath, label: "Uygulamada doğrula" },
+      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Tarayıcıda T.C. kimlik kartının ön ve arka fotoğrafını yükleyebilirsin; personel onayından sonra damgalanır.",
+    remedy: { href: identityVerificationPath, label: "Kimliğini doğrula" },
     errorCodes: [
       "JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED",
       "USER_MUST_VERIFY_IDENTITY",
@@ -572,8 +583,8 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   identityNumber: {
     title: "Kimlik numaran hesabında kayıtlı değil",
     message:
-      "Ödemeyi başlatabilmemiz için doğrulanmış kimlik numarana ihtiyacımız var. Kimlik doğrulamasını uygulamadan tamamladığında bu bilgi hesabına işlenir.",
-    remedy: { href: identityVerificationPath, label: "Uygulamada tamamla" },
+      "Ödemeyi başlatabilmemiz için doğrulanmış kimlik numarana ihtiyacımız var. Kimlik belgelerini yükleyip personel onayından sonra bu bilgi hesabına işlenir.",
+    remedy: { href: identityVerificationPath, label: "Kimliğini tamamla" },
     errorCodes: ["JOB_ASSIGNMENT_EMPLOYER_IDENTITY_NOT_VERIFIED"],
   },
   employerRole: {

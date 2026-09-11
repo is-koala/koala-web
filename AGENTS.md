@@ -135,13 +135,11 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   doldurmanın karşılığı yok ve her üç form tek kullanımlık bir adres kanıtı
   taşıyor (`candidateToken` 10 dakika yaşıyor): doldurulup reddedilen form o
   kanıtı yakar.
-- **Kimlik doğrulaması web'de tamamlanamaz.** Backend `sod` + `dg1` (Active
-  Authentication açıksa bir de `dg15` + challenge imzası) ister; kanıt ISO
-  14443 çipten `INTERNAL AUTHENTICATE` ile çıkar. Tarayıcıda Web NFC / WebUSB
-  bu protokolü bitirmiyor. Elle beş alan yalnız
-  `IDENTITY_PASSIVE_AUTH_ENABLED=false` iken geçer — o bir doğrulama değil.
-  Bu yüzden `identityVerification` kapısı `/kimlik-dogrula`'ya düşer; ekran
-  kullanıcıyı uygulamaya bırakır ve `next` ile geldiği eyleme döner. BFF
+- **Kimlik doğrulaması web'de çiple tamamlanamaz; belge ile tamamlanır.**
+  Backend `sod` + `dg1` ister; tarayıcıda Web NFC / WebUSB o protokolü
+  bitirmiyor. Elle beş alan damgalamaz. `identityVerification` kapısı
+  `/kimlik-dogrula`'ya düşer; ekran TCKK ön/arka fotoğrafını
+  `POST /users/me/identity-documents` ile kuyruğa alır. BFF
   `POST /api/users/me/identity-verification` uçları 501 +
   `IDENTITY_CHIP_PA_NOT_AVAILABLE_ON_WEB` döner, gövdeyi okumaz, backend'e
   çıkmaz.

@@ -59,7 +59,7 @@ describe("yetki kapısı bileşeni", () => {
 
     const strip = screen.getByRole("status");
     expect(strip).toHaveTextContent("Kimliğini doğrulaman gerekiyor");
-    expect(screen.getByRole("link", { name: "Uygulamada doğrula" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Kimliğini doğrula" })).toHaveAttribute(
       "href",
       "/kimlik-dogrula",
     );
@@ -72,7 +72,7 @@ describe("yetki kapısı bileşeni", () => {
       </EmployerGate>,
     );
 
-    expect(screen.getByRole("link", { name: "Uygulamada doğrula" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Kimliğini doğrula" })).toHaveAttribute(
       "href",
       "/kimlik-dogrula?next=%2Fisveren%2Filan%2Fyeni",
     );

@@ -101,7 +101,10 @@ describe("kapı katmanının gizlilik sınırı", () => {
       // `contract.ts` yalnız yorumda, `/users/me`'nin ne taşıdığını anlatırken anıyor.
       .filter((file) => file !== path.join(sourceRoot, "server", "contract.ts"));
 
-    expect(readers).toEqual([path.join(sourceRoot, "server", "session", "viewer.ts")]);
+    expect(readers).toEqual([
+      path.join(sourceRoot, "server", "identity", "documents.ts"),
+      path.join(sourceRoot, "server", "session", "viewer.ts"),
+    ]);
   });
 
   it("kapı kararları hiçbir yerde log'a ya da ölçümlemeye yazılmaz", () => {
