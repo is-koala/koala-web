@@ -1,3 +1,5 @@
+import { workerApplicantAddressPath } from "@/lib/app-routes";
+
 export type ApplicationRemedy = {
   readonly href: string;
   readonly label: string;
@@ -9,8 +11,8 @@ const remedies: Readonly<Record<string, ApplicationRemedy>> = {
     label: "Kimlik doğrulamasını tamamla",
   },
   APPLICANT_ADDRESS_REQUIRED: {
-    href: "/uygulamayi-ac",
-    label: "Adresini uygulamada ekle",
+    href: workerApplicantAddressPath,
+    label: "Adresini ekle",
   },
   APPLICANT_BANK_ACCOUNT_REQUIRED: {
     href: "/panel/hesap#banka-hesaplari",

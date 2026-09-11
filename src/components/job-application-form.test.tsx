@@ -39,7 +39,7 @@ describe("ilan başvuru formu", () => {
 
   it.each([
     ["APPLICANT_IDENTITY_NOT_VERIFIED", "Kimliğini doğrulaman gerekiyor", "/uygulamayi-ac"],
-    ["APPLICANT_ADDRESS_REQUIRED", "Adresini eklemen gerekiyor", "/uygulamayi-ac"],
+    ["APPLICANT_ADDRESS_REQUIRED", "Adresini eklemen gerekiyor", "/panel/adres"],
     [
       "APPLICANT_BANK_ACCOUNT_REQUIRED",
       "Ödeme hesabını eklemen gerekiyor",

@@ -107,6 +107,13 @@ export const newCompanyPath = `${companySectionPath}/yeni`;
 export const employerBillingAddressPath = "/isveren/adres";
 
 /**
+ * İş arayanın başvuru adresi. Menüde yok: `APPLICANT_ADDRESS_REQUIRED`
+ * çözümü buraya düşer. `[...section]` onu tanısaydı gerçek sayfanın önüne
+ * "henüz açılmadı" koyardı.
+ */
+export const workerApplicantAddressPath = "/panel/adres";
+
+/**
  * Bir şirketin profili.
  *
  * Seçili şirket **rotada** taşınıyor, yerel durumda değil: bir kullanıcı
@@ -299,10 +306,9 @@ const workerShell: AppShell = {
   root: "/panel",
   title: "Panel",
   description: "Başvurularını, işlerini ve kazançlarını buradan takip edersin.",
-  // Boş, ve bilerek: başvuru yapmanın da kimlik kapısı var
-  // (`JobApplicationManager.java:245-249`, ayrıca `APPLICANT_ADDRESS_REQUIRED`
-  // ile adres koşulu), ama iş arayan tarafını başvuru dilimi teslim ediyor
-  // (is-koala/koala-web#36). Kapı katmanı hazır; orada tek satır yetecek.
+  // Boş, ve bilerek: başvuru kimliği hâlâ uygulamada (#18). Adres eksiği
+  // kabuk şeridi değil; `APPLICANT_ADDRESS_REQUIRED` başvuru formundan
+  // `/panel/adres`'e düşer (is-koala/koala-web#133).
   requires: [],
   sections: [
     {
