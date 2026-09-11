@@ -89,6 +89,14 @@ export const employerJobsPath = "/isveren/ilanlar";
 export const companySectionPath = "/isveren/sirket";
 
 /**
+ * İşlerim listesi; kayıtta bir bölüm olarak da bildirilir.
+ *
+ * Tanıtım başlığı oturum açıkken buraya bağlanır. Adres iki yerde yazılsaydı
+ * başlık sessizce başka bir yere giderdi.
+ */
+export const workerJobsPath = "/panel/islerim";
+
+/**
  * Şirket oluşturma formu.
  *
  * Menüde ayrı bir madde değil ve kayıtta da bir bölüm değil: kullanıcının
@@ -337,7 +345,7 @@ const workerShell: AppShell = {
       status: "ready",
     },
     {
-      href: "/panel/islerim",
+      href: workerJobsPath,
       label: "İşlerim",
       requires: [],
       status: "ready",
