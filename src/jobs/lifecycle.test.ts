@@ -6,9 +6,9 @@ import { jobApplicationsClosedReason, jobLifecycleActions, jobStatusLabel } from
  * Geçiş tablosunun tek kaynağı sunucu.
  *
  * `JobManager.closeJob` yalnız `OPEN` durumundan geçiyor (`:446-456`),
- * `JobManager.cancelJob` ise `CANCELLED` ve `COMPLETED` dışındaki her
- * durumdan (`:388-402`). Bu testler o iki satırın ekrandaki karşılığı: bir
- * gün backend kuralı değişirse burada kırmızıya döner.
+ * `JobManager.cancelJob` ise yalnız `CANCELLED` dışındaki her durumdan.
+ * Bu testler o iki satırın ekrandaki karşılığı: bir gün backend kuralı
+ * değişirse burada kırmızıya döner.
  */
 describe("ilan yaşam döngüsü eylemleri", () => {
   it("yayındaki ilanda hem kapatmayı hem iptali sunar", () => {
@@ -37,19 +37,12 @@ describe("ilan yaşam döngüsü eylemleri", () => {
     expect(cancel.blockedReason).toBe("Bu ilan zaten iptal edildi.");
   });
 
-  it("tamamlanmış ilanı iptal ettirmez", () => {
-    const [, cancel] = jobLifecycleActions("COMPLETED");
-
-    expect(cancel.available).toBe(false);
-    expect(cancel.blockedReason).toBe("Tamamlanmış bir ilan iptal edilemez.");
-  });
-
-  it("işi süren ilanda kapatma kapalı, iptal açık kalır", () => {
-    // Sunucunun iptal kuralı bir dışlama listesi: `IN_PROGRESS` o listede yok.
+  it("sözleşmede olmayan eski durumları tanımadığı durum sayar", () => {
     const [close, cancel] = jobLifecycleActions("IN_PROGRESS");
 
     expect(close.available).toBe(false);
-    expect(cancel.available).toBe(true);
+    expect(cancel.available).toBe(false);
+    expect(cancel.blockedReason).toBe("Bu ilanın durumu okunamadığı için işlem yapılamıyor.");
   });
 
   it("tanımadığı durumda hiçbir eylemi açmaz", () => {
@@ -73,14 +66,12 @@ describe("ilan yaşam döngüsü eylemleri", () => {
 });
 
 describe("ilan durumu etiketleri", () => {
-  it("backend enum'undaki beş durumun beşini de adlandırır", () => {
-    // `JobStatus` beş değer taşıyor; dördünü etiketleyip beşincisini ham
-    // hâliyle ekrana basmak, kullanıcıya İngilizce bir sabit göstermekti.
+  it("backend enum'undaki üç durumu adlandırır", () => {
     expect(jobStatusLabel("OPEN")).toBe("Yayında — başvurulara açık");
     expect(jobStatusLabel("CLOSED")).toBe("Kapatıldı — yeni başvuru alınmıyor");
-    expect(jobStatusLabel("IN_PROGRESS")).toBe("İş sürüyor");
     expect(jobStatusLabel("CANCELLED")).toBe("İptal edildi");
-    expect(jobStatusLabel("COMPLETED")).toBe("Tamamlandı");
+    expect(jobStatusLabel("IN_PROGRESS")).toBe("Durumu okunamadı");
+    expect(jobStatusLabel("COMPLETED")).toBe("Durumu okunamadı");
   });
 
   it("bilinmeyen durumu ham hâliyle ekrana basmaz", () => {
@@ -102,12 +93,9 @@ describe("kapalı ilana başvuru", () => {
     );
   });
 
-  it("iptal edilmiş ve tamamlanmış ilanda da başvuru almaz", () => {
+  it("iptal edilmiş ilanda başvuru almaz", () => {
     expect(jobApplicationsClosedReason({ status: "CANCELLED", acceptingApplications: false })).toBe(
       "Bu ilan iptal edildi ve yeni başvuru almıyor.",
-    );
-    expect(jobApplicationsClosedReason({ status: "COMPLETED", acceptingApplications: false })).toBe(
-      "Bu ilan tamamlandı ve yeni başvuru almıyor.",
     );
   });
 
