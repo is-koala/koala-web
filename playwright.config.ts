@@ -7,6 +7,13 @@ const backendURL = `http://127.0.0.1:${backendPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  /*
+   * Bu dosya kendi Next'ini spawn ediyor. Paylaşılan `webServer` hâlâ
+   * ayaktayken ikinci Turbopack Pi'de bellekten düşüyor (`Error: aborted`,
+   * `Next dev exited early`). Ayrı süreç, paylaşılan sunucu kapandıktan sonra
+   * `playwright.messaging-safety.config.ts` ile koşar.
+   */
+  testIgnore: /messaging-safety\.spec\.ts/,
   fullyParallel: true,
   // Self-hosted runner'ların üçü de aynı 4 çekirdekli Raspberry Pi'de.
   // CI'da tek browser worker kullanarak makine genelinde aşırı paralelliği önle.
@@ -22,12 +29,21 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      /*
+       * CI zaten `npm run build` koştu. `next dev` (Turbopack) Pi'de
+       * `Error: aborted` ile düşüyor; `output: standalone` iken `next start`
+       * de uyumsuz. Sitemap e2e'si gibi hazır `server.js` servis eder.
+       */
+      command: process.env.CI
+        ? "sh tests/support/e2e-web-ci.sh"
+        : `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
       env: {
         // E2E hiçbir koşulda CI/staging API'sine çıkmaz; testler yalnız aşağıdaki
         // süreçte başlatılan hermetik fixture ile konuşur.
         API_URL: backendURL,
         APP_VERSION: process.env.APP_VERSION ?? "0.1.0",
+        HOSTNAME: "127.0.0.1",
+        PORT: port,
         NEXT_PUBLIC_SITE_URL: "https://iskoala.com",
         NEXT_PUBLIC_APP_URL_SCHEME: process.env.NEXT_PUBLIC_APP_URL_SCHEME ?? "koala-dev",
         // CI'daki Maps anahtarı bu sürece sızmasın: boş anahtar betik indirmez

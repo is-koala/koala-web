@@ -67,6 +67,10 @@ const emptyCopy = {
     "Eşleşen adres bulunamadı",
     "Sokak ya da mahalle adını farklı yazmayı deneyebilirsin.",
   ],
+  gallery: [
+    "Henüz görsel yok",
+    "PNG, JPG, JPEG veya WEBP biçiminde görseller ekleyebilirsin.",
+  ],
 } as const;
 
 export function LoadingState({ label = "Yükleniyor" }: { label?: string }) {

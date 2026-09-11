@@ -300,6 +300,36 @@ const exactErrors: Record<string, ErrorPresentation> = {
     message: "PDF, PNG, JPG veya WEBP biçiminde geçerli bir dosya seçip yeniden dene.",
     action: "none",
   },
+  STORAGE_IMAGE_TOO_LARGE: {
+    title: "Görsel çok büyük",
+    message: "Görsel 10 MB sınırını aşıyor. Daha küçük bir dosya seçip yeniden dene.",
+    action: "none",
+  },
+  IMAGE_EMPTY_ERROR: {
+    title: "Görsel boş",
+    message: "Boş bir dosya yüklenemez. İçeriği olan bir görsel seçip yeniden dene.",
+    action: "none",
+  },
+  IMAGE_SIZE_ERROR: {
+    title: "Görsel çok büyük",
+    message: "Görsel 10 MB sınırını aşıyor. Daha küçük bir dosya seçip yeniden dene.",
+    action: "none",
+  },
+  IMAGE_UPLOAD_ERROR: {
+    title: "Görsel yüklenemedi",
+    message: "Görseli şu anda yükleyemedik. Biraz sonra yeniden dene.",
+    action: "retry",
+  },
+  /**
+   * Kota tavanı ortam değişkeninden gelir; yanıtta sayı yok. Metin bu yüzden
+   * "10" sabitlemez — kalan yer GET listesi yenilendikten sonra hesaplanır.
+   */
+  GALLERY_LIMIT_EXCEEDED: {
+    title: "Galeri kotası doldu",
+    message:
+      "Yeni görsel eklemek için önce mevcutlardan birini kaldırman gerekiyor.",
+    action: "none",
+  },
   STORAGE_DOWNLOAD_FAILED: {
     title: "Kanıt indirilemedi",
     message: "Kanıt dosyasını şu anda indiremedik. Biraz sonra yeniden dene.",

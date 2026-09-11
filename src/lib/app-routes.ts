@@ -175,6 +175,25 @@ export function jobApplicantsPath(jobId: string): string {
 }
 
 /**
+ * İlan galerisi. Adres ilanın altında, menüde değil: galeri bir kaydın
+ * parçası ve `GET /jobs/{jobId}/images` dışında onu getiren bir uç yok.
+ */
+export function jobGalleryPath(jobId: string): string {
+  return `${publishedJobPath(jobId)}/galeri`;
+}
+
+/**
+ * Şirket galerisi.
+ *
+ * Issue `/isveren/sirket/galeri` yazıyordu; uygulama şirket kimliğini yola
+ * koyuyor (`/yetkililer`, `/duzenle`). Kimliği adresten düşürmek, iki
+ * şirketin yetkilisini tek paylaşılan galeriye kilitlerdi.
+ */
+export function companyGalleryPath(companyId: string): string {
+  return `${companyProfilePath(companyId)}/galeri`;
+}
+
+/**
  * Yetenek havuzu bölümü.
  *
  * Başvuru ekranından beslenen kalıcı bir liste, o yüzden menüde kendi maddesi

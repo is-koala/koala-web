@@ -18,6 +18,9 @@ let blocked = false;
 const reports: unknown[] = [];
 
 test.beforeAll(async () => {
+  // Pi'de soğuk Turbopack 30 sn kancasını aşıyor; süreç ayrı olsa da
+  // derleme paylaşılan süitten sonra disk önbelleği soğuk kalabiliyor.
+  test.setTimeout(180_000);
   backend = createBackend();
   const backendPort = await listen(backend);
   backendOrigin = `http://127.0.0.1:${backendPort}`;
@@ -68,6 +71,10 @@ test("çalışan ve işveren konuşmalarında engelleme, engel kaldırma ve şik
     });
 
     await page.goto(`${webOrigin}${basePath}`);
+    // Şerit hidrate olana kadar beklenmeli: `isVisible()` anında false döner
+    // ve sonraki tıklamayı `Çerez tercihleri` keser.
+    await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
+    await expect(page.getByRole("region", { name: "Çerez tercihleri" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Konuşmaların" })).toBeVisible();
     await page.getByRole("button", { name: "Daha fazla konuşma" }).click();
     const laterPageConversation = page.getByRole("link", { name: /Ece Yılmaz/ });

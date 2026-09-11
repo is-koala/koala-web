@@ -108,6 +108,32 @@ describe("ilan yönetimi ve başvurunun oturumlu BFF sözleşmesi", () => {
     });
   });
 
+  it("şirket ilanının şirket kimliğini taşır, bireysel ilanda boş bırakır", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      id: jobId,
+      title: "Etkinlik görevlisi",
+      status: "OPEN",
+      salaryType: "DAILY",
+      startDateTime: "2026-10-10T09:00",
+      endDateTime: "2026-10-11T18:00",
+      company: { id: companyId, name: "Koala Etkinlik" },
+    }))));
+
+    await expect(fetchJobDetail(jobId)).resolves.toMatchObject({ companyId });
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      id: jobId,
+      title: "Etkinlik görevlisi",
+      status: "OPEN",
+      salaryType: "DAILY",
+      startDateTime: "2026-10-10T09:00",
+      endDateTime: "2026-10-11T18:00",
+      company: null,
+    }))));
+
+    await expect(fetchJobDetail(jobId)).resolves.toMatchObject({ companyId: null });
+  });
+
   it("kapatmayı ilanın kendi POST ucuna, gövdesiz gönderir", async () => {
     // `SuccessResult` veri taşımıyor; zarfın `data` alanı yok ve çağıran
     // bunu bir değer sanmamalı.

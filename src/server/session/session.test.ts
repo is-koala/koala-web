@@ -369,4 +369,45 @@ describe("BFF oturum katmanı", () => {
     expect(failure).toBeInstanceOf(ApiError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("çok parçalı gövdeyi 401 yenilemesinden sonra aynı içerikle tekrarlar", async () => {
+    /*
+     * `FormData` bir kez okunup akışa dönüşürse ikinci `fetch` boş gider ve
+     * yenilenmiş tokenla bile yükleme sessizce düşer (is-koala/koala-web#35).
+     * Aynı nesne hem ilk denemede hem tekrarda durmalı.
+     */
+    const image = new File(["koala"], "mekan.webp", { type: "image/webp" });
+    const body = new FormData();
+    body.set("image", image);
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(unauthorized())
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope({
+            token: "yeni-access-placeholder",
+            refreshToken: "refresh-placeholder",
+            refreshExpiresAt: "2026-10-06T00:00:00Z",
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse(201, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      apiRequest("/jobs/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60/images", {
+        method: "POST",
+        body,
+      }),
+    ).resolves.toEqual([]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const firstInit = (fetchMock.mock.calls[0] as [string, RequestInit])[1];
+    const retryInit = (fetchMock.mock.calls[2] as [string, RequestInit])[1];
+    expect(firstInit.body).toBe(body);
+    expect(retryInit.body).toBe(body);
+    expect((retryInit.body as FormData).get("image")).toBe(image);
+  });
 });

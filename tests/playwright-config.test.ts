@@ -16,6 +16,7 @@ afterEach(() => {
 
 describe("Playwright test server isolation", () => {
   it("does not reuse an unrelated local server by default", async () => {
+    vi.stubEnv("CI", "");
     const config = await loadConfig();
     const webServers = Array.isArray(config.webServer) ? config.webServer : [config.webServer];
     const appServer = webServers.find((server) => server?.command.includes("npm run dev"));
@@ -35,14 +36,30 @@ describe("Playwright test server isolation", () => {
   });
 
   it("CI API_URL değerini miras almak yerine hermetik E2E backend'ini zorlar", async () => {
+    vi.stubEnv("CI", "");
     vi.stubEnv("API_URL", "https://staging-api.example.test");
     const config = await loadConfig();
     const webServers = Array.isArray(config.webServer) ? config.webServer : [config.webServer];
-    const appServer = webServers.find((server) => server?.command.includes("npm run dev"));
+    const appServer = webServers.find((server) =>
+      server?.command.includes("npm run dev") || server?.command.includes("next start"),
+    );
 
     expect(appServer).toMatchObject({
       env: { API_URL: "http://127.0.0.1:4100" },
     });
+  });
+
+  it("CI'da Turbopack yerine üretim sunucusunu ayağa kaldırır", async () => {
+    vi.stubEnv("CI", "1");
+    const config = await loadConfig();
+    const webServers = Array.isArray(config.webServer) ? config.webServer : [config.webServer];
+    const appServer = webServers.find((server) =>
+      server?.command.includes("e2e-web-ci.sh"),
+    );
+
+    expect(appServer?.command).toContain("tests/support/e2e-web-ci.sh");
+    expect(appServer?.command).not.toContain("next dev");
+    expect(appServer?.env).toMatchObject({ HOSTNAME: "127.0.0.1", PORT: "3100" });
   });
 
   it("runs the production sitemap regression from the mandatory e2e script", () => {
@@ -54,6 +71,37 @@ describe("Playwright test server isolation", () => {
       "npm run test:e2e:sitemap-production",
     );
   });
+
+  it("paylaşılan webServer kapanmadan ikinci Next derleyicisini ayağa kaldırmaz", async () => {
+    vi.stubEnv("CI", "");
+    const config = await loadConfig();
+    const ignored = [config.testIgnore].flat().map((pattern) => String(pattern ?? ""));
+    expect(ignored.some((pattern) => pattern.includes("messaging-safety"))).toBe(true);
+
+    const isolated = await loadIsolatedMessagingConfig();
+    expect(isolated.webServer).toBeUndefined();
+    expect(String(isolated.testMatch)).toContain("messaging-safety");
+
+    const script = e2eScript();
+    const defaultSuite = script.indexOf("playwright test &&");
+    const isolatedRun = script.indexOf("playwright.messaging-safety.config.ts");
+    const sitemapRun = script.indexOf("test:e2e:sitemap-production");
+    expect(isolatedRun).toBeGreaterThan(defaultSuite);
+    expect(sitemapRun).toBeGreaterThan(isolatedRun);
+  });
+
+  it("mesajlaşma ve galeri e2e'si çerez şeridini isVisible yarışına düşmeden kapatır", () => {
+    /*
+     * `isVisible()` beklemaz: şerit henüz hidrate olmamışsa tıklama atlanır,
+     * sonra `Çerez tercihleri` "Daha fazla konuşma"yı keser (CI 34587992651).
+     */
+    for (const file of ["tests/e2e/messaging-safety.spec.ts", "tests/e2e/gallery.spec.ts"]) {
+      const spec = readFileSync(join(process.cwd(), file), "utf8");
+      expect(spec, file).not.toMatch(/consent\.isVisible\(\)/);
+      expect(spec, file).toContain('name: "Yalnız zorunlu"');
+      expect(spec, file).toContain('name: "Çerez tercihleri"');
+    }
+  });
 });
 
 async function loadConfig() {
@@ -64,4 +112,19 @@ async function loadConfig() {
     defineConfig: <T>(config: T) => config,
   }));
   return (await import("../playwright.config")).default;
+}
+
+async function loadIsolatedMessagingConfig() {
+  vi.resetModules();
+  vi.doMock("@playwright/test", () => ({
+    defineConfig: <T>(config: T) => config,
+  }));
+  return (await import("../playwright.messaging-safety.config")).default;
+}
+
+function e2eScript() {
+  const packageMetadata = JSON.parse(
+    readFileSync(join(process.cwd(), "package.json"), "utf8"),
+  ) as { scripts?: Record<string, string> };
+  return packageMetadata.scripts?.["test:e2e"] ?? "";
 }

@@ -11,6 +11,9 @@ describe("ortak ekran durumları", () => {
     rerender(<EmptyState kind="jobs" />);
     expect(screen.getByRole("status")).toHaveTextContent("Henüz ilan yok");
 
+    rerender(<EmptyState kind="gallery" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Henüz görsel yok");
+
     rerender(<ErrorState errorCode="UNKNOWN" status={500} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Bir sorun oluştu");
   });

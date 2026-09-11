@@ -146,6 +146,17 @@ describe("yayımlanmış ilan sayfası", () => {
     );
   });
 
+  it("galeri yönetimine ilanın kendi adresinden bağlanır", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByRole("link", { name: "Galeriyi yönet" })).toHaveAttribute(
+      "href",
+      `/isveren/ilan/${jobId}/galeri`,
+    );
+  });
+
   it("eylemleri 'yakında' diye erteleyen metni artık taşımaz", async () => {
     fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
 
@@ -174,5 +185,6 @@ function jobDetail(status: string) {
     startDateTime: "2026-10-10T09:00",
     endDateTime: "2026-10-11T18:00",
     pricing,
+    companyId: null,
   };
 }

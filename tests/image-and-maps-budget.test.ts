@@ -18,7 +18,8 @@ describe("görsel ve harita bütçesi", () => {
   });
 
   it("ilan listesi, ilan ayrıntısı ve kök yerleşim Maps JavaScript yüklemez", () => {
-    // Harita seçici is-koala/koala-web#28; galeri next/image dönüşümü #35.
+    // Harita seçici is-koala/koala-web#28; galeri kapakları #35'te kasıtlı
+    // olarak `<img>` kaldı (depolama origin'i remotePatterns'te yok).
     // Bu kapı global bundle'a girmemesini tutar, picker'ı uygulamaz.
     const guarded = [
       "src/app/layout.tsx",
