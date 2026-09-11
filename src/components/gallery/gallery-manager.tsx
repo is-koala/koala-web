@@ -3,6 +3,7 @@
 import { useRef, useState, type DragEvent } from "react";
 
 import { ErrorState, EmptyState } from "@/components/states";
+import { errorPresentation } from "@/lib/errors";
 import {
   galleryAccept,
   galleryCaptionLimit,
@@ -112,7 +113,7 @@ export function GalleryManager({
               ? {
                   name: file.name,
                   status: "error",
-                  reason: result.fieldErrors?.image ?? galleryQuotaReason,
+                  reason: uploadFailureReason(result),
                 }
               : item,
           ),
@@ -298,15 +299,36 @@ export function GalleryManager({
                   <li key={image.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={image.url} alt={image.caption ?? "Şirket görseli"} />
-                    <button
-                      type="button"
-                      className="button button-secondary button-small"
-                      disabled={attached || quotaClosed}
-                      data-disabled-kind={attached || quotaClosed ? "permanent" : undefined}
-                      onClick={() => void attachCompanyImage(image)}
-                    >
-                      {attached ? "İlanda" : "İlana ekle"}
-                    </button>
+                    {attached ? (
+                      <button
+                        type="button"
+                        className="button button-secondary button-small"
+                        disabled
+                        data-disabled-kind="permanent"
+                      >
+                        İlanda
+                      </button>
+                    ) : quotaClosed ? (
+                      <p className="payment-disabled-reason">
+                        <button
+                          type="button"
+                          className="button button-secondary button-small"
+                          disabled
+                          data-disabled-kind="permanent"
+                        >
+                          İlana ekle
+                        </button>
+                        <span>{galleryQuotaReason}</span>
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button button-secondary button-small"
+                        onClick={() => void attachCompanyImage(image)}
+                      >
+                        İlana ekle
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -316,4 +338,11 @@ export function GalleryManager({
       ) : null}
     </div>
   );
+}
+
+function uploadFailureReason(
+  result: Extract<GalleryMutationState, { status: "error" }>,
+): string {
+  if (result.fieldErrors?.image) return result.fieldErrors.image;
+  return errorPresentation(result.errorCode, result.httpStatus).message;
 }

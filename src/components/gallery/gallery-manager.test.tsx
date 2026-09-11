@@ -63,6 +63,26 @@ describe("galeri yöneticisi", () => {
     expect(screen.getByText("PNG, JPG, JPEG veya WEBP biçiminde bir görsel seç.")).toBeVisible();
   });
 
+  it("sunucu yükleme hatasını kota doldu diye yazmaz", async () => {
+    const uploadAction = vi.fn().mockResolvedValue({
+      status: "error",
+      errorCode: "IMAGE_UPLOAD_ERROR",
+      httpStatus: 400,
+    } satisfies GalleryMutationState);
+
+    render(manager({ uploadAction }));
+
+    await userEvent.upload(
+      screen.getByLabelText("Görsel seç"),
+      new File(["a"], "mutfak.webp", { type: "image/webp" }),
+    );
+
+    await waitFor(() => expect(uploadAction).toHaveBeenCalled());
+    const row = screen.getByText("mutfak.webp").closest("li");
+    expect(row).toHaveTextContent("Görseli şu anda yükleyemedik");
+    expect(row).not.toHaveTextContent("Galeri kotası doldu");
+  });
+
   it("yüklenen görseli listede gösterir; biri düşerse diğerleri devam eder", async () => {
     const uploadAction = vi
       .fn()
@@ -100,6 +120,25 @@ describe("galeri yöneticisi", () => {
       "permanent",
     );
     expect(screen.getByText(/Galeri kotası doldu/)).toBeVisible();
+  });
+
+  it("kota dolunca şirket seçicisindeki ekle düğmesinin yanında gerekçeyi gösterir", () => {
+    render(
+      manager({
+        initialImages: Array.from({ length: 10 }, (_, index) =>
+          image(`aaaaaaaa-aaaa-4aaa-8aaa-${String(index).padStart(12, "0")}`, {
+            cover: index === 0,
+            sortOrder: index,
+          }),
+        ),
+        companyImages: [image(companyImageId, { caption: "Mutfak" })],
+      }),
+    );
+
+    const add = screen.getByRole("button", { name: "İlana ekle" });
+    expect(add).toBeDisabled();
+    expect(add).toHaveAttribute("data-disabled-kind", "permanent");
+    expect(add.closest(".payment-disabled-reason")).toHaveTextContent("Galeri kotası doldu");
   });
 
   it("kapağı tek seçimle değiştirir ve tam listeyi gönderir", async () => {
