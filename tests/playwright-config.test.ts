@@ -89,6 +89,19 @@ describe("Playwright test server isolation", () => {
     expect(isolatedRun).toBeGreaterThan(defaultSuite);
     expect(sitemapRun).toBeGreaterThan(isolatedRun);
   });
+
+  it("mesajlaşma ve galeri e2e'si çerez şeridini isVisible yarışına düşmeden kapatır", () => {
+    /*
+     * `isVisible()` beklemaz: şerit henüz hidrate olmamışsa tıklama atlanır,
+     * sonra `Çerez tercihleri` "Daha fazla konuşma"yı keser (CI 34587992651).
+     */
+    for (const file of ["tests/e2e/messaging-safety.spec.ts", "tests/e2e/gallery.spec.ts"]) {
+      const spec = readFileSync(join(process.cwd(), file), "utf8");
+      expect(spec, file).not.toMatch(/consent\.isVisible\(\)/);
+      expect(spec, file).toContain('name: "Yalnız zorunlu"');
+      expect(spec, file).toContain('name: "Çerez tercihleri"');
+    }
+  });
 });
 
 async function loadConfig() {

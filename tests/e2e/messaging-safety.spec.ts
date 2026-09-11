@@ -71,9 +71,10 @@ test("çalışan ve işveren konuşmalarında engelleme, engel kaldırma ve şik
     });
 
     await page.goto(`${webOrigin}${basePath}`);
-    // Çerez şeridi düğmenin üstünü kaplıyor; gerçek kullanıcı da önce onu kapatır.
-    const consent = page.getByRole("button", { name: "Yalnız zorunlu" });
-    if (await consent.isVisible()) await consent.click();
+    // Şerit hidrate olana kadar beklenmeli: `isVisible()` anında false döner
+    // ve sonraki tıklamayı `Çerez tercihleri` keser.
+    await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
+    await expect(page.getByRole("region", { name: "Çerez tercihleri" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Konuşmaların" })).toBeVisible();
     await page.getByRole("button", { name: "Daha fazla konuşma" }).click();
     const laterPageConversation = page.getByRole("link", { name: /Ece Yılmaz/ });

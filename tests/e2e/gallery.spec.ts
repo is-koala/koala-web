@@ -52,8 +52,8 @@ test("ilan galerisine yüklenen görsel listede kalır, kapak ve sıra yenilemed
   page,
 }) => {
   await page.goto(galleryPath);
-  const consent = page.getByRole("button", { name: "Yalnız zorunlu" });
-  if (await consent.isVisible()) await consent.click();
+  await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
+  await expect(page.getByRole("region", { name: "Çerez tercihleri" })).toHaveCount(0);
 
   await expect(page.getByRole("heading", { name: "Etkinlik görevlisi" })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Henüz görsel yok");
