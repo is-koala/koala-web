@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { JobDetail, JobImage } from "@/jobs/contract";
 import { jobApplicationsClosedReason } from "@/jobs/lifecycle";
 import { jobTypeLabels, salaryTypeLabels } from "@/jobs/search";
-import { publicJobsPath } from "@/lib/app-routes";
+import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
 import { formatJobDate } from "@/lib/dates";
 import type { FormAction } from "@/lib/form-state";
 import { formatMoney } from "@/lib/money";
@@ -83,7 +83,7 @@ export function JobDetailView({ job, applyAction }: { job: JobDetail; applyActio
             <>
               <h2 id="application-title">Bu işte çalışmak ister misin?</h2>
               <p>Başvurunu işverene ilet; durumunu Başvurularım sayfasından takip et.</p>
-              <JobApplicationForm action={applyAction} />
+              <JobApplicationForm action={applyAction} returnPath={publicJobPath(job.id)} />
             </>
           ) : (
             <>

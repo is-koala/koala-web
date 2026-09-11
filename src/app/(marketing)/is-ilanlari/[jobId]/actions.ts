@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/identifiers";
 import { createJobApplication } from "@/server/jobs/jobs";
 import { failureState, textField, validationState } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
+import { currentGates } from "@/server/session/gates";
 
 const applicationsPath = "/panel/basvurularim";
 const maximumNotesLength = 2000;
@@ -17,6 +18,15 @@ export async function applyToJobAction(
   formData: FormData,
 ): Promise<FormState> {
   await requireSessionForCurrentPath();
+
+  const { gates } = await currentGates();
+  if (gates !== null && !gates.application.open) {
+    return {
+      status: "error",
+      errorCode: "APPLICANT_IDENTITY_NOT_VERIFIED",
+      httpStatus: 400,
+    };
+  }
 
   if (!isUuid(jobId)) {
     return { status: "error", errorCode: "JOB_NOT_FOUND", httpStatus: 404 };

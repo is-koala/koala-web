@@ -33,6 +33,15 @@ export type ViewerGates = {
   readonly individualJob: GateVerdict;
   /** `POST /companies` — `CompanyManager.java:103-105`. İşveren olmak gerekmiyor. */
   readonly companyCreation: GateVerdict;
+  /**
+   * `POST /jobs/{jobId}/applications` — `JobApplicationManager.java:200`.
+   *
+   * Karar `companyCreation` ile aynı koşulu okuyor (kimlik), ama ayrı duruyor:
+   * başvuru reddi `APPLICANT_IDENTITY_NOT_VERIFIED`, şirketinki
+   * `USER_MUST_VERIFY_IDENTITY`. Tek alanda birleştirmek, kapalı eylemin
+   * errorCode'unu yanlış aileye düşürürdü.
+   */
+  readonly application: GateVerdict;
   /** Bireysel işverenin ödeme oturumu — `JobAssignmentManager.java:212-216`, `:337-350`. */
   readonly individualPayment: GateVerdict;
   /** Her üyelik kendi kararını taşır; "kullanıcının şirketi" diye tek bir nesne yok. */
@@ -83,6 +92,7 @@ export function viewerGates(viewer: Viewer): ViewerGates {
     ],
     individualJob: verdict([...missing.employerRole, ...missing.identity]),
     companyCreation: verdict(missing.identity),
+    application: verdict(missing.identity),
     individualPayment: verdict([
       ...missing.identity,
       ...missing.identityNumber,

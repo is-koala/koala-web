@@ -83,7 +83,7 @@ describe("arama motorlarına kapalı rotalar", () => {
   });
 
   it("hesap akışlarının tek tek yolları kapalı kalır", () => {
-    for (const path of ["/giris", "/cikis", "/kayit", "/payment/result"]) {
+    for (const path of ["/giris", "/cikis", "/kayit", "/payment/result", "/kimlik-dogrula"]) {
       expect(blocked(path)).toBe(true);
     }
   });

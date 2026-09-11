@@ -7,9 +7,15 @@ import { FormAlert, SubmitButton, TextareaField } from "@/components/form-contro
 import { applicationRemedy } from "@/jobs/application";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 
-export function JobApplicationForm({ action }: { action: FormAction }) {
+export function JobApplicationForm({
+  action,
+  returnPath,
+}: {
+  action: FormAction;
+  returnPath?: string;
+}) {
   const [state, submit] = useActionState(action, idleFormState);
-  const remedy = state.status === "error" ? applicationRemedy(state.errorCode) : null;
+  const remedy = state.status === "error" ? applicationRemedy(state.errorCode, returnPath) : null;
 
   return (
     <form className="form job-application-form" action={submit}>

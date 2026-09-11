@@ -15,6 +15,7 @@ const assignment = {
 const gates = {
   individualJob: { open: true },
   companyCreation: { open: true },
+  application: { open: true },
   individualPayment: {
     open: false,
     blockedBy: ["identityNumber", "individualBillingAddress"],

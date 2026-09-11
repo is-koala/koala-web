@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { identityHandoffHref, identityVerificationPath } from "@/identity/handoff";
 import { gateNotice } from "@/lib/errors";
 import type { GateId } from "@/lib/gates";
 
@@ -17,6 +18,12 @@ import type { GateId } from "@/lib/gates";
  * basılmıyor.
  */
 
+type GateListProps = {
+  gates: readonly GateId[];
+  /** Kimlik kapısı bu yola `next` olarak döner. */
+  returnPath?: string;
+};
+
 /**
  * Kalıcı uyarı şeridi (**advisory**).
  *
@@ -24,13 +31,13 @@ import type { GateId } from "@/lib/gates";
  * kilitlenmez. Şerit `role="status"`, çünkü sayfanın o anki işine ait bir
  * hata değil, arka planda duran bir eksik.
  */
-export function GateAdvisories({ gates }: { gates: readonly GateId[] }) {
+export function GateAdvisories({ gates, returnPath }: GateListProps) {
   if (gates.length === 0) return null;
 
   return (
     <div role="status" className="gate-advisories">
       {gates.map((gate) => (
-        <GateReason key={gate} gate={gate} />
+        <GateReason key={gate} gate={gate} returnPath={returnPath} />
       ))}
     </div>
   );
@@ -43,13 +50,13 @@ export function GateAdvisories({ gates }: { gates: readonly GateId[] }) {
  * ama kullanıcı yolun kendisine kapalı olduğunu okumalı, yoksa eksik ekranı
  * bir arıza gibi okur.
  */
-export function GateBlocks({ gates }: { gates: readonly GateId[] }) {
+export function GateBlocks({ gates, returnPath }: GateListProps) {
   if (gates.length === 0) return null;
 
   return (
     <div role="alert" className="state-card state-card-error gate-block">
       {gates.map((gate) => (
-        <GateReason key={gate} gate={gate} />
+        <GateReason key={gate} gate={gate} returnPath={returnPath} />
       ))}
     </div>
   );
@@ -60,6 +67,8 @@ export type EmployerGateProps = {
   blocked: readonly GateId[];
   /** Engellendiğinde devre dışı gösterilecek eylemin adı. */
   action: string;
+  /** Kimlik kapısı bu yola `next` olarak döner; yoksa kanonik aktarım adresi. */
+  returnPath?: string;
   children: React.ReactNode;
 };
 
@@ -72,7 +81,7 @@ export type EmployerGateProps = {
  * bir düğme ve nedeni geçiyor — düğmeyi tümden gizlemek "neden yapamıyorum"
  * sorusunu cevapsız bırakırdı.
  */
-export function EmployerGate({ blocked, action, children }: EmployerGateProps) {
+export function EmployerGate({ blocked, action, children, returnPath }: EmployerGateProps) {
   if (blocked.length === 0) return <>{children}</>;
 
   return (
@@ -80,21 +89,27 @@ export function EmployerGate({ blocked, action, children }: EmployerGateProps) {
       <button type="button" className="button button-secondary" disabled>
         {action}
       </button>
-      <GateBlocks gates={blocked} />
+      <GateBlocks gates={blocked} returnPath={returnPath} />
     </div>
   );
 }
 
 /** Tek bir kapının başlığı, gerekçesi ve varsa gidilecek yolu. */
-function GateReason({ gate }: { gate: GateId }) {
+function GateReason({ gate, returnPath }: { gate: GateId; returnPath?: string }) {
   const notice = gateNotice(gate);
+  const href =
+    notice.remedy === null
+      ? null
+      : notice.remedy.href === identityVerificationPath
+        ? identityHandoffHref(returnPath)
+        : notice.remedy.href;
 
   return (
     <div className="gate-reason">
       <h2>{notice.title}</h2>
       <p>{notice.message}</p>
-      {notice.remedy === null ? null : (
-        <Link className="text-link" href={notice.remedy.href}>
+      {href === null || notice.remedy === null ? null : (
+        <Link className="text-link" href={href}>
           {notice.remedy.label}
         </Link>
       )}

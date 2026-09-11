@@ -13,9 +13,21 @@ describe("başvuru kapısı çözümleri", () => {
     expect(remedy?.label.toLocaleLowerCase("tr")).not.toContain("uygulamada");
   });
 
-  it("kimlik kapısını hâlâ uygulamaya bırakır", () => {
+  it("kimlik kapısını web aktarım ekranına bağlar", () => {
     expect(applicationRemedy("APPLICANT_IDENTITY_NOT_VERIFIED")).toEqual({
-      href: "/uygulamayi-ac",
+      href: "/kimlik-dogrula",
+      label: "Kimlik doğrulamasını tamamla",
+    });
+  });
+
+  it("başvuru sayfasını dönüş yolu olarak taşır", () => {
+    expect(
+      applicationRemedy(
+        "APPLICANT_IDENTITY_NOT_VERIFIED",
+        "/is-ilanlari/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
+      ),
+    ).toEqual({
+      href: "/kimlik-dogrula?next=%2Fis-ilanlari%2F9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
       label: "Kimlik doğrulamasını tamamla",
     });
   });

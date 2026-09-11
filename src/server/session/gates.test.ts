@@ -70,6 +70,17 @@ describe("kimlik kapısı", () => {
   it("doğrulanmış kimlikte bireysel ilan kapısı açık", () => {
     expect(viewerGates(viewerWith()).individualJob).toEqual({ open: true });
   });
+
+  it("doğrulanmamış kimlik başvuruyu da kapatır", () => {
+    // `JobApplicationManager.java:200` aynı `isIdentityVerified` bayrağına
+    // bakıyor; ilan ve şirket kapısından ayrı bir karar olmasaydı başvuru
+    // backend'e gidip `APPLICANT_IDENTITY_NOT_VERIFIED` ile dönerdi.
+    expect(viewerGates(viewerWith({ identityVerified: false })).application).toEqual({
+      open: false,
+      blockedBy: ["identityVerification"],
+    });
+    expect(viewerGates(viewerWith()).application).toEqual({ open: true });
+  });
 });
 
 describe("işveren rolü kapısı", () => {
