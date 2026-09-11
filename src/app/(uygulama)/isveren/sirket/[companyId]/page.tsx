@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { CompanyProfileView } from "@/components/company/company-profile";
 import { ErrorState, LoadingState } from "@/components/states";
-import { editCompanyPath, newCompanyJobPath } from "@/lib/app-routes";
+import { companyGalleryPath, editCompanyPath, newCompanyJobPath } from "@/lib/app-routes";
 import { companyMembership } from "@/lib/company-contacts";
 import { getCompany, type Company } from "@/server/company/company";
 import { failureView } from "@/server/form";
@@ -78,6 +78,7 @@ async function CompanyPanel({
       viewerRole={viewerRole}
       editHref={editCompanyPath(companyId)}
       contactsHref={contactsPath(companyId)}
+      galleryHref={companyGalleryPath(companyId)}
       newJobHref={newCompanyJobPath(companyId)}
     />
   );

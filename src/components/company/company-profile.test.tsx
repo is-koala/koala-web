@@ -35,6 +35,7 @@ function renderProfile(overrides: Partial<Company> = {}, viewerRole = "ADMIN") {
       viewerRole={viewerRole}
       editHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/duzenle"
       contactsHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer"
+      galleryHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/galeri"
       newJobHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ilan/yeni"
     />,
   );
@@ -93,6 +94,10 @@ describe("şirket profili", () => {
     expect(screen.getByRole("link", { name: "Şirket yetkilileri" })).toHaveAttribute(
       "href",
       "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer",
+    );
+    expect(screen.getByRole("link", { name: "Şirket galerisi" })).toHaveAttribute(
+      "href",
+      "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/galeri",
     );
   });
 

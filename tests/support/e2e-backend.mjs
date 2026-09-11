@@ -23,7 +23,7 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/__test__/reset") {
     const key = stateKeyFrom(url);
     if (!key) return backendError(response, 400, "INVALID_TEST_KEY", "VALIDATION");
-    states.set(key, { accountDeletion: null, accountDeletionRequests: [] });
+    states.set(key, { accountDeletion: null, accountDeletionRequests: [], jobGallery: [] });
     return json(response, 200, { ok: true });
   }
   if (request.method === "GET" && url.pathname === "/__test__/requests") {
@@ -149,6 +149,43 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, state.accountDeletion);
   }
 
+  if (url.pathname === `/jobs/${openJobId}/images`) {
+    if (request.method === "GET") {
+      return backendSuccess(response, galleryOf(state));
+    }
+    if (request.method === "POST") {
+      await drain(request);
+      const images = galleryOf(state);
+      const id = nextGalleryId(images.length);
+      images.push({
+        id,
+        url: `https://cdn.example.test/${id}.webp`,
+        caption: null,
+        cover: images.length === 0,
+        sortOrder: images.length,
+      });
+      return backendSuccess(response, images);
+    }
+    if (request.method === "PUT") {
+      const body = await readJson(request);
+      const current = galleryOf(state);
+      const requested = Array.isArray(body?.images) ? body.images : [];
+      const next = requested.map((entry, index) => {
+        const existing = current.find((image) => image.id === entry.imageId);
+        return {
+          id: entry.imageId,
+          url: existing?.url ?? `https://cdn.example.test/${entry.imageId}.webp`,
+          caption: entry.caption ?? null,
+          cover: entry.cover === true,
+          sortOrder: typeof entry.sortOrder === "number" ? entry.sortOrder : index,
+        };
+      });
+      if (next.length > 0 && !next.some((image) => image.cover)) next[0].cover = true;
+      state.jobGallery = next;
+      return backendSuccess(response, next);
+    }
+  }
+
   return backendError(response, 404, "RESOURCE_NOT_FOUND", "RESOURCE_NOT_FOUND");
 });
 
@@ -178,6 +215,21 @@ async function readJson(request) {
   for await (const chunk of request) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString("utf8");
   return raw ? JSON.parse(raw) : null;
+}
+
+async function drain(request) {
+  for await (const chunk of request) {
+    void chunk;
+  }
+}
+
+function galleryOf(state) {
+  if (!Array.isArray(state.jobGallery)) state.jobGallery = [];
+  return state.jobGallery;
+}
+
+function nextGalleryId(index) {
+  return `aaaaaaaa-aaaa-4aaa-8aaa-${String(index + 1).padStart(12, "0")}`;
 }
 
 function backendSuccess(response, data) {

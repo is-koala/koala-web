@@ -180,6 +180,30 @@ describe("API hata sunumu", () => {
       message: "PDF, PNG, JPG veya WEBP biçiminde geçerli bir dosya seçip yeniden dene.",
       action: "none",
     });
+    expect(errorPresentation("IMAGE_EMPTY_ERROR", 400)).toEqual({
+      title: "Görsel boş",
+      message: "Boş bir dosya yüklenemez. İçeriği olan bir görsel seçip yeniden dene.",
+      action: "none",
+    });
+    expect(errorPresentation("IMAGE_SIZE_ERROR", 400)).toEqual({
+      title: "Görsel çok büyük",
+      message: "Görsel 10 MB sınırını aşıyor. Daha küçük bir dosya seçip yeniden dene.",
+      action: "none",
+    });
+    expect(errorPresentation("IMAGE_UPLOAD_ERROR", 400)).toEqual({
+      title: "Görsel yüklenemedi",
+      message: "Görseli şu anda yükleyemedik. Biraz sonra yeniden dene.",
+      action: "retry",
+    });
+    expect(errorPresentation("GALLERY_LIMIT_EXCEEDED", 409)).toEqual({
+      title: "Galeri kotası doldu",
+      message:
+        "Yeni görsel eklemek için önce mevcutlardan birini kaldırman gerekiyor.",
+      action: "none",
+    });
+    expect(errorPresentation("GALLERY_LIMIT_EXCEEDED", 409).message).not.toMatch(/\b10\b/);
+    expect(backendErrorFamilies.IMAGE_EMPTY_ERROR).toBe("validation");
+    expect(backendErrorFamilies.IMAGE_SIZE_ERROR).toBe("validation");
     expect(errorPresentation("STORAGE_DOWNLOAD_FAILED", 502)).toEqual({
       title: "Kanıt indirilemedi",
       message: "Kanıt dosyasını şu anda indiremedik. Biraz sonra yeniden dene.",

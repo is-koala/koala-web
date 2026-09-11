@@ -17,6 +17,7 @@ test("oturumsuz kullanıcı ilan formundan girişe düşer ve hedefini taşır",
   const targets = [
     ["/isveren/ilan/yeni", "/giris?next=%2Fisveren%2Filan%2Fyeni"],
     [`/isveren/ilan/${jobId}`, `/giris?next=%2Fisveren%2Filan%2F${jobId}`],
+    [`/isveren/ilan/${jobId}/galeri`, `/giris?next=%2Fisveren%2Filan%2F${jobId}%2Fgaleri`],
   ];
 
   for (const [path, destination] of targets) {
@@ -27,7 +28,7 @@ test("oturumsuz kullanıcı ilan formundan girişe düşer ve hedefini taşır",
 });
 
 test("ilan adresleri indekslenmez", async ({ request }) => {
-  for (const path of ["/isveren/ilan/yeni", `/isveren/ilan/${jobId}`]) {
+  for (const path of ["/isveren/ilan/yeni", `/isveren/ilan/${jobId}`, `/isveren/ilan/${jobId}/galeri`]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["x-robots-tag"], path).toContain("noindex");
     expect(response.headers()["referrer-policy"], path).toBe("no-referrer");

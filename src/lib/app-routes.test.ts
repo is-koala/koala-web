@@ -6,7 +6,9 @@ import {
   companySectionPath,
   editCompanyPath,
   employerJobsPath,
+  companyGalleryPath,
   jobApplicantsPath,
+  jobGalleryPath,
   newCompanyJobPath,
   newCompanyPath,
   newIndividualJobPath,
@@ -197,6 +199,26 @@ describe("kabuk rota kaydı", () => {
     // `[...section]` onu tanısaydı gerçek sayfa yerine "henüz açılmadı"
     // ekranı çizilirdi.
     expect(sectionAt("employer", ["ilan", "x", "basvurular"])).toBeUndefined();
+  });
+
+  it("ilan galerisini ilanın altında, kimliği kaçırarak adresler", () => {
+    expect(jobGalleryPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/ilan/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/galeri",
+    );
+    expect(jobGalleryPath("a b/../hesap")).toBe("/isveren/ilan/a%20b%2F..%2Fhesap/galeri");
+  });
+
+  it("şirket galerisini şirket kimliğiyle kurar", () => {
+    // Sabit `/isveren/sirket/galeri` iki şirketi tek adreste toplardı.
+    expect(companyGalleryPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/sirket/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/galeri",
+    );
+    expect(companyGalleryPath("a b/../hesap")).toBe("/isveren/sirket/a%20b%2F..%2Fhesap/galeri");
+  });
+
+  it("galeri adreslerini kayıtta bir bölüm saymaz", () => {
+    expect(sectionAt("employer", ["ilan", "x", "galeri"])).toBeUndefined();
+    expect(sectionAt("employer", ["sirket", "galeri"])).toBeUndefined();
   });
 
   it("yetenek havuzunu teslim edilmiş işveren bölümü olarak kaydeder", () => {

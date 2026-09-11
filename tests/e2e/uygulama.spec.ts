@@ -54,6 +54,14 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
       "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/duzenle",
       "/giris?next=%2Fisveren%2Fsirket%2Faaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa%2Fduzenle",
     ],
+    [
+      "/isveren/ilan/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60/galeri",
+      "/giris?next=%2Fisveren%2Filan%2F9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60%2Fgaleri",
+    ],
+    [
+      "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/galeri",
+      "/giris?next=%2Fisveren%2Fsirket%2Faaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa%2Fgaleri",
+    ],
   ];
 
   for (const [path, destination] of targets) {
@@ -105,6 +113,8 @@ test("kabuk adresleri indekslenmez", async ({ request }) => {
     "/isveren/sirket/yeni",
     "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/duzenle",
+    "/isveren/ilan/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60/galeri",
+    "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/galeri",
     "/panel",
     "/panel/profil",
     "/panel/islerim",

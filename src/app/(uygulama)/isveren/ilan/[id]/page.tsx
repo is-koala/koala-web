@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
 import { jobStatusLabel } from "@/jobs/lifecycle";
-import { jobApplicantsPath } from "@/lib/app-routes";
+import { jobApplicantsPath, jobGalleryPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/server/api/errors";
@@ -91,6 +91,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       */}
       <Link className="button button-primary" href={jobApplicantsPath(id)}>
         Başvuruları gör
+      </Link>
+
+      <Link className="button button-secondary" href={jobGalleryPath(id)}>
+        Galeriyi yönet
       </Link>
 
       {/*

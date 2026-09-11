@@ -22,6 +22,12 @@ export type CompanyProfileProps = {
   editHref: string;
   contactsHref: string;
   /**
+   * Şirket galerisi. Adres şirket kimliğini taşır: issue `/isveren/sirket/galeri`
+   * yazıyordu ama uygulama yetkililer ve düzenleme gibi şirket kimliğini yola
+   * koyuyor. Kimliği düşürmek iki şirketi tek galeride birleştirirdi.
+   */
+  galleryHref: string;
+  /**
    * Şirket adına ilan açma formunun adresi.
    *
    * Bağlantı yalnız **onaylı** şirkette çiziliyor. Kural istemcide yaşıyor —
@@ -37,6 +43,7 @@ export function CompanyProfileView({
   viewerRole,
   editHref,
   contactsHref,
+  galleryHref,
   newJobHref,
 }: CompanyProfileProps) {
   return (
@@ -125,6 +132,22 @@ export function CompanyProfileView({
         </p>
         <Link className="text-link" href={contactsHref}>
           Şirket yetkilileri
+        </Link>
+      </section>
+
+      <section className="app-panel" aria-labelledby="company-gallery-link-title">
+        <div className="section-heading-row">
+          <div>
+            <p className="eyebrow">Galeri</p>
+            <h2 id="company-gallery-link-title">Şirket görselleri</h2>
+          </div>
+        </div>
+        <p className="lede">
+          Mekân fotoğraflarını bir kez yükleyip her ilanda yeniden seçebilirsin. Galeriyi
+          yalnız şirket yöneticisi düzenler.
+        </p>
+        <Link className="text-link" href={galleryHref}>
+          Şirket galerisi
         </Link>
       </section>
     </div>

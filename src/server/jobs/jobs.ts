@@ -9,6 +9,7 @@ import type {
 import { jobPageSize, type JobApplicationReceipt } from "@/jobs/contract";
 import type { EmployerJob, EmployerJobPage, JobSort } from "@/jobs/employer-jobs";
 import { jobStatuses } from "@/jobs/lifecycle";
+import { isUuid } from "@/lib/identifiers";
 import { emptyBackendPage } from "@/lib/pagination";
 import {
   clean,
@@ -73,6 +74,13 @@ export type JobDetail = {
   /** İkisinin de okunma kuralı `openings` içinde (`@/server/api/dto`). */
   headcount: number | null;
   hiredCount: number;
+  /**
+   * Şirket ilanında `JobCompanyDto.id`; bireysel ilanda `null`.
+   *
+   * Galeri "şirket galerimden seç" yolunu buradan açıyor. Ad yoksa bölüm
+   * çizilmez — isim yetmez, `GET /companies/{companyId}/images` kimlik ister.
+   */
+  companyId: string | null;
 };
 
 /** `GET /reference/job-categories`. Oturum istemiyor ama BFF yine tek kapıdan geçer. */
@@ -165,14 +173,20 @@ export async function readMyJobs({
 }
 
 /** Yanıtta kontenjan alanları eksik gelebiliyor; ikisi de burada karara bağlanır. */
-type JobDetailResponse = Omit<JobDetail, "headcount" | "hiredCount"> & {
+type JobDetailResponse = Omit<JobDetail, "headcount" | "hiredCount" | "companyId"> & {
   headcount?: number | null;
   hiredCount?: number | null;
+  company?: { id?: string | null } | null;
 };
 
 export async function fetchJobDetail(jobId: string): Promise<JobDetail> {
   const dto = await apiRequest<JobDetailResponse>(jobPath(jobId));
-  return { ...dto, ...openings(dto) };
+  const companyId = dto.company?.id;
+  return {
+    ...dto,
+    ...openings(dto),
+    companyId: typeof companyId === "string" && isUuid(companyId) ? companyId : null,
+  };
 }
 
 /**
