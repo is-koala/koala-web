@@ -18,6 +18,9 @@ let blocked = false;
 const reports: unknown[] = [];
 
 test.beforeAll(async () => {
+  // Pi'de soğuk Turbopack 30 sn kancasını aşıyor; süreç ayrı olsa da
+  // derleme paylaşılan süitten sonra disk önbelleği soğuk kalabiliyor.
+  test.setTimeout(180_000);
   backend = createBackend();
   const backendPort = await listen(backend);
   backendOrigin = `http://127.0.0.1:${backendPort}`;

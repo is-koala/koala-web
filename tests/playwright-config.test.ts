@@ -54,6 +54,23 @@ describe("Playwright test server isolation", () => {
       "npm run test:e2e:sitemap-production",
     );
   });
+
+  it("paylaşılan webServer kapanmadan ikinci Next derleyicisini ayağa kaldırmaz", async () => {
+    const config = await loadConfig();
+    const ignored = [config.testIgnore].flat().map((pattern) => String(pattern ?? ""));
+    expect(ignored.some((pattern) => pattern.includes("messaging-safety"))).toBe(true);
+
+    const isolated = await loadIsolatedMessagingConfig();
+    expect(isolated.webServer).toBeUndefined();
+    expect(String(isolated.testMatch)).toContain("messaging-safety");
+
+    const script = e2eScript();
+    const defaultSuite = script.indexOf("playwright test &&");
+    const isolatedRun = script.indexOf("playwright.messaging-safety.config.ts");
+    const sitemapRun = script.indexOf("test:e2e:sitemap-production");
+    expect(isolatedRun).toBeGreaterThan(defaultSuite);
+    expect(sitemapRun).toBeGreaterThan(isolatedRun);
+  });
 });
 
 async function loadConfig() {
@@ -64,4 +81,19 @@ async function loadConfig() {
     defineConfig: <T>(config: T) => config,
   }));
   return (await import("../playwright.config")).default;
+}
+
+async function loadIsolatedMessagingConfig() {
+  vi.resetModules();
+  vi.doMock("@playwright/test", () => ({
+    defineConfig: <T>(config: T) => config,
+  }));
+  return (await import("../playwright.messaging-safety.config")).default;
+}
+
+function e2eScript() {
+  const packageMetadata = JSON.parse(
+    readFileSync(join(process.cwd(), "package.json"), "utf8"),
+  ) as { scripts?: Record<string, string> };
+  return packageMetadata.scripts?.["test:e2e"] ?? "";
 }

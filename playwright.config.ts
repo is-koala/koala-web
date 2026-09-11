@@ -7,6 +7,13 @@ const backendURL = `http://127.0.0.1:${backendPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  /*
+   * Bu dosya kendi Next'ini spawn ediyor. Paylaşılan `webServer` hâlâ
+   * ayaktayken ikinci Turbopack Pi'de bellekten düşüyor (`Error: aborted`,
+   * `Next dev exited early`). Ayrı süreç, paylaşılan sunucu kapandıktan sonra
+   * `playwright.messaging-safety.config.ts` ile koşar.
+   */
+  testIgnore: /messaging-safety\.spec\.ts/,
   fullyParallel: true,
   // Self-hosted runner'ların üçü de aynı 4 çekirdekli Raspberry Pi'de.
   // CI'da tek browser worker kullanarak makine genelinde aşırı paralelliği önle.
