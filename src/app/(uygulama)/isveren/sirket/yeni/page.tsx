@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { CompanyForm } from "@/components/company/company-form";
 import { EmployerGate } from "@/components/employer-gate";
+import { newCompanyPath } from "@/lib/app-routes";
 import { currentGates } from "@/server/session/gates";
 
 import { createCompanyAction } from "./actions";
@@ -46,7 +47,7 @@ export default async function Page() {
         onaylanana kadar şirket adına ilan açılamaz.
       </p>
 
-      <EmployerGate blocked={blocked} action="Şirketi oluştur">
+      <EmployerGate blocked={blocked} action="Şirketi oluştur" returnPath={newCompanyPath}>
         <CompanyForm action={createCompanyAction} />
       </EmployerGate>
     </section>

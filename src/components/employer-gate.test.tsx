@@ -61,7 +61,20 @@ describe("yetki kapısı bileşeni", () => {
     expect(strip).toHaveTextContent("Kimliğini doğrulaman gerekiyor");
     expect(screen.getByRole("link", { name: "Uygulamada doğrula" })).toHaveAttribute(
       "href",
-      "/uygulamayi-ac",
+      "/kimlik-dogrula",
+    );
+  });
+
+  it("kimlik kapısına dönüş yolunu next olarak yazar", () => {
+    render(
+      <EmployerGate blocked={["identityVerification"]} action="İlan aç" returnPath="/isveren/ilan/yeni">
+        <button type="button">İlan aç</button>
+      </EmployerGate>,
+    );
+
+    expect(screen.getByRole("link", { name: "Uygulamada doğrula" })).toHaveAttribute(
+      "href",
+      "/kimlik-dogrula?next=%2Fisveren%2Filan%2Fyeni",
     );
   });
 

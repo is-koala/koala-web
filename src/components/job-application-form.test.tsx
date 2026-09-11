@@ -38,7 +38,7 @@ describe("ilan başvuru formu", () => {
   });
 
   it.each([
-    ["APPLICANT_IDENTITY_NOT_VERIFIED", "Kimliğini doğrulaman gerekiyor", "/uygulamayi-ac"],
+    ["APPLICANT_IDENTITY_NOT_VERIFIED", "Kimliğini doğrulaman gerekiyor", "/kimlik-dogrula"],
     ["APPLICANT_ADDRESS_REQUIRED", "Adresini eklemen gerekiyor", "/panel/adres"],
     [
       "APPLICANT_BANK_ACCOUNT_REQUIRED",
@@ -57,6 +57,27 @@ describe("ilan başvuru formu", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(title);
     expect(screen.getByRole("link", { name: /tamamla|ekle/i })).toHaveAttribute("href", href);
+  });
+
+  it("kimlik reddinde dönüş yolunu aktarım ekranına taşır", async () => {
+    const user = userEvent.setup();
+    render(
+      <JobApplicationForm
+        action={resolvedWith({
+          status: "error",
+          errorCode: "APPLICANT_IDENTITY_NOT_VERIFIED",
+          httpStatus: 400,
+        })}
+        returnPath="/is-ilanlari/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Başvuruyu gönder" }));
+
+    expect(await screen.findByRole("link", { name: /tamamla/i })).toHaveAttribute(
+      "href",
+      "/kimlik-dogrula?next=%2Fis-ilanlari%2F9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
+    );
   });
 
   it.each([

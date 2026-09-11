@@ -1,6 +1,6 @@
 "use client";
 
-import { companySectionPath } from "@/lib/app-routes";
+import { companySectionPath, newIndividualJobPath } from "@/lib/app-routes";
 import Link from "next/link";
 import { useActionState, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -509,7 +509,11 @@ export function JobForm({
       </StepPanel>
 
       <footer className="job-form-actions">
-        <EmployerGate blocked={blocked} action="İlanı yayımla">
+        <EmployerGate
+          blocked={blocked}
+          action="İlanı yayımla"
+          returnPath={owner.kind === "individual" ? newIndividualJobPath : undefined}
+        >
           <SubmitButton label="İlanı yayımla" pendingLabel="Yayımlanıyor…" />
         </EmployerGate>
       </footer>

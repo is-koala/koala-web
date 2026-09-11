@@ -9,9 +9,11 @@ import { applyToJobAction } from "./actions";
 
 const createJobApplication = vi.hoisted(() => vi.fn());
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
+const currentGates = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/jobs/jobs", () => ({ createJobApplication }));
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
+vi.mock("@/server/session/gates", () => ({ currentGates }));
 vi.mock("next/navigation", async () => ({
   redirect: (await import("../../../../../tests/support/navigation")).throwingRedirect(),
   unstable_rethrow: (error: unknown) => {
@@ -25,6 +27,11 @@ describe("ilana başvuru action'ı", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireSessionForCurrentPath.mockResolvedValue({ refreshToken: "refresh-placeholder" });
+    currentGates.mockResolvedValue({
+      viewer: { identityVerified: true },
+      failure: null,
+      gates: { application: { open: true } },
+    });
   });
 
   it("başarılı sunucu yanıtından sonra başvurularım ekranına gider", async () => {
@@ -74,6 +81,21 @@ describe("ilana başvuru action'ı", () => {
     await expect(applyToJobAction(jobId, idleFormState, submission(""))).rejects.toThrow(
       "NEXT_REDIRECT",
     );
+    expect(createJobApplication).not.toHaveBeenCalled();
+  });
+
+  it("kimlik kapısı kapalıyken isteği hiç göndermez", async () => {
+    currentGates.mockResolvedValueOnce({
+      viewer: { identityVerified: false },
+      failure: null,
+      gates: { application: { open: false, blockedBy: ["identityVerification"] } },
+    });
+
+    await expect(applyToJobAction(jobId, idleFormState, submission(""))).resolves.toEqual({
+      status: "error",
+      errorCode: "APPLICANT_IDENTITY_NOT_VERIFIED",
+      httpStatus: 400,
+    });
     expect(createJobApplication).not.toHaveBeenCalled();
   });
 

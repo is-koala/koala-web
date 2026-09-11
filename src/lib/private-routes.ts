@@ -51,6 +51,7 @@ export const privateRouteDescriptors = [
   { kind: "exact", path: "/sifre-sifirla" },
   { kind: "exact", path: "/eposta-onayla" },
   { kind: "exact", path: "/uygulamayi-ac" },
+  { kind: "exact", path: "/kimlik-dogrula" },
   { kind: "exact", path: "/payment/result" },
   { kind: "exact", path: "/isveren/adres" },
   { kind: "exact", path: "/panel/adres" },

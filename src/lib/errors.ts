@@ -1,4 +1,5 @@
 import { serviceAreaNotice } from "@/address/contract";
+import { identityChipPaUnavailableErrorCode, identityVerificationPath } from "@/identity/handoff";
 import { employerBillingAddressPath } from "@/lib/app-routes";
 
 import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
@@ -75,6 +76,12 @@ const exactErrors: Record<string, ErrorPresentation> = {
   APPLICANT_IDENTITY_NOT_VERIFIED: {
     title: "Kimliğini doğrulaman gerekiyor",
     message: "Başvuru yapmadan önce kimlik doğrulamanı tamamlamalısın.",
+    action: "none",
+  },
+  [identityChipPaUnavailableErrorCode]: {
+    title: "Kimlik doğrulaması uygulamada tamamlanır",
+    message:
+      "Tarayıcı kimlik belgesinin çipini okuyamaz. Doğrulamayı Koala uygulamasından tamamla.",
     action: "none",
   },
   APPLICANT_ADDRESS_REQUIRED: {
@@ -542,11 +549,11 @@ export type GateNotice = {
 };
 
 /**
- * Kimlik doğrulama web'de henüz yok: KYC akışı is-koala/koala-web#18.
  * Fatura adresi #28 ile `/isveren/adres` üzerinde; iş arayan adresi #133
  * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir.
- * O zamana kadar kimlik kapısı kullanıcıyı işi bugün yapabildiği yere —
- * mobil uygulamaya — bırakır.
+ *
+ * Kimlik kapısı `/kimlik-dogrula`'ya düşer (is-koala/koala-web#18): tarayıcı
+ * çip PA kanıtı üretemediği için ekran kullanıcıyı uygulamaya bırakır.
  */
 const openAppPath = "/uygulamayi-ac";
 
@@ -554,8 +561,8 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   identityVerification: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Doğrulamayı şimdilik Koala uygulamasından tamamlayabilirsin.",
-    remedy: { href: openAppPath, label: "Uygulamada doğrula" },
+      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Doğrulamayı Koala uygulamasından, kimlik belgesinin çipini okutarak tamamlayabilirsin.",
+    remedy: { href: identityVerificationPath, label: "Uygulamada doğrula" },
     errorCodes: [
       "JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED",
       "USER_MUST_VERIFY_IDENTITY",
@@ -566,7 +573,7 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
     title: "Kimlik numaran hesabında kayıtlı değil",
     message:
       "Ödemeyi başlatabilmemiz için doğrulanmış kimlik numarana ihtiyacımız var. Kimlik doğrulamasını uygulamadan tamamladığında bu bilgi hesabına işlenir.",
-    remedy: { href: openAppPath, label: "Uygulamada tamamla" },
+    remedy: { href: identityVerificationPath, label: "Uygulamada tamamla" },
     errorCodes: ["JOB_ASSIGNMENT_EMPLOYER_IDENTITY_NOT_VERIFIED"],
   },
   employerRole: {

@@ -339,7 +339,16 @@ describe("kapı metinleri", () => {
     const notice = gateNotice("identityVerification");
 
     expect(notice.title).toBe("Kimliğini doğrulaman gerekiyor");
-    expect(notice.remedy?.href).toBe("/uygulamayi-ac");
+    expect(notice.remedy?.href).toBe("/kimlik-dogrula");
+  });
+
+  it("tarayıcının çip PA üretemediğini uygulamaya gönderir", () => {
+    expect(errorPresentation("IDENTITY_CHIP_PA_NOT_AVAILABLE_ON_WEB", 501)).toEqual({
+      title: "Kimlik doğrulaması uygulamada tamamlanır",
+      message:
+        "Tarayıcı kimlik belgesinin çipini okuyamaz. Doğrulamayı Koala uygulamasından tamamla.",
+      action: "none",
+    });
   });
 
   it("bireysel fatura adresi kapısını web kayıt ekranına yollar", () => {

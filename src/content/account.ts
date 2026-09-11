@@ -55,6 +55,14 @@ export const emailVerificationContent = {
   action: "Uygulamayı aç",
 } as const;
 
+export const identityHandoffContent = {
+  eyebrow: "Kimlik doğrulama",
+  title: "Kimliğini uygulamada doğrula",
+  body:
+    "İlan açmak, şirket kurmak ve başvuru yapmak için kimlik belgenin çipini Koala uygulamasında okutman gerekiyor. Tarayıcı bu doğrulamayı tamamlayamıyor.",
+  continueLabel: "Doğruladıktan sonra devam et",
+} as const;
+
 export const openAppContent = {
   eyebrow: "Mobil uygulama",
   title: "Koala'da devam et",

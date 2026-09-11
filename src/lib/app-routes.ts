@@ -325,9 +325,9 @@ const workerShell: AppShell = {
   root: "/panel",
   title: "Panel",
   description: "Başvurularını, işlerini ve kazançlarını buradan takip edersin.",
-  // Boş, ve bilerek: başvuru kimliği hâlâ uygulamada (#18). Adres eksiği
-  // kabuk şeridi değil; `APPLICANT_ADDRESS_REQUIRED` başvuru formundan
-  // `/panel/adres`'e düşer (is-koala/koala-web#133).
+  // Boş, ve bilerek: başvuru kimliği `/kimlik-dogrula` aktarımında (#18).
+  // Adres eksiği kabuk şeridi değil; `APPLICANT_ADDRESS_REQUIRED` başvuru
+  // formundan `/panel/adres`'e düşer (is-koala/koala-web#133).
   requires: [],
   sections: [
     {

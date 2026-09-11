@@ -57,6 +57,8 @@ src/app/
 Rota adları Türkçe ve kalıcıdır: `/hesap-dogrula`, `/sifre-belirle`,
 `/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`, `/davet/{invitationId}`.
 Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
+`/kimlik-dogrula` e-postada değil: kimlik kapısının aktarım adresi, yeniden
+adlandırmak şeritleri ve başvuru çözümünü kırar.
 
 `(uygulama)` altındaki iki kabuk oturum ister ve arama motorlarına kapalıdır:
 
@@ -121,7 +123,7 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
   Bir **eylemin** kendi kararı (`viewerGates(...).individualJob`,
   `.companyCreation`, `corporateJobGate(...)`) böyle bölünmüyor: kapalıysa
   `blockedBy` listesinin tamamı o eylemi kapatır, kipe bakılmadan. Üç form da
-  bunu yapıyor — `/isveren/ilan/yeni`, `/isveren/sirket/yeni` ve
+  bunu yapıyor —   `/isveren/ilan/yeni`, `/isveren/sirket/yeni` ve
   `/isveren/sirket/{companyId}/ilan/yeni`; kimlik kabuk düzeyinde `advisory`
   bir şerit ama backend ilan yayımlamayı ve şirket kurmayı kesin olarak
   reddettiği için eylemin kendisi `EmployerGate` ile kapanıyor.
@@ -133,6 +135,16 @@ Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
   doldurmanın karşılığı yok ve her üç form tek kullanımlık bir adres kanıtı
   taşıyor (`candidateToken` 10 dakika yaşıyor): doldurulup reddedilen form o
   kanıtı yakar.
+- **Kimlik doğrulaması web'de tamamlanamaz.** Backend `sod` + `dg1` (Active
+  Authentication açıksa bir de `dg15` + challenge imzası) ister; kanıt ISO
+  14443 çipten `INTERNAL AUTHENTICATE` ile çıkar. Tarayıcıda Web NFC / WebUSB
+  bu protokolü bitirmiyor. Elle beş alan yalnız
+  `IDENTITY_PASSIVE_AUTH_ENABLED=false` iken geçer — o bir doğrulama değil.
+  Bu yüzden `identityVerification` kapısı `/kimlik-dogrula`'ya düşer; ekran
+  kullanıcıyı uygulamaya bırakır ve `next` ile geldiği eyleme döner. BFF
+  `POST /api/users/me/identity-verification` uçları 501 +
+  `IDENTITY_CHIP_PA_NOT_AVAILABLE_ON_WEB` döner, gövdeyi okumaz, backend'e
+  çıkmaz.
 - **Şirket onayı kapısı bir ürün kuralı, güvenlik sınırı değil.**
   `company.isApproved()` koala-backend'in iş mantığında hiç okunmuyor;
   onaylanmamış şirket API'den ilan açabiliyor. Kapı istemcide duruyor ve

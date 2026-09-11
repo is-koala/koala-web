@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { jobDetailFixture } from "../../tests/support/job-detail";
@@ -143,6 +144,23 @@ describe("ilan ayrıntısı", () => {
     render(<JobDetailView job={job} applyAction={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Başvuruyu gönder" })).toBeVisible();
+  });
+
+  it("kimlik reddini ilan sayfasına dönüşle aktarım ekranına bağlar", async () => {
+    const user = userEvent.setup();
+    const applyAction = vi.fn(async () => ({
+      status: "error" as const,
+      errorCode: "APPLICANT_IDENTITY_NOT_VERIFIED",
+      httpStatus: 400,
+    }));
+
+    render(<JobDetailView job={job} applyAction={applyAction} />);
+    await user.click(screen.getByRole("button", { name: "Başvuruyu gönder" }));
+
+    expect(await screen.findByRole("link", { name: /tamamla/i })).toHaveAttribute(
+      "href",
+      `/kimlik-dogrula?next=%2Fis-ilanlari%2F${job.id}`,
+    );
   });
 
   it("backend konum vermediyse gizli adres üretmez", () => {
