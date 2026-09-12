@@ -62,6 +62,9 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
       path.join(sourceRoot, "server", "legal"),
       path.join(sourceRoot, "server", "jobs", "search.ts"),
       path.join(sourceRoot, "server", "jobs", "public-jobs.ts"),
+      // Destek formu oturumsuz; SMTP Next'te yok, BFF `apiFetch` ile
+      // `POST /public/contact` çağırır. Dizin izni `submit.ts`'i de açardı.
+      path.join(sourceRoot, "server", "support", "contact.ts"),
     ];
 
     const direct = sourceFiles(sourceRoot)
