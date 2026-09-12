@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { InvitationPageView } from "@/components/company/invitation-page";
@@ -62,7 +63,7 @@ export default async function Page({ params }: { params: Promise<{ invitationId:
   );
 }
 
-async function InvitationPanel({
+export async function InvitationPanel({
   invitationId,
   viewerId,
 }: {
@@ -73,6 +74,7 @@ async function InvitationPanel({
   try {
     invitation = await getInvitation(invitationId);
   } catch (error) {
+    unstable_rethrow(error);
     // 404 `COMPANY_CONTACT_INVITATION_NOT_FOUND` de buraya düşüyor: metni
     // `errorPresentation` seçiyor ve backend'in ham mesajı ekrana basılmıyor.
     const { errorCode, httpStatus } = failureView(error);
