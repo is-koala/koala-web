@@ -20,11 +20,10 @@ ve ardından `npm run test:e2e`.
 
 ## Destek kutusu
 
-`/iletisim` formu BFF üzerinden SMTP ile `SUPPORT_MAILBOX` adresine düşer
-(varsayılan `info@iskoala.com`). Kutuyu bugün ürün sahibi izler; kişilik
-ataması ve canlı SMTP kimliği insan kapısıdır. `SMTP_HOST` yoksa gönderim
-`EMAIL_SEND_FAILED` döner, site ayağa kalkmaya devam eder. Testler sahte
-postacı kullanır; canlı kutuya otomatik mail gitmez.
+`/iletisim` formu BFF üzerinden `POST /public/contact` çağırır; SMTP
+kimliği Next'te yoktur. Alıcı backend'deki `SUPPORT_MAILBOX` (varsayılan
+`info@iskoala.com`) ve mevcut `MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`
+ile gider. Kutuyu bugün ürün sahibi izler; kişilik ataması insan kapısıdır.
 
 ## Stil kararı
 

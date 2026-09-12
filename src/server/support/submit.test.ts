@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/server/api/errors";
+
 import { createSupportQuota } from "./rate-limit";
-import { submitSupportRequest, type SupportMailer } from "./submit";
+import { submitSupportRequest, type SubmitSupportDependencies } from "./submit";
 
 const valid = {
   topic: "destek",
@@ -13,39 +15,33 @@ const valid = {
   clientKey: "198.51.100.10",
 };
 
-function mailer(): SupportMailer & { send: ReturnType<typeof vi.fn> } {
-  return { send: vi.fn().mockResolvedValue(undefined) };
+function contact(): SubmitSupportDependencies["submit"] & ReturnType<typeof vi.fn> {
+  return vi.fn().mockResolvedValue(undefined);
 }
 
 describe("destek başvurusu", () => {
-  it("geçerli gönderimi destek kutusuna konu, ad, e-posta ve mesajla yollar", async () => {
-    const outbound = mailer();
+  it("geçerli gönderimi backend iletişim ucuna konu, ad, e-posta ve mesajla yollar", async () => {
+    const submit = contact();
 
     await expect(
       submitSupportRequest(valid, {
-        mailer: outbound,
+        submit,
         takeQuota: () => ({ allowed: true }),
-        mailbox: "info@iskoala.com",
       }),
     ).resolves.toEqual({ status: "done" });
 
-    expect(outbound.send).toHaveBeenCalledTimes(1);
-    expect(outbound.send).toHaveBeenCalledWith({
-      to: "info@iskoala.com",
-      replyTo: "ada@example.test",
-      subject: "[Koala] Destek — Ada Yılmaz",
-      text: [
-        "Konu: Destek",
-        "Ad: Ada Yılmaz",
-        "E-posta: ada@example.test",
-        "",
-        "Hesap silme talebim görünmüyor.",
-      ].join("\n"),
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit).toHaveBeenCalledWith({
+      topic: "destek",
+      name: "Ada Yılmaz",
+      email: "ada@example.test",
+      message: "Hesap silme talebim görünmüyor.",
+      consent: true,
     });
   });
 
   it("boş ve geçersiz alanları Türkçe alan hatalarıyla reddeder", async () => {
-    const outbound = mailer();
+    const submit = contact();
 
     await expect(
       submitSupportRequest(
@@ -59,9 +55,8 @@ describe("destek başvurusu", () => {
           clientKey: "198.51.100.10",
         },
         {
-          mailer: outbound,
+          submit,
           takeQuota: () => ({ allowed: true }),
-          mailbox: "info@iskoala.com",
         },
       ),
     ).resolves.toEqual({
@@ -76,27 +71,26 @@ describe("destek başvurusu", () => {
         consent: "Aydınlatma metnini okuduğunu onaylaman gerekiyor.",
       },
     });
-    expect(outbound.send).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
   });
 
-  it("bal küpü doluysa başarı döner ve posta göndermez", async () => {
-    const outbound = mailer();
+  it("bal küpü doluysa başarı döner ve backend'i çağırmaz", async () => {
+    const submit = contact();
 
     await expect(
       submitSupportRequest(
         { ...valid, honeypot: "http://spam.example" },
         {
-          mailer: outbound,
+          submit,
           takeQuota: () => ({ allowed: true }),
-          mailbox: "info@iskoala.com",
         },
       ),
     ).resolves.toEqual({ status: "done" });
-    expect(outbound.send).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
   });
 
-  it("hız sınırı dolunca 429 döner ve posta göndermez", async () => {
-    const outbound = mailer();
+  it("hız sınırı dolunca 429 döner ve backend'i çağırmaz", async () => {
+    const submit = contact();
     const takeQuota = createSupportQuota({
       clientLimit: 1,
       globalLimit: 10,
@@ -104,34 +98,36 @@ describe("destek başvurusu", () => {
       windowMs: 60_000,
     });
 
-    await submitSupportRequest(valid, {
-      mailer: outbound,
-      takeQuota,
-      mailbox: "info@iskoala.com",
-    });
+    await submitSupportRequest(valid, { submit, takeQuota });
 
     await expect(
       submitSupportRequest(
         { ...valid, email: "ada2@example.test" },
-        { mailer: outbound, takeQuota, mailbox: "info@iskoala.com" },
+        { submit, takeQuota },
       ),
     ).resolves.toEqual({
       status: "error",
       errorCode: "TOO_MANY_REQUESTS",
       httpStatus: 429,
     });
-    expect(outbound.send).toHaveBeenCalledTimes(1);
+    expect(submit).toHaveBeenCalledTimes(1);
   });
 
-  it("posta gönderilemezse D4 dış hizmet koduna düşer", async () => {
-    const outbound = mailer();
-    outbound.send.mockRejectedValueOnce(new Error("ada@example.test hesabı reddedildi"));
+  it("kuyruk hatasını D4 dış hizmet koduna düşürür", async () => {
+    const submit = contact();
+    submit.mockRejectedValueOnce(
+      new ApiError({
+        status: 502,
+        errorCode: "EMAIL_SEND_FAILED",
+        errorCategory: "UPSTREAM_FAILED",
+        message: "E-posta gönderilemedi.",
+      }),
+    );
 
     await expect(
       submitSupportRequest(valid, {
-        mailer: outbound,
+        submit,
         takeQuota: () => ({ allowed: true }),
-        mailbox: "info@iskoala.com",
       }),
     ).resolves.toEqual({
       status: "error",

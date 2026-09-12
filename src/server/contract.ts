@@ -66,13 +66,14 @@ export const sessionCookies = {
 /**
  * `AuthController`, `LegalController`, `UsersController`, `JobsController`,
  * `JobAssignmentsController`, `PaymentsController`, `EmployerToolsController`,
- * `AddressSearchController` ve `ReferenceDataController` uçları; backend'de
- * context-path yok.
+ * `AddressSearchController`, `ReferenceDataController` ve `ContactController`
+ * uçları; backend'de context-path yok.
  *
  * Adres uçlarının kimlik alan parçaları burada değil `@/server/address/gateway`
  * içinde birleştirilir: kimlikler tarayıcıdan geldiği için yola konmadan önce
  * UUID olduklarının doğrulanması gerekiyor.
- */export const backendPaths = {
+ */
+export const backendPaths = {
   accountDeletion: "/legal/account-deletion",
   addressCandidateReverse: "/locations/address-candidates/reverse",
   addressSearchSessions: "/locations/address-search-sessions",
@@ -110,6 +111,10 @@ export const sessionCookies = {
    * yayımlanırken `pricingService.snapshot(job)` ile tekrar yapılıp kilitlenir.
    */
   paymentQuotes: "/payment-quotes",
+  /**
+   * `POST /public/contact` — tanıtım sitesi destek formu. SMTP backend'de.
+   */
+  publicContact: "/public/contact",
   refreshToken: "/auth/refresh-token",
   referenceCities: "/reference/cities",
   referenceCountries: "/reference/countries",

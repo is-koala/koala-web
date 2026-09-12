@@ -5,12 +5,13 @@ import { headers } from "next/headers";
 import type { FormState } from "@/lib/form-state";
 import { ingressClientIpHeader } from "@/server/contract";
 import { textField } from "@/server/form";
-import { smtpMailer, supportMailbox } from "@/server/support/mailer";
+import { postSupportContact } from "@/server/support/contact";
 import { takeSupportQuota } from "@/server/support/rate-limit";
 import { submitSupportRequest } from "@/server/support/submit";
 
 /**
- * Destek formunun BFF eylemi. Tarayıcı SMTP ile konuşmaz; gönderim burada.
+ * Destek formunun BFF eylemi. Tarayıcı ve Next SMTP ile konuşmaz; gönderim
+ * `POST /public/contact` üzerinden backend kuyruğuna düşer.
  */
 export async function submitSupportAction(
   _state: FormState,
@@ -27,9 +28,8 @@ export async function submitSupportAction(
       clientKey: supportClientKey(await headers()),
     },
     {
-      mailer: smtpMailer(),
+      submit: postSupportContact,
       takeQuota: takeSupportQuota,
-      mailbox: supportMailbox(),
     },
   );
 }

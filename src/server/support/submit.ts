@@ -2,20 +2,12 @@ import "server-only";
 
 import { supportContent } from "@/content/support";
 import type { FormState } from "@/lib/form-state";
-import { validationState } from "@/server/form";
+import { ApiError } from "@/server/api/errors";
+import { failureState, validationState } from "@/server/form";
+
+import type { SupportContactPayload } from "./contact";
 
 type SupportTopic = (typeof supportContent.topics)[number]["value"];
-
-export type SupportMail = {
-  to: string;
-  replyTo: string;
-  subject: string;
-  text: string;
-};
-
-export type SupportMailer = {
-  send(mail: SupportMail): Promise<void>;
-};
 
 export type SupportRequestInput = {
   topic: string;
@@ -28,9 +20,8 @@ export type SupportRequestInput = {
 };
 
 export type SubmitSupportDependencies = {
-  mailer: SupportMailer;
+  submit: (payload: SupportContactPayload) => Promise<void>;
   takeQuota: (clientKey: string) => { allowed: boolean };
-  mailbox: string;
 };
 
 const nameLimit = 100;
@@ -49,27 +40,16 @@ export async function submitSupportRequest(
     return { status: "error", errorCode: "TOO_MANY_REQUESTS", httpStatus: 429 };
   }
 
-  const topic = input.topic as SupportTopic;
-  const name = input.name.trim();
-  const email = input.email.trim();
-  const message = input.message.trim();
-
   try {
-    await deps.mailer.send({
-      to: deps.mailbox,
-      replyTo: email,
-      subject: `[Koala] ${topicLabel(topic)} — ${name}`,
-      text: [
-        `Konu: ${topicLabel(topic)}`,
-        `Ad: ${name}`,
-        `E-posta: ${email}`,
-        "",
-        message,
-      ].join("\n"),
+    await deps.submit({
+      topic: input.topic,
+      name: input.name.trim(),
+      email: input.email.trim(),
+      message: input.message.trim(),
+      consent: input.consent,
     });
-  } catch {
-    // Posta gövdesi ve alıcı adresi hata nesnesine hiç girmez: Sentry ve
-    // log, başvuru metnini taşıyamasın.
+  } catch (error) {
+    if (error instanceof ApiError) return failureState(error);
     return { status: "error", errorCode: "EMAIL_SEND_FAILED", httpStatus: 502 };
   }
 
@@ -103,10 +83,6 @@ function requestErrors(input: SupportRequestInput): Record<string, string> | nul
 
 function isSupportTopic(value: string): value is SupportTopic {
   return supportContent.topics.some((topic) => topic.value === value);
-}
-
-function topicLabel(topic: SupportTopic): string {
-  return supportContent.topics.find((item) => item.value === topic)?.label ?? topic;
 }
 
 function isEmail(value: string): boolean {
