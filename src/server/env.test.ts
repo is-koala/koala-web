@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   bffUpstreamTimeoutMs,
-  identityUploadMaxConcurrentBodyReads,
+  identityUploadBodyIdleTimeoutMs,
+  identityUploadMaxConcurrentOperations,
   serverEnvironment,
 } from "./env";
 
@@ -59,18 +60,32 @@ describe("sunucu ortam doğrulaması", () => {
     expect(bffUpstreamTimeoutMs()).toBe(8000);
   });
 
-  it("kimlik yüklemesinin eşzamanlı büyük gövde okumalarını yapılandırır", () => {
-    expect(identityUploadMaxConcurrentBodyReads()).toBe(2);
+  it("kimlik yüklemesinin eşzamanlı büyük işlemlerini yapılandırır", () => {
+    expect(identityUploadMaxConcurrentOperations()).toBe(2);
 
     for (const value of ["0", "9", "1.5", "sınırsız"]) {
-      vi.stubEnv("IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS", value);
-      expect(() => identityUploadMaxConcurrentBodyReads()).toThrow(
-        "IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS 1 ile 8 arasında bir tam sayı olmalı.",
+      vi.stubEnv("IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS", value);
+      expect(() => identityUploadMaxConcurrentOperations()).toThrow(
+        "IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS 1 ile 8 arasında bir tam sayı olmalı.",
       );
     }
 
-    vi.stubEnv("IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS", "4");
-    expect(identityUploadMaxConcurrentBodyReads()).toBe(4);
+    vi.stubEnv("IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS", "4");
+    expect(identityUploadMaxConcurrentOperations()).toBe(4);
+  });
+
+  it("kimlik yüklemesinde parçalar arası bekleme süresini yapılandırır", () => {
+    expect(identityUploadBodyIdleTimeoutMs()).toBe(15_000);
+
+    for (const value of ["999", "60001", "1.5", "sınırsız"]) {
+      vi.stubEnv("IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS", value);
+      expect(() => identityUploadBodyIdleTimeoutMs()).toThrow(
+        "IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+      );
+    }
+
+    vi.stubEnv("IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS", "8000");
+    expect(identityUploadBodyIdleTimeoutMs()).toBe(8000);
   });
 
   it("geçerli değerlerde backend adresinin sonundaki eğik çizgiyi atar", () => {

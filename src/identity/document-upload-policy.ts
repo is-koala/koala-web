@@ -21,5 +21,6 @@ export const identityPhotoUploadErrors = {
   fileTooLarge: "Fotoğraf en fazla 10 MB olabilir.",
   contentTooLarge: "Dört fotoğrafın toplam boyutu en fazla 40 MB olabilir.",
   invalidMultipart: "Dört kimlik fotoğrafını yeniden seç.",
+  timedOut: "Yükleme durdu. İnternet bağlantını kontrol edip yeniden dene.",
   unsupportedType: "PNG, JPG, JPEG veya WEBP biçiminde bir fotoğraf seç.",
 } as const;

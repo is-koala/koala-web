@@ -18,11 +18,15 @@ export type IdentityUploadRequest =
   | { ok: false; state: FormState };
 
 /** Ham gövdeyi sabit bütçede tutar, ardından multipart içeriği doğrular. */
-export async function readIdentityUploadRequest(request: Request): Promise<IdentityUploadRequest> {
+export async function readIdentityUploadRequest(
+  request: Request,
+  options: { readonly idleTimeoutMs: number },
+): Promise<IdentityUploadRequest> {
   if (declaredBodyIsTooLarge(request.headers)) return uploadTooLarge();
 
-  const body = await readBoundedBody(request.body);
+  const body = await readBoundedBody(request.body, options.idleTimeoutMs);
   if (body.tooLarge) return uploadTooLarge();
+  if (body.timedOut) return uploadTimedOut();
 
   const form = await parseMultipartForm(body.bytes, request.headers.get("content-type"));
   if (!form) {
@@ -41,21 +45,40 @@ function declaredBodyIsTooLarge(headers: Headers): boolean {
 
 async function readBoundedBody(
   stream: ReadableStream<Uint8Array> | null,
-): Promise<{ tooLarge: true } | { tooLarge: false; bytes: Uint8Array<ArrayBuffer> }> {
-  if (!stream) return { tooLarge: false, bytes: new Uint8Array(new ArrayBuffer(0)) };
+  idleTimeoutMs: number,
+): Promise<
+  | { tooLarge: true; timedOut: false }
+  | { tooLarge: false; timedOut: true }
+  | { tooLarge: false; timedOut: false; bytes: Uint8Array<ArrayBuffer> }
+> {
+  if (!stream) {
+    return { tooLarge: false, timedOut: false, bytes: new Uint8Array(new ArrayBuffer(0)) };
+  }
 
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let receivedBytes = 0;
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await readWithIdleTimeout(reader, idleTimeoutMs);
+      } catch (error) {
+        if (error !== bodyReadTimedOut) throw error;
+        try {
+          await reader.cancel("identity upload body idle timeout");
+        } catch {
+          // Bağlantı zaten kapanmış olabilir; kapasite yine finally ile bırakılır.
+        }
+        return { tooLarge: false, timedOut: true };
+      }
+      const { done, value } = chunk;
       if (done) break;
 
       receivedBytes += value.byteLength;
       if (receivedBytes > identityPhotoTransportMaxBytes) {
         await reader.cancel("identity upload payload too large");
-        return { tooLarge: true };
+        return { tooLarge: true, timedOut: false };
       }
       chunks.push(value);
     }
@@ -69,7 +92,19 @@ async function readBoundedBody(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return { tooLarge: false, bytes };
+  return { tooLarge: false, timedOut: false, bytes };
+}
+
+const bodyReadTimedOut = Symbol("identity upload body read timed out");
+
+function readWithIdleTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  idleTimeoutMs: number,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(bodyReadTimedOut), idleTimeoutMs);
+    reader.read().then(resolve, reject).finally(() => clearTimeout(timeout));
+  });
 }
 
 async function parseMultipartForm(bytes: Uint8Array<ArrayBuffer>, contentType: string | null) {
@@ -158,6 +193,18 @@ function uploadTooLarge(): IdentityUploadRequest {
       errorCode: "VALIDATION_FAILED",
       httpStatus: 413,
       fieldErrors: { photos: identityPhotoUploadErrors.contentTooLarge },
+    },
+  };
+}
+
+function uploadTimedOut(): IdentityUploadRequest {
+  return {
+    ok: false,
+    state: {
+      status: "error",
+      errorCode: "IDENTITY_UPLOAD_TIMED_OUT",
+      httpStatus: 408,
+      fieldErrors: { photos: identityPhotoUploadErrors.timedOut },
     },
   };
 }

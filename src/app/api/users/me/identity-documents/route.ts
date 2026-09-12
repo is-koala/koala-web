@@ -1,8 +1,11 @@
 import type { FormState } from "@/lib/form-state";
 import { isSameOriginRequest } from "@/lib/same-origin";
 import { failureState } from "@/server/form";
-import { verifyIdentityUploadSession } from "@/server/identity/upload-auth";
-import { readIdentityUploadBody } from "@/server/identity/upload-capacity";
+import {
+  identityUploadAuthenticationFailure,
+  verifyIdentityUploadSession,
+} from "@/server/identity/upload-auth";
+import { runIdentityUploadOperation } from "@/server/identity/upload-capacity";
 import { submitIdentityDocuments } from "@/server/identity/documents";
 import { readSession } from "@/server/session/session";
 import { unstable_rethrow } from "next/navigation";
@@ -27,8 +30,20 @@ export async function POST(request: Request): Promise<Response> {
   const sessionFailure = await verifyIdentityUploadSession();
   if (sessionFailure) return stateResponse(sessionFailure);
 
-  const bodyRead = await readIdentityUploadBody(request);
-  if (!bodyRead.acquired) {
+  const operation = await runIdentityUploadOperation(request, async (upload) => {
+    if (!upload.ok) return stateResponse(upload.state);
+
+    try {
+      await submitIdentityDocuments(upload.identity, upload.photos);
+      return stateResponse({ status: "done" });
+    } catch (error) {
+      const authenticationFailure = identityUploadAuthenticationFailure(error);
+      if (authenticationFailure) return stateResponse(authenticationFailure);
+      unstable_rethrow(error);
+      return stateResponse(failureState(error));
+    }
+  });
+  if (!operation.acquired) {
     return stateResponse(
       {
         status: "error",
@@ -38,16 +53,7 @@ export async function POST(request: Request): Promise<Response> {
       { "Retry-After": "1" },
     );
   }
-  const upload = bodyRead.value;
-  if (!upload.ok) return stateResponse(upload.state);
-
-  try {
-    await submitIdentityDocuments(upload.identity, upload.photos);
-    return stateResponse({ status: "done" });
-  } catch (error) {
-    unstable_rethrow(error);
-    return stateResponse(failureState(error));
-  }
+  return operation.value;
 }
 
 function stateResponse(state: FormState, extraHeaders?: HeadersInit): Response {

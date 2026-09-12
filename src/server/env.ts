@@ -31,7 +31,8 @@ export function serverEnvironment(): ServerEnvironment {
   // doğrulanır, ilk kanıt indirmesinde sürpriz bir yapılandırma hatasına bırakılmaz.
   evidenceStorageOrigins();
   bffUpstreamTimeoutMs();
-  identityUploadMaxConcurrentBodyReads();
+  identityUploadMaxConcurrentOperations();
+  identityUploadBodyIdleTimeoutMs();
 
   return { apiUrl: apiUrl.replace(/\/+$/, ""), appVersion };
 }
@@ -49,21 +50,38 @@ export function bffUpstreamTimeoutMs(): number {
   return timeout;
 }
 
-/** Aynı süreçte bellekte tutulabilen büyük kimlik multipart gövdelerini sınırlar. */
-export function identityUploadMaxConcurrentBodyReads(): number {
-  const raw = process.env.IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS?.trim() || "2";
+/** Aynı süreçte bellekte tutulabilen büyük kimlik multipart işlemlerini sınırlar. */
+export function identityUploadMaxConcurrentOperations(): number {
+  const raw = process.env.IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS?.trim() || "2";
   if (!/^\d+$/.test(raw)) {
     throw new Error(
-      "IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS 1 ile 8 arasında bir tam sayı olmalı.",
+      "IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS 1 ile 8 arasında bir tam sayı olmalı.",
     );
   }
   const limit = Number(raw);
   if (limit < 1 || limit > 8) {
     throw new Error(
-      "IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS 1 ile 8 arasında bir tam sayı olmalı.",
+      "IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS 1 ile 8 arasında bir tam sayı olmalı.",
     );
   }
   return limit;
+}
+
+/** Büyük gövdenin iki parçası arasında istemcinin kapasiteyi tutabileceği süre. */
+export function identityUploadBodyIdleTimeoutMs(): number {
+  const raw = process.env.IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS?.trim() || "15000";
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+    );
+  }
+  const timeout = Number(raw);
+  if (timeout < 1000 || timeout > 60_000) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+    );
+  }
+  return timeout;
 }
 
 /** İmzalı kanıt URL'leri için sunucu tarafında açıkça güvenilen özel origin'ler. */

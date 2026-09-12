@@ -73,6 +73,52 @@ describe("kimlik belge formu", () => {
       expect(router.replace).toHaveBeenCalledWith("/giris?next=%2Fkimlik-dogrula");
     });
   });
+
+  it("oturum biterse kimlik ekranının güvenli dönüş yolunu giriş sonrasına taşır", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      status: "error",
+      errorCode: "AUTHENTICATION_REQUIRED",
+      httpStatus: 401,
+    }, { status: 401 })));
+    render(
+      <IdentityDocumentForm
+        firstName="Yusuf"
+        lastName="Acmaci"
+        returnPath="/isveren/ilan/yeni"
+      />,
+    );
+
+    const submit = screen.getByRole("button", { name: "İncelemeye gönder" });
+    fireEvent.submit(submit.closest("form")!);
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith(
+        "/giris?next=%2Fkimlik-dogrula%3Fnext%3D%252Fisveren%252Filan%252Fyeni",
+      );
+    });
+  });
+
+  it("dış next değerini giriş dönüş hedefine dönüştürmez", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      status: "error",
+      errorCode: "AUTHENTICATION_REQUIRED",
+      httpStatus: 401,
+    }, { status: 401 })));
+    render(
+      <IdentityDocumentForm
+        firstName="Yusuf"
+        lastName="Acmaci"
+        returnPath="https://evil.example/phish"
+      />,
+    );
+
+    const submit = screen.getByRole("button", { name: "İncelemeye gönder" });
+    fireEvent.submit(submit.closest("form")!);
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/giris?next=%2Fkimlik-dogrula");
+    });
+  });
 });
 
 function photo(name: string, type = "image/jpeg"): File {

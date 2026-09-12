@@ -13,20 +13,23 @@ import {
   identityDocumentUploadPath,
   identityPhotoInputAccept,
 } from "@/identity/document-upload-policy";
-import { identityVerificationPath } from "@/identity/handoff";
+import { identityHandoffHref } from "@/identity/handoff";
 import { fieldError, idleFormState, type FormState } from "@/lib/form-state";
 import { loginPath } from "@/lib/site";
-
-const identityLoginPath = `${loginPath}?next=${encodeURIComponent(identityVerificationPath)}`;
 
 export function IdentityDocumentForm({
   firstName,
   lastName,
+  returnPath,
 }: {
   firstName: string;
   lastName: string;
+  returnPath?: string | null;
 }) {
   const router = useRouter();
+  const identityLoginPath = `${loginPath}?next=${encodeURIComponent(
+    identityHandoffHref(returnPath),
+  )}`;
   const [state, setState] = useState<FormState>(idleFormState);
   const [pending, setPending] = useState(false);
 

@@ -11,20 +11,31 @@ export async function verifyIdentityUploadSession(): Promise<FormState | null> {
     return {
       status: "error",
       errorCode: failure?.errorCode ?? "UNEXPECTED",
-      httpStatus: failure?.status ?? 500,
+      httpStatus: failureStatus(failure?.status),
     };
   } catch (error) {
     // Server Component'te gezinme olan NEXT_REDIRECT, fetch ile çağrılan rota
     // içinde giriş HTML'ine dönüşür. İstemci gerçek sayfa geçişini kendisi yapar.
-    if (isRedirect(error)) {
-      return {
-        status: "error",
-        errorCode: "AUTHENTICATION_REQUIRED",
-        httpStatus: 401,
-      };
-    }
+    const failure = identityUploadAuthenticationFailure(error);
+    if (failure) return failure;
     throw error;
   }
+}
+
+function failureStatus(status: number | undefined): number {
+  return status !== undefined && Number.isInteger(status) && status >= 400 && status <= 599
+    ? status
+    : 500;
+}
+
+/** Fetch'in sayfa HTML'ini takip etmemesi için oturum yönlendirmesini API durumuna çevirir. */
+export function identityUploadAuthenticationFailure(error: unknown): FormState | null {
+  if (!isRedirect(error)) return null;
+  return {
+    status: "error",
+    errorCode: "AUTHENTICATION_REQUIRED",
+    httpStatus: 401,
+  };
 }
 
 function isRedirect(error: unknown): boolean {

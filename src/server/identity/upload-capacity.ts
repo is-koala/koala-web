@@ -1,19 +1,32 @@
 import "server-only";
 
 import { createConcurrentTaskGate } from "@/server/concurrency";
-import { identityUploadMaxConcurrentBodyReads } from "@/server/env";
+import {
+  identityUploadBodyIdleTimeoutMs,
+  identityUploadMaxConcurrentOperations,
+} from "@/server/env";
 
 import { readIdentityUploadRequest } from "./upload-request";
+import type { IdentityUploadRequest } from "./upload-request";
 
 /**
- * Her gövde 42 MiB taşıyabildiği için okuma sayısı süreç belleğine göre sınırlıdır.
- * Bu bir deneme kotası değildir; tamamlanan veya hataya düşen okuma hemen yer açar.
+ * Ayrıştırılmış dört fotoğraf backend gönderimi bitene kadar bellekte kaldığı için
+ * işlemin tamamı sınırlıdır. Deneme kotası değildir; her sonuç finally ile yer açar.
  */
-export function createIdentityUploadBodyReader(maxConcurrent: number) {
+export function createIdentityUploadOperationRunner(
+  maxConcurrent: number,
+  bodyReadIdleTimeoutMs = 15_000,
+) {
   const gate = createConcurrentTaskGate(maxConcurrent);
-  return (request: Request) => gate.run(() => readIdentityUploadRequest(request));
+  return <Value>(
+    request: Request,
+    operation: (upload: IdentityUploadRequest) => Promise<Value>,
+  ) => gate.run(async () => operation(await readIdentityUploadRequest(request, {
+    idleTimeoutMs: bodyReadIdleTimeoutMs,
+  })));
 }
 
-export const readIdentityUploadBody = createIdentityUploadBodyReader(
-  identityUploadMaxConcurrentBodyReads(),
+export const runIdentityUploadOperation = createIdentityUploadOperationRunner(
+  identityUploadMaxConcurrentOperations(),
+  identityUploadBodyIdleTimeoutMs(),
 );

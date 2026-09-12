@@ -43,20 +43,26 @@ describe("POST /api/users/me/identity-documents", () => {
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });
 
-  it("iki gövde okunurken üçüncüyü başlatmaz ve okumalar bitince yeniden yer açar", async () => {
-    const firstGate = pausedMultipartRequest();
-    const secondGate = pausedMultipartRequest();
-    const first = POST(firstGate.request);
-    const second = POST(secondGate.request);
-    await Promise.all([firstGate.started, secondGate.started]);
+  it("iki yükleme backend'e gönderilirken üçüncüyü başlatmaz ve bitince yeniden yer açar", async () => {
+    let finishSubmits: () => void = () => undefined;
+    let markBothStarted: () => void = () => undefined;
+    let startedSubmits = 0;
+    const bothStarted = new Promise<void>((resolve) => {
+      markBothStarted = resolve;
+    });
+    const submitsFinished = new Promise<void>((resolve) => {
+      finishSubmits = resolve;
+    });
+    submitIdentityDocuments.mockImplementation(async () => {
+      startedSubmits += 1;
+      if (startedSubmits === 2) markBothStarted();
+      await submitsFinished;
+    });
+    const first = POST(multipartRequest(1024));
+    const second = POST(multipartRequest(1024));
+    await bothStarted;
 
-    let third: Response;
-    try {
-      third = await POST(unreadableRequest());
-    } finally {
-      firstGate.finish();
-      secondGate.finish();
-    }
+    const third = await POST(unreadableRequest());
 
     expect(third.status).toBe(503);
     expect(third.headers.get("Retry-After")).toBe("1");
@@ -65,8 +71,11 @@ describe("POST /api/users/me/identity-documents", () => {
       errorCode: "IDENTITY_UPLOAD_CAPACITY_UNAVAILABLE",
       httpStatus: 503,
     });
-    await Promise.all([first, second]);
+    finishSubmits();
+    await expect(first).resolves.toMatchObject({ status: 201 });
+    await expect(second).resolves.toMatchObject({ status: 201 });
 
+    submitIdentityDocuments.mockResolvedValue(undefined);
     const afterCompletion = await POST(invalidMultipartRequest());
     expect(afterCompletion.status).toBe(400);
   });
@@ -84,6 +93,23 @@ describe("POST /api/users/me/identity-documents", () => {
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });
 
+  it("HTTP durumu olmayan profil arızasını geçerli 500 yanıtına çevirir", async () => {
+    loadViewer.mockResolvedValue({
+      viewer: null,
+      failure: { status: 0, errorCode: "UNEXPECTED" },
+    });
+
+    const response = await POST(unreadableRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      status: "error",
+      errorCode: "UNEXPECTED",
+      httpStatus: 500,
+    });
+    expect(submitIdentityDocuments).not.toHaveBeenCalled();
+  });
+
   it("backend oturumu bitirip girişe yönelttiğinde yapılandırılmış 401 döner", async () => {
     loadViewer.mockRejectedValue({
       digest: "NEXT_REDIRECT;replace;/giris?next=%2Fapi%2Fusers%2Fme%2Fidentity-documents;307;",
@@ -98,6 +124,21 @@ describe("POST /api/users/me/identity-documents", () => {
       httpStatus: 401,
     });
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
+  });
+
+  it("ön kontrolden sonra backend gönderiminde biten oturumu yapılandırılmış 401 yapar", async () => {
+    submitIdentityDocuments.mockRejectedValue({
+      digest: "NEXT_REDIRECT;replace;/giris?next=%2Fapi%2Fusers%2Fme%2Fidentity-documents;307;",
+    });
+
+    const response = await POST(multipartRequest(1024));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      status: "error",
+      errorCode: "AUTHENTICATION_REQUIRED",
+      httpStatus: 401,
+    });
   });
 
   it("bildirilen 42 MiB üzeri gövdeyi ayrıştırmadan reddeder", async () => {
@@ -259,46 +300,6 @@ function unreadableRequest(headers?: HeadersInit): Request {
       throw new Error("Gövde oturum ve kapasite kapılarından önce okunmamalı.");
     },
   } as unknown as Request;
-}
-
-function pausedMultipartRequest(): {
-  readonly request: Request;
-  readonly started: Promise<void>;
-  readonly finish: () => void;
-} {
-  let markStarted: () => void = () => undefined;
-  let finish: () => void = () => undefined;
-  const started = new Promise<void>((resolve) => {
-    markStarted = resolve;
-  });
-  const release = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
-  let sent = false;
-  const body = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (sent) return;
-      sent = true;
-      markStarted();
-      await release;
-      controller.enqueue(new TextEncoder().encode("geçersiz multipart"));
-      controller.close();
-    },
-  });
-  return {
-    request: new Request("https://iskoala.com/api/users/me/identity-documents", {
-      method: "POST",
-      headers: {
-        "content-type": "multipart/form-data; boundary=test",
-        host: "iskoala.com",
-        origin: "https://iskoala.com",
-      },
-      body,
-      duplex: "half",
-    } as RequestInit & { duplex: "half" }),
-    started,
-    finish,
-  };
 }
 
 function invalidMultipartRequest(): Request {

@@ -63,6 +63,7 @@ export default async function Page({
           <IdentityDocumentForm
             firstName={viewer?.firstName ?? ""}
             lastName={viewer?.lastName ?? ""}
+            returnPath={nextPath}
           />
         </>
       )}
