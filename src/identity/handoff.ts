@@ -5,7 +5,7 @@ import { safeInternalPath } from "@/lib/urls";
  *
  * Backend `POST /users/me/identity-verification` bayrak açıkken `sod` + `dg1`
  * ister. Tarayıcıda Web NFC / WebUSB o protokolü bitirmiyor. Beş alanlık form
- * damgalamaz. Ürün yolu `POST /users/me/identity-documents` (TCKK ön/arka) +
+ * damgalamaz. Ürün yolu `POST /users/me/identity-documents` (dört TCKK fotoğrafı) +
  * personel onayı. Çip BFF uçları hâlâ 501 döner; kapı `/kimlik-dogrula`'ya
  * düşer.
  */

@@ -267,7 +267,7 @@ describe("şirket yetkilisi hataları", () => {
     const presentation = errorPresentation("USER_MUST_VERIFY_IDENTITY", 400);
 
     expect(presentation.title).toBe("Kimliğini doğrulaman gerekiyor");
-    expect(presentation.message).toContain("ön ve arka fotoğrafını");
+    expect(presentation.message).toContain("Dört kimlik fotoğrafını");
     expect(presentation.action).toBe("none");
   });
 
@@ -346,7 +346,7 @@ describe("kapı metinleri", () => {
     expect(errorPresentation("IDENTITY_CHIP_PA_NOT_AVAILABLE_ON_WEB", 501)).toEqual({
       title: "Tarayıcı çip okuyamaz",
       message:
-        "Tarayıcı kimlik belgesinin çipini okuyamaz. T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+        "Tarayıcı kimlik belgesinin çipini okuyamaz. Dört kimlik fotoğrafını yükleyerek incelemeye gönderebilirsin.",
       action: "none",
     });
   });
@@ -354,7 +354,7 @@ describe("kapı metinleri", () => {
   it("henüz belge gönderilmemiş incelemeyi yükleme çağrısına çevirir", () => {
     expect(errorPresentation("IDENTITY_DOCUMENTS_NOT_FOUND", 404)).toEqual({
       title: "Henüz belge göndermedin",
-      message: "T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+      message: "Dört kimlik fotoğrafını yükleyerek incelemeye gönderebilirsin.",
       action: "none",
     });
   });

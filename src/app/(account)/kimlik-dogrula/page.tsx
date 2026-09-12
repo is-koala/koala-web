@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  * Kimlik kapısının web ekranı.
  *
  * Çip PA tarayıcıda üretilmez; beş alanlık form da damgalamaz. Ürün yolu
- * TCKK ön/arka fotoğrafı + personel onayı (koala-backend#193). `next` güvenliyse
+ * Dört TCKK fotoğrafı + personel onayı (koala-backend#219). `next` güvenliyse
  * dönüş yolunu taşır. Bekleyen inceleme yeniden yüklemeyi kapatır; red
  * gerekçesi aynı formun üstünde durur.
  */

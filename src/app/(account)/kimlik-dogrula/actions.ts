@@ -33,20 +33,25 @@ export async function submitIdentityDocumentsAction(
   }
   if (!tcDocumentNumber) fieldErrors.tcDocumentNumber = "Kimlik seri numarasını yazmalısın.";
 
+  const selfie = photoOf(formData, "selfie");
   const front = photoOf(formData, "front");
   const back = photoOf(formData, "back");
+  const together = photoOf(formData, "together");
+  if (selfie === null) fieldErrors.selfie = "Yüzünün fotoğrafını seç.";
+  else Object.assign(fieldErrors, photoErrors("selfie", selfie));
   if (front === null) fieldErrors.front = "Kimliğin ön yüzünün fotoğrafını seç.";
   else Object.assign(fieldErrors, photoErrors("front", front));
   if (back === null) fieldErrors.back = "Kimliğin arka yüzünün fotoğrafını seç.";
   else Object.assign(fieldErrors, photoErrors("back", back));
+  if (together === null) fieldErrors.together = "Kartın yüzünün altında olduğu fotoğrafı seç.";
+  else Object.assign(fieldErrors, photoErrors("together", together));
 
   if (Object.keys(fieldErrors).length > 0) return validationState(fieldErrors);
 
   try {
     await submitIdentityDocuments(
       { firstName, lastName, birthDate, identityNumber, tcDocumentNumber },
-      front!,
-      back!,
+      { selfie: selfie!, front: front!, back: back!, together: together! },
     );
   } catch (error) {
     unstable_rethrow(error);

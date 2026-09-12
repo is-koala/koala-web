@@ -50,13 +50,15 @@ describe("TCKK belge yükleme", () => {
     vi.unstubAllGlobals();
   });
 
-  it("ön ve arka fotoğrafı JSON kimlik parçasıyla belge ucuna gönderir", async () => {
+  it("dört fotoğrafı JSON kimlik parçasıyla belge ucuna gönderir", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, envelope({ status: "PENDING" })));
     vi.stubGlobal("fetch", fetchMock);
+    const selfie = new File(["yuz"], "yuz.jpg", { type: "image/jpeg" });
     const front = new File(["on"], "on.jpg", { type: "image/jpeg" });
     const back = new File(["arka"], "arka.jpg", { type: "image/jpeg" });
+    const together = new File(["birlikte"], "birlikte.jpg", { type: "image/jpeg" });
 
-    await submitIdentityDocuments(identity, front, back);
+    await submitIdentityDocuments(identity, { selfie, front, back, together });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.example.test/users/me/identity-documents");
@@ -75,10 +77,14 @@ describe("TCKK belge yükleme", () => {
       tcIdentityNumber: identity.identityNumber,
       tcDocumentNumber: identity.tcDocumentNumber,
     });
+    expect(body.get("selfie")).toBe(selfie);
     expect(body.get("front")).toBe(front);
     expect(body.get("back")).toBe(back);
+    expect(body.get("together")).toBe(together);
+    expect((body.get("selfie") as File).name).toBe("yuz.jpg");
     expect((body.get("front") as File).name).toBe("on.jpg");
     expect((body.get("back") as File).name).toBe("arka.jpg");
+    expect((body.get("together") as File).name).toBe("birlikte.jpg");
   });
 
   it("son incelemeyi TCKN taşımadan durum ve gerekçeye indirger", async () => {

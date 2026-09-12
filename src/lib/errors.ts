@@ -75,7 +75,7 @@ const exactErrors: Record<string, ErrorPresentation> = {
   },
   APPLICANT_IDENTITY_NOT_VERIFIED: {
     title: "Kimliğini doğrulaman gerekiyor",
-    message: "Başvuru yapmadan önce kimlik kartının ön ve arka fotoğrafını yüklemelisin.",
+    message: "Başvuru yapmadan önce dört kimlik fotoğrafını yüklemelisin.",
     action: "none",
   },
   IDENTITY_DOCUMENTS_ALREADY_PENDING: {
@@ -86,18 +86,18 @@ const exactErrors: Record<string, ErrorPresentation> = {
   },
   IDENTITY_DOCUMENTS_NOT_FOUND: {
     title: "Henüz belge göndermedin",
-    message: "T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+    message: "Dört kimlik fotoğrafını yükleyerek incelemeye gönderebilirsin.",
     action: "none",
   },
   IDENTITY_DOCUMENTS_REQUIRED: {
     title: "Kimlik fotoğrafları eksik",
-    message: "T.C. kimlik kartının ön ve arka yüzünün fotoğrafını birlikte yüklemelisin.",
+    message: "Yüz, TCKK ön, TCKK arka ve TCKK yüzün altında fotoğraflarının dördünü de yüklemelisin.",
     action: "none",
   },
   [identityChipPaUnavailableErrorCode]: {
     title: "Tarayıcı çip okuyamaz",
     message:
-      "Tarayıcı kimlik belgesinin çipini okuyamaz. T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+      "Tarayıcı kimlik belgesinin çipini okuyamaz. Dört kimlik fotoğrafını yükleyerek incelemeye gönderebilirsin.",
     action: "none",
   },
   APPLICANT_ADDRESS_REQUIRED: {
@@ -174,7 +174,7 @@ const exactErrors: Record<string, ErrorPresentation> = {
   JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "İlanı yayımlayabilmen için önce kimliğini doğrulamalısın. Kimlik kartının ön ve arka fotoğrafını yükleyebilirsin.",
+      "İlanı yayımlayabilmen için önce kimliğini doğrulamalısın. Dört kimlik fotoğrafını yükleyebilirsin.",
     action: "none",
   },
   JOB_USER_IS_NOT_EMPLOYER: {
@@ -428,7 +428,7 @@ const exactErrors: Record<string, ErrorPresentation> = {
   USER_MUST_VERIFY_IDENTITY: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "Şirket kurabilmen için önce kimliğini doğrulamalısın. Kimlik kartının ön ve arka fotoğrafını yükleyebilirsin.",
+      "Şirket kurabilmen için önce kimliğini doğrulamalısın. Dört kimlik fotoğrafını yükleyebilirsin.",
     action: "none",
   },
   // `CompanyManager.java:94-97` enum'a çeviremediği türü 400 ile reddediyor.
@@ -569,7 +569,7 @@ export type GateNotice = {
  * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir.
  *
  * Kimlik kapısı `/kimlik-dogrula`'ya düşer: tarayıcı çip PA üretemez; ekran
- * TCKK ön/arka yüklemesini alır (koala-backend#193).
+ * dört TCKK fotoğrafını alır (koala-backend#219).
  */
 const openAppPath = "/uygulamayi-ac";
 
@@ -577,7 +577,7 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   identityVerification: {
     title: "Kimliğini doğrulaman gerekiyor",
     message:
-      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Tarayıcıda T.C. kimlik kartının ön ve arka fotoğrafını yükleyebilirsin; personel onayından sonra damgalanır.",
+      "İlan açmak, şirket kurmak ve başvuru yapmak için önce kimliğini doğrulamalısın. Tarayıcıda dört kimlik fotoğrafını yükleyebilirsin; personel onayından sonra damgalanır.",
     remedy: { href: identityVerificationPath, label: "Kimliğini doğrula" },
     errorCodes: [
       "JOB_INDIVIDUAL_EMPLOYER_IDENTITY_NOT_VERIFIED",
