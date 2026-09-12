@@ -132,6 +132,12 @@ export const sessionCookies = {
    */
   currentUserAddress: "/users/me/address",
   /**
+   * `GET/POST /users/me/identity-documents` — TCKK incelemesi. Adı `usersMe`
+   * ile başlamıyor: `server-only.test.ts` kabuğun tek `GET /users/me`
+   * çağrısını o önekle arıyor ve bu bambaşka bir uç.
+   */
+  identityDocuments: "/users/me/identity-documents",
+  /**
    * Oturum sahibinin profili. Kabuğun ihtiyaç duyduğu her alanı tek yanıtta
    * taşıyor — `isEmployer`, `identityVerified`, `maskedTcIdentityNumber`,
    * `address` ve `companies[].approved` — bu yüzden şirket onayı için ikinci

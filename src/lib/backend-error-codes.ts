@@ -86,6 +86,7 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "IDENTITY_CHALLENGE_INVALID": "validation",
   "IDENTITY_DOCUMENT_REVIEW_REQUIRED": "validation",
   "IDENTITY_DOCUMENTS_ALREADY_PENDING": "validation",
+  "IDENTITY_DOCUMENTS_NOT_FOUND": "notFound",
   "IDENTITY_DOCUMENTS_REQUIRED": "validation",
   "IDENTITY_EVIDENCE_REQUIRED": "validation",
   "IDENTITY_REVIEW_ALREADY_DECIDED": "conflict",
