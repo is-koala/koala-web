@@ -35,6 +35,24 @@ test.describe("erişilebilirlik taraması", () => {
     });
   }
 
+  test("açık mobil menü ciddi veya kritik erişilebilirlik ihlali taşımıyor", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const response = await page.goto("/");
+
+    expect(response?.status()).toBe(200);
+    await page.getByRole("button", { name: "Menüyü aç" }).click();
+    await expect(page.getByRole("dialog", { name: "Menü" })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    const blockingViolations = results.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    );
+
+    expect(blockingViolations).toEqual([]);
+  });
+
   test("ilan listesi ve ayrıntısı Maps JavaScript yüklemez", async ({ page }) => {
     const mapsRequests: string[] = [];
     page.on("request", (request) => {

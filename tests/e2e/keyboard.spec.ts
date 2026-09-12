@@ -51,6 +51,20 @@ test("ilan ayrıntısındaki başvuru eylemi klavyeyle giriş kapısına ulaşı
   await expect(page).toHaveURL(`/giris?next=%2Fis-ilanlari%2F${openJobId}`);
 });
 
+test("mobil menü yalnız klavyeyle açılır ve Escape ile kapanır", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Menüyü aç" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Menü" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Menü" }).getByRole("link", { name: "İş İlanları" })).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Menü" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Menüyü aç" })).toBeFocused();
+});
+
 async function fillWithKeyboard(page: Page, field: Locator, value: string) {
   await tabTo(page, field);
   await page.keyboard.type(value);
