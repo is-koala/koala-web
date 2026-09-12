@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   bffUpstreamTimeoutMs,
   identityUploadBodyIdleTimeoutMs,
+  identityUploadBodyTotalTimeoutMs,
   identityUploadMaxConcurrentOperations,
   serverEnvironment,
 } from "./env";
@@ -86,6 +87,20 @@ describe("sunucu ortam doğrulaması", () => {
 
     vi.stubEnv("IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS", "8000");
     expect(identityUploadBodyIdleTimeoutMs()).toBe(8000);
+  });
+
+  it("kimlik yüklemesinin toplam gövde okuma süresini sonlu tutar", () => {
+    expect(identityUploadBodyTotalTimeoutMs()).toBe(900_000);
+
+    for (const value of ["59999", "1800001", "1.5", "sınırsız"]) {
+      vi.stubEnv("IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS", value);
+      expect(() => identityUploadBodyTotalTimeoutMs()).toThrow(
+        "IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS 60000 ile 1800000 arasında bir tam sayı olmalı.",
+      );
+    }
+
+    vi.stubEnv("IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS", "600000");
+    expect(identityUploadBodyTotalTimeoutMs()).toBe(600_000);
   });
 
   it("geçerli değerlerde backend adresinin sonundaki eğik çizgiyi atar", () => {

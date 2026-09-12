@@ -20,11 +20,15 @@ export type IdentityUploadRequest =
 /** Ham gövdeyi sabit bütçede tutar, ardından multipart içeriği doğrular. */
 export async function readIdentityUploadRequest(
   request: Request,
-  options: { readonly idleTimeoutMs: number },
+  options: { readonly idleTimeoutMs: number; readonly totalTimeoutMs: number },
 ): Promise<IdentityUploadRequest> {
   if (declaredBodyIsTooLarge(request.headers)) return uploadTooLarge();
 
-  const body = await readBoundedBody(request.body, options.idleTimeoutMs);
+  const body = await readBoundedBody(
+    request.body,
+    options.idleTimeoutMs,
+    options.totalTimeoutMs,
+  );
   if (body.tooLarge) return uploadTooLarge();
   if (body.timedOut) return uploadTimedOut();
 
@@ -46,6 +50,7 @@ function declaredBodyIsTooLarge(headers: Headers): boolean {
 async function readBoundedBody(
   stream: ReadableStream<Uint8Array> | null,
   idleTimeoutMs: number,
+  totalTimeoutMs: number,
 ): Promise<
   | { tooLarge: true; timedOut: false }
   | { tooLarge: false; timedOut: true }
@@ -58,11 +63,14 @@ async function readBoundedBody(
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let receivedBytes = 0;
+  const deadline = performance.now() + totalTimeoutMs;
   try {
     while (true) {
       let chunk: ReadableStreamReadResult<Uint8Array>;
       try {
-        chunk = await readWithIdleTimeout(reader, idleTimeoutMs);
+        const remainingMs = deadline - performance.now();
+        if (remainingMs <= 0) throw bodyReadTimedOut;
+        chunk = await readWithIdleTimeout(reader, Math.min(idleTimeoutMs, remainingMs));
       } catch (error) {
         if (error !== bodyReadTimedOut) throw error;
         try {

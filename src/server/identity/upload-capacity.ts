@@ -3,6 +3,7 @@ import "server-only";
 import { createConcurrentTaskGate } from "@/server/concurrency";
 import {
   identityUploadBodyIdleTimeoutMs,
+  identityUploadBodyTotalTimeoutMs,
   identityUploadMaxConcurrentOperations,
 } from "@/server/env";
 
@@ -15,7 +16,8 @@ import type { IdentityUploadRequest } from "./upload-request";
  */
 export function createIdentityUploadOperationRunner(
   maxConcurrent: number,
-  bodyReadIdleTimeoutMs = 15_000,
+  bodyReadIdleTimeoutMs: number,
+  bodyReadTotalTimeoutMs: number,
 ) {
   const gate = createConcurrentTaskGate(maxConcurrent);
   return <Value>(
@@ -23,10 +25,12 @@ export function createIdentityUploadOperationRunner(
     operation: (upload: IdentityUploadRequest) => Promise<Value>,
   ) => gate.run(async () => operation(await readIdentityUploadRequest(request, {
     idleTimeoutMs: bodyReadIdleTimeoutMs,
+    totalTimeoutMs: bodyReadTotalTimeoutMs,
   })));
 }
 
 export const runIdentityUploadOperation = createIdentityUploadOperationRunner(
   identityUploadMaxConcurrentOperations(),
   identityUploadBodyIdleTimeoutMs(),
+  identityUploadBodyTotalTimeoutMs(),
 );

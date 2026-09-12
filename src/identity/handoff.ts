@@ -21,7 +21,19 @@ export const identityChipPaUnavailableErrorCode = "IDENTITY_CHIP_PA_NOT_AVAILABL
  * bir `next` giriş sayfasındaki gibi düşer: açık yönlendirme aracı olmasın.
  */
 export function identityHandoffHref(returnPath?: string | null): string {
-  const next = safeInternalPath(returnPath);
-  if (!next || next === identityVerificationPath) return identityVerificationPath;
+  const next = identityReturnPath(returnPath);
+  if (!next) return identityVerificationPath;
   return `${identityVerificationPath}?next=${encodeURIComponent(next)}`;
+}
+
+/** Kimlik ekranının kendi varyantlarını ve güvensiz hedefleri dönüş yolundan çıkarır. */
+export function identityReturnPath(returnPath?: string | null): string | null {
+  const next = safeInternalPath(returnPath);
+  return next && !isIdentityVerificationLocation(next) ? next : null;
+}
+
+function isIdentityVerificationLocation(path: string): boolean {
+  // Sorgu ve fragment hedefi değiştirmez; bunları ayrı hedef saymak her
+  // oturum bitişinde `/kimlik-dogrula`yı kendi içine yeniden sarardı.
+  return new URL(path, "https://koala.invalid").pathname === identityVerificationPath;
 }

@@ -5,8 +5,7 @@ import { redirect } from "next/navigation";
 import { IdentityDocumentForm } from "@/components/identity/document-form";
 import { DoneNotice } from "@/components/form-controls";
 import { identityHandoffContent } from "@/content/account";
-import { identityVerificationPath } from "@/identity/handoff";
-import { safeInternalPath } from "@/lib/urls";
+import { identityReturnPath } from "@/identity/handoff";
 import { getCurrentIdentityReview } from "@/server/identity/documents";
 import { enterShell } from "@/server/session/viewer";
 
@@ -30,9 +29,8 @@ export default async function Page({
 }) {
   const { viewer } = await enterShell();
   const { next } = await searchParams;
-  const nextPath = typeof next === "string" ? safeInternalPath(next) : null;
-  const destination =
-    nextPath && nextPath !== identityVerificationPath ? nextPath : "/";
+  const nextPath = typeof next === "string" ? identityReturnPath(next) : null;
+  const destination = nextPath ?? "/";
 
   if (viewer?.identityVerified) redirect(destination);
 
@@ -67,7 +65,7 @@ export default async function Page({
           />
         </>
       )}
-      {nextPath && nextPath !== identityVerificationPath ? (
+      {nextPath ? (
         <p>
           <Link className="text-link" href={nextPath}>
             {identityHandoffContent.continueLabel}

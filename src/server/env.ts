@@ -33,6 +33,7 @@ export function serverEnvironment(): ServerEnvironment {
   bffUpstreamTimeoutMs();
   identityUploadMaxConcurrentOperations();
   identityUploadBodyIdleTimeoutMs();
+  identityUploadBodyTotalTimeoutMs();
 
   return { apiUrl: apiUrl.replace(/\/+$/, ""), appVersion };
 }
@@ -79,6 +80,23 @@ export function identityUploadBodyIdleTimeoutMs(): number {
   if (timeout < 1000 || timeout > 60_000) {
     throw new Error(
       "IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+    );
+  }
+  return timeout;
+}
+
+/** Damlatarak kapasiteyi tutan tek istemcinin toplam gövde okuma süresi. */
+export function identityUploadBodyTotalTimeoutMs(): number {
+  const raw = process.env.IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS?.trim() || "900000";
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS 60000 ile 1800000 arasında bir tam sayı olmalı.",
+    );
+  }
+  const timeout = Number(raw);
+  if (timeout < 60_000 || timeout > 1_800_000) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS 60000 ile 1800000 arasında bir tam sayı olmalı.",
     );
   }
   return timeout;

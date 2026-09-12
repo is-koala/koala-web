@@ -89,6 +89,18 @@ describe("kimlik belge ekranı", () => {
     expect(screen.queryByRole("link", { name: "Doğruladıktan sonra devam et" })).toBeNull();
   });
 
+  it("kimlik ekranının query varyantını kendi devam hedefi yapmaz", async () => {
+    render(
+      await Page({
+        searchParams: Promise.resolve({
+          next: "/kimlik-dogrula?next=%2Fisveren%2Filan%2Fyeni",
+        }),
+      }),
+    );
+
+    expect(screen.queryByRole("link", { name: "Doğruladıktan sonra devam et" })).toBeNull();
+  });
+
   it("doğrulanmış kullanıcıyı dönüş yoluna bırakır", async () => {
     enterShell.mockResolvedValueOnce({
       viewer: { identityVerified: true, firstName: "Ayşe" },
