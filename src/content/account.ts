@@ -59,11 +59,11 @@ export const identityHandoffContent = {
   eyebrow: "Kimlik doğrulama",
   title: "Kimliğini belgelerle doğrula",
   body:
-    "İlan açmak, şirket kurmak ve başvuru yapmak için T.C. kimlik kartının ön ve arka yüzünün fotoğrafını yükle. Personel onayından sonra kimliğin doğrulanır; tarayıcı çip okuyamaz.",
+    "İlan açmak, şirket kurmak ve başvuru yapmak için dört fotoğraf yükle: yüzün, TCKK ön, TCKK arka ve TCKK yüzün altında (aynı karede yüz + kart). Personel onayından sonra kimliğin doğrulanır; tarayıcı çip okuyamaz.",
   continueLabel: "Doğruladıktan sonra devam et",
   pendingTitle: "Belgelerin inceleniyor",
   pendingBody:
-    "Kimlik kartının ön ve arka fotoğrafı personel kuyruğunda. Onaylanınca hesabın doğrulanmış olur; sonuçlanmadan yeni bir yükleme yapılamaz.",
+    "Dört kimlik fotoğrafın personel kuyruğunda. Onaylanınca hesabın doğrulanmış olur; sonuçlanmadan yeni bir yükleme yapılamaz.",
   rejectedTitle: "Belgelerin reddedildi",
   rejectedBody: "Personel gerekçesini okuyup yeni fotoğraflarla tekrar gönderebilirsin.",
   rejectionReasonLabel: "Personel gerekçesi",

@@ -54,8 +54,10 @@ describe("kimlik belge action", () => {
       status: "error",
       errorCode: "VALIDATION_FAILED",
       fieldErrors: {
+        selfie: "Yüzünün fotoğrafını seç.",
         front: "Kimliğin ön yüzünün fotoğrafını seç.",
         back: "Kimliğin arka yüzünün fotoğrafını seç.",
+        together: "Kartın yüzünün altında olduğu fotoğrafı seç.",
       },
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -64,11 +66,15 @@ describe("kimlik belge action", () => {
   it("geçerli belgede çip alanlarını göndermeden kuyruğa düşürür", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, envelope({ status: "PENDING" })));
     vi.stubGlobal("fetch", fetchMock);
+    const selfie = new File(["yuz"], "yuz.jpg", { type: "image/jpeg" });
     const front = new File(["on"], "on.jpg", { type: "image/jpeg" });
     const back = new File(["arka"], "arka.webp", { type: "image/webp" });
+    const together = new File(["birlikte"], "birlikte.jpg", { type: "image/jpeg" });
     const form = declaredForm();
+    form.set("selfie", selfie);
     form.set("front", front);
     form.set("back", back);
+    form.set("together", together);
 
     await expect(submitIdentityDocumentsAction(idleFormState, form)).resolves.toEqual({
       status: "done",
@@ -85,8 +91,10 @@ describe("kimlik belge action", () => {
     });
     expect(identity).not.toHaveProperty("sod");
     expect(identity).not.toHaveProperty("dg1");
+    expect(body.get("selfie")).toBe(selfie);
     expect(body.get("front")).toBe(front);
     expect(body.get("back")).toBe(back);
+    expect(body.get("together")).toBe(together);
   });
 });
 

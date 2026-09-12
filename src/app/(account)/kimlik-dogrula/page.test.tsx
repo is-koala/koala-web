@@ -26,15 +26,17 @@ describe("kimlik belge ekranı", () => {
     getCurrentIdentityReview.mockResolvedValue(null);
   });
 
-  it("oturum kapısının arkasında TCKK ön ve arka yükleme formunu çizer", async () => {
+  it("oturum kapısının arkasında dört TCKK fotoğrafı yükleme formunu çizer", async () => {
     render(await Page({ searchParams: Promise.resolve({}) }));
 
     expect(enterShell).toHaveBeenCalled();
     expect(getCurrentIdentityReview).toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "Kimliğini belgelerle doğrula" })).toBeVisible();
-    expect(screen.getByText(/ön ve arka yüzünün fotoğrafını/i)).toBeVisible();
+    expect(screen.getByText(/dört fotoğraf yükle/i)).toBeVisible();
+    expect(screen.getByLabelText("Yüz fotoğrafı")).toBeVisible();
     expect(screen.getByLabelText("Kimlik ön yüzü")).toBeVisible();
     expect(screen.getByLabelText("Kimlik arka yüzü")).toBeVisible();
+    expect(screen.getByLabelText("Kimlik yüzün altında")).toBeVisible();
     expect(screen.getByLabelText("T.C. kimlik numarası")).toBeVisible();
     expect(screen.queryByRole("link", { name: "Uygulamada aç" })).toBeNull();
     expect(screen.queryByLabelText(/sod|dg1|çip/i)).toBeNull();

@@ -28,17 +28,25 @@ type IdentityReviewDto = {
 
 const reviewStatuses = new Set<IdentityReviewStatus>(["PENDING", "APPROVED", "REJECTED"]);
 
+export type IdentityPhotos = {
+  selfie: File;
+  front: File;
+  back: File;
+  together: File;
+};
+
 /**
- * `POST /users/me/identity-documents` — multipart `identity` + `front` + `back`.
+ * `POST /users/me/identity-documents` — multipart `identity` + dört slot.
  *
  * Kimlik parçası `@RequestPart("identity")` için `application/json` olmak
  * zorunda; düz metin Spring'in `VerifyIdentityDto` çözümlemesini düşürür.
  * Dosya adları `uploadValidator`'ın uzantı kontrolü için olduğu gibi kalır.
+ * Slot adları personelin hangi kareyi gördüğünü taşır: yüz, TCKK ön, TCKK
+ * arka, TCKK yüzün altında.
  */
 export async function submitIdentityDocuments(
   identity: IdentityDocumentDeclaration,
-  front: File,
-  back: File,
+  photos: IdentityPhotos,
 ): Promise<void> {
   const body = new FormData();
   body.append(
@@ -56,8 +64,10 @@ export async function submitIdentityDocuments(
       { type: "application/json" },
     ),
   );
-  body.append("front", front);
-  body.append("back", back);
+  body.append("selfie", photos.selfie);
+  body.append("front", photos.front);
+  body.append("back", photos.back);
+  body.append("together", photos.together);
   await apiRequest(backendPaths.identityDocuments, { method: "POST", body });
 }
 

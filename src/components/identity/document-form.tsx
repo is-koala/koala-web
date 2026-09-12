@@ -26,8 +26,8 @@ export function IdentityDocumentForm({
   if (state.status === "done") {
     return (
       <DoneNotice title="Belgelerin incelemeye alındı">
-        Kimlik kartının ön ve arka fotoğrafı personel kuyruğuna düştü. Onaylanınca
-        hesabın doğrulanmış olur; çip okutmana gerek yok.
+        Dört kimlik fotoğrafın personel kuyruğuna düştü. Onaylanınca hesabın
+        doğrulanmış olur; çip okutmana gerek yok.
       </DoneNotice>
     );
   }
@@ -78,6 +78,13 @@ export function IdentityDocumentForm({
         error={fieldError(state, "tcDocumentNumber")}
       />
       <FileField
+        name="selfie"
+        label="Yüz fotoğrafı"
+        accept={imageAccept}
+        hint="Yüzünün net bir selfie fotoğrafı"
+        error={fieldError(state, "selfie")}
+      />
+      <FileField
         name="front"
         label="Kimlik ön yüzü"
         accept={imageAccept}
@@ -90,6 +97,13 @@ export function IdentityDocumentForm({
         accept={imageAccept}
         hint="TCKK arka yüzünün net bir fotoğrafı"
         error={fieldError(state, "back")}
+      />
+      <FileField
+        name="together"
+        label="Kimlik yüzün altında"
+        accept={imageAccept}
+        hint="Yüzün ve TCKK'nın aynı karede olduğu fotoğraf"
+        error={fieldError(state, "together")}
       />
       <SubmitButton label="İncelemeye gönder" pendingLabel="Gönderiliyor…" />
     </form>
