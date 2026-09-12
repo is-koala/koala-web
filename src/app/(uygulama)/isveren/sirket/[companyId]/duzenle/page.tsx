@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { AddressView } from "@/components/address-view";
@@ -57,11 +57,12 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
   );
 }
 
-async function EditPanel({ companyId }: { companyId: string }) {
+export async function EditPanel({ companyId }: { companyId: string }) {
   let company: Company;
   try {
     company = await getCompany(companyId);
   } catch (error) {
+    unstable_rethrow(error);
     const { errorCode, httpStatus } = failureView(error);
     return <ErrorState errorCode={errorCode} status={httpStatus} />;
   }

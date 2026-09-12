@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
@@ -48,6 +48,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   try {
     job = await fetchJobDetail(id);
   } catch (error) {
+    unstable_rethrow(error);
     // Backend yetkisiz kullanıcıya da 404 veriyor; ilanın varlığı sızmasın
     // diye web de aynı cevabı verir.
     if (error instanceof ApiError && error.status === notFoundStatus) notFound();

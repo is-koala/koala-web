@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import { gateNotice } from "@/lib/errors";
 import type { FormState } from "@/lib/form-state";
 import type { GateId } from "@/lib/gates";
@@ -34,7 +36,8 @@ export function readJobDraft(formData: FormData): JobDraft {
 export async function loadJobCategories(): Promise<readonly JobCategory[] | null> {
   try {
     return await fetchJobCategories();
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return null;
   }
 }

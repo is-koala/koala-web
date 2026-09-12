@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import {
@@ -68,7 +68,7 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
   );
 }
 
-async function ContactsPanel({
+export async function ContactsPanel({
   companyId,
   companyName,
   viewerRole,
@@ -106,6 +106,7 @@ async function resolve<T>(request: Promise<T>): Promise<CompanyContactsData<T>> 
   try {
     return { status: "ready", data: await request };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }

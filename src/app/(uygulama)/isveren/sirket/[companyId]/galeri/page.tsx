@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { GalleryManager } from "@/components/gallery/gallery-manager";
@@ -72,6 +72,7 @@ export async function CompanyGalleryPanel({
   try {
     images = await listCompanyImages(companyId);
   } catch (error) {
+    unstable_rethrow(error);
     const failure = failureView(error);
     return <ErrorState errorCode={failure.errorCode} status={failure.httpStatus} />;
   }

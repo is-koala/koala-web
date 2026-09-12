@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 
 import { ProfilePageView, type ProfileDataResult } from "@/components/profile-page";
 import type { AcademicReference, NotificationPreference } from "@/lib/profile";
@@ -33,6 +34,7 @@ async function loadData<T>(request: Promise<T>): Promise<ProfileDataResult<T>> {
   try {
     return { status: "ready", data: await request };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }

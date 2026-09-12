@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { GalleryManager } from "@/components/gallery/gallery-manager";
@@ -39,6 +39,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   try {
     job = await fetchJobDetail(id);
   } catch (error) {
+    unstable_rethrow(error);
     if (error instanceof ApiError && error.status === notFoundStatus) notFound();
     const failure = failureView(error);
     return <ErrorState errorCode={failure.errorCode} status={failure.httpStatus} />;
@@ -58,6 +59,7 @@ export async function JobGalleryPanel({ job }: { job: JobDetail }) {
     images = await listJobImages(job.id);
     if (job.companyId) companyImages = await listCompanyImages(job.companyId);
   } catch (error) {
+    unstable_rethrow(error);
     if (error instanceof ApiError && error.status === notFoundStatus) notFound();
     const failure = failureView(error);
     return <ErrorState errorCode={failure.errorCode} status={failure.httpStatus} />;

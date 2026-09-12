@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/server/api/errors";
+
+import { sessionExpiryRedirect } from "../../../../../../../../tests/support/control-flow";
+
 import Page, { CompanyJobFormPanel } from "./page";
 
 const currentGates = vi.hoisted(() => vi.fn());
@@ -14,7 +18,10 @@ const notFound = vi.hoisted(() =>
 );
 
 vi.mock("@/server/jobs/jobs", () => ({ fetchJobCategories, fetchJobTemplates }));
-vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  notFound,
+}));
 vi.mock("@/components/job-form", () => ({ JobForm: jobForm }));
 vi.mock("@/server/session/gates", async () => {
   const real = await vi.importActual<typeof import("@/server/session/gates")>(
@@ -71,6 +78,36 @@ describe("şirket adına ilan açma sayfası", () => {
     expect(tree.props).toMatchObject({
       owner: { kind: "company", companyId, companyName: "Koala Etkinlik" },
       blocked: [],
+    });
+  });
+
+  it("form verisi okunurken biten oturumun yönlendirmesini hata durumuna dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect(
+      `/giris?next=%2Fisveren%2Fsirket%2F${companyId}%2Filan%2Fyeni`,
+    );
+    fetchJobTemplates.mockRejectedValue(interrupt);
+
+    await expect(
+      CompanyJobFormPanel({ companyId, companyName: "Koala Etkinlik" }),
+    ).rejects.toBe(interrupt);
+  });
+
+  it("şablon kataloğu okunamazsa formu hata durumuyla çizer", async () => {
+    fetchJobTemplates.mockRejectedValue(
+      new ApiError({
+        status: 503,
+        errorCode: "EXTERNAL_SERVICE",
+        errorCategory: "EXTERNAL_SERVICE",
+        message: "ham mesaj",
+      }),
+    );
+
+    const tree = (await CompanyJobFormPanel({ companyId, companyName: "Koala Etkinlik" })) as {
+      props: Record<string, unknown>;
+    };
+
+    expect(tree.props).toMatchObject({
+      templates: { status: "error", errorCode: "EXTERNAL_SERVICE", httpStatus: 503 },
     });
   });
 

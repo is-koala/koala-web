@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { EmployerGate } from "@/components/employer-gate";
@@ -111,6 +111,7 @@ async function load<T>(request: Promise<T>): Promise<JobFormData<T>> {
   try {
     return { status: "ready", data: await request };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }

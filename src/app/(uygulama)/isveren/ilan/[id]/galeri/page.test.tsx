@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
 
+import { sessionExpiryRedirect } from "../../../../../../../tests/support/control-flow";
+
 const enterShell = vi.hoisted(() => vi.fn());
 const fetchJobDetail = vi.hoisted(() => vi.fn());
 const listJobImages = vi.hoisted(() => vi.fn());
@@ -22,7 +24,10 @@ const notFound = vi.hoisted(() =>
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchJobDetail }));
 vi.mock("@/server/gallery/gallery", () => ({ listJobImages, listCompanyImages }));
-vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  notFound,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/components/gallery/gallery-manager", () => ({ GalleryManager: galleryManager }));
 
@@ -56,6 +61,37 @@ describe("ilan galerisi sayfası", () => {
     );
 
     await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("ilan okunurken biten oturumun yönlendirmesini hata kartına dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Filan%2F${jobId}%2Fgaleri`);
+    fetchJobDetail.mockRejectedValue(interrupt);
+
+    await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toBe(interrupt);
+  });
+
+  it("galeri okunurken biten oturumun yönlendirmesini hata kartına dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Filan%2F${jobId}%2Fgaleri`);
+    listJobImages.mockRejectedValue(interrupt);
+
+    await expect(JobGalleryPanel({ job: jobDetail(null) })).rejects.toBe(interrupt);
+  });
+
+  it("galeri okunamazsa koddan seçilmiş Türkçe hata gösterir", async () => {
+    listJobImages.mockRejectedValue(
+      new ApiError({
+        status: 503,
+        errorCode: "EXTERNAL_SERVICE",
+        errorCategory: "EXTERNAL_SERVICE",
+        message: "ham mesaj",
+      }),
+    );
+
+    render(await JobGalleryPanel({ job: jobDetail(null) }));
+
+    expect(screen.getByRole("alert")).toBeVisible();
+    expect(screen.queryByText("ham mesaj")).toBeNull();
+    expect(galleryManager).not.toHaveBeenCalled();
   });
 
   it("bireysel ilanda şirket galerisinden seçme yolunu açmaz", async () => {

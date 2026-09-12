@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
 
+import { sessionExpiryRedirect } from "../../../../../../tests/support/control-flow";
+
 import Page, { NewIndividualJobPanel } from "./page";
 
 const currentGates = vi.hoisted(() => vi.fn());
@@ -66,6 +68,13 @@ describe("yeni bireysel ilan sayfası", () => {
 
   it("kapı açıkken yayımlamayı hiçbir şey engellemez", async () => {
     expect(await formProps()).toMatchObject({ blocked: [] });
+  });
+
+  it("form verisi okunurken biten oturumun yönlendirmesini hata durumuna dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect("/giris?next=%2Fisveren%2Filan%2Fyeni");
+    fetchJobTemplates.mockRejectedValue(interrupt);
+
+    await expect(NewIndividualJobPanel()).rejects.toBe(interrupt);
   });
 
   it("kategori kataloğu okunamazsa formu hata durumuyla çizer", async () => {
