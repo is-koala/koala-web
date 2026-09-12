@@ -11,6 +11,29 @@ test("oturumsuz kimlik ekranı girişe düşer ve hedefini taşır", async ({ re
   );
 });
 
+test("kimlik fotoğrafı yükleme ucu same-origin ve oturum kapılarının arkasında kalır", async ({
+  request,
+  baseURL,
+}) => {
+  const withoutOrigin = await request.post("/api/users/me/identity-documents");
+  expect(withoutOrigin.status()).toBe(403);
+
+  const foreign = await request.post("/api/users/me/identity-documents", {
+    headers: { origin: "https://baska-site.example" },
+  });
+  expect(foreign.status()).toBe(403);
+
+  const sameOrigin = await request.post("/api/users/me/identity-documents", {
+    headers: { origin: baseURL! },
+  });
+  expect(sameOrigin.status()).toBe(401);
+  expect(await sameOrigin.json()).toEqual({
+    status: "error",
+    errorCode: "AUTHENTICATION_REQUIRED",
+    httpStatus: 401,
+  });
+});
+
 test("kimlik BFF stub'ı çip gövdesini backend'e taşımadan 501 döner", async ({
   request,
   baseURL,

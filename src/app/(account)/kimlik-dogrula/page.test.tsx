@@ -10,9 +10,6 @@ vi.mock("@/server/identity/documents", () => ({
   getCurrentIdentityReview,
 }));
 vi.mock("next/navigation", () => ({ redirect }));
-vi.mock("@/app/(account)/kimlik-dogrula/actions", () => ({
-  submitIdentityDocumentsAction: async () => ({ status: "idle" }),
-}));
 
 import Page from "./page";
 

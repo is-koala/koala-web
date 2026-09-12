@@ -18,9 +18,9 @@ const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "md", "mdx"],
   images: imageBudget,
   experimental: {
-    // Kimlik formu dört ayrı 10 MiB fotoğraf taşıyor; ham multipart isteği
-    // action doğrulamasına ulaşabilsin diye toplam bütçeye boundary payı kalır.
-    serverActions: { bodySizeLimit: "42mb" },
+    // Tek fotoğraf veya kanıtın 10 MiB sınırına multipart başlık/boundary payı eklenir.
+    // Dört parçalı kimlik yüklemesi ayrı, gövdesi sınırlı Route Handler'dadır.
+    serverActions: { bodySizeLimit: "11mb" },
   },
   async redirects() {
     return [
