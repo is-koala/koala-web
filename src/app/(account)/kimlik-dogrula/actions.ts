@@ -8,6 +8,7 @@ import { unstable_rethrow } from "next/navigation";
 
 const allowedImageExtensions = new Set(["png", "jpg", "jpeg", "webp"]);
 const maximumImageBytes = 10 * 1024 * 1024;
+const maximumPhotoTotalBytes = 40 * 1024 * 1024;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const tcIdentityPattern = /^[1-9][0-9]{9}[02468]$/;
 
@@ -45,6 +46,13 @@ export async function submitIdentityDocumentsAction(
   else Object.assign(fieldErrors, photoErrors("back", back));
   if (together === null) fieldErrors.together = "Kartın yüzünün altında olduğu fotoğrafı seç.";
   else Object.assign(fieldErrors, photoErrors("together", together));
+  const photos = [selfie, front, back, together];
+  if (
+    photos.every((photo) => photo !== null)
+    && photos.reduce((total, photo) => total + (photo?.size ?? 0), 0) > maximumPhotoTotalBytes
+  ) {
+    fieldErrors.photos = "Dört fotoğrafın toplam boyutu en fazla 40 MB olabilir.";
+  }
 
   if (Object.keys(fieldErrors).length > 0) return validationState(fieldErrors);
 

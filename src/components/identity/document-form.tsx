@@ -105,6 +105,9 @@ export function IdentityDocumentForm({
         hint="Yüzün ve TCKK'nın aynı karede olduğu fotoğraf"
         error={fieldError(state, "together")}
       />
+      {fieldError(state, "photos") ? (
+        <p role="alert" className="field-error">{fieldError(state, "photos")}</p>
+      ) : null}
       <SubmitButton label="İncelemeye gönder" pendingLabel="Gönderiliyor…" />
     </form>
   );
