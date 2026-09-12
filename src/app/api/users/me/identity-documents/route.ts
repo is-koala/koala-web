@@ -1,16 +1,20 @@
 import type { FormState } from "@/lib/form-state";
+import { isSameOriginRequest } from "@/lib/same-origin";
 import { failureState } from "@/server/form";
 import { verifyIdentityUploadSession } from "@/server/identity/upload-auth";
+import { readIdentityUploadBody } from "@/server/identity/upload-capacity";
 import { submitIdentityDocuments } from "@/server/identity/documents";
-import { readIdentityUploadRequest } from "@/server/identity/upload-request";
-import { takeIdentityUploadQuota } from "@/server/identity/upload-rate-limit";
 import { readSession } from "@/server/session/session";
 import { unstable_rethrow } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-/** Büyük gövde ancak same-origin vekili, oturum ve kota kapılarından sonra okunur. */
+/** Büyük gövde ancak same-origin vekili, oturum ve bellek kapasitesi kapılarından sonra okunur. */
 export async function POST(request: Request): Promise<Response> {
+  if (!isSameOriginRequest(request)) {
+    return stateResponse({ status: "error", errorCode: "ACCESS_DENIED", httpStatus: 403 });
+  }
+
   const session = await readSession();
   if (!session.refreshToken) {
     return stateResponse({
@@ -23,15 +27,18 @@ export async function POST(request: Request): Promise<Response> {
   const sessionFailure = await verifyIdentityUploadSession();
   if (sessionFailure) return stateResponse(sessionFailure);
 
-  const quota = takeIdentityUploadQuota(session.deviceId);
-  if (!quota.allowed) {
+  const bodyRead = await readIdentityUploadBody(request);
+  if (!bodyRead.acquired) {
     return stateResponse(
-      { status: "error", errorCode: "TOO_MANY_REQUESTS", httpStatus: 429 },
-      { "Retry-After": String(quota.retryAfterSeconds) },
+      {
+        status: "error",
+        errorCode: "IDENTITY_UPLOAD_CAPACITY_UNAVAILABLE",
+        httpStatus: 503,
+      },
+      { "Retry-After": "1" },
     );
   }
-
-  const upload = await readIdentityUploadRequest(request);
+  const upload = bodyRead.value;
   if (!upload.ok) return stateResponse(upload.state);
 
   try {

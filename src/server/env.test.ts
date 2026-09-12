@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { bffUpstreamTimeoutMs, serverEnvironment } from "./env";
+import {
+  bffUpstreamTimeoutMs,
+  identityUploadMaxConcurrentBodyReads,
+  serverEnvironment,
+} from "./env";
 
 function stubServerEnv(apiUrl: string, appVersion: string) {
   vi.stubEnv("API_URL", apiUrl);
@@ -53,6 +57,20 @@ describe("sunucu ortam doğrulaması", () => {
 
     vi.stubEnv("BFF_UPSTREAM_TIMEOUT_MS", "8000");
     expect(bffUpstreamTimeoutMs()).toBe(8000);
+  });
+
+  it("kimlik yüklemesinin eşzamanlı büyük gövde okumalarını yapılandırır", () => {
+    expect(identityUploadMaxConcurrentBodyReads()).toBe(2);
+
+    for (const value of ["0", "9", "1.5", "sınırsız"]) {
+      vi.stubEnv("IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS", value);
+      expect(() => identityUploadMaxConcurrentBodyReads()).toThrow(
+        "IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS 1 ile 8 arasında bir tam sayı olmalı.",
+      );
+    }
+
+    vi.stubEnv("IDENTITY_UPLOAD_MAX_CONCURRENT_BODY_READS", "4");
+    expect(identityUploadMaxConcurrentBodyReads()).toBe(4);
   });
 
   it("geçerli değerlerde backend adresinin sonundaki eğik çizgiyi atar", () => {

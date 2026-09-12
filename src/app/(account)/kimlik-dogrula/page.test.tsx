@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
 const getCurrentIdentityReview = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/identity/documents", () => ({
   getCurrentIdentityReview,
 }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({ redirect, useRouter: () => router }));
 
 import Page from "./page";
 

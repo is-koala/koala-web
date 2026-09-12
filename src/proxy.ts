@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isSameOriginRequest } from "@/lib/same-origin";
 import { deviceIdCookieOptions, requestPathHeader, sessionCookies } from "@/server/contract";
 import { createDeviceId, isValidDeviceId } from "@/server/session/device-id";
 
@@ -16,7 +17,7 @@ const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
  * böylece SSR ile sonraki kullanıcı eylemleri aynı kimliği taşır.
  */
 export function proxy(request: NextRequest) {
-  if (!safeMethods.has(request.method) && !isSameOrigin(request)) {
+  if (!safeMethods.has(request.method) && !isSameOriginRequest(request)) {
     return new NextResponse(null, { status: 403 });
   }
 
@@ -51,18 +52,8 @@ export function proxy(request: NextRequest) {
  * başlığı her zaman gönderir, yokluğu isteğin tarayıcıdan gelmediğini
  * ya da araya girildiğini gösterir.
  */
-function isSameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-
-  const host = request.headers.get("host") ?? request.nextUrl.host;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
-
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Kimlik gövdesi 42 MiB'a çıkabilir. Proxy bu rotayı klonlarsa Next'in
+  // genel 10 MiB sınırında kesilir; rota aynı CSRF kapısını kendisi uygular.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/users/me/identity-documents$).*)"],
 };

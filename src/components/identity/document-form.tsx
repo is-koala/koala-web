@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import {
@@ -12,7 +13,11 @@ import {
   identityDocumentUploadPath,
   identityPhotoInputAccept,
 } from "@/identity/document-upload-policy";
+import { identityVerificationPath } from "@/identity/handoff";
 import { fieldError, idleFormState, type FormState } from "@/lib/form-state";
+import { loginPath } from "@/lib/site";
+
+const identityLoginPath = `${loginPath}?next=${encodeURIComponent(identityVerificationPath)}`;
 
 export function IdentityDocumentForm({
   firstName,
@@ -21,6 +26,7 @@ export function IdentityDocumentForm({
   firstName: string;
   lastName: string;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<FormState>(idleFormState);
   const [pending, setPending] = useState(false);
 
@@ -127,7 +133,16 @@ export function IdentityDocumentForm({
         cache: "no-store",
         headers: { Accept: "application/json" },
       });
-      setState(await formStateFrom(response));
+      const nextState = await formStateFrom(response);
+      if (
+        nextState.status === "error"
+        && nextState.errorCode === "AUTHENTICATION_REQUIRED"
+        && nextState.httpStatus === 401
+      ) {
+        router.replace(identityLoginPath);
+        return;
+      }
+      setState(nextState);
     } catch {
       setState(unexpectedState(500));
     } finally {

@@ -8,19 +8,16 @@ import { ApiError } from "@/server/api/errors";
 const readSession = vi.hoisted(() => vi.fn());
 const loadViewer = vi.hoisted(() => vi.fn());
 const submitIdentityDocuments = vi.hoisted(() => vi.fn());
-const takeIdentityUploadQuota = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/session", () => ({ readSession }));
 vi.mock("@/server/session/viewer", () => ({ loadViewer }));
 vi.mock("@/server/identity/documents", () => ({ submitIdentityDocuments }));
-vi.mock("@/server/identity/upload-rate-limit", () => ({ takeIdentityUploadQuota }));
 
 import { POST } from "./route";
 
 describe("POST /api/users/me/identity-documents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    takeIdentityUploadQuota.mockReturnValue({ allowed: true, retryAfterSeconds: 0 });
     loadViewer.mockResolvedValue({ viewer: { id: "user-1" }, failure: null });
     readSession.mockResolvedValue({
       deviceId: "device-1",
@@ -42,30 +39,36 @@ describe("POST /api/users/me/identity-documents", () => {
       errorCode: "AUTHENTICATION_REQUIRED",
       httpStatus: 401,
     });
-    expect(takeIdentityUploadQuota).not.toHaveBeenCalled();
     expect(loadViewer).not.toHaveBeenCalled();
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });
 
-  it("kotası dolan oturumu multipart gövdeye dokunmadan sınırlar", async () => {
-    readSession.mockResolvedValue({
-      deviceId: "device-1",
-      accessToken: "access-token",
-      refreshToken: "refresh-token",
-    });
-    takeIdentityUploadQuota.mockReturnValue({ allowed: false, retryAfterSeconds: 90 });
+  it("iki gövde okunurken üçüncüyü başlatmaz ve okumalar bitince yeniden yer açar", async () => {
+    const firstGate = pausedMultipartRequest();
+    const secondGate = pausedMultipartRequest();
+    const first = POST(firstGate.request);
+    const second = POST(secondGate.request);
+    await Promise.all([firstGate.started, secondGate.started]);
 
-    const response = await POST(unreadableRequest());
+    let third: Response;
+    try {
+      third = await POST(unreadableRequest());
+    } finally {
+      firstGate.finish();
+      secondGate.finish();
+    }
 
-    expect(response.status).toBe(429);
-    expect(response.headers.get("Retry-After")).toBe("90");
-    await expect(response.json()).resolves.toEqual({
+    expect(third.status).toBe(503);
+    expect(third.headers.get("Retry-After")).toBe("1");
+    await expect(third.json()).resolves.toEqual({
       status: "error",
-      errorCode: "TOO_MANY_REQUESTS",
-      httpStatus: 429,
+      errorCode: "IDENTITY_UPLOAD_CAPACITY_UNAVAILABLE",
+      httpStatus: 503,
     });
-    expect(takeIdentityUploadQuota).toHaveBeenCalledWith("device-1");
-    expect(submitIdentityDocuments).not.toHaveBeenCalled();
+    await Promise.all([first, second]);
+
+    const afterCompletion = await POST(invalidMultipartRequest());
+    expect(afterCompletion.status).toBe(400);
   });
 
   it("çerezi olsa bile backend'in doğrulamadığı oturumda gövdeyi okumaz", async () => {
@@ -78,7 +81,22 @@ describe("POST /api/users/me/identity-documents", () => {
 
     expect(response.status).toBe(401);
     expect(loadViewer).toHaveBeenCalledOnce();
-    expect(takeIdentityUploadQuota).not.toHaveBeenCalled();
+    expect(submitIdentityDocuments).not.toHaveBeenCalled();
+  });
+
+  it("backend oturumu bitirip girişe yönelttiğinde yapılandırılmış 401 döner", async () => {
+    loadViewer.mockRejectedValue({
+      digest: "NEXT_REDIRECT;replace;/giris?next=%2Fapi%2Fusers%2Fme%2Fidentity-documents;307;",
+    });
+
+    const response = await POST(unreadableRequest());
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      status: "error",
+      errorCode: "AUTHENTICATION_REQUIRED",
+      httpStatus: 401,
+    });
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });
 
@@ -119,7 +137,11 @@ describe("POST /api/users/me/identity-documents", () => {
     });
     const request = new Request("https://iskoala.com/api/users/me/identity-documents", {
       method: "POST",
-      headers: { "content-type": "multipart/form-data; boundary=test" },
+      headers: {
+        "content-type": "multipart/form-data; boundary=test",
+        host: "iskoala.com",
+        origin: "https://iskoala.com",
+      },
       body,
       duplex: "half",
     } as RequestInit & { duplex: "half" });
@@ -226,11 +248,69 @@ describe("POST /api/users/me/identity-documents", () => {
 
 function unreadableRequest(headers?: HeadersInit): Request {
   return {
-    headers: new Headers({ "content-type": "multipart/form-data; boundary=test", ...Object.fromEntries(new Headers(headers)) }),
+    headers: new Headers({
+      "content-type": "multipart/form-data; boundary=test",
+      host: "iskoala.com",
+      origin: "https://iskoala.com",
+      ...Object.fromEntries(new Headers(headers)),
+    }),
+    url: "https://iskoala.com/api/users/me/identity-documents",
     get body(): never {
-      throw new Error("Gövde oturum ve kota kapılarından önce okunmamalı.");
+      throw new Error("Gövde oturum ve kapasite kapılarından önce okunmamalı.");
     },
   } as unknown as Request;
+}
+
+function pausedMultipartRequest(): {
+  readonly request: Request;
+  readonly started: Promise<void>;
+  readonly finish: () => void;
+} {
+  let markStarted: () => void = () => undefined;
+  let finish: () => void = () => undefined;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  const release = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  let sent = false;
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (sent) return;
+      sent = true;
+      markStarted();
+      await release;
+      controller.enqueue(new TextEncoder().encode("geçersiz multipart"));
+      controller.close();
+    },
+  });
+  return {
+    request: new Request("https://iskoala.com/api/users/me/identity-documents", {
+      method: "POST",
+      headers: {
+        "content-type": "multipart/form-data; boundary=test",
+        host: "iskoala.com",
+        origin: "https://iskoala.com",
+      },
+      body,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" }),
+    started,
+    finish,
+  };
+}
+
+function invalidMultipartRequest(): Request {
+  return new Request("https://iskoala.com/api/users/me/identity-documents", {
+    method: "POST",
+    headers: {
+      "content-type": "multipart/form-data; boundary=test",
+      host: "iskoala.com",
+      origin: "https://iskoala.com",
+    },
+    body: "geçersiz multipart",
+  });
 }
 
 type PhotoOverride = {
@@ -276,7 +356,11 @@ function multipartRequest(
   const body = new Blob(chunks, { type: `multipart/form-data; boundary=${boundary}` });
   return new Request("https://iskoala.com/api/users/me/identity-documents", {
     method: "POST",
-    headers: { "content-type": body.type },
+    headers: {
+      "content-type": body.type,
+      host: "iskoala.com",
+      origin: "https://iskoala.com",
+    },
     body,
   });
 }

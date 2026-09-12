@@ -1,9 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IdentityDocumentForm } from "./document-form";
 
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
+
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
+beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("kimlik belge formu", () => {
@@ -51,6 +56,22 @@ describe("kimlik belge formu", () => {
     expect(await screen.findByText(
       "Dört fotoğrafın toplam boyutu en fazla 40 MB olabilir.",
     )).toBeVisible();
+  });
+
+  it("yükleme sırasında biten oturumu güvenli dönüş hedefiyle giriş sayfasına taşır", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      status: "error",
+      errorCode: "AUTHENTICATION_REQUIRED",
+      httpStatus: 401,
+    }, { status: 401 })));
+    render(<IdentityDocumentForm firstName="Yusuf" lastName="Acmaci" />);
+
+    const submit = screen.getByRole("button", { name: "İncelemeye gönder" });
+    fireEvent.submit(submit.closest("form")!);
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/giris?next=%2Fkimlik-dogrula");
+    });
   });
 });
 
