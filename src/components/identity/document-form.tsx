@@ -1,27 +1,37 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
 
-import { submitIdentityDocumentsAction } from "@/app/(account)/kimlik-dogrula/actions";
 import {
   DoneNotice,
   FileField,
   FormAlert,
-  SubmitButton,
   TextField,
 } from "@/components/form-controls";
-import { fieldError, idleFormState } from "@/lib/form-state";
-
-const imageAccept = "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp";
+import {
+  identityDocumentUploadPath,
+  identityPhotoInputAccept,
+} from "@/identity/document-upload-policy";
+import { identityHandoffHref } from "@/identity/handoff";
+import { fieldError, idleFormState, type FormState } from "@/lib/form-state";
+import { loginPath } from "@/lib/site";
 
 export function IdentityDocumentForm({
   firstName,
   lastName,
+  returnPath,
 }: {
   firstName: string;
   lastName: string;
+  returnPath?: string | null;
 }) {
-  const [state, submit] = useActionState(submitIdentityDocumentsAction, idleFormState);
+  const router = useRouter();
+  const identityLoginPath = `${loginPath}?next=${encodeURIComponent(
+    identityHandoffHref(returnPath),
+  )}`;
+  const [state, setState] = useState<FormState>(idleFormState);
+  const [pending, setPending] = useState(false);
 
   if (state.status === "done") {
     return (
@@ -33,7 +43,7 @@ export function IdentityDocumentForm({
   }
 
   return (
-    <form className="form" action={submit}>
+    <form className="form" onSubmit={(event) => void submit(event)}>
       <FormAlert state={state} />
       <div className="profile-form-grid">
         <TextField
@@ -80,32 +90,89 @@ export function IdentityDocumentForm({
       <FileField
         name="selfie"
         label="Yüz fotoğrafı"
-        accept={imageAccept}
+        accept={identityPhotoInputAccept}
         hint="Yüzünün net bir selfie fotoğrafı"
         error={fieldError(state, "selfie")}
       />
       <FileField
         name="front"
         label="Kimlik ön yüzü"
-        accept={imageAccept}
+        accept={identityPhotoInputAccept}
         hint="TCKK ön yüzünün net bir fotoğrafı"
         error={fieldError(state, "front")}
       />
       <FileField
         name="back"
         label="Kimlik arka yüzü"
-        accept={imageAccept}
+        accept={identityPhotoInputAccept}
         hint="TCKK arka yüzünün net bir fotoğrafı"
         error={fieldError(state, "back")}
       />
       <FileField
         name="together"
         label="Kimlik yüzün altında"
-        accept={imageAccept}
+        accept={identityPhotoInputAccept}
         hint="Yüzün ve TCKK'nın aynı karede olduğu fotoğraf"
         error={fieldError(state, "together")}
       />
-      <SubmitButton label="İncelemeye gönder" pendingLabel="Gönderiliyor…" />
+      {fieldError(state, "photos") ? (
+        <p role="alert" className="field-error">{fieldError(state, "photos")}</p>
+      ) : null}
+      <button className="button button-primary" type="submit" disabled={pending}>
+        {pending ? "Gönderiliyor…" : "İncelemeye gönder"}
+      </button>
     </form>
   );
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    setPending(true);
+    try {
+      const response = await fetch(identityDocumentUploadPath, {
+        method: "POST",
+        body: new FormData(event.currentTarget),
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      const nextState = await formStateFrom(response);
+      if (
+        nextState.status === "error"
+        && nextState.errorCode === "AUTHENTICATION_REQUIRED"
+        && nextState.httpStatus === 401
+      ) {
+        router.replace(identityLoginPath);
+        return;
+      }
+      setState(nextState);
+    } catch {
+      setState(unexpectedState(500));
+    } finally {
+      setPending(false);
+    }
+  }
+}
+
+async function formStateFrom(response: Response): Promise<FormState> {
+  let value: unknown;
+  try {
+    value = await response.json();
+  } catch {
+    return unexpectedState(response.status || 500);
+  }
+  if (isFormState(value)) return value;
+  return unexpectedState(response.status || 500);
+}
+
+function isFormState(value: unknown): value is FormState {
+  if (typeof value !== "object" || value === null) return false;
+  const state = value as Partial<FormState>;
+  if (state.status === "done") return true;
+  if (state.status !== "error") return false;
+  return typeof state.errorCode === "string" && typeof state.httpStatus === "number";
+}
+
+function unexpectedState(httpStatus: number): FormState {
+  return { status: "error", errorCode: "UNEXPECTED", httpStatus };
 }

@@ -13,7 +13,7 @@ export default defineConfig({
    * `Next dev exited early`). Ayrı süreç, paylaşılan sunucu kapandıktan sonra
    * `playwright.messaging-safety.config.ts` ile koşar.
    */
-  testIgnore: /messaging-safety\.spec\.ts/,
+  testIgnore: /(?:messaging-safety|identity-upload-production)\.spec\.ts/,
   fullyParallel: true,
   // Self-hosted runner'ların üçü de aynı 4 çekirdekli Raspberry Pi'de.
   // CI'da tek browser worker kullanarak makine genelinde aşırı paralelliği önle.

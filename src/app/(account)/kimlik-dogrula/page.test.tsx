@@ -3,16 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() => vi.fn());
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
 const getCurrentIdentityReview = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/identity/documents", () => ({
   getCurrentIdentityReview,
 }));
-vi.mock("next/navigation", () => ({ redirect }));
-vi.mock("@/app/(account)/kimlik-dogrula/actions", () => ({
-  submitIdentityDocumentsAction: async () => ({ status: "idle" }),
-}));
+vi.mock("next/navigation", () => ({ redirect, useRouter: () => router }));
 
 import Page from "./page";
 
@@ -85,6 +83,18 @@ describe("kimlik belge ekranı", () => {
     render(
       await Page({
         searchParams: Promise.resolve({ next: "https://evil.example/phish" }),
+      }),
+    );
+
+    expect(screen.queryByRole("link", { name: "Doğruladıktan sonra devam et" })).toBeNull();
+  });
+
+  it("kimlik ekranının query varyantını kendi devam hedefi yapmaz", async () => {
+    render(
+      await Page({
+        searchParams: Promise.resolve({
+          next: "/kimlik-dogrula?next=%2Fisveren%2Filan%2Fyeni",
+        }),
       }),
     );
 

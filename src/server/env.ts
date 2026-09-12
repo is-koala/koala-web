@@ -31,6 +31,9 @@ export function serverEnvironment(): ServerEnvironment {
   // doğrulanır, ilk kanıt indirmesinde sürpriz bir yapılandırma hatasına bırakılmaz.
   evidenceStorageOrigins();
   bffUpstreamTimeoutMs();
+  identityUploadMaxConcurrentOperations();
+  identityUploadBodyIdleTimeoutMs();
+  identityUploadBodyTotalTimeoutMs();
 
   return { apiUrl: apiUrl.replace(/\/+$/, ""), appVersion };
 }
@@ -44,6 +47,57 @@ export function bffUpstreamTimeoutMs(): number {
   const timeout = Number(raw);
   if (timeout < 1000 || timeout > 60_000) {
     throw new Error("BFF_UPSTREAM_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.");
+  }
+  return timeout;
+}
+
+/** Aynı süreçte bellekte tutulabilen büyük kimlik multipart işlemlerini sınırlar. */
+export function identityUploadMaxConcurrentOperations(): number {
+  const raw = process.env.IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS?.trim() || "2";
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      "IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS 1 ile 8 arasında bir tam sayı olmalı.",
+    );
+  }
+  const limit = Number(raw);
+  if (limit < 1 || limit > 8) {
+    throw new Error(
+      "IDENTITY_UPLOAD_MAX_CONCURRENT_OPERATIONS 1 ile 8 arasında bir tam sayı olmalı.",
+    );
+  }
+  return limit;
+}
+
+/** Büyük gövdenin iki parçası arasında istemcinin kapasiteyi tutabileceği süre. */
+export function identityUploadBodyIdleTimeoutMs(): number {
+  const raw = process.env.IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS?.trim() || "15000";
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+    );
+  }
+  const timeout = Number(raw);
+  if (timeout < 1000 || timeout > 60_000) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_IDLE_TIMEOUT_MS 1000 ile 60000 arasında bir tam sayı olmalı.",
+    );
+  }
+  return timeout;
+}
+
+/** Damlatarak kapasiteyi tutan tek istemcinin toplam gövde okuma süresi. */
+export function identityUploadBodyTotalTimeoutMs(): number {
+  const raw = process.env.IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS?.trim() || "900000";
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS 60000 ile 1800000 arasında bir tam sayı olmalı.",
+    );
+  }
+  const timeout = Number(raw);
+  if (timeout < 60_000 || timeout > 1_800_000) {
+    throw new Error(
+      "IDENTITY_UPLOAD_BODY_TOTAL_TIMEOUT_MS 60000 ile 1800000 arasında bir tam sayı olmalı.",
+    );
   }
   return timeout;
 }

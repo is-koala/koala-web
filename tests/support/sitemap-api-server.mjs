@@ -17,7 +17,7 @@ let currentVersion = initialVersion;
 let manifestFailure = false;
 const requestCounts = { manifest: 0, shard: 0, publicJobs: 0 };
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
 
   if (request.method === "GET" && url.pathname === "/health") {
@@ -54,6 +54,33 @@ const server = createServer((request, response) => {
       expiredVersion,
       unknownVersion,
     });
+  }
+
+  if (request.method === "GET" && url.pathname === "/users/me") {
+    if (!isIdentityUploadClient(request)) {
+      return error(response, 401, "AUTHENTICATION_REQUIRED", "AUTHENTICATION");
+    }
+    return success(response, {
+      id: "2592914e-b7f0-4b5f-a5d4-5c632daf2d96",
+      firstName: "E2E",
+      lastName: "Kullanıcı",
+      email: "e2e@example.test",
+      phoneNumber: "+905551112233",
+      emailVerified: true,
+      phoneVerified: true,
+      experiences: [],
+      educations: [],
+      companies: [],
+      identityVerified: false,
+    });
+  }
+
+  if (request.method === "POST" && url.pathname === "/users/me/identity-documents") {
+    if (!isIdentityUploadClient(request)) {
+      return error(response, 401, "AUTHENTICATION_REQUIRED", "AUTHENTICATION");
+    }
+    await drain(request);
+    return success(response, null);
   }
 
   if (request.method === "GET" && url.pathname === "/sitemap/jobs/manifest") {
@@ -146,6 +173,17 @@ function error(response, status, errorCode, errorCategory) {
 function json(response, status, body) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(body));
+}
+
+function isIdentityUploadClient(request) {
+  return (
+    request.headers["x-device-id"] === "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e"
+    && request.headers.authorization === "Bearer access-1450145014501450"
+  );
+}
+
+async function drain(request) {
+  for await (const chunk of request) void chunk;
 }
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

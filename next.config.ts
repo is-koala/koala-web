@@ -18,7 +18,8 @@ const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "md", "mdx"],
   images: imageBudget,
   experimental: {
-    // Fotoğraf veya kanıtın 10 MB dosya sınırına multipart başlık/boundary payı eklenir.
+    // Tek fotoğraf veya kanıtın 10 MiB sınırına multipart başlık/boundary payı eklenir.
+    // Dört parçalı kimlik yüklemesi ayrı, gövdesi sınırlı Route Handler'dadır.
     serverActions: { bodySizeLimit: "11mb" },
   },
   async redirects() {
