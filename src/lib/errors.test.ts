@@ -351,6 +351,14 @@ describe("kapı metinleri", () => {
     });
   });
 
+  it("henüz belge gönderilmemiş incelemeyi yükleme çağrısına çevirir", () => {
+    expect(errorPresentation("IDENTITY_DOCUMENTS_NOT_FOUND", 404)).toEqual({
+      title: "Henüz belge göndermedin",
+      message: "T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+      action: "none",
+    });
+  });
+
   it("bireysel fatura adresi kapısını web kayıt ekranına yollar", () => {
     const notice = gateNotice("individualBillingAddress");
 

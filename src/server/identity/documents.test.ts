@@ -7,13 +7,20 @@ import {
   requestHeaders,
 } from "../../../tests/support/session-cookies";
 
-import { submitIdentityDocuments } from "./documents";
+import { submitIdentityDocuments, getCurrentIdentityReview } from "./documents";
 
 vi.mock("next/headers", async () => {
   const support = await import("../../../tests/support/session-cookies");
   return {
     cookies: () => Promise.resolve(support.cookieStore),
     headers: () => Promise.resolve(support.requestHeaders),
+  };
+});
+vi.mock("next/navigation", async () => {
+  const navigation = await import("../../../tests/support/navigation");
+  return {
+    redirect: navigation.throwingRedirect(),
+    unstable_rethrow: navigation.rethrowTestNavigationError,
   };
 });
 
@@ -72,5 +79,63 @@ describe("TCKK belge yükleme", () => {
     expect(body.get("back")).toBe(back);
     expect((body.get("front") as File).name).toBe("on.jpg");
     expect((body.get("back") as File).name).toBe("arka.jpg");
+  });
+
+  it("son incelemeyi TCKN taşımadan durum ve gerekçeye indirger", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        200,
+        envelope({
+          status: "REJECTED",
+          rejectionReason: "Fotoğraflar okunaksız",
+          tcIdentityNumber: "10000000146",
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getCurrentIdentityReview()).resolves.toEqual({
+      status: "REJECTED",
+      rejectionReason: "Fotoğraflar okunaksız",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.example.test/users/me/identity-documents");
+    expect(init.method ?? "GET").toBe("GET");
+  });
+
+  it("henüz belge yoksa formu açmak için null döner", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(404, {
+          success: false,
+          errorCode: "IDENTITY_DOCUMENTS_NOT_FOUND",
+          errorCategory: "RESOURCE_NOT_FOUND",
+          message: "Ham backend metni",
+        }),
+      ),
+    );
+
+    await expect(getCurrentIdentityReview()).resolves.toBeNull();
+  });
+
+  it("personel 404'ünü sessiz boşluğa çevirmez", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(404, {
+          success: false,
+          errorCode: "IDENTITY_REVIEW_NOT_FOUND",
+          errorCategory: "RESOURCE_NOT_FOUND",
+          message: "Ham backend metni",
+        }),
+      ),
+    );
+
+    await expect(getCurrentIdentityReview()).rejects.toMatchObject({
+      errorCode: "IDENTITY_REVIEW_NOT_FOUND",
+      status: 404,
+    });
   });
 });

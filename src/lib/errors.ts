@@ -84,6 +84,11 @@ const exactErrors: Record<string, ErrorPresentation> = {
       "Gönderdiğin kimlik fotoğrafları hâlâ inceleniyor. Sonuçlanmadan yeni bir yükleme yapılamaz.",
     action: "none",
   },
+  IDENTITY_DOCUMENTS_NOT_FOUND: {
+    title: "Henüz belge göndermedin",
+    message: "T.C. kimlik kartının ön ve arka fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+    action: "none",
+  },
   IDENTITY_DOCUMENTS_REQUIRED: {
     title: "Kimlik fotoğrafları eksik",
     message: "T.C. kimlik kartının ön ve arka yüzünün fotoğrafını birlikte yüklemelisin.",

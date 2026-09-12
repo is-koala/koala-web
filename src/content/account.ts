@@ -61,6 +61,12 @@ export const identityHandoffContent = {
   body:
     "İlan açmak, şirket kurmak ve başvuru yapmak için T.C. kimlik kartının ön ve arka yüzünün fotoğrafını yükle. Personel onayından sonra kimliğin doğrulanır; tarayıcı çip okuyamaz.",
   continueLabel: "Doğruladıktan sonra devam et",
+  pendingTitle: "Belgelerin inceleniyor",
+  pendingBody:
+    "Kimlik kartının ön ve arka fotoğrafı personel kuyruğunda. Onaylanınca hesabın doğrulanmış olur; sonuçlanmadan yeni bir yükleme yapılamaz.",
+  rejectedTitle: "Belgelerin reddedildi",
+  rejectedBody: "Personel gerekçesini okuyup yeni fotoğraflarla tekrar gönderebilirsin.",
+  rejectionReasonLabel: "Personel gerekçesi",
 } as const;
 
 export const openAppContent = {
