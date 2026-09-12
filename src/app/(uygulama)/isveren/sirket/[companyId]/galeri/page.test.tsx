@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/server/api/errors";
+
+import { sessionExpiryRedirect } from "../../../../../../../tests/support/control-flow";
+
 const enterShell = vi.hoisted(() => vi.fn());
 const listCompanyImages = vi.hoisted(() => vi.fn());
 const galleryManager = vi.hoisted(() => vi.fn(() => <div>galeri</div>));
@@ -12,7 +16,10 @@ const notFound = vi.hoisted(() =>
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/gallery/gallery", () => ({ listCompanyImages }));
-vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  notFound,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/components/gallery/gallery-manager", () => ({ GalleryManager: galleryManager }));
 
@@ -53,6 +60,32 @@ describe("şirket galerisi sayfası", () => {
     );
     expect(galleryManager).not.toHaveBeenCalled();
     expect(listCompanyImages).not.toHaveBeenCalled();
+  });
+
+  it("galeri okunurken biten oturumun yönlendirmesini hata kartına dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Fsirket%2F${companyId}%2Fgaleri`);
+    listCompanyImages.mockRejectedValue(interrupt);
+
+    await expect(
+      CompanyGalleryPanel({ companyId, companyName: "Koala Etkinlik" }),
+    ).rejects.toBe(interrupt);
+  });
+
+  it("galeri okunamazsa koddan seçilmiş Türkçe hata gösterir", async () => {
+    listCompanyImages.mockRejectedValue(
+      new ApiError({
+        status: 503,
+        errorCode: "EXTERNAL_SERVICE",
+        errorCategory: "EXTERNAL_SERVICE",
+        message: "ham mesaj",
+      }),
+    );
+
+    render(await CompanyGalleryPanel({ companyId, companyName: "Koala Etkinlik" }));
+
+    expect(screen.getByRole("alert")).toBeVisible();
+    expect(screen.queryByText("ham mesaj")).toBeNull();
+    expect(galleryManager).not.toHaveBeenCalled();
   });
 
   it("yöneticiye galeriyi şirketin kendi kimliğiyle çizer", async () => {

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
 
+import { sessionExpiryRedirect } from "../../../../../../tests/support/control-flow";
+
 import Page from "./page";
 
 const enterShell = vi.hoisted(() => vi.fn());
@@ -22,7 +24,12 @@ const jobLifecycleActions = vi.hoisted(() =>
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchJobDetail }));
-vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
+// `unstable_rethrow` gerçek kalıyor: yönlendirme testi Next'in kendi
+// kesmesini sayfadan geçirmeli, taklit edilmiş bir geçiş bunu ölçmezdi.
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  notFound,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/components/job-lifecycle-actions", () => ({
   JobLifecycleActions: jobLifecycleActions,
@@ -87,6 +94,13 @@ describe("yayımlanmış ilan sayfası", () => {
     await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toThrowError(
       "NOT_FOUND",
     );
+  });
+
+  it("oturum yenilemesinin yönlendirmesini hata kartına dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Filan%2F${jobId}`);
+    fetchJobDetail.mockRejectedValue(interrupt);
+
+    await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toBe(interrupt);
   });
 
   it("başka bir backend arızasında koddan seçilmiş Türkçe hata gösterir", async () => {

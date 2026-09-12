@@ -55,6 +55,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   try {
     job = await fetchJobDetail(id);
   } catch (error) {
+    unstable_rethrow(error);
     // Backend yetkisiz kullanıcıya da 404 veriyor; ilanın varlığı sızmasın
     // diye web de aynı cevabı verir.
     if (error instanceof ApiError && error.status === notFoundStatus) notFound();

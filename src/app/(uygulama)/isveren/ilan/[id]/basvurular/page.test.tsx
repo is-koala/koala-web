@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
 
+import { sessionExpiryRedirect } from "../../../../../../../tests/support/control-flow";
+
 const enterShell = vi.hoisted(() => vi.fn());
 const fetchJobDetail = vi.hoisted(() => vi.fn());
 const readJobApplicants = vi.hoisted(() => vi.fn());
@@ -26,7 +28,10 @@ vi.mock("@/server/applications/employer-review", () => ({
   readJobApplicants,
   readTalentPoolMembership,
 }));
-vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  notFound,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/components/applicant-review", () => ({ ApplicantReview: applicantReview }));
 
@@ -62,6 +67,14 @@ describe("ilanın başvuru listesi sayfası", () => {
     );
 
     await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toThrow("NOT_FOUND");
+    expect(readJobApplicants).not.toHaveBeenCalled();
+  });
+
+  it("ilan okunurken biten oturumun yönlendirmesini hata kartına dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Filan%2F${jobId}%2Fbasvurular`);
+    fetchJobDetail.mockRejectedValue(interrupt);
+
+    await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toBe(interrupt);
     expect(readJobApplicants).not.toHaveBeenCalled();
   });
 

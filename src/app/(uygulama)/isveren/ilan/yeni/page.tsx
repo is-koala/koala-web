@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_rethrow } from "next/navigation";
 
 import {
   JobForm,
@@ -80,6 +81,7 @@ async function load<T>(request: Promise<T>): Promise<JobFormData<T>> {
   try {
     return { status: "ready", data: await request };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }

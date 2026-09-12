@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
 import { CompanyProfileView } from "@/components/company/company-profile";
@@ -57,7 +57,7 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
   );
 }
 
-async function CompanyPanel({
+export async function CompanyPanel({
   companyId,
   viewerRole,
 }: {
@@ -68,6 +68,7 @@ async function CompanyPanel({
   try {
     company = await getCompany(companyId);
   } catch (error) {
+    unstable_rethrow(error);
     const { errorCode, httpStatus } = failureView(error);
     return <ErrorState errorCode={errorCode} status={httpStatus} />;
   }
