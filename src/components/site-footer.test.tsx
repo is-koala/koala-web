@@ -22,4 +22,17 @@ describe("site altbilgisi", () => {
 
     expect(screen.getByRole("contentinfo").textContent).not.toMatch(/\d{4}/);
   });
+
+  it("İletişim ve Hakkımızda bağlantılarını genel gezinmeye koyar", () => {
+    render(<SiteFooter />);
+
+    const footer = screen.getByRole("contentinfo");
+    expect(screen.getByRole("link", { name: "Hakkımızda" })).toHaveAttribute(
+      "href",
+      "/hakkimizda",
+    );
+    expect(screen.getByRole("link", { name: "İletişim" })).toHaveAttribute("href", "/iletisim");
+    expect(footer).toContainElement(screen.getByRole("link", { name: "Hakkımızda" }));
+    expect(footer).toContainElement(screen.getByRole("link", { name: "İletişim" }));
+  });
 });

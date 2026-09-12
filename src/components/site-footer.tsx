@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/brand/Wordmark";
-import { legalNav, site } from "@/lib/site";
+import { companyNav, legalNav, site } from "@/lib/site";
 
 export function SiteFooter() {
   return (
@@ -8,6 +8,13 @@ export function SiteFooter() {
       <div className="footer-inner">
         <div><Wordmark /><p>Bugünün işi, bugünün insanı.</p></div>
         <ul className="footer-links">
+          {companyNav.map((item) => (
+            <li key={item.href}>
+              <Link href={item.href}>
+                {item.label}
+              </Link>
+            </li>
+          ))}
           <li><Link href="/hesap-silme">Hesap Silme</Link></li>
           {legalNav.map((item) => (
             <li key={item.href}>

@@ -44,6 +44,16 @@ export const marketingNav = [
   { href: "/sss", label: "SSS" },
 ] as const;
 
+/**
+ * Kurumsal sayfalar ürün menüsünden ayrı durur. Masaüstü başlık ürün
+ * yollarını taşıyordu; İletişim ve Hakkımızda ne başlıkta ne altbilgide
+ * olduğu için genel gezinmeden düşüyordu (is-koala/koala-web#146).
+ */
+export const companyNav = [
+  { href: "/hakkimizda", label: "Hakkımızda" },
+  { href: "/iletisim", label: "İletişim" },
+] as const;
+
 export const legalNav = Object.entries(legalCatalog).map(([slug, document]) => ({
   href: `/${slug}`,
   label: document.title,
