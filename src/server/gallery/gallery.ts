@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import {
   galleryPutBody,
   galleryPutRejectionMessage,
@@ -113,6 +115,7 @@ export async function uploadWithPrecheck(
   try {
     return { status: "done", images: await upload(file) };
   } catch (error) {
+    unstable_rethrow(error);
     if (error instanceof ApiError && error.errorCode === "GALLERY_LIMIT_EXCEEDED") {
       return {
         status: "error",
@@ -142,6 +145,7 @@ export async function replaceWithRules(
   try {
     return { status: "done", images: await write(put.body) };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", ...failureView(error) };
   }
 }

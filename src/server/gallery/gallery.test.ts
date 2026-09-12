@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { galleryPutBody, galleryQuotaReason } from "@/lib/gallery";
 import { ApiError } from "@/server/api/errors";
 
+import { sessionExpiryRedirect } from "../../../tests/support/control-flow";
+
 import {
   cookieStore,
   envelope,
@@ -202,6 +204,48 @@ describe("yükleme ve toptan yazma kuralları", () => {
       images: listed,
     });
     expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("yükleme sırasında biten oturumun yönlendirmesini hata durumuna dönüştürmez", async () => {
+    // Çağıran action `unstable_rethrow` taşıyor ama bu catch ondan önce
+    // duruyor: burada yutulan yönlendirme oraya hiç ulaşmaz.
+    const interrupt = sessionExpiryRedirect("/giris?next=%2Fisveren%2Filan");
+    const list = vi.fn().mockResolvedValue([]);
+    const upload = vi.fn().mockRejectedValue(interrupt);
+
+    await expect(
+      uploadWithPrecheck(new File(["koala"], "mekan.webp", { type: "image/webp" }), list, upload),
+    ).rejects.toBe(interrupt);
+  });
+
+  it("toptan yazma sırasında biten oturumun yönlendirmesini hata durumuna dönüştürmez", async () => {
+    const interrupt = sessionExpiryRedirect("/giris?next=%2Fisveren%2Filan");
+    const write = vi.fn().mockRejectedValue(interrupt);
+
+    await expect(
+      replaceWithRules(
+        [{ id: firstId, url: "https://cdn.example.test/a.webp", caption: null, cover: true, sortOrder: 0 }],
+        write,
+      ),
+    ).rejects.toBe(interrupt);
+  });
+
+  it("toptan yazmanın backend arızasını koddan seçilen duruma çevirir", async () => {
+    const write = vi.fn().mockRejectedValue(
+      new ApiError({
+        status: 503,
+        errorCode: "EXTERNAL_SERVICE",
+        errorCategory: "EXTERNAL_SERVICE",
+        message: "ham mesaj",
+      }),
+    );
+
+    await expect(
+      replaceWithRules(
+        [{ id: firstId, url: "https://cdn.example.test/a.webp", caption: null, cover: true, sortOrder: 0 }],
+        write,
+      ),
+    ).resolves.toEqual({ status: "error", errorCode: "EXTERNAL_SERVICE", httpStatus: 503 });
   });
 
   it("aynı görseli iki kez yazmayı ağa hiç göndermez", async () => {
