@@ -1,6 +1,7 @@
 import {
   associationResponse,
   buildAndroidAssociation,
+  commaSeparatedValues,
   isAndroidPackageName,
   isSha256Fingerprint,
   unavailableAssociationResponse,
@@ -9,20 +10,23 @@ import {
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  const packageName = process.env.ANDROID_APP_LINKS_PACKAGE_NAME?.trim();
-  const fingerprints = process.env.ANDROID_APP_LINKS_SHA256_CERT_FINGERPRINTS
-    ?.split(",")
-    .map((fingerprint) => fingerprint.trim())
-    .filter(Boolean);
+  const packageNames = commaSeparatedValues(
+    process.env.ANDROID_APP_LINKS_PACKAGE_NAME,
+  );
+  const fingerprints = commaSeparatedValues(
+    process.env.ANDROID_APP_LINKS_SHA256_CERT_FINGERPRINTS,
+  );
 
   if (
-    !packageName ||
-    !isAndroidPackageName(packageName) ||
-    !fingerprints?.length ||
+    !packageNames.length ||
+    packageNames.some((packageName) => !isAndroidPackageName(packageName)) ||
+    !fingerprints.length ||
     fingerprints.some((fingerprint) => !isSha256Fingerprint(fingerprint))
   ) {
     return unavailableAssociationResponse();
   }
 
-  return associationResponse(buildAndroidAssociation(packageName, fingerprints));
+  return associationResponse(
+    buildAndroidAssociation(packageNames, fingerprints),
+  );
 }

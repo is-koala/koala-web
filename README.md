@@ -72,9 +72,22 @@ birleşimidir; Team ID olduğu varsayılmaz. Android parmak izi upload key'den
 değil, Play Console'daki App Signing sertifikasından alınır. Değerler eksik veya
 biçimsizse geçersiz ilişkilendirme belgesi yayımlamak yerine uç 503 döner.
 
-Her alan adı kendi belgesini doğrudan HTTPS 200 ile sunmalıdır. Production,
-staging ve geliştirme birbirinin uygulama kimliğini veya imza parmak izini
-paylaşmaz.
+Her alan adı kendi belgesini doğrudan HTTPS 200 ile sunmalıdır. Apple tarafında
+production, staging ve geliştirme birbirinin uygulama kimliğini paylaşmaz.
+Android tarafında ise staging paketi (`com.iskoala.koala.staging`) üretim
+paketiyle (`com.iskoala.koala`) **aynı hostu** sahiplenir (is-koala/koala#155);
+bu yüzden `ANDROID_APP_LINKS_PACKAGE_NAME` virgülle ayrılmış paket listesi kabul
+eder ve `assetlinks.json` her paket için ayrı bir ifade üretir. Parmak izi
+listesi paylaşılır: `ANDROID_APP_LINKS_SHA256_CERT_FINGERPRINTS` içindeki her
+parmak izi (Play App Signing sertifikası ve cihaz testi için debug sertifikası)
+listedeki her pakete yazılır. Listedeki tek bir biçimsiz paket adı belgenin
+tamamını 503 yapar. Paket başına ayrı parmak izi gerekirse biçim
+`paket:fp1|fp2,paket2:fp3` şeklinde genişletilebilir; bugün ihtiyaç yok.
+
+Uygulamanın sahiplendiği yol listesi (`appLinkPaths`,
+`src/app/.well-known/associations.ts`) mobil `AppLinkDestination.httpsPathPrefixes`
+listesiyle birebir aynıdır ve `associations.test.ts` bunu sabitler; yeni bir
+karşılama yolu iki tarafa birden eklenir.
 
 ## Google anahtarları
 

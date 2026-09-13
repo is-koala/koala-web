@@ -15,6 +15,14 @@ describe("GET /.well-known/apple-app-site-association", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("şirket daveti yolunu Universal Link bileşeni olarak yayımlar", async () => {
+    vi.stubEnv("APPLE_APP_IDENTIFIER", "PREFIX.com.iskoala.koala");
+
+    const body = await GET().json();
+
+    expect(body.applinks.details[0].components).toContainEqual({ "/": "/davet*" });
+  });
+
   it("uygulama kimliği yoksa geçersiz belge yayımlamaz", () => {
     vi.stubEnv("APPLE_APP_IDENTIFIER", "");
 
