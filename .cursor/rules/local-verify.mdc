@@ -1,10 +1,10 @@
 ---
-description: Doğrula bu Mac'te; CI Hetzner'de; Mac GitHub runner değil
+description: Doğrula bu Mac'te; GitHub PR testi koşmaz; Mac GitHub runner değil
 alwaysApply: true
 ---
 
 # Yerel doğrulama
 
-Ajanın kendi kapısı Yusuf'un Mac'inde: `npm run lint && npm run typecheck && npm test`. PR açmadan önce `npm run build` da yeşil. GitHub kuyruğunu bekleme.
+Ajanın kendi kapısı Yusuf'un Mac'inde: `npm run lint && npm run typecheck && npm test && npm run build`. PR açmadan önce bu dörtü yeşil. Mümkünse `npm run test:e2e` ve `npm run test:performance` de. GitHub kuyruğunu bekleme.
 
-Mac'i org GitHub Actions runner kaydetme. PR yeşil tiki `self-hosted` Hetzner'de kalır.
+Mac'i org GitHub Actions runner kaydetme. GitHub PR ve `main` push'ta kalite işi koşmaz. Hetzner `self-hosted` yalnız `workflow_dispatch` ile isteğe bağlı kalır.

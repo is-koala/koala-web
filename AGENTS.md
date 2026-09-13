@@ -247,11 +247,11 @@ Değişiklikler ayrı feature branch'te küçük Conventional Commit'lerle
 gönderilir ve PR açılır. Doğrudan `main` dalına push edilmez; başlık İngilizce imperative,
 gövde `Refs #NN` taşır ve `git add .` kullanılmaz.
 
-**Kalite kapısı hem yerelde hem CI'da koşulur.** Ajan kapıyı Yusuf'un
-Mac'inde koşturur; GitHub kuyruğunu beklemez. Mac org runner kaydedilmez.
-`.github/workflows/ci.yml` org `self-hosted` Hetzner x86_64 üzerinde
-çalışır (eskiden Raspberry Pi, is-koala/koala-backend#91). Dördü de yeşil
-olmadan PR açılmaz:
+**Kalite kapısı bu Mac'tedir.** Ajan kapıyı Yusuf'un Mac'inde koşturur;
+GitHub kuyruğunu beklemez. Mac org runner kaydedilmez. GitHub PR ve `main`
+push'ta kalite işi koşmaz. `.github/workflows/ci.yml` yalnız
+`workflow_dispatch` ile org `self-hosted` Hetzner x86_64 üzerinde isteğe
+bağlı durur. Dördü de yeşil olmadan PR açılmaz:
 
 ```
 npm run lint && npm run typecheck && npm test && npm run build
@@ -261,15 +261,10 @@ Build'den sonra Playwright E2E (`npm run test:e2e`) ve Lighthouse bütçesi
 (`npm run test:performance`) de yeşil olur; ikincisinin sayıları
 `docs/performance-accessibility-budget.md` içindedir.
 
-Bu komut CI'da da birebir aynı biçimde koşuyor. `CI` ortamına özgü kısıt
-(tek worker, uzun zaman sınırı) `vitest.config.ts` ve `playwright.config.ts`
-içinde `process.env.CI`'a bağlı; iş akışından bayrak geçirilmez, yoksa
-belgelenen kapı ile CI'ın koştuğu komut sessizce ayrışır.
-
-**CI kırmızısını okurken:** bir iş "test adımı tamamlanmadı, sonraki adımlar hiç
-koşmadı, log yüklenmedi" imzasıyla düşerse bu bir test kırmızısı değil —
-self-hosted makinede eşzamanlı ağır süitler birbirini öldürmüş olabilir
-(ölçüm: is-koala/koala#97, eski Pi).
+`CI` ortamına özgü kısıt (tek worker, uzun zaman sınırı) `vitest.config.ts`
+ve `playwright.config.ts` içinde `process.env.CI`'a bağlı; iş akışından
+bayrak geçirilmez, yoksa belgelenen kapı ile isteğe bağlı dispatch'in
+koştuğu komut sessizce ayrışır.
 
 `npm run build` `.env.local` istiyor; `.env.example` kopyalanıp `API_URL`
 yerel bir değere çevrilir (dosya Git'e girmez).
