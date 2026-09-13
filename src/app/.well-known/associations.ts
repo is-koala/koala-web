@@ -1,9 +1,16 @@
+// Mobil uygulamanın sahiplendiği HTTPS yol önekleri. Liste is-koala/koala
+// deposundaki `lib/product/router/app_link_destination.dart` içindeki
+// `AppLinkDestination.httpsPathPrefixes` ile birebir aynı olmak zorunda:
+// buraya girmeyen yol iOS'ta Universal Link olarak açılmaz, oraya girmeyen yol
+// da uygulamada rotaya çevrilmez. `/davet/{invitationId}` şirket daveti;
+// kimliği yolun içinde taşıdığı için önek eşleşmesi gerekir.
 export const appLinkPaths = [
   "/hesap-dogrula*",
   "/sifre-belirle*",
   "/sifre-sifirla*",
   "/eposta-onayla*",
   "/payment/result*",
+  "/davet*",
 ] as const;
 
 export function isAppleAppIdentifier(value: string): boolean {
@@ -16,6 +23,13 @@ export function isAndroidPackageName(value: string): boolean {
 
 export function isSha256Fingerprint(value: string): boolean {
   return /^(?:[A-Fa-f0-9]{2}:){31}[A-Fa-f0-9]{2}$/.test(value);
+}
+
+export function commaSeparatedValues(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export function buildAppleAssociation(appID: string) {
@@ -32,20 +46,22 @@ export function buildAppleAssociation(appID: string) {
   };
 }
 
+// Staging (`com.iskoala.koala.staging`) ve üretim (`com.iskoala.koala`)
+// paketleri aynı hostu sahipleniyor; Android her paket için ayrı bir ifade
+// bekler. Parmak izi listesi paylaşılır: Play App Signing ve cihaz testi için
+// debug sertifikası aynı listede virgülle verilir.
 export function buildAndroidAssociation(
-  packageName: string,
-  fingerprints: string[],
+  packageNames: readonly string[],
+  fingerprints: readonly string[],
 ) {
-  return [
-    {
-      relation: ["delegate_permission/common.handle_all_urls"],
-      target: {
-        namespace: "android_app",
-        package_name: packageName,
-        sha256_cert_fingerprints: fingerprints,
-      },
+  return packageNames.map((packageName) => ({
+    relation: ["delegate_permission/common.handle_all_urls"],
+    target: {
+      namespace: "android_app",
+      package_name: packageName,
+      sha256_cert_fingerprints: [...fingerprints],
     },
-  ];
+  }));
 }
 
 export function associationResponse(body: unknown) {
