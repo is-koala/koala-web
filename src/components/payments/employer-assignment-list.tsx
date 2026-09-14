@@ -3,6 +3,7 @@ import Link from "next/link";
 import { assignmentNextStep } from "@/assignments/employer-tracking";
 import { assignmentStatusLabel, formatAssignmentDate } from "@/components/assignment-presenters";
 import { StatusBadge, assignmentStatusTone } from "@/components/ui";
+import { formatDateTime, isFormattableDate } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import type { EmployerAssignmentPage } from "@/payments/contract";
 
@@ -26,7 +27,13 @@ export function EmployerAssignmentList({
             </div>
             <div>
               <h2>{assignment.title}</h2>
-              <p className="assignment-company">{assignment.workerName || "İşçi bilgisi bekleniyor"}</p>
+              {/*
+                Şirket adı ilanın kime ait olduğunu söylüyor: iki şirketin
+                yetkilisi aynı listede iki şirketin atamasını görüyor. İşçi
+                adı satırın öznesi ve ayrı duruyor.
+              */}
+              {assignment.companyName ? <p className="assignment-company">{assignment.companyName}</p> : null}
+              <p className="assignment-worker-name">{assignment.workerName || "İşçi bilgisi bekleniyor"}</p>
               {assignment.position ? <p className="assignment-role">{assignment.position}</p> : null}
             </div>
             <dl className="assignment-facts">
@@ -34,6 +41,12 @@ export function EmployerAssignmentList({
                 <dt>Tarih</dt>
                 <dd>{formatAssignmentDate(assignment.startsAt, assignment.endsAt)}</dd>
               </div>
+              {assignment.assignedAt && isFormattableDate(assignment.assignedAt) ? (
+                <div>
+                  <dt>Atama tarihi</dt>
+                  <dd><time dateTime={assignment.assignedAt}>{formatDateTime(assignment.assignedAt)}</time></dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Konum</dt>
                 <dd>{[assignment.districtName, assignment.cityName].filter(Boolean).join(", ") || "Bekleniyor"}</dd>

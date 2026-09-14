@@ -72,3 +72,19 @@ it("REFUNDED filtresini tamamlanmış iade değil devam eden süreç olarak adla
   expect(screen.queryByRole("link", { name: "İade edilen" })).toBeNull();
   expect(screen.getByText("İade sürecinde", { selector: ".payment-status" })).toBeVisible();
 });
+
+it("satırda çalışma zamanını, şirket adını ve gelen ödeme tarihini yazar", () => {
+  // `paymentSecuredAt` is-koala/koala-backend#282 ile geliyor; yoksa satır
+  // yalnız çalışma zamanını yazıyor, tarih uydurmuyor.
+  const { rerender } = render(<EmployerPaymentsOverview assignments={[
+    { ...base, companyName: "Koala Etkinlik", paymentSecuredAt: "2026-09-02T14:30:00Z" },
+  ]} filter="all" totalsComplete />);
+
+  expect(screen.getByText("Koala Etkinlik · Ayşe Yılmaz")).toBeVisible();
+  expect(screen.getByText("12 Eylül 2026, 09:00–18:00")).toBeVisible();
+  expect(screen.getByText("2 Eyl 2026 17:30")).toBeVisible();
+
+  rerender(<EmployerPaymentsOverview assignments={[base]} filter="all" totalsComplete />);
+  expect(screen.getByText("Ayşe Yılmaz")).toBeVisible();
+  expect(screen.queryByText(/Ödeme:/)).toBeNull();
+});

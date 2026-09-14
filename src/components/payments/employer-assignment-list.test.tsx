@@ -68,6 +68,24 @@ describe("işveren atama listesi", () => {
     );
   });
 
+  it("şirket adını ve atama tarihini satırda gösterir; ikisi de yoksa satırı açmaz", () => {
+    // İki şirketin yetkilisi aynı listede iki şirketin atamasını görüyor;
+    // `assignmentDateTime` teklifin ne zaman gittiğini söylüyor (#166).
+    const { rerender } = render(
+      <EmployerAssignmentList
+        assignments={page([assignment({ companyName: "Koala Etkinlik", assignedAt: "2026-09-01T09:00:00Z" })])}
+      />,
+    );
+
+    expect(screen.getByText("Koala Etkinlik")).toBeVisible();
+    expect(screen.getByText("Atama tarihi")).toBeVisible();
+    expect(screen.getByText("1 Eyl 2026 12:00")).toBeVisible();
+
+    rerender(<EmployerAssignmentList assignments={page([assignment()])} />);
+    expect(screen.queryByText("Koala Etkinlik")).toBeNull();
+    expect(screen.queryByText("Atama tarihi")).toBeNull();
+  });
+
   it("onay bekleyenle onaylanmışı sıradaki adımlarıyla ayırt eder", () => {
     // Rozetler ikisini ayırıyor ama ayrımın **anlamı** ödeme sırasında:
     // ödeme yalnız `CONFIRMED` iken açılabiliyor.
