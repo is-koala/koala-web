@@ -32,6 +32,7 @@ import {
 import { AssignmentDialog } from "@/components/assignment-dialog";
 import { MessagingGate } from "@/components/messaging/messaging-gate";
 import { ErrorState } from "@/components/states";
+import { EmptyStateCard, StatusBadge, applicationStatusTone } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { errorPresentation } from "@/lib/errors";
@@ -322,9 +323,9 @@ function ApplicantCard({
   return (
     <article className="application-card applicant-card" aria-labelledby={titleId}>
       <div className="application-card-body">
-        <span className={`application-status application-status-${applicant.status.toLowerCase()}`}>
+        <StatusBadge tone={applicationStatusTone(applicant.status)}>
           {applicantStatusLabel[applicant.status]}
-        </span>
+        </StatusBadge>
         <div className="applicant-identity">
           <ApplicantAvatar applicant={applicant} />
           <h2 id={titleId}>{applicant.applicant.fullName || "Adı paylaşılmadı"}</h2>
@@ -719,14 +720,15 @@ function ApplicantBadges({ badges }: { badges: readonly ApplicantBadge[] }) {
 
 function ApplicantEmpty({ filter }: { filter: ApplicantFilter }) {
   return (
-    <div role="status" className="state-card">
-      <h2>{filter === "ALL" ? "Henüz başvuru yok" : "Bu süzgeçte başvuru yok"}</h2>
-      <p>
-        {filter === "ALL"
+    <EmptyStateCard
+      title={filter === "ALL" ? "Henüz başvuru yok" : "Bu süzgeçte başvuru yok"}
+      message={
+        filter === "ALL"
           ? "İlanına gelen başvurular burada listelenecek."
-          : "Başka bir durum seçerek listedeki adayları görebilirsin."}
-      </p>
-    </div>
+          : "Başka bir durum seçerek listedeki adayları görebilirsin."
+      }
+      mascot="employer"
+    />
   );
 }
 

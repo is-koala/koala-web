@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { GalleryManager } from "@/components/gallery/gallery-manager";
 import { ErrorState, LoadingState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { publishedJobPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import { ApiError } from "@/server/api/errors";
@@ -67,14 +68,16 @@ export async function JobGalleryPanel({ job }: { job: JobDetail }) {
 
   return (
     <>
-      <section className="app-panel">
-        <p className="eyebrow">İlan galerisi</p>
-        <h1>{job.title}</h1>
-        <p className="lede">Kapak görseli ilan kartlarında görünür. Sıra kaydedildikten sonra korunur.</p>
+      <PagePanel>
+        <PageHeader
+          eyebrow="İlan galerisi"
+          title={job.title}
+          lede="Kapak görseli ilan kartlarında görünür. Sıra kaydedildikten sonra korunur."
+        />
         <Link className="text-link" href={publishedJobPath(job.id)}>
           İlana dön
         </Link>
-      </section>
+      </PagePanel>
       <GalleryManager
         initialImages={images}
         companyImages={companyImages}

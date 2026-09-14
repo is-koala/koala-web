@@ -5,6 +5,7 @@ import { ShellGate } from "@/app/(uygulama)/shell";
 import { EarningsList } from "@/components/earnings-list";
 import { EarningsRefresh } from "@/components/earnings-refresh";
 import { EmptyState, ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { listBankAccounts } from "@/server/account-settings/settings";
 import { failureView } from "@/server/form";
 import { readWorkerPayouts } from "@/server/payments/payouts";
@@ -45,13 +46,13 @@ export async function EarningsPage() {
   ]);
 
   return (
-    <section className="app-panel earnings-page">
+    <PagePanel className="earnings-page">
       <EarningsRefresh />
-      <p className="eyebrow">Çalışan paneli</p>
-      <h1>Kazançlarım</h1>
-      <p className="lede">
-        Tamamlanan ve aktarımı süren çalışan ücretlerini burada takip edebilirsin.
-      </p>
+      <PageHeader
+        eyebrow="Çalışan paneli"
+        title="Kazançlarım"
+        lede="Tamamlanan ve aktarımı süren çalışan ücretlerini burada takip edebilirsin."
+      />
       {"failure" in payouts ? (
         <ErrorState errorCode={payouts.failure.errorCode} status={payouts.failure.httpStatus} />
       ) : payouts.data.length === 0 ? (
@@ -67,7 +68,7 @@ export async function EarningsPage() {
       ) : (
         <BankAccountsSection accounts={bankAccounts.data} />
       )}
-    </section>
+    </PagePanel>
   );
 }
 

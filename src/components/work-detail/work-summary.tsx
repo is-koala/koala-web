@@ -5,6 +5,7 @@ import {
   formatMoney,
   paymentStatusLabel,
 } from "@/components/assignment-presenters";
+import { StatusBadge, assignmentStatusTone, paymentStatusTone } from "@/components/ui";
 
 export function WorkSummary({ detail }: { detail: WorkDetail }) {
   const { assignment } = detail;
@@ -13,10 +14,12 @@ export function WorkSummary({ detail }: { detail: WorkDetail }) {
   return (
     <section className="work-detail-summary" aria-labelledby="work-summary-heading">
       <div className="assignment-card-topline">
-        <span className={`assignment-status assignment-status-${assignment.status.toLowerCase()}`}>
+        <StatusBadge tone={assignmentStatusTone(assignment.status)}>
           {assignmentStatusLabel[assignment.status]}
-        </span>
-        <span className="assignment-payment">{paymentStatusLabel[assignment.paymentStatus]}</span>
+        </StatusBadge>
+        <StatusBadge tone={paymentStatusTone(assignment.paymentStatus)}>
+          {paymentStatusLabel[assignment.paymentStatus]}
+        </StatusBadge>
       </div>
       <div>
         <p className="eyebrow">Çalışma ayrıntısı</p>

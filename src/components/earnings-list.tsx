@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatDateTime } from "@/lib/dates";
 import { formatMoney, sumMoney } from "@/lib/money";
 import type { PayoutStatus, WorkerPayout } from "@/payments/payouts";
+import { StatusBadge, payoutStatusTone } from "@/components/ui";
 
 const payoutStatusLabel: Readonly<Record<PayoutStatus, string>> = {
   PENDING: "Aktarım bekliyor",
@@ -47,9 +48,9 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
           <li key={payout.id} className="earnings-item">
             <div className="earnings-item-heading">
               <strong>{formatMoney(payout.amount, payout.currency)}</strong>
-              <span className={`payout-status payout-status-${payout.status.toLowerCase()}`}>
+              <StatusBadge tone={payoutStatusTone(payout.status)}>
                 {payoutStatusLabel[payout.status]}
-              </span>
+              </StatusBadge>
             </div>
             <time dateTime={payout.completedAt ?? payout.createdAt}>
               {formatDateTime(payout.completedAt ?? payout.createdAt)}

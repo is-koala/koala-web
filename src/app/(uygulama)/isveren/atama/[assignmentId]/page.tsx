@@ -18,6 +18,7 @@ import {
   PaymentResultNotice,
 } from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { isUuid } from "@/lib/identifiers";
 import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
@@ -113,10 +114,12 @@ export async function EmployerAssignmentContent({
   const currency = assignment.pricing?.currency ?? "TRY";
 
   return (
-    <section className="app-panel employer-assignment-detail">
-      <p className="eyebrow">İşveren ataması</p>
-      <h1>{assignment.title}</h1>
-      <p className="lede">{assignment.workerName || "İşçi bilgisi bekleniyor"}</p>
+    <PagePanel className="employer-assignment-detail">
+      <PageHeader
+        eyebrow="İşveren ataması"
+        title={assignment.title}
+        lede={assignment.workerName || "İşçi bilgisi bekleniyor"}
+      />
 
       {showPaymentResult ? <PaymentResultNotice resolution={loaded.paymentResolution} /> : null}
 
@@ -190,6 +193,6 @@ export async function EmployerAssignmentContent({
         currency={currency}
         action={employerResolutionAction.bind(null, assignment.id)}
       />
-    </section>
+    </PagePanel>
   );
 }

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { GalleryManager } from "@/components/gallery/gallery-manager";
 import { ErrorState, LoadingState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { companyProfilePath } from "@/lib/app-routes";
 import { canManageCompany } from "@/lib/company";
 import { companyMembership } from "@/lib/company-contacts";
@@ -40,9 +41,8 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
 
   if (!canManageCompany(membership.role)) {
     return (
-      <section className="app-panel">
-        <p className="eyebrow">{membership.companyName}</p>
-        <h1>Şirket galerisi</h1>
+      <PagePanel>
+        <PageHeader eyebrow={membership.companyName} title="Şirket galerisi" />
         <div className="state-card" role="status">
           <h2>Galeri için yönetici olmalısın</h2>
           <p>{companyGalleryAdminNotice}</p>
@@ -50,7 +50,7 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
         <Link className="text-link" href={companyProfilePath(membership.companyId)}>
           Şirket profiline dön
         </Link>
-      </section>
+      </PagePanel>
     );
   }
 
@@ -79,16 +79,16 @@ export async function CompanyGalleryPanel({
 
   return (
     <>
-      <section className="app-panel">
-        <p className="eyebrow">{companyName}</p>
-        <h1>Şirket galerisi</h1>
-        <p className="lede">
-          Mekân fotoğraflarını bir kez yükleyip her ilanda yeniden seçebilirsin.
-        </p>
+      <PagePanel>
+        <PageHeader
+          eyebrow={companyName}
+          title="Şirket galerisi"
+          lede="Mekân fotoğraflarını bir kez yükleyip her ilanda yeniden seçebilirsin."
+        />
         <Link className="text-link" href={companyProfilePath(companyId)}>
           Şirket profiline dön
         </Link>
-      </section>
+      </PagePanel>
       <GalleryManager
         initialImages={images}
         uploadAction={uploadCompanyGalleryAction.bind(null, companyId)}

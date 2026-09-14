@@ -8,6 +8,7 @@ import {
   PaymentHistory,
 } from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { isUuid } from "@/lib/identifiers";
 import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
@@ -64,15 +65,17 @@ export async function PaymentHistoryContent({ assignment }: { assignment: Employ
   }
 
   return (
-    <section className="app-panel payment-history-page">
-      <p className="eyebrow">Ödeme geçmişi</p>
-      <h1>{assignment.title}</h1>
-      <p className="lede">Her ödeme girişimi ayrı kayıt olarak ve en yeni deneme önce görünür.</p>
+    <PagePanel className="payment-history-page">
+      <PageHeader
+        eyebrow="Ödeme geçmişi"
+        title={assignment.title}
+        lede="Her ödeme girişimi ayrı kayıt olarak ve en yeni deneme önce görünür."
+      />
       <DisputeEscrowNotice hasActiveDispute={result.reconciliation.hasActiveDispute} />
       <PaymentHistory attempts={result.reconciliation.attempts} />
       <Link className="text-link" href={`/isveren/atama/${encodeURIComponent(assignment.id)}`}>
         Atama ayrıntısına dön
       </Link>
-    </section>
+    </PagePanel>
   );
 }

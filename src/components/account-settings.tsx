@@ -6,6 +6,7 @@ import { ContactSettings } from "@/components/account-settings/contact-settings"
 import { NotificationSettings } from "@/components/account-settings/notification-settings";
 import { PasswordSettings } from "@/components/account-settings/password-settings";
 import { SessionSettings } from "@/components/account-settings/session-settings";
+import { PageHeader, PagePanel } from "@/components/ui";
 import type {
   AccountSettingsActions,
   AccountSettingsViewer,
@@ -24,10 +25,12 @@ export function AccountSettings({
   actions: AccountSettingsActions;
 }) {
   return (
-    <section className="app-panel account-settings">
-      <p className="eyebrow">Hesap</p>
-      <h1>Hesap ve ayarlar</h1>
-      <p className="lede">Ödeme hesabını, güvenliğini ve bildirimlerini tek yerden yönet.</p>
+    <PagePanel className="account-settings">
+      <PageHeader
+        eyebrow="Hesap"
+        title="Hesap ve ayarlar"
+        lede="Ödeme hesabını, güvenliğini ve bildirimlerini tek yerden yönet."
+      />
 
       <nav className="settings-jump" aria-label="Ayar bölümleri">
         <a href="#banka-hesaplari">Banka hesapları</a>
@@ -66,6 +69,6 @@ export function AccountSettings({
         initialStatus={data.accountDeletion}
         action={actions.requestAccountDeletion}
       />
-    </section>
+    </PagePanel>
   );
 }

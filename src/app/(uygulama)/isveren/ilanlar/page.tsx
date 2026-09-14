@@ -5,6 +5,7 @@ import { unstable_rethrow } from "next/navigation";
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { EmployerJobList } from "@/components/employer-job-list";
 import { ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { parseJobSort } from "@/jobs/employer-jobs";
 import { employerJobsPath, newCompanyJobPath, newIndividualJobPath } from "@/lib/app-routes";
 import { failureView } from "@/server/form";
@@ -55,23 +56,20 @@ export async function EmployerJobsPage({ searchParams }: EmployerJobsPageProps) 
     });
 
   return (
-    <section className="app-panel employer-jobs-page">
-      <p className="eyebrow">İşveren</p>
-      <h1>Benim açtığım ilanlar</h1>
-      <p className="lede">
-        Burada yalnız senin açtığın ilanlar var. Yetkilisi olduğun bir şirkette başka bir
-        yetkilinin açtığı ilanlar bu listeye düşmüyor; onları o ilanın bağlantısından
-        görebilirsin.
-      </p>
-
-      <NewJobLinks companies={viewer.companies} />
+    <PagePanel className="employer-jobs-page">
+      <PageHeader
+        eyebrow="İşveren"
+        title="Benim açtığım ilanlar"
+        lede="Burada yalnız senin açtığın ilanlar var. Yetkilisi olduğun bir şirkette başka bir yetkilinin açtığı ilanlar bu listeye düşmüyor; onları o ilanın bağlantısından görebilirsin."
+        actions={<NewJobLinks companies={viewer.companies} />}
+      />
 
       {"failure" in result ? (
         <ErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
       ) : (
         <EmployerJobList jobs={result.jobs} sort={sort} />
       )}
-    </section>
+    </PagePanel>
   );
 }
 
@@ -90,13 +88,13 @@ function NewJobLinks({
 }) {
   return (
     <nav className="employer-job-actions" aria-label="Yeni ilan aç">
-      <Link className="button button-primary" href={newIndividualJobPath}>
+      <Link className="button button-primary button-small" href={newIndividualJobPath}>
         Kendi adıma ilan aç
       </Link>
       {companies.map((company) => (
         <Link
           key={company.companyId}
-          className="button button-secondary"
+          className="button button-secondary button-small"
           href={newCompanyJobPath(company.companyId)}
         >
           {company.companyName} adına ilan aç

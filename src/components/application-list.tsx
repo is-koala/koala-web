@@ -12,6 +12,7 @@ import {
   type WorkerApplicationPage,
 } from "@/applications/contract";
 import { ErrorState } from "@/components/states";
+import { EmptyStateCard, LinkTabs, StatusBadge, applicationStatusTone } from "@/components/ui";
 import { formatDateTime, formatJobDate } from "@/lib/dates";
 import { safeImageUrl } from "@/lib/urls";
 
@@ -49,17 +50,14 @@ function ApplicationListState({
 
   return (
     <div className="application-list" aria-busy={isPending}>
-      <nav className="application-filters" aria-label="Başvuru durumu">
-        {filterOptions.map((option) => (
-          <Link
-            key={option.value}
-            href={applicationListHref(option.value, 0)}
-            aria-current={filter === option.value ? "page" : undefined}
-          >
-            {option.label}
-          </Link>
-        ))}
-      </nav>
+      <LinkTabs
+        label="Başvuru durumu"
+        items={filterOptions.map((option) => ({
+          href: applicationListHref(option.value, 0),
+          label: option.label,
+          current: filter === option.value,
+        }))}
+      />
 
       {state.status === "error" ? (
         <ErrorState errorCode={state.errorCode} status={state.httpStatus} />
@@ -143,9 +141,9 @@ function ApplicationCard({
     <article className="application-card" aria-labelledby={titleId}>
       <ApplicationCover application={application} />
       <div className="application-card-body">
-        <span className={`application-status application-status-${application.status.toLowerCase()}`}>
+        <StatusBadge tone={applicationStatusTone(application.status)}>
           {statusLabels[application.status]}
-        </span>
+        </StatusBadge>
         <div>
           <h2 id={titleId}>{application.title}</h2>
           {application.companyName ? <p className="application-company">{application.companyName}</p> : null}
@@ -211,14 +209,15 @@ function ApplicationCover({ application }: { application: WorkerApplication }) {
 
 function ApplicationEmpty({ filter }: { filter: ApplicationFilter }) {
   return (
-    <div role="status" className="state-card">
-      <h2>{filter === "ALL" ? "Henüz başvuru yok" : "Bu filtrede başvuru yok"}</h2>
-      <p>
-        {filter === "ALL"
+    <EmptyStateCard
+      title={filter === "ALL" ? "Henüz başvuru yok" : "Bu filtrede başvuru yok"}
+      message={
+        filter === "ALL"
           ? "İlanlara yaptığın başvurular burada görünecek."
-          : "Başka bir durum filtresi seçerek başvurularını inceleyebilirsin."}
-      </p>
-    </div>
+          : "Başka bir durum filtresi seçerek başvurularını inceleyebilirsin."
+      }
+      mascot="worker"
+    />
   );
 }
 

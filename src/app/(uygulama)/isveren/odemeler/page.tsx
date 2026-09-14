@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { EmployerPaymentsOverview } from "@/components/payments/employer-payments-overview";
 import { EmptyState, ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { failureView } from "@/server/form";
 import { readAllEmployerAssignments } from "@/server/payments/payments";
 import { enterShell } from "@/server/session/viewer";
@@ -45,12 +46,12 @@ export async function EmployerPaymentsPage({ searchParams }: EmployerPaymentsPag
   const filter = typeof durum === "string" && knownFilters.has(durum) ? durum : "all";
 
   return (
-    <section className="app-panel employer-payments-page">
-      <p className="eyebrow">İşveren paneli</p>
-      <h1>Ödemeler</h1>
-      <p className="lede">
-        Tahsil edilen, emanette bekleyen ve işçiye aktarılan ödemeleri atamalarıyla birlikte gör.
-      </p>
+    <PagePanel className="employer-payments-page">
+      <PageHeader
+        eyebrow="İşveren paneli"
+        title="Ödemeler"
+        lede="Tahsil edilen, emanette bekleyen ve işçiye aktarılan ödemeleri atamalarıyla birlikte gör."
+      />
       {result.collection.assignments.length === 0 ? (
         <EmptyState kind="employerAssignments" />
       ) : (
@@ -60,6 +61,6 @@ export async function EmployerPaymentsPage({ searchParams }: EmployerPaymentsPag
           totalsComplete={result.collection.totalsComplete}
         />
       )}
-    </section>
+    </PagePanel>
   );
 }

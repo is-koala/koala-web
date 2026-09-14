@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { TalentPoolList } from "@/components/talent-pool-list";
 import { ErrorState } from "@/components/states";
+import { EmptyStateCard, PageHeader, PagePanel } from "@/components/ui";
 import { talentPoolPath } from "@/lib/app-routes";
 import { failureView } from "@/server/form";
 import { readTalentPool } from "@/server/applications/employer-review";
@@ -46,23 +47,23 @@ export async function TalentPoolPageBody({ searchParams }: TalentPoolPageProps) 
   }
 
   return (
-    <section className="app-panel talent-pool-page">
-      <p className="eyebrow">İşveren paneli</p>
-      <h1>Yetenek havuzu</h1>
-      <p className="lede">
-        Başvuru listesinde beğendiğin adaylar burada birikiyor; yeni bir ilan açtığında
-        onlara buradan ulaşabilirsin.
-      </p>
+    <PagePanel className="talent-pool-page">
+      <PageHeader
+        eyebrow="İşveren paneli"
+        title="Yetenek havuzu"
+        lede="Başvuru listesinde beğendiğin adaylar burada birikiyor; yeni bir ilan açtığında onlara buradan ulaşabilirsin."
+      />
 
       {result.pool.content.length === 0 ? (
-        <div role="status" className="state-card">
-          <h2>Yetenek havuzun boş</h2>
-          <p>Bir ilanın başvuru listesinden adayları havuza ekleyebilirsin.</p>
-        </div>
+        <EmptyStateCard
+          title="Yetenek havuzun boş"
+          message="Bir ilanın başvuru listesinden adayları havuza ekleyebilirsin."
+          mascot="employer"
+        />
       ) : (
         <TalentPoolList pool={result.pool} action={removeTalentPoolEntryAction} />
       )}
-    </section>
+    </PagePanel>
   );
 }
 

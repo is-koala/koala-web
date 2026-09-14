@@ -44,7 +44,8 @@ export function StatusBadge({
   burada yalnız renk kararı var, böylece aynı durum iki ekranda iki renk olamıyor.
 */
 
-export function jobStatusTone(status: JobStatus | "UNKNOWN"): StatusTone {
+/** İlan ayrıntısı durumu ham dize taşıyor; tanınmayan değer nötr kalır. */
+export function jobStatusTone(status: JobStatus | "UNKNOWN" | string): StatusTone {
   switch (status) {
     case "OPEN":
       return "success";

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PageHeader, PagePanel } from "@/components/ui";
 import { companyProfilePath, newCompanyPath } from "@/lib/app-routes";
 import { contactRoleLabel } from "@/lib/company-contacts";
 import type { ViewerCompany } from "@/server/session/viewer";
@@ -17,12 +18,12 @@ import type { ViewerCompany } from "@/server/session/viewer";
  */
 export function CompanyChooser({ companies }: { companies: readonly ViewerCompany[] }) {
   return (
-    <section className="app-panel">
-      <p className="eyebrow">İşveren</p>
-      <h1>Şirketlerin</h1>
-      <p className="lede">
-        Birden çok şirketin yetkilisisin. Devam etmek için hangi şirkette çalışacağını seç.
-      </p>
+    <PagePanel>
+      <PageHeader
+        eyebrow="İşveren"
+        title="Şirketlerin"
+        lede="Birden çok şirketin yetkilisisin. Devam etmek için hangi şirkette çalışacağını seç."
+      />
 
       <ul className="profile-record-list" aria-label="Yetkilisi olduğun şirketler">
         {companies.map((company) => (
@@ -45,7 +46,7 @@ export function CompanyChooser({ companies }: { companies: readonly ViewerCompan
       <Link className="text-link" href={newCompanyPath}>
         Yeni şirket kur
       </Link>
-    </section>
+    </PagePanel>
   );
 }
 
@@ -57,13 +58,12 @@ export function CompanyChooser({ companies }: { companies: readonly ViewerCompan
  */
 export function NoCompanyPanel() {
   return (
-    <section className="app-panel">
-      <p className="eyebrow">İşveren</p>
-      <h1>Henüz bir şirketin yok</h1>
-      <p className="lede">
-        Şirket adına ilan açmak için önce şirketini kaydetmen gerekiyor. Kayıt onay bekleyerek
-        açılır ve onaylanana kadar şirket adına ilan açılamaz.
-      </p>
+    <PagePanel>
+      <PageHeader
+        eyebrow="İşveren"
+        title="Henüz bir şirketin yok"
+        lede="Şirket adına ilan açmak için önce şirketini kaydetmen gerekiyor. Kayıt onay bekleyerek açılır ve onaylanana kadar şirket adına ilan açılamaz."
+      />
       <p className="muted">
         Bir şirkete yetkili olarak davet edildiysen daveti kabul ettiğinde şirket burada
         görünecek.
@@ -71,6 +71,6 @@ export function NoCompanyPanel() {
       <Link className="button button-primary" href={newCompanyPath}>
         Şirket kur
       </Link>
-    </section>
+    </PagePanel>
   );
 }

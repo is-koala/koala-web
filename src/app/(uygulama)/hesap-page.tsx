@@ -2,6 +2,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { AccountSettings, type AccountSettingsActions } from "@/components/account-settings";
 import { ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import {
   loadAccountSettings,
   type AccountSettingsData,
@@ -54,11 +55,10 @@ export async function AccountPage({ searchParams }: AccountPageProps = {}) {
     unstable_rethrow(error);
     const failure = failureView(error);
     return (
-      <section className="app-panel" aria-labelledby="hesap-hata-baslik">
-        <p className="eyebrow">Hesap</p>
-        <h1 id="hesap-hata-baslik">Hesap ve ayarlar</h1>
+      <PagePanel aria-labelledby="hesap-hata-baslik">
+        <PageHeader eyebrow="Hesap" title="Hesap ve ayarlar" titleId="hesap-hata-baslik" />
         <ErrorState errorCode={failure.errorCode} status={failure.httpStatus} />
-      </section>
+      </PagePanel>
     );
   }
 
@@ -85,10 +85,9 @@ async function notificationPageFrom(searchParams: AccountPageProps["searchParams
 
 export function AccountLoading() {
   return (
-    <section className="app-panel" role="status" aria-live="polite">
-      <p className="eyebrow">Hesap</p>
-      <h1>Hesap ve ayarlar</h1>
+    <PagePanel role="status" aria-live="polite">
+      <PageHeader eyebrow="Hesap" title="Hesap ve ayarlar" />
       <p>Ayarların yükleniyor…</p>
-    </section>
+    </PagePanel>
   );
 }

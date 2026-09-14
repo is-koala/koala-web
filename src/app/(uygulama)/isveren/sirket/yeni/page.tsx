@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { CompanyForm } from "@/components/company/company-form";
 import { EmployerGate } from "@/components/employer-gate";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { newCompanyPath } from "@/lib/app-routes";
 import { currentGates } from "@/server/session/gates";
 
@@ -39,17 +40,16 @@ export default async function Page() {
   const blocked = verdict.open ? [] : verdict.blockedBy;
 
   return (
-    <section className="app-panel">
-      <p className="eyebrow">İşveren</p>
-      <h1>Yeni şirket</h1>
-      <p className="lede">
-        Şirketini kaydettiğinde onun yöneticisi olursun. Kayıt onay bekleyerek açılır ve
-        onaylanana kadar şirket adına ilan açılamaz.
-      </p>
+    <PagePanel>
+      <PageHeader
+        eyebrow="İşveren"
+        title="Yeni şirket"
+        lede="Şirketini kaydettiğinde onun yöneticisi olursun. Kayıt onay bekleyerek açılır ve onaylanana kadar şirket adına ilan açılamaz."
+      />
 
       <EmployerGate blocked={blocked} action="Şirketi oluştur" returnPath={newCompanyPath}>
         <CompanyForm action={createCompanyAction} />
       </EmployerGate>
-    </section>
+    </PagePanel>
   );
 }

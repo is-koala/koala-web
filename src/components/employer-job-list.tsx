@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EmptyState } from "@/components/states";
+import { LinkTabs, StatusBadge, jobStatusTone } from "@/components/ui";
 import {
   jobSortOptions,
   type EmployerJob,
@@ -63,17 +64,14 @@ function ownerBadge(job: EmployerJob): string {
 
 function SortChoice({ sort }: { sort: JobSort }) {
   return (
-    <nav className="employer-job-sort" aria-label="Sıralama">
-      {jobSortOptions.map((option) => (
-        <Link
-          key={option.value}
-          href={employerJobsHref(option.value, 0)}
-          aria-current={option.value === sort ? "page" : undefined}
-        >
-          {option.label}
-        </Link>
-      ))}
-    </nav>
+    <LinkTabs
+      label="Sıralama"
+      items={jobSortOptions.map((option) => ({
+        href: employerJobsHref(option.value, 0),
+        label: option.label,
+        current: option.value === sort,
+      }))}
+    />
   );
 }
 
@@ -107,9 +105,7 @@ function EmployerJobCard({ job }: { job: EmployerJob }) {
             {job.title}
           </Link>
         </h2>
-        <span className={`job-status job-status-${job.status.toLowerCase()}`}>
-          {jobStatusLabel(job.status)}
-        </span>
+        <StatusBadge tone={jobStatusTone(job.status)}>{jobStatusLabel(job.status)}</StatusBadge>
       </div>
 
       <p className="employer-job-owner">
