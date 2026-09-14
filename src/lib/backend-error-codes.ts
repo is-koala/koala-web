@@ -165,6 +165,9 @@ export const backendErrorFamilies: Readonly<Record<string, BackendErrorFamily>> 
   "MESSAGING_MESSAGE_NOT_FOUND": "notFound",
   "MESSAGING_NOT_A_PARTICIPANT": "notFound",
   "MESSAGING_NO_RELATIONSHIP_WITH_JOB": "forbidden",
+  // `ForbiddenException` (is-koala/koala-backend#257): ikili sohbet ve
+  // `POST /jobs/{jobId}/conversation`, işçinin ataması emanete düşmeden 403.
+  "MESSAGING_PAYMENT_REQUIRED": "forbidden",
   "MESSAGING_SUBSCRIPTION_NOT_ALLOWED": "authentication",
   "MESSAGING_WINDOW_CLOSED": "conflict",
   "MY_SESSION_NOT_FOUND": "notFound",

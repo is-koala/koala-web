@@ -6,6 +6,7 @@ import type {
   WorkDetail,
   WorkSession,
 } from "@/assignments/work-detail";
+import { messagingAvailabilityFrom } from "@/messaging/contract";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 import {
@@ -116,6 +117,7 @@ function toWorkAssignment(dto: AssignmentDto): WorkAssignment {
     ...projectWorkerAssignment(dto),
     assignedAt: dto.assignmentDateTime ?? null,
     completedAt: dto.actualCompletionDateTime ?? null,
+    messaging: messagingAvailabilityFrom(dto),
   };
 }
 

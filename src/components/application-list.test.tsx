@@ -143,7 +143,10 @@ describe("başvurularım listesi", () => {
     );
 
     expect(screen.getByText(/4b1f0d24/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Atamayı gör" })).toHaveAttribute("href", "/panel/islerim");
+    expect(screen.getByRole("link", { name: "Atamayı gör" })).toHaveAttribute(
+      "href",
+      "/panel/is/4b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+    );
   });
 
   it("filtreleri ve sayfalamayı URL'de birlikte korur", () => {

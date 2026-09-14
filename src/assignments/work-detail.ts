@@ -1,11 +1,18 @@
 import type { WorkerAssignment } from "@/assignments/contract";
 import type { WorkerAssignmentResolution } from "@/assignments/resolution";
+import type { MessagingAvailability } from "@/messaging/contract";
 
 export type { CancellationPreview } from "@/assignments/resolution";
 
 export type WorkAssignment = WorkerAssignment & {
   assignedAt: string | null;
   completedAt: string | null;
+  /**
+   * `messagingAvailable` + `messagingAvailableReason`; alan yoksa `null` ve
+   * ekran mesaj düğmesini hiç çizmez (`MessagingGate`). Liste modeline
+   * (`WorkerAssignment`) girmiyor: düğme yalnız ayrıntıda.
+   */
+  messaging: MessagingAvailability | null;
 };
 
 export type WorkSession = {

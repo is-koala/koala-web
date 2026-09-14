@@ -18,6 +18,7 @@ import {
   hasUnresolvedPaymentAttempt,
   paymentStatusPresentation,
 } from "@/payments/checkout";
+import { messagingAvailabilityFrom } from "@/messaging/contract";
 import { clean, known } from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
@@ -34,13 +35,15 @@ type EmployerAssignmentDto = {
     cityName?: string | null;
     districtName?: string | null;
   } | null;
-  worker?: { firstName?: string | null; lastName?: string | null } | null;
+  worker?: { id?: string | null; firstName?: string | null; lastName?: string | null } | null;
   status?: string | null;
   paymentStatus?: string | null;
   assignmentDateTime?: string | null;
   actualCompletionDateTime?: string | null;
   workHours?: number | null;
   pricing?: Partial<PricingBreakdown> | null;
+  messagingAvailable?: boolean | null;
+  messagingAvailableReason?: string | null;
 };
 
 type EmployerAssignmentPageDto = Omit<EmployerAssignmentPage, "content"> & {
@@ -259,6 +262,7 @@ function projectEmployerAssignment(dto: EmployerAssignmentDto): EmployerAssignme
     title: dto.job?.title ?? "",
     position: clean(dto.job?.position),
     employerType: known(dto.job?.employerType, employerTypes),
+    workerId: dto.worker?.id ?? "",
     workerName,
     cityName: clean(dto.job?.cityName),
     districtName: clean(dto.job?.districtName),
@@ -270,6 +274,7 @@ function projectEmployerAssignment(dto: EmployerAssignmentDto): EmployerAssignme
     assignedAt: dto.assignmentDateTime ?? null,
     completedAt: dto.actualCompletionDateTime ?? null,
     workHours: dto.workHours ?? 0,
+    messaging: messagingAvailabilityFrom(dto),
   };
 }
 

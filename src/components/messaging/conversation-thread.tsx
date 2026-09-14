@@ -53,6 +53,7 @@ import type { RealtimeClient, RealtimeConnectionState, RealtimeEvent } from "@/r
 import { retainRealtimeClient, sharedRealtimeClient } from "@/realtime/shared-client";
 
 import { ConnectionStatus } from "./connection-status";
+import { conversationSubtitle } from "./conversation-list";
 
 type Props = {
   conversationId: string;
@@ -127,7 +128,7 @@ export function ConversationThread({
   const [reportReason, setReportReason] = useState<ReportReason | "">("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportFeedback, setReportFeedback] = useState(false);
-  const [sendError, setSendError] = useState(false);
+  const [sendFailure, setSendFailure] = useState<MessagingActionFailure | null>(null);
   const [typing, setTyping] = useState(false);
   const [online, setOnline] = useState(initialSummary.ok ? initialSummary.conversation.online : null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -241,7 +242,7 @@ export function ConversationThread({
     if (!trimmed || composerLocked) return;
     const clientId = `${Date.now()}-${pendingCounter.current++}`;
     setBody("");
-    setSendError(false);
+    setSendFailure(null);
     setThread((current) => startPendingMessage(current, {
       clientId,
       senderId: viewerId,
@@ -254,7 +255,7 @@ export function ConversationThread({
       return;
     }
     setThread((current) => failPendingMessage(current, clientId));
-    setSendError(true);
+    setSendFailure(result);
     if (result.blocked) setBlockState("unknown");
   }
 
@@ -370,9 +371,16 @@ export function ConversationThread({
         <Link className="thread-back" href={basePath}>← Konuşmalar</Link>
         <div className="thread-title-row">
           <div>
-            <p className="eyebrow">{conversation?.jobTitle ?? "Mesajlaşma"}</p>
+            <p className="eyebrow">
+              {conversation === null
+                ? "Mesajlaşma"
+                : conversation.kind === "GROUP"
+                  ? conversationSubtitle(conversation)
+                  : (conversation.jobTitle ?? "Mesajlaşma")}
+            </p>
             <h1 id="thread-heading">{conversation?.displayName ?? "Konuşma"}</h1>
-            {conversation ? (
+            {/* Presence tek bir karşı tarafa bağlı; grupta yazacak bir kişi yok. */}
+            {conversation && conversation.kind !== "GROUP" ? (
               <p className="thread-presence">{online === true ? "Çevrimiçi" : "Çevrimdışı"}</p>
             ) : null}
           </div>
@@ -542,7 +550,13 @@ export function ConversationThread({
             }}
           />
         )}
-        {typing ? <p className="typing-indicator" role="status">{conversation?.displayName ?? "Karşı taraf"} yazıyor…</p> : null}
+        {typing ? (
+          <p className="typing-indicator" role="status">
+            {conversation === null || conversation.kind === "GROUP"
+              ? "Karşı taraf"
+              : conversation.displayName} yazıyor…
+          </p>
+        ) : null}
       </div>
 
       {summaryPermanentlyUnavailable ? (
@@ -566,7 +580,9 @@ export function ConversationThread({
       {permanentlyBlocked ? <p role="alert" className="composer-notice">Bu konuşmada artık mesaj gönderemezsin.</p> : null}
       {reportFeedback ? <p role="status" className="composer-notice">Şikâyetin alındı.</p> : null}
       {conversation?.closed ? <p role="status" className="composer-notice">Bu konuşma kapandı; geçmişi okumaya devam edebilirsin.</p> : null}
-      {sendError && !permanentlyBlocked ? <p role="alert" className="field-error">Mesaj gönderilemedi. Tekrar deneyebilirsin.</p> : null}
+      {sendFailure && !permanentlyBlocked ? (
+        <p role="alert" className="field-error">{sendFailureMessage(sendFailure)}</p>
+      ) : null}
       <form className="message-composer" inert={dialogOpen ? true : undefined} onSubmit={submit}>
         <label className="sr-only" htmlFor={`message-${conversationId}`}>Mesaj</label>
         <textarea
@@ -590,6 +606,25 @@ export function ConversationThread({
       </form>
     </section>
   );
+}
+
+/**
+ * Gönderim reddinin metni.
+ *
+ * İki kod `errorCode` ile ayrışıyor ve ikisinde de yeniden denemek işe
+ * yaramaz: ödeme emanete düşmeden ikili sohbete mesaj gidemiyor
+ * (`MESSAGING_PAYMENT_REQUIRED`), pencere kapandıysa hiç gidemiyor
+ * (`MESSAGING_WINDOW_CLOSED`). Metinler `src/lib/errors.ts` kataloğundan;
+ * kalan her red geçici sayılıyor ve yeniden denemeyi söylüyor.
+ */
+function sendFailureMessage(failure: MessagingActionFailure): string {
+  if (
+    failure.errorCode === "MESSAGING_PAYMENT_REQUIRED"
+    || failure.errorCode === "MESSAGING_WINDOW_CLOSED"
+  ) {
+    return errorPresentation(failure.errorCode, failure.status).message;
+  }
+  return "Mesaj gönderilemedi. Tekrar deneyebilirsin.";
 }
 
 function SafetyError({ failure }: { failure: MessagingActionFailure }) {

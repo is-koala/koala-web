@@ -1,6 +1,6 @@
 "use server";
 
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import type {
   WorkDetail,
@@ -14,6 +14,7 @@ import {
   type DisputeEvidenceUploadResult,
 } from "@/assignments/resolution";
 import { isUuid } from "@/lib/identifiers";
+import type { ConversationState } from "@/messaging/contract";
 import {
   cancelAssignment,
   checkpoint,
@@ -24,6 +25,7 @@ import {
   uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/work-detail";
 import { failureView } from "@/server/form";
+import { openWorkerConversation } from "@/server/messaging/messaging";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
 export async function workDetailAction(
@@ -61,6 +63,41 @@ export async function workDetailAction(
       ...(detail ? { detail } : {}),
     };
   }
+}
+
+/**
+ * İş ayrıntısından işverenle konuşma açma.
+ *
+ * `workDetailAction`'ın komut kanalına girmiyor: o kanal ekranı yerinde
+ * tazeliyor, bu eylem ise başarıda mesaj kabuğuna **yönlendiriyor** ve
+ * `redirect` bir `startTransition` içinden değil form eyleminden atılmalı.
+ * İlan kimliği sunucuda okunan atamadan bağlanıyor. Kapı
+ * (`messagingAvailable`) düğmeyi önden kapatıyor; buradaki 403/409 kararın
+ * bayatladığı hâl ve metni `errorCode` ile kataloğdan seçiliyor.
+ */
+export async function workConversationAction(
+  jobId: string,
+  _state: ConversationState,
+  formData: FormData,
+): Promise<ConversationState> {
+  void _state;
+  void formData;
+  await requireSessionForCurrentPath();
+
+  if (!isUuid(jobId)) {
+    return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+  }
+
+  let conversationId: string;
+  try {
+    conversationId = await openWorkerConversation(jobId);
+  } catch (error) {
+    unstable_rethrow(error);
+    return { status: "error", ...failureView(error) };
+  }
+
+  // `redirect()` istisna atarak çalışıyor; `try` dışında kalmalı.
+  redirect(`/panel/mesajlar/${encodeURIComponent(conversationId)}`);
 }
 
 async function execute(

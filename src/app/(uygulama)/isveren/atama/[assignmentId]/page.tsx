@@ -11,6 +11,7 @@ import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
 import { EmployerAssignmentTracking } from "@/components/assignment-tracking";
 import { formatAssignmentDate } from "@/components/assignment-presenters";
 import { EmployerResolutionActions } from "@/components/employer-resolution-actions";
+import { AssignmentMessaging } from "@/components/messaging/assignment-messaging";
 import {
   EmployerAssignmentPayment,
   PaymentBreakdown,
@@ -30,7 +31,11 @@ import { readAssignmentWorkSessions } from "@/server/assignments/employer-tracki
 import { viewerGates } from "@/server/session/gates";
 import { enterShell, type Viewer } from "@/server/session/viewer";
 
-import { completeAssignmentAction, employerResolutionAction } from "./actions";
+import {
+  completeAssignmentAction,
+  employerConversationAction,
+  employerResolutionAction,
+} from "./actions";
 
 type EmployerAssignmentPageProps = {
   params: Promise<{ assignmentId: string }>;
@@ -163,6 +168,20 @@ export async function EmployerAssignmentContent({
       />
 
       <EmployerAssignmentPayment assignment={assignment} requirements={loaded.requirements} />
+
+      {/*
+        Mesajlaşma ödeme kartının hemen altında: kapı ödemeye bağlı ve
+        "Ödemeyi tamamla" bağlantısı kullanıcıyı bir üstteki karta değil,
+        ödeme akışına götürüyor. Karar sunucudan (`messagingAvailable`);
+        alan yoksa bölüm hiç çizilmiyor (#157).
+      */}
+      <AssignmentMessaging
+        availability={assignment.messaging}
+        party="employer"
+        assignmentId={assignment.id}
+        action={employerConversationAction.bind(null, assignment.jobId, assignment.workerId)}
+      />
+
       <AssignmentResolutionPanel resolution={loaded.resolution} currency={currency} />
       <EmployerResolutionActions
         assignmentStatus={assignment.status}

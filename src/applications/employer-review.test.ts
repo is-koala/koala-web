@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   acceptanceHeadcount,
+  applicantMessaging,
   applicantPage,
   applicantPageSize,
   applicantsInFilter,
@@ -20,7 +21,7 @@ const fullHeadcount = acceptanceHeadcount({
   decidedNow: new Map(),
 });
 
-const acceptedNow: ApplicationDecisionOutcome = { decision: "ACCEPTED", assignmentId: null };
+const acceptedNow: ApplicationDecisionOutcome = { decision: "ACCEPTED", assignmentId: null, messaging: null };
 
 describe("işveren başvuru listesinin istemci tarafı dilimlemesi", () => {
   it("sayfa boyutundan fazlasını hiç taşımaz", () => {
@@ -187,7 +188,7 @@ describe("başvuru karar kapısı", () => {
     const unreadable = applicationDecisionGate({
       status: "APPLIED",
       headcount: openAcceptanceHeadcount,
-      decidedNow: { decision: "UNKNOWN", assignmentId: null },
+      decidedNow: { decision: "UNKNOWN", assignmentId: null, messaging: null },
     });
     const answered = applicationDecisionGate({
       status: "APPLIED",
@@ -251,7 +252,7 @@ describe("kabul kapısının kontenjan sayacı", () => {
       headcount: 1,
       hiredCount: 0,
       applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
-      decidedNow: new Map([["a", { decision: "REJECTED" as const, assignmentId: null }]]),
+      decidedNow: new Map([["a", { decision: "REJECTED" as const, assignmentId: null, messaging: null }]]),
     });
 
     expect(gate.full).toBe(false);
@@ -337,3 +338,63 @@ function applicant(id: string, status: JobApplicant["status"]): JobApplicant {
     },
   };
 }
+
+describe("aday kartının mesaj kapısı", () => {
+  const workerId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
+  const assignmentId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+  const listed = {
+    workerId,
+    assignmentId,
+    messaging: { available: true, reason: "AVAILABLE" as const },
+  };
+
+  it("atama listesindeki kararı taşır", () => {
+    expect(applicantMessaging({ decidedNow: null, assignment: listed })).toEqual({
+      assignmentId,
+      messaging: { available: true, reason: "AVAILABLE" },
+    });
+  });
+
+  it("ataması olmayan adayda karar üretmez", () => {
+    // Karar bekleyen ya da reddedilen adayın ataması yok; açılacak sohbet de
+    // yok. Backend `POST /jobs/{jobId}/conversation`'ı 403 ile kapatıyor.
+    expect(applicantMessaging({ decidedNow: null, assignment: null })).toBeNull();
+  });
+
+  it("bu oturumdaki kabulün kararı listedekinden öncedir", () => {
+    // Liste sayfa açılırken okundu, kabul ondan sonra kuruldu: yeni atama
+    // ödemeye kapalı ve kart ödeme yolunu göstermeli.
+    const freshId = "7e3d1f69-3a1b-4c2f-8d4e-8b9c0d1e2f3a";
+    expect(applicantMessaging({
+      decidedNow: {
+        decision: "ACCEPTED",
+        assignmentId: freshId,
+        messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+      },
+      assignment: listed,
+    })).toEqual({
+      assignmentId: freshId,
+      messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+    });
+  });
+
+  it("kararı okunamayan kabulde listeye düşmez", () => {
+    // Sunucu atama kimliğini ya da kapıyı yazmadıysa "açık" varsaymak
+    // kullanıcıyı 403'e yollardı; "kapalı" varsaymak yanlış sebep söylerdi.
+    expect(applicantMessaging({
+      decidedNow: { decision: "ACCEPTED", assignmentId: null, messaging: null },
+      assignment: listed,
+    })).toBeNull();
+    expect(applicantMessaging({
+      decidedNow: { decision: "UNKNOWN", assignmentId: null, messaging: null },
+      assignment: listed,
+    })).toEqual({ assignmentId, messaging: { available: true, reason: "AVAILABLE" } });
+  });
+
+  it("listedeki kayıt karar taşımıyorsa düğme çizilmez", () => {
+    expect(applicantMessaging({
+      decidedNow: null,
+      assignment: { workerId, assignmentId, messaging: null },
+    })).toBeNull();
+  });
+});

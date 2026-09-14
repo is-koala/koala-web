@@ -30,6 +30,7 @@ function renderReview(overrides: Partial<Parameters<typeof ApplicantReview>[0]> 
       jobId={jobId}
       applicants={[applicant("a", "APPLIED")]}
       inTalentPool={[]}
+      assignments={[]}
       headcount={null}
       hiredCount={0}
       dossierAction={dossierAction}
@@ -334,7 +335,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async () => ({
       status: "done" as const,
       applicationId: "a",
-      outcome: { decision: "ACCEPTED" as const, assignmentId: null },
+      outcome: { decision: "ACCEPTED" as const, assignmentId: null, messaging: null },
     }));
     renderReview({ decisionAction });
 
@@ -411,8 +412,9 @@ describe("başvuru kabul/red karar akışı", () => {
           jobId={jobId}
           applicants={[applicant("a", status)]}
           inTalentPool={[]}
+          assignments={[]}
           headcount={null}
-      hiredCount={0}
+          hiredCount={0}
           dossierAction={vi.fn(idleAction)}
           talentPoolAction={vi.fn(idleAction)}
           conversationAction={vi.fn(idleAction)}
@@ -487,7 +489,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async (_state: unknown, formData: FormData) => ({
       status: "done" as const,
       applicationId: String(formData.get("applicationId")),
-      outcome: { decision: "ACCEPTED" as const, assignmentId: null },
+      outcome: { decision: "ACCEPTED" as const, assignmentId: null, messaging: null },
     }));
     renderReview({
       applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
@@ -519,6 +521,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const common = {
       jobId,
       inTalentPool: [],
+      assignments: [],
       headcount: 1,
       hiredCount: 0,
       dossierAction: vi.fn(idleAction),
@@ -555,7 +558,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async () => ({
       status: "done" as const,
       applicationId: "a",
-      outcome: { decision: "ACCEPTED" as const, assignmentId },
+      outcome: { decision: "ACCEPTED" as const, assignmentId, messaging: null },
     }));
     renderReview({ decisionAction });
 
@@ -579,7 +582,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async () => ({
       status: "done" as const,
       applicationId: "a",
-      outcome: { decision: "ACCEPTED" as const, assignmentId: null },
+      outcome: { decision: "ACCEPTED" as const, assignmentId: null, messaging: null },
     }));
     renderReview({ decisionAction });
 
@@ -606,6 +609,21 @@ describe("başvuru kabul/red karar akışı", () => {
     );
   });
 
+  it("atama listesi kimliği biliyorsa daha önce kabul edilmiş kart doğrudan atamaya gider", () => {
+    // Mesaj kapısı için okunan atama listesi (#157) kimliği de biliyor;
+    // atama listesine düşmek artık yalnız eşleşme olmadığında.
+    const assignmentId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+    renderReview({
+      applicants: [applicant("a", "ACCEPTED")],
+      assignments: [{ workerId: "a-user", assignmentId, messaging: null }],
+    });
+
+    expect(screen.getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
+      "href",
+      `/isveren/atama/${assignmentId}`,
+    );
+  });
+
   it("daha önce reddedilmiş kartta atama yolu çizmez", async () => {
     renderReview({ applicants: [applicant("a", "REJECTED")] });
 
@@ -621,7 +639,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async () => ({
       status: "done" as const,
       applicationId: "a",
-      outcome: { decision: "UNKNOWN" as const, assignmentId: null },
+      outcome: { decision: "UNKNOWN" as const, assignmentId: null, messaging: null },
     }));
     renderReview({ decisionAction });
 
@@ -643,7 +661,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async () => ({
       status: "done" as const,
       applicationId: "a",
-      outcome: { decision: "REJECTED" as const, assignmentId: null },
+      outcome: { decision: "REJECTED" as const, assignmentId: null, messaging: null },
     }));
     renderReview({ decisionAction });
 
@@ -665,7 +683,7 @@ describe("başvuru kabul/red karar akışı", () => {
     const decisionAction = vi.fn(async (_state: unknown, formData: FormData) => ({
       status: "done" as const,
       applicationId: String(formData.get("applicationId")),
-      outcome: { decision: "REJECTED" as const, assignmentId: null },
+      outcome: { decision: "REJECTED" as const, assignmentId: null, messaging: null },
     }));
     renderReview({
       applicants: [applicant("a", "APPLIED"), applicant("b", "APPLIED")],
@@ -775,3 +793,120 @@ function applicant(id: string, status: JobApplicant["status"]): JobApplicant {
     },
   };
 }
+
+describe("aday kartının mesaj düğmesi (#157)", () => {
+  const assignmentId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+
+  it("karar bekleyen adayda mesaj düğmesi hiç yok", () => {
+    // Atama yok, kapı da yok: backend ödeme öncesi konuşmayı 403 ile
+    // kapatıyor ve düğme kullanıcıyı o redde yollardı.
+    renderReview({ applicants: [applicant("a", "APPLIED")] });
+
+    expect(screen.queryByRole("button", { name: "Mesaj gönder" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Ödemeyi tamamla" })).toBeNull();
+  });
+
+  it("ödemesi emanete düşmüş atamada mesaj düğmesini çizer ve eylemi ilan + işçiyle gönderir", async () => {
+    const user = userEvent.setup();
+    const { conversationAction } = renderReview({
+      applicants: [applicant("a", "ACCEPTED")],
+      assignments: [{
+        workerId: "a-user",
+        assignmentId,
+        messaging: { available: true, reason: "AVAILABLE" },
+      }],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Mesaj gönder" }));
+
+    expect(conversationAction).toHaveBeenCalledTimes(1);
+    const formData = conversationAction.mock.calls[0][1];
+    expect(formData.get("jobId")).toBe(jobId);
+    expect(formData.get("workerId")).toBe("a-user");
+  });
+
+  it("ödeme bekleyen atamada düğme yerine açıklama ve ödeme yolu var", () => {
+    renderReview({
+      applicants: [applicant("a", "ACCEPTED")],
+      assignments: [{
+        workerId: "a-user",
+        assignmentId,
+        messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+      }],
+    });
+
+    expect(screen.queryByRole("button", { name: "Mesaj gönder" })).toBeNull();
+    expect(screen.getByText(/işveren ödemeyi tamamladığında açılır/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ödemeyi tamamla" })).toHaveAttribute(
+      "href",
+      `/isveren/atama/${assignmentId}/odeme`,
+    );
+  });
+
+  it("kapanmış sohbette yalnız kapandığını söyler", () => {
+    renderReview({
+      applicants: [applicant("a", "ACCEPTED")],
+      assignments: [{
+        workerId: "a-user",
+        assignmentId,
+        messaging: { available: false, reason: "CLOSED" },
+      }],
+    });
+
+    expect(screen.queryByRole("button", { name: "Mesaj gönder" })).toBeNull();
+    expect(screen.getByText(/^Sohbet kapandı\./)).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Ödemeyi tamamla" })).toBeNull();
+  });
+
+  it("kabulün hemen ardından, liste tazelenmeden ödeme yolunu gösterir", async () => {
+    // Kabul yanıtı (`ShortJobAssignmentDto`) kapıyı ödemeye kapalı yazıyor;
+    // kart bunu sunucu listesini beklemeden okur.
+    const user = userEvent.setup();
+    const decisionAction = vi.fn(async () => ({
+      status: "done" as const,
+      applicationId: "a",
+      outcome: {
+        decision: "ACCEPTED" as const,
+        assignmentId,
+        messaging: { available: false as const, reason: "PAYMENT_REQUIRED" as const },
+      },
+    }));
+    renderReview({ decisionAction });
+    expect(screen.queryByRole("link", { name: "Ödemeyi tamamla" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Kabul et" }));
+    await user.click(screen.getByRole("button", { name: "Kabulü onayla" }));
+
+    expect(await screen.findByRole("link", { name: "Ödemeyi tamamla" })).toHaveAttribute(
+      "href",
+      `/isveren/atama/${assignmentId}/odeme`,
+    );
+    expect(screen.queryByRole("button", { name: "Mesaj gönder" })).toBeNull();
+  });
+
+  it("konuşma açma reddini kataloğ metniyle gösterir", async () => {
+    // Kapı bayatlamış: düğme çizildikten sonra ödeme iade edilmiş ya da
+    // pencere kapanmış. Metin `src/lib/errors.ts` ile aynı.
+    const user = userEvent.setup();
+    const conversationAction = vi.fn(async () => ({
+      status: "error" as const,
+      errorCode: "MESSAGING_PAYMENT_REQUIRED",
+      httpStatus: 403,
+    }));
+    renderReview({
+      applicants: [applicant("a", "ACCEPTED")],
+      assignments: [{
+        workerId: "a-user",
+        assignmentId,
+        messaging: { available: true, reason: "AVAILABLE" },
+      }],
+      conversationAction,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Mesaj gönder" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Mesajlaşma, işveren ödemeyi tamamladığında açılır.",
+    );
+  });
+});

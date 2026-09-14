@@ -31,10 +31,10 @@ const assignment: EmployerAssignment = {
   id: assignmentId,
   jobId: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
   title: "Etkinlik görevlisi", position: "Karşılama", employerType: "INDIVIDUAL",
-  workerName: "Ayşe Yılmaz", cityName: "İstanbul", districtName: "Kadıköy",
+  workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f", workerName: "Ayşe Yılmaz", cityName: "İstanbul", districtName: "Kadıköy",
   startsAt: "2026-09-12T09:00:00", endsAt: "2026-09-12T18:00:00",
   status: "CONFIRMED", paymentStatus: "PENDING_COLLECTION", pricing,
-  assignedAt: null, completedAt: null, workHours: 0,
+  assignedAt: null, completedAt: null, workHours: 0, messaging: null,
 };
 const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",

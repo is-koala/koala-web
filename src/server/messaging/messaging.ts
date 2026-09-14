@@ -117,6 +117,27 @@ export async function getConversation(
   return hinted.content.find((conversation) => conversation.id === conversationId) ?? null;
 }
 
+/**
+ * `POST /jobs/{jobId}/conversation` — çalışan tarafı.
+ *
+ * `workerId` **gönderilmiyor**: parametre yokken backend çağıranı işçi sayıyor
+ * (`MessagingManager.java:91`); işverenin açtığı yol `openApplicantConversation`
+ * içinde ve `workerId` zorunlu. Uç var olan konuşmayı da aynı yanıtla
+ * döndürüyor. Ödeme emanete düşmeden 403 `MESSAGING_PAYMENT_REQUIRED`, kapalı
+ * pencerede 409 `MESSAGING_WINDOW_CLOSED` çıkıyor; ekran ikisini de atama
+ * yanıtındaki `messagingAvailableReason` ile önden gösteriyor, buraya ancak
+ * karar bayatladığında düşülür.
+ */
+export async function openWorkerConversation(jobId: string): Promise<string> {
+  const conversation = await apiRequest<{ id?: string | null } | null>(
+    `/jobs/${encodeURIComponent(jobId)}/conversation`,
+    { method: "POST" },
+  );
+  const id = conversation?.id;
+  if (!id) throw new Error("Conversation response is missing an identifier");
+  return id;
+}
+
 export function sendConversationMessage(conversationId: string, body: string): Promise<Message> {
   return apiRequest<Message>(
     `/conversations/${encodeURIComponent(conversationId)}/messages`,
@@ -217,19 +238,30 @@ async function getPresenceSafely(userIds: readonly string[]) {
   return result;
 }
 
+/**
+ * Grup, ilanın sohbeti: başlığı ilanın adı, katılımcıları işveren tarafı ve
+ * ödemesi alınmış çalışanlar. Şirket ilanında yetkililer de listede geliyor
+ * (backend onları katılımcı yazıyor), yani `participants` görüntüleyeni de
+ * içeriyor ve ad listesi onu düşüyor. `kind` eski bir yanıtta yoksa ikiden
+ * fazla katılımcı yine grup sayılıyor: ikili konuşmanın üçüncü kişisi olmaz.
+ */
 function toConversation(value: BackendConversation, viewerId: string): ConversationSummary {
   const participants = value.participants ?? [value.employer, value.worker].filter(isUser);
-  const counterpart = participants.find((participant) => participant.id !== viewerId) ?? null;
+  const others = participants.filter((participant) => participant.id !== viewerId);
+  const counterpart = others[0] ?? null;
   const isGroup = value.kind === "GROUP" || participants.length > 2;
   const displayName = isGroup
-    ? `İş ekibi · ${participants.length} kişi`
+    ? (value.jobTitle?.trim() || "İlan grubu")
     : userName(counterpart);
 
   return {
     id: value.id ?? "",
     jobId: value.jobId ?? null,
     jobTitle: value.jobTitle ?? null,
+    kind: isGroup ? "GROUP" : "DIRECT",
     displayName: displayName || "Konuşma",
+    participantCount: participants.length,
+    participantNames: others.map(userName).filter((name) => name !== ""),
     profilePictureUrl: isGroup ? null : (counterpart?.profilePictureUrl ?? null),
     counterpartId: isGroup ? null : (counterpart?.id ?? null),
     lastMessageAt: value.lastMessageAt ?? null,

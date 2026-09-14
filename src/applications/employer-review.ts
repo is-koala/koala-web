@@ -5,6 +5,7 @@ import {
   type KeyedActionState,
 } from "@/lib/form-state";
 import type { BackendPage } from "@/lib/pagination";
+import type { MessagingAvailability } from "@/messaging/contract";
 
 import type { ApplicationStatus } from "./contract";
 
@@ -178,14 +179,13 @@ export const idleTalentPoolRemovalState: TalentPoolRemovalState = idleActionStat
 
 export type TalentPoolRemovalAction = ActionFor<TalentPoolRemovalState>;
 
-/** Konuşma açma başarılıysa sunucu yönlendiriyor; geriye yalnız red kalıyor. */
-export type ConversationState =
-  | { readonly status: "idle" }
-  | ({ readonly status: "error" } & ActionFailure);
-
-export const idleConversationState: ConversationState = idleActionState;
-
-export type ConversationAction = ActionFor<ConversationState>;
+/**
+ * Konuşma açma durumu `@/messaging/contract` içinde: çalışanın iş ayrıntısı
+ * da aynı üçlüyü kullanıyor ve iki kopya birbirinden ayrışırdı. Buradaki
+ * adlar eski çağıranlar için duruyor.
+ */
+export type { ConversationAction, ConversationState } from "@/messaging/contract";
+export { idleConversationState } from "@/messaging/contract";
 
 /** Havuz eyleminin tanınan iki adı; gövde tarayıcıdan geliyor. */
 export type TalentPoolOperation = "add" | "remove";
@@ -267,7 +267,52 @@ export type ApplicationDecisionOutcome = {
    */
   readonly decision: ApplicationDecision | "UNKNOWN";
   readonly assignmentId: string | null;
+  /**
+   * `ShortJobAssignmentDto.messagingAvailable*`; kabul anında hep
+   * `PAYMENT_REQUIRED` — kart, sunucu listesi tazelenene kadar mesaj
+   * düğmesi yerine ödeme yolunu buradan çizer. Alan yoksa `null`.
+   */
+  readonly messaging: MessagingAvailability | null;
 };
+
+/**
+ * Bir adayın bu ilandaki ataması — mesaj kapısının kaynağı.
+ *
+ * `JobApplicantDto` atama taşımıyor; kabul edilmiş adayın ataması ve onun
+ * `messagingAvailable` kararı işverenin atama listesinden
+ * (`GET /users/me/assignments?asEmployer=true`, `MyAssignmentDto`) ilan ve
+ * işçi kimliğiyle eşleştirilerek okunuyor. Eşleşmeyen aday — henüz karar
+ * bekleyen ya da reddedilen — bu listede yok ve mesaj düğmesi hiç çizilmiyor:
+ * atama yokken açılacak bir sohbet de yok.
+ */
+export type ApplicantAssignment = {
+  readonly workerId: string;
+  readonly assignmentId: string;
+  readonly messaging: MessagingAvailability | null;
+};
+
+/**
+ * Kartın mesaj kapısı: bu oturumdaki kabul önce, sunucu listesi sonra.
+ *
+ * Oturumdaki kabul kazanıyor çünkü listedeki kayıt sayfa yüklendiğinde
+ * okundu; kabul ondan sonra kuruldu ve kararı daha taze. İkisi de yoksa
+ * `null`, yani kart mesaj hakkında hiç konuşmuyor.
+ */
+export function applicantMessaging(input: {
+  readonly decidedNow: ApplicationDecisionOutcome | null;
+  /** Adayın atama listesindeki kaydı; yoksa `null`. */
+  readonly assignment: ApplicantAssignment | null;
+}): { readonly assignmentId: string; readonly messaging: MessagingAvailability } | null {
+  const decided = input.decidedNow;
+  if (decided !== null && decided.decision === "ACCEPTED") {
+    return decided.assignmentId && decided.messaging
+      ? { assignmentId: decided.assignmentId, messaging: decided.messaging }
+      : null;
+  }
+  const { assignment } = input;
+  if (assignment === null || assignment.messaging === null) return null;
+  return { assignmentId: assignment.assignmentId, messaging: assignment.messaging };
+}
 
 /**
  * Karar eyleminin durumu.

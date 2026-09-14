@@ -15,6 +15,8 @@ import type {
   WorkDetailCommand,
 } from "@/assignments/work-detail";
 import { WorkerAssignmentResolutionPanel } from "@/components/assignment-resolution";
+import { AssignmentMessaging } from "@/components/messaging/assignment-messaging";
+import type { ConversationAction } from "@/messaging/contract";
 
 import { locationNotice, timesheetErrorMessage } from "./presenters";
 import { WorkSecondaryActions } from "./work-secondary-actions";
@@ -25,10 +27,13 @@ import { WorkTimeline } from "./work-timeline";
 export function WorkDetailScreen({
   initialDetail,
   action,
+  conversationAction,
   locate = captureCheckpointLocation,
 }: {
   initialDetail: WorkDetail;
   action: WorkDetailAction;
+  /** İşverenle konuşma açma; kapısı `assignment.messaging` (#157). */
+  conversationAction: ConversationAction;
   locate?: () => Promise<LocationCapture>;
 }) {
   const [detail, setDetail] = useState<WorkDetail | null>(initialDetail);
@@ -118,6 +123,12 @@ export function WorkDetailScreen({
         />
         <WorkTimeline detail={detail} />
       </div>
+      <AssignmentMessaging
+        availability={detail.assignment.messaging}
+        party="worker"
+        assignmentId={detail.assignment.id}
+        action={conversationAction}
+      />
       <WorkerAssignmentResolutionPanel
         resolution={detail.resolution}
       />

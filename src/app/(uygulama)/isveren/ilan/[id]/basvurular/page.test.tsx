@@ -10,6 +10,7 @@ const enterShell = vi.hoisted(() => vi.fn());
 const fetchJobDetail = vi.hoisted(() => vi.fn());
 const readJobApplicants = vi.hoisted(() => vi.fn());
 const readTalentPoolMembership = vi.hoisted(() => vi.fn());
+const readApplicantAssignments = vi.hoisted(() => vi.fn());
 const notFound = vi.hoisted(() =>
   vi.fn(() => {
     throw new Error("NOT_FOUND");
@@ -27,6 +28,7 @@ vi.mock("@/server/jobs/jobs", () => ({ fetchJobDetail }));
 vi.mock("@/server/applications/employer-review", () => ({
   readJobApplicants,
   readTalentPoolMembership,
+  readApplicantAssignments,
 }));
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
@@ -51,6 +53,7 @@ describe("ilanın başvuru listesi sayfası", () => {
       headcount: null,
       hiredCount: 0,
     });
+    readApplicantAssignments.mockResolvedValue(new Map());
   });
 
   it("UUID olmayan ilan kimliğini backend'e hiç sormaz", async () => {
@@ -137,18 +140,28 @@ describe("ilanın başvuru listesi sayfası", () => {
     expect(screen.queryByText(/yer kaldı/)).toBeNull();
   });
 
-  it("başvuruları ve havuz üyeliğini listeye taşır", async () => {
+  it("başvuruları, havuz üyeliğini ve ilanın atamalarını listeye taşır", async () => {
     const applicants = [{ id: "application-1" }];
+    const assignment = {
+      workerId,
+      assignmentId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
+      messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+    };
     readJobApplicants.mockResolvedValue(applicants);
     readTalentPoolMembership.mockResolvedValue(new Set([workerId]));
+    readApplicantAssignments.mockResolvedValue(new Map([[workerId, assignment]]));
 
     render(await JobApplicantsPanel({ jobId, headcount: 2, hiredCount: 1 }));
 
+    expect(readApplicantAssignments).toHaveBeenCalledWith(jobId);
     expect(applicantReview).toHaveBeenCalledTimes(1);
     expect(applicantReview.mock.calls[0][0]).toMatchObject({
       jobId,
       applicants,
       inTalentPool: [workerId],
+      // Mesaj kapısının tek kaynağı (#157): başvuru listesi
+      // `messagingAvailable` taşımıyor.
+      assignments: [assignment],
       // Kontenjan sayıları burada durmazsa kabul kapısı hiç kurulamaz ve
       // kullanıcı geri alınamaz sandığı bir düğmeden 409 yer.
       headcount: 2,

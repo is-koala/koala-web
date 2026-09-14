@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import type { CompletionActionState } from "@/assignments/employer-tracking";
 import {
@@ -12,6 +12,8 @@ import {
   type ResolutionActionState,
 } from "@/assignments/resolution";
 import { isUuid } from "@/lib/identifiers";
+import type { ConversationState } from "@/messaging/contract";
+import { openApplicantConversation } from "@/server/applications/employer-review";
 import { completeAssignment } from "@/server/assignments/employer-tracking";
 import {
   cancelAssignment,
@@ -121,4 +123,40 @@ export async function completeAssignmentAction(
     revalidatePath(`/isveren/atama/${assignmentId}`);
     return { status: "error", ...failureView(error) };
   }
+}
+
+/**
+ * Atama ekranından işçiyle konuşma açma.
+ *
+ * Aday kartındaki eylemle aynı uç (`POST /jobs/{jobId}/conversation?workerId=`)
+ * ve aynı sonuç: kimlik gelir gelmez mesaj kabuğuna yönlendirme. İlan ve
+ * işçi kimliği sunucuda okunmuş atamadan bağlanıyor, formdan gelmiyor;
+ * yetki denetimi yine backend'de — bağlanan değer de istemciden döner.
+ * Kapı (`messagingAvailable`) düğmeyi önden kapatıyor; buradaki 403/409
+ * kararın bayatladığı hâl ve metni `errorCode` ile kataloğdan seçiliyor.
+ */
+export async function employerConversationAction(
+  jobId: string,
+  workerId: string,
+  _state: ConversationState,
+  formData: FormData,
+): Promise<ConversationState> {
+  void _state;
+  void formData;
+  await requireSessionForCurrentPath();
+
+  if (!isUuid(jobId) || !isUuid(workerId)) {
+    return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+  }
+
+  let conversationId: string;
+  try {
+    conversationId = await openApplicantConversation(jobId, workerId);
+  } catch (error) {
+    unstable_rethrow(error);
+    return { status: "error", ...failureView(error) };
+  }
+
+  // `redirect()` istisna atarak çalışıyor; `try` dışında kalmalı.
+  redirect(`/isveren/mesajlar/${encodeURIComponent(conversationId)}`);
 }

@@ -124,6 +124,34 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     });
   });
 
+  it("mesaj kapısını ve işçi kimliğini atama satırından taşır", async () => {
+    // Kapı `messagingAvailable` + `messagingAvailableReason`
+    // (is-koala/koala-backend#257); işçi kimliği işverenin konuşma açarken
+    // `workerId` olarak göndermek zorunda olduğu değer. Alan gelmezse karar
+    // `null`: ekran düğmeyi hiç çizmez, "kapalı" da demez.
+    const workerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope(assignmentPage([
+        {
+          ...backendAssignment,
+          worker: { id: workerId, firstName: "Ayşe", lastName: "Yılmaz" },
+          messagingAvailable: false,
+          messagingAvailableReason: "PAYMENT_REQUIRED",
+        },
+        { ...backendAssignment, id: "7e3d1f69-3a1b-4c2f-8d4e-8b9c0d1e2f3a" },
+      ]))),
+    ));
+
+    const result = await readEmployerAssignments();
+
+    expect(result.content[0]).toMatchObject({
+      workerId,
+      workerName: "Ayşe Yılmaz",
+      messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+    });
+    expect(result.content[1]).toMatchObject({ workerId: "", messaging: null });
+  });
+
   it("takip alanları gelmediğinde sıfır ve boş değere iner", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       jsonResponse(200, envelope(assignmentPage([backendAssignment]))),

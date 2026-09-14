@@ -15,6 +15,7 @@ import {
   getUnreadState,
   isUserBlockedByViewer,
   markConversationRead,
+  openWorkerConversation,
   reportContent,
   sendConversationMessage,
   unblockUser,
@@ -86,7 +87,10 @@ describe("mesajlaşma backend modülü", () => {
         id: conversationId,
         jobId: "44444444-4444-4444-8444-444444444444",
         jobTitle: "Akşam vardiyası",
+        kind: "DIRECT",
         displayName: "Ece Yılmaz",
+        participantCount: 2,
+        participantNames: ["Ece Yılmaz"],
         profilePictureUrl: null,
         counterpartId: otherId,
         lastMessageAt: "2026-09-06T11:00:00Z",
@@ -107,6 +111,63 @@ describe("mesajlaşma backend modülü", () => {
       expect.objectContaining({ method: "GET" }),
     );
     expect(JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body))).toEqual([otherId]);
+  });
+
+  it("grup sohbetini ilan başlığı ve görüntüleyen dışındaki katılımcılarla özetler", async () => {
+    // Grup ilan başına kuruluyor ve şirket yetkilileri de katılımcı
+    // (is-koala/koala-backend#257). Tek bir karşı taraf olmadığı için
+    // presence sorgusu ve avatar kapalı; ad listesi görüntüleyeni düşüyor.
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      content: [{
+        id: conversationId,
+        jobId: "44444444-4444-4444-8444-444444444444",
+        jobTitle: "Depo sayımı",
+        kind: "GROUP",
+        participants: [
+          { id: viewerId, firstName: "Deniz", lastName: "Ak" },
+          { id: otherId, firstName: "Ece", lastName: "Yılmaz" },
+          { id: "third-user", firstName: "", lastName: "", username: "mkaya" },
+          { id: "fourth-user" },
+        ],
+        lastMessageAt: null,
+        lastMessageBody: null,
+        unreadCount: 0,
+        closed: false,
+      }],
+      page: 0,
+      totalElements: 1,
+      totalPages: 1,
+      last: true,
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await getConversations(viewerId, 0, 20);
+
+    expect(page.content[0]).toMatchObject({
+      kind: "GROUP",
+      displayName: "Depo sayımı",
+      jobTitle: "Depo sayımı",
+      participantCount: 4,
+      participantNames: ["Ece Yılmaz", "mkaya"],
+      counterpartId: null,
+      profilePictureUrl: null,
+      online: null,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("çalışan tarafında konuşmayı workerId göndermeden açar", async () => {
+    // Parametre yokken backend çağıranı işçi sayıyor (`MessagingManager.java:91`);
+    // işverenin yolu `openApplicantConversation` ve orada `workerId` zorunlu.
+    const jobId = "44444444-4444-4444-8444-444444444444";
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope({ id: conversationId, jobId, kind: "GROUP" })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(openWorkerConversation(jobId)).resolves.toBe(conversationId);
+    expect(fetchMock.mock.calls[0][0]).toBe(`https://api.example.test/jobs/${jobId}/conversation`);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
   });
 
   it("presence uç noktası çalışmasa da konuşma listesini REST üzerinden döndürür", async () => {

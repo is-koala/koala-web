@@ -9,6 +9,12 @@ const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
 const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const completeAssignment = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
+const openApplicantConversation = vi.hoisted(() => vi.fn());
+const redirect = vi.hoisted(() =>
+  vi.fn((target: string) => {
+    throw new Error(`NEXT_REDIRECT:${target}`);
+  }),
+);
 
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
 vi.mock("@/server/assignments/resolution", () => ({
@@ -19,9 +25,14 @@ vi.mock("@/server/assignments/resolution", () => ({
 }));
 vi.mock("@/server/assignments/employer-tracking", () => ({ completeAssignment }));
 vi.mock("next/cache", () => ({ revalidatePath }));
-vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
+vi.mock("@/server/applications/employer-review", () => ({ openApplicantConversation }));
+vi.mock("next/navigation", () => ({ redirect, unstable_rethrow: vi.fn() }));
 
-import { completeAssignmentAction, employerResolutionAction } from "./actions";
+import {
+  completeAssignmentAction,
+  employerConversationAction,
+  employerResolutionAction,
+} from "./actions";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 
@@ -183,5 +194,46 @@ describe("işveren atama sonuçlandırma action'ı", () => {
         httpStatus: 409,
       });
     expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
+  });
+});
+
+describe("işveren atama ekranından konuşma açma action'ı", () => {
+  const jobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+  const workerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireSessionForCurrentPath.mockResolvedValue({});
+  });
+
+  it("işçi kimliğini göndererek açar ve işveren mesaj kabuğuna yönlendirir", async () => {
+    openApplicantConversation.mockResolvedValue("conversation-1");
+
+    await expect(employerConversationAction(jobId, workerId, { status: "idle" }, new FormData()))
+      .rejects.toThrow("NEXT_REDIRECT:/isveren/mesajlar/conversation-1");
+    expect(openApplicantConversation).toHaveBeenCalledWith(jobId, workerId);
+  });
+
+  it("ödeme reddini kodla ekrana bırakır, yönlendirmez", async () => {
+    openApplicantConversation.mockRejectedValue(
+      new ApiError({
+        status: 403,
+        errorCode: "MESSAGING_PAYMENT_REQUIRED",
+        errorCategory: "ACCESS_DENIED",
+        message: "",
+      }),
+    );
+
+    await expect(employerConversationAction(jobId, workerId, { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode: "MESSAGING_PAYMENT_REQUIRED", httpStatus: 403 });
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("işçi kimliği okunamayan atamada backend'e çıkmaz", async () => {
+    // `MyAssignmentDto.worker.id` boş gelirse `workerId` parametresiz istek
+    // işvereni kendisiyle konuşturur (`MessagingManager.java:91`).
+    await expect(employerConversationAction(jobId, "", { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 });
+    expect(openApplicantConversation).not.toHaveBeenCalled();
   });
 });

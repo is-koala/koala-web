@@ -9,7 +9,7 @@ import { readWorkDetail } from "@/server/assignments/work-detail";
 import { failureView } from "@/server/form";
 import { enterShell } from "@/server/session/viewer";
 
-import { workDetailAction } from "./actions";
+import { workConversationAction, workDetailAction } from "./actions";
 
 type WorkDetailPageProps = { params: Promise<{ assignmentId: string }> };
 
@@ -46,6 +46,7 @@ export async function WorkDetailPage({ params }: WorkDetailPageProps) {
     <WorkDetailScreen
       initialDetail={result.detail}
       action={workDetailAction.bind(null, assignmentId)}
+      conversationAction={workConversationAction.bind(null, result.detail.assignment.jobId)}
     />
   );
 }
