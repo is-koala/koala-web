@@ -40,7 +40,7 @@ const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",
   email: "ali@example.test", phoneNumber: "", emailVerified: true, phoneVerified: true,
   profilePictureUrl: null, jobTitle: null, about: null, qualifications: null, interests: null,
-  experiences: [], educations: [], isEmployer: true, identityVerified: true,
+  experiences: [], educations: [], badges: [], isEmployer: true, identityVerified: true,
   hasIdentityNumber: false, hasAddress: false, companies: [],
 };
 

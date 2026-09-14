@@ -42,6 +42,37 @@ export type Education = {
 
 export type AcademicReference = { id: string; name: string };
 
+/** `BadgeFamily`; bilinmeyen değer metin olarak taşınır, gösterim bozulmaz. */
+export type BadgeFamily = "GEZGIN" | "RATING" | "IDENTITY" | "PUNCTUALITY" | "OTHER" | string;
+
+/** `BadgeTier`; `NONE` kademesiz rozet demek. */
+export type BadgeTier = "BRONZE" | "SILVER" | "GOLD" | "NONE" | string;
+
+/**
+ * `BadgeDto`. Rozetler `GET /users/me` yanıtında geliyor (`badges[]`); ayrı
+ * `GET /users/{id}/badges` ucu herkese açık profil için var ve kabuk onu
+ * ikinci bir tur olarak çağırmıyor.
+ */
+export type Badge = {
+  code: string;
+  family: BadgeFamily;
+  tier: BadgeTier;
+  name: string;
+  description: string | null;
+  iconUrl: string | null;
+  earnedAt: string | null;
+};
+
+export const badgeTierLabels: Readonly<Record<string, string>> = {
+  BRONZE: "Bronz",
+  SILVER: "Gümüş",
+  GOLD: "Altın",
+};
+
+export function badgeTierLabel(tier: BadgeTier): string | null {
+  return Object.hasOwn(badgeTierLabels, tier) ? badgeTierLabels[tier] : null;
+}
+
 export const notificationCategoryValues = [
   "ACCOUNT_SECURITY",
   "APPLICATION_UPDATES",
@@ -87,6 +118,7 @@ export type EditableProfile = Omit<ProfileSummary, "experiences" | "educations">
   identityVerified: boolean;
   experiences: readonly Experience[];
   educations: readonly Education[];
+  badges: readonly Badge[];
 };
 
 export type ProfileCompletion = {

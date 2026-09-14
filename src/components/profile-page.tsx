@@ -1,20 +1,26 @@
 import Image from "next/image";
 
+import { AvailabilityEditor, AvailabilityExceptions } from "@/components/profile/availability-forms";
 import { ProfileDetailsForm, ProfilePictureForm } from "@/components/profile/details-forms";
 import { EducationCreator, EducationEditor } from "@/components/profile/education-forms";
 import { ExperienceCreator, ExperienceEditor } from "@/components/profile/experience-forms";
 import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form";
 import { ErrorState } from "@/components/states";
+import type { Availability } from "@/lib/availability";
+import { formatDate } from "@/lib/dates";
 import {
+  badgeTierLabel,
   employmentTypeOptions,
   gradeTypeOptions,
   profileCompletion,
   type AcademicReference,
+  type Badge,
   type EditableProfile,
   type Education,
   type Experience,
   type NotificationPreference,
 } from "@/lib/profile";
+import { safeImageUrl } from "@/lib/urls";
 
 export type ProfileDataResult<T> =
   | { status: "ready"; data: T }
@@ -24,10 +30,12 @@ export function ProfilePageView({
   profile,
   preferences,
   universities,
+  availability,
 }: {
   profile: EditableProfile;
   preferences: ProfileDataResult<readonly NotificationPreference[]>;
   universities: ProfileDataResult<readonly AcademicReference[]>;
+  availability: ProfileDataResult<Availability>;
 }) {
   const completion = profileCompletion(profile);
 
@@ -106,6 +114,47 @@ export function ProfilePageView({
             <VerificationBadge verified={profile.phoneVerified} />
           </div>
         </dl>
+      </section>
+
+      <section className="app-panel" aria-labelledby="badges-title">
+        <SectionHeading
+          eyebrow="Rozetler"
+          title="Kazandığın rozetler"
+          id="badges-title"
+          description="Rozetler tamamladığın işlerden, puanlarından ve kimlik doğrulamandan kazanılır; işveren başvurunda görür."
+        />
+        {profile.badges.length === 0 ? (
+          <ProfileEmpty
+            title="Henüz rozetin yok"
+            message="İlk işini tamamladığında ve kimliğini doğruladığında rozetler burada görünecek."
+          />
+        ) : (
+          <ul className="badge-list" aria-label="Rozetler">
+            {profile.badges.map((badge) => (
+              <li key={badge.code}>
+                <BadgeCard badge={badge} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="app-panel" aria-labelledby="availability-title">
+        <SectionHeading
+          eyebrow="Müsaitlik"
+          title="Ne zaman çalışabilirsin?"
+          id="availability-title"
+          description="Haftalık aralıkların işverenin sana uygun ilanı seçmesine yardımcı olur; belirli günler için istisna ekleyebilirsin."
+        />
+        {availability.status === "error" ? (
+          <ErrorState errorCode={availability.errorCode} status={availability.httpStatus} />
+        ) : (
+          <>
+            <AvailabilityEditor slots={availability.data.slots} />
+            <h3 className="availability-subheading">Tarih istisnaları</h3>
+            <AvailabilityExceptions exceptions={availability.data.exceptions} />
+          </>
+        )}
       </section>
 
       <section className="app-panel" aria-labelledby="experience-title">
@@ -239,6 +288,32 @@ function ProfileEmpty({ title, message }: { title: string; message: string }) {
 
 function VerificationBadge({ verified }: { verified: boolean }) {
   return <span className={verified ? "verification verified" : "verification"}>{verified ? "Doğrulandı" : "Doğrulanmadı"}</span>;
+}
+
+function BadgeCard({ badge }: { badge: Badge }) {
+  const icon = safeImageUrl(badge.iconUrl);
+  const tier = badgeTierLabel(badge.tier);
+  return (
+    <article className="badge-card">
+      {icon === null ? (
+        <span className="badge-icon badge-icon-placeholder" aria-hidden="true">★</span>
+      ) : (
+        // Rozet görseli backend'in depolama kökeninden geliyor; `next/image`
+        // `remotePatterns` dışında kalır (is-koala/koala-web#35 ile aynı karar).
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="badge-icon" src={icon} alt="" width={40} height={40} loading="lazy" />
+      )}
+      <div>
+        <h3>{badge.name}</h3>
+        {badge.description ? <p>{badge.description}</p> : null}
+        <small>
+          {[tier, badge.earnedAt ? `Kazanıldı: ${formatDate(badge.earnedAt)}` : null]
+            .filter(Boolean)
+            .join(" · ")}
+        </small>
+      </div>
+    </article>
+  );
 }
 
 function ExperienceRecord({ experience }: { experience: Experience }) {

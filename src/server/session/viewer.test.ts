@@ -194,6 +194,47 @@ describe("kabuğun kullanıcı bağlamı", () => {
     });
   });
 
+  it("rozetleri aynı /users/me yanıtından taşır; kodu ya da adı olmayan rozet düşer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          200,
+          envelope(
+            userMe({
+              badges: [
+                {
+                  code: "PUNCTUALITY_GOLD",
+                  family: "PUNCTUALITY",
+                  tier: "GOLD",
+                  name: "Dakik",
+                  description: "Son on işe zamanında geldin.",
+                  iconUrl: "https://cdn.example.test/badges/punctual.webp",
+                  earnedAt: "2026-09-01T10:00:00Z",
+                },
+                { code: "BROKEN" },
+              ],
+            }),
+          ),
+        ),
+      ),
+    );
+
+    const { viewer } = await loadViewer();
+
+    expect(viewer?.badges).toEqual([
+      {
+        code: "PUNCTUALITY_GOLD",
+        family: "PUNCTUALITY",
+        tier: "GOLD",
+        name: "Dakik",
+        description: "Son on işe zamanında geldin.",
+        iconUrl: "https://cdn.example.test/badges/punctual.webp",
+        earnedAt: "2026-09-01T10:00:00Z",
+      },
+    ]);
+  });
+
   it("kimlik numarasını ve adresi değer olarak değil, varlık olarak taşır", async () => {
     vi.stubGlobal(
       "fetch",

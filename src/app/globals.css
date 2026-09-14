@@ -340,6 +340,20 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .contact-avatar-placeholder { display: grid; place-items: center; color: var(--brand-accent); font-family: var(--font-sans); font-weight: 850; font-size: 1rem; }
 .contact-record h3 { margin-bottom: 2px; }
 .record-description { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; color: var(--muted); }
+.badge-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.badge-card { display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--line); border-radius: 20px; padding: 16px; height: 100%; }
+.badge-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+.badge-card p { margin-bottom: 4px; font-size: .92rem; }
+.badge-card small { color: var(--muted); }
+.badge-icon { width: 40px; height: 40px; border-radius: 12px; flex: none; object-fit: contain; }
+.badge-icon-placeholder { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-sunken); color: var(--brand-accent); font-size: 1.2rem; }
+.availability-rows { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.availability-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+.availability-row .button { margin-bottom: 4px; }
+.availability-subheading { font-size: 1.15rem; margin: 26px 0 12px; }
+.availability-exception { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.availability-exception .delete-form { border-top: 0; margin-top: 0; padding-top: 0; }
+@media (max-width: 620px) { .availability-row { grid-template-columns: 1fr 1fr; } .availability-row .field:first-child { grid-column: 1 / -1; } .availability-exception { flex-direction: column; } }
 .profile-editor { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
 .profile-editor summary { cursor: pointer; color: var(--brand-accent); font-weight: 800; }
 .profile-editor[open] summary { margin-bottom: 6px; }

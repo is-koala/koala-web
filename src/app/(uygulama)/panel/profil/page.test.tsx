@@ -9,10 +9,12 @@ import Page from "./page";
 const enterShell = vi.hoisted(() => vi.fn());
 const getNotificationPreferences = vi.hoisted(() => vi.fn());
 const getUniversities = vi.hoisted(() => vi.fn());
+const getAvailability = vi.hoisted(() => vi.fn());
 const profilePageView = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/profile/profile", () => ({ getNotificationPreferences, getUniversities }));
+vi.mock("@/server/profile/availability", () => ({ getAvailability }));
 vi.mock("@/components/profile-page", () => ({ ProfilePageView: profilePageView }));
 
 /** Sayfanın görünüme verdiği prop'lar; bileşen taklit edildiği için ağaçtan okunur. */
@@ -25,9 +27,13 @@ async function viewProps(): Promise<Record<string, unknown>> {
 describe("profil sayfası yükleyicisi", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    enterShell.mockResolvedValue({ viewer: { firstName: "Ayşe" }, failure: null });
+    enterShell.mockResolvedValue({
+      viewer: { id: "11111111-1111-4111-8111-111111111111", firstName: "Ayşe" },
+      failure: null,
+    });
     getNotificationPreferences.mockResolvedValue([]);
     getUniversities.mockResolvedValue([]);
+    getAvailability.mockResolvedValue({ slots: [], exceptions: [] });
   });
 
   it("oturum yenilemesinin yönlendirmesini profil verisi hatasına dönüştürmez", async () => {
@@ -53,6 +59,23 @@ describe("profil sayfası yükleyicisi", () => {
       preferences: { status: "ready", data: [] },
       universities: { status: "error", errorCode: "EXTERNAL_SERVICE", httpStatus: 503 },
     });
+  });
+
+  it("müsaitliği kabuğun okuduğu kullanıcı kimliğiyle ister ve hatasını ayrı taşır", async () => {
+    getAvailability.mockRejectedValue(
+      new ApiError({
+        status: 404,
+        errorCode: "USER_NOT_FOUND",
+        errorCategory: "RESOURCE_NOT_FOUND",
+        message: "ham mesaj",
+      }),
+    );
+
+    expect(await viewProps()).toMatchObject({
+      availability: { status: "error", errorCode: "USER_NOT_FOUND", httpStatus: 404 },
+      universities: { status: "ready", data: [] },
+    });
+    expect(getAvailability).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111");
   });
 
   it("bilinmeyen hatayı nötr yedeğe düşürür", async () => {
