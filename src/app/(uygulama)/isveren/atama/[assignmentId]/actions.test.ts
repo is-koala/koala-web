@@ -258,12 +258,12 @@ describe("işçiyi değerlendirme action'ı", () => {
   }
 
   it("puanı ve kırpılmış yorumu ortak uca yollar, yanıtı durumda taşır ve sayfayı yeniler", async () => {
-    createAssignmentReview.mockResolvedValueOnce({ rating: 4, comment: "Dakikti", createdAt: "2026-09-14T10:00:00Z" });
+    createAssignmentReview.mockResolvedValueOnce({ rating: 4, comment: "Dakikti" });
 
     await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("4", "  Dakikti  ")))
       .resolves.toEqual({
         status: "done",
-        review: { rating: 4, comment: "Dakikti", createdAt: "2026-09-14T10:00:00Z" },
+        review: { rating: 4, comment: "Dakikti" },
       });
     expect(createAssignmentReview).toHaveBeenCalledWith(assignmentId, 4, "Dakikti");
     expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);

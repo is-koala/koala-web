@@ -41,7 +41,6 @@ describe("işçiyi değerlendirme bölümü", () => {
       review: {
         rating: Number(form.get("rating")),
         comment: String(form.get("comment")),
-        createdAt: "2026-09-14T10:00:00Z",
       },
     }));
     render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} />);
@@ -64,7 +63,7 @@ describe("işçiyi değerlendirme bölümü", () => {
     const user = userEvent.setup();
     const action = vi.fn(async (): Promise<ReviewActionState> => ({
       status: "done",
-      review: { rating: 5, comment: null, createdAt: null },
+      review: { rating: 5, comment: null },
     }));
     render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} />);
 
@@ -101,6 +100,37 @@ describe("işçiyi değerlendirme bölümü", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/Atama tamamlanmadan değerlendirme yapılamaz/);
     expect(screen.getByRole("button", { name: "Değerlendirmeyi gönder" })).toBeEnabled();
+  });
+
+  it("hata sonrası yorum ve yıldız seçimi durur; ikinci gönderim aynı değerlerle gider", async () => {
+    // React 19 `<form action>` başarısız gönderimde de formu sıfırlıyordu:
+    // yorum siliniyor, radyonun DOM işareti kalkıyor ve `required` ikinci
+    // gönderimi durduruyordu. İki gönderim de aynı değerleri taşımalı.
+    const user = userEvent.setup();
+    const action = vi.fn()
+      .mockResolvedValueOnce({ status: "error", errorCode: "SOMETHING_NEW", httpStatus: 500 } satisfies ReviewActionState)
+      .mockResolvedValueOnce({ status: "done", review: { rating: 4, comment: "Dakikti" } } satisfies ReviewActionState);
+    render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} />);
+
+    await user.click(screen.getByRole("radio", { name: "4 yıldız" }));
+    await user.type(screen.getByLabelText("Yorum (isteğe bağlı)"), "Dakikti");
+    await user.click(screen.getByRole("button", { name: "Değerlendirmeyi gönder" }));
+
+    expect(await screen.findByRole("alert")).toBeVisible();
+    const radio = screen.getByRole("radio", { name: "4 yıldız" });
+    expect(radio).toBeChecked();
+    expect((radio as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByLabelText("Yorum (isteğe bağlı)")).toHaveValue("Dakikti");
+    expect(screen.getByText("4 / 5")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Değerlendirmeyi gönder" }));
+
+    expect(await screen.findByTestId("assignment-review-summary")).toHaveTextContent("Değerlendirmeniz: ★4 · Dakikti");
+    expect(action).toHaveBeenCalledTimes(2);
+    for (const [, form] of action.mock.calls as [unknown, FormData][]) {
+      expect(form.get("rating")).toBe("4");
+      expect(form.get("comment")).toBe("Dakikti");
+    }
   });
 
   it("bilinmeyen kodda nötr yedeği yazar", async () => {

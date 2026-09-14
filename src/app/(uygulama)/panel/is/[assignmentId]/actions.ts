@@ -13,7 +13,7 @@ import {
   validateDisputeEvidenceFiles,
   type DisputeEvidenceUploadResult,
 } from "@/assignments/resolution";
-import { reviewCommentMaxLength } from "@/assignments/review";
+import { parseReviewRating, reviewCommentMaxLength } from "@/assignments/review";
 import { isUuid } from "@/lib/identifiers";
 import type { ConversationState } from "@/messaging/contract";
 import {
@@ -187,15 +187,13 @@ function validateCommand(value: unknown): WorkDetailCommand | null {
   }
 
   if (value.type === "review") {
+    const rating = parseReviewRating(value.rating);
     if (
-      typeof value.rating !== "number" ||
-      !Number.isInteger(value.rating) ||
-      value.rating < 1 ||
-      value.rating > 5 ||
+      rating === null ||
       typeof value.comment !== "string" ||
       value.comment.length > reviewCommentMaxLength
     ) return null;
-    return { type: "review", rating: value.rating, comment: value.comment.trim() };
+    return { type: "review", rating, comment: value.comment.trim() };
   }
 
   return null;

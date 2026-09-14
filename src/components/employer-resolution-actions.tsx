@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { assignmentNotFoundMessage } from "@/assignments/contract";
 import {
   canCancelAssignment,
   canOpenAssignmentDispute,
@@ -216,6 +217,6 @@ function resolutionErrorMessage(errorCode: string, httpStatus: number): string {
   if (errorCode === "VALIDATION_FAILED") return "Geçerli bir gerekçe yazın.";
   if (errorCode === "CANCELLATION_ALREADY_CANCELLED") return "Bu atama zaten iptal edildi.";
   if (errorCode === "DISPUTE_ALREADY_OPEN") return "Bu atamada zaten açık bir uyuşmazlık var.";
-  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") return "Atama bulunamadı veya erişim yetkiniz yok.";
+  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") return assignmentNotFoundMessage;
   return errorPresentation(errorCode, httpStatus).message;
 }

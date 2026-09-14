@@ -84,3 +84,11 @@ export type AssignmentAcceptanceAction = (
   assignmentId: string,
   jobId: string,
 ) => Promise<AssignmentAcceptanceState>;
+
+/**
+ * `JOB_ASSIGNMENT_NOT_FOUND` — işveren kabuğunun üç eyleminde aynı cümle.
+ *
+ * Backend kayıt yokluğunu ve sahiplik yokluğunu aynı kodla söylüyor (§2d2:
+ * var/yok sızdırma yok); ekran da ikisini ayırt etmeye çalışmıyor.
+ */
+export const assignmentNotFoundMessage = "Atama bulunamadı veya erişim yetkiniz yok.";

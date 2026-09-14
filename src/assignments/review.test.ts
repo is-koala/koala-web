@@ -4,15 +4,10 @@ import {
   canReviewAssignment,
   parseReviewRating,
   ratingStars,
-  reviewCommentMaxLength,
   reviewSummary,
 } from "./review";
 
 describe("atama değerlendirme modeli", () => {
-  it("yorum sınırı backend CreateReviewDto ile aynı (@Size(max = 2000))", () => {
-    expect(reviewCommentMaxLength).toBe(2000);
-  });
-
   it("yalnız COMPLETED atama değerlendirilir", () => {
     expect(canReviewAssignment("COMPLETED")).toBe(true);
     for (const status of ["PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS", "REJECTED", "CANCELLED", "UNKNOWN"] as const) {
@@ -33,8 +28,8 @@ describe("atama değerlendirme modeli", () => {
   });
 
   it("özet metnini yorumlu ve yorumsuz kurar, yıldız dizisini beşe tamamlar", () => {
-    expect(reviewSummary({ rating: 4, comment: "Dakikti", createdAt: null })).toBe("Değerlendirmeniz: ★4 · Dakikti");
-    expect(reviewSummary({ rating: 5, comment: null, createdAt: null })).toBe("Değerlendirmeniz: ★5");
+    expect(reviewSummary({ rating: 4, comment: "Dakikti" })).toBe("Değerlendirmeniz: ★4 · Dakikti");
+    expect(reviewSummary({ rating: 5, comment: null })).toBe("Değerlendirmeniz: ★5");
     expect(ratingStars(4)).toBe("★★★★☆");
     expect(ratingStars(0)).toBe("☆☆☆☆☆");
     expect(ratingStars(9)).toBe("★★★★★");

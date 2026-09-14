@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { startTransition, useActionState, useId, useState, type FormEvent } from "react";
+
+import { assignmentNotFoundMessage } from "@/assignments/contract";
 
 import {
   idleReviewActionState,
@@ -27,6 +29,14 @@ import { errorPresentation } from "@/lib/errors";
  * değişiyor ve her birinin adı "N yıldız". Seçili puana kadar olan yıldızlar
  * dolu çiziliyor; bunun için seçim istemci durumunda tutuluyor, CSS kardeş
  * seçicileriyle "önceki"ler seçilemiyor.
+ *
+ * Form `action={submit}` ile değil `onSubmit` + `startTransition` ile
+ * gönderiliyor. React 19 `<form action>` gönderim biter bitmez formu
+ * **koşulsuz** sıfırlıyor — hata döndüğünde de: yazılan yorum siliniyor ve
+ * radyonun DOM işareti kalkıyor (durum hâlâ "4 / 5" derken `required` radyo
+ * boş kalıyor, ikinci gönderim tarayıcıda takılıyordu). Sıfırlama olmayınca
+ * hata sonrası alanlar olduğu gibi duruyor; iki alan yine de durumda tutuluyor
+ * ki çizim tek kaynaktan gelsin.
  */
 export function AssignmentReviewSection({
   workerName,
@@ -35,11 +45,18 @@ export function AssignmentReviewSection({
   workerName: string;
   action: ReviewAction;
 }) {
-  const [state, submit, pending] = useActionState(action, idleReviewActionState);
+  const [state, dispatch, pending] = useActionState(action, idleReviewActionState);
   const [selected, setSelected] = useState<ReviewRating | null>(null);
   const [hovered, setHovered] = useState<ReviewRating | null>(null);
+  const [comment, setComment] = useState("");
   const groupId = useId();
   const commentId = `${groupId}-comment`;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => dispatch(formData));
+  }
 
   return (
     <section className="work-detail-section assignment-review" aria-labelledby="assignment-review-title">
@@ -52,7 +69,7 @@ export function AssignmentReviewSection({
           Bu atamayı daha önce değerlendirdiniz. Her atama için tek değerlendirme bırakılabilir.
         </p>
       ) : (
-        <form action={submit} className="form compact-form assignment-review-form">
+        <form onSubmit={submit} className="form compact-form assignment-review-form">
           <p className="muted">
             {workerName} ile çalışmanız nasıldı? Puanınız işçinin profilinde ve rozetlerinde
             görünür; yorum isteğe bağlıdır.
@@ -104,6 +121,8 @@ export function AssignmentReviewSection({
               name="comment"
               rows={4}
               maxLength={reviewCommentMaxLength}
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
               disabled={pending}
             />
             <p className="field-hint">En fazla {reviewCommentMaxLength} karakter.</p>
@@ -138,7 +157,8 @@ function ReviewSummary({ review }: { review: AssignmentReview }) {
  *
  * `REVIEW_WORK_NOT_COMPLETED` `conflict` ailesinde ve aile metni ("başka bir
  * duruma geçmiş olabilir") doğru ama neyin yapılacağını söylemiyor; burada
- * söyleniyor. Öbürleri kataloğa düşer.
+ * söyleniyor. `REVIEW_ASSIGNMENT_NOT_FOUND` backend'in bu uçtaki adı, cümle
+ * öbür eylemlerle aynı. Öbürleri kataloğa düşer.
  */
 function reviewErrorMessage(errorCode: string, httpStatus: number): string {
   if (errorCode === "REVIEW_WORK_NOT_COMPLETED") {
@@ -148,7 +168,7 @@ function reviewErrorMessage(errorCode: string, httpStatus: number): string {
     return `Puan 1 ile 5 arasında olmalı; yorum en fazla ${reviewCommentMaxLength} karakter.`;
   }
   if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND" || errorCode === "REVIEW_ASSIGNMENT_NOT_FOUND") {
-    return "Atama bulunamadı veya erişim yetkiniz yok.";
+    return assignmentNotFoundMessage;
   }
   return errorPresentation(errorCode, httpStatus).message;
 }

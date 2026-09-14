@@ -709,7 +709,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .rating-star { position: relative; display: inline-flex; }
 .rating-star input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .rating-star input:disabled { cursor: wait; }
-.rating-star label { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--r-12); font-size: 28px; line-height: 1; color: var(--grey-500); transition: color var(--dur-fast) var(--ease); }
+.rating-star label { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--r-12); font-size: var(--size-28); line-height: 1; color: var(--grey-500); transition: color var(--dur-fast) var(--ease); }
 .rating-star label[data-filled="true"] { color: var(--warning); }
 .rating-star input:focus-visible + label { outline: var(--stroke-focus) solid var(--primary); outline-offset: 2px; }
 .assignment-review-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; padding: 14px 18px; border-radius: var(--r-16); background: var(--success-wash); color: var(--success-ink); font-size: var(--size-14); font-weight: var(--w-medium); overflow-wrap: anywhere; }

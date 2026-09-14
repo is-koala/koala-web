@@ -21,7 +21,6 @@ export type ReviewRating = (typeof reviewRatings)[number];
 export type AssignmentReview = {
   readonly rating: number;
   readonly comment: string | null;
-  readonly createdAt: string | null;
 };
 
 /**

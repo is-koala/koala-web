@@ -29,7 +29,6 @@ describe("atama değerlendirmesi yazma ucu", () => {
     await expect(createAssignmentReview(assignmentId, 4, "Dakikti")).resolves.toEqual({
       rating: 4,
       comment: "Dakikti",
-      createdAt: "2026-09-14T10:00:00Z",
     });
     expect(request).toHaveBeenCalledWith(`/job-assignments/${assignmentId}/reviews`, {
       method: "POST",
@@ -43,7 +42,6 @@ describe("atama değerlendirmesi yazma ucu", () => {
     await expect(createAssignmentReview(assignmentId, 5, "")).resolves.toEqual({
       rating: 5,
       comment: null,
-      createdAt: null,
     });
   });
 
