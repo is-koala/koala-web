@@ -6,6 +6,8 @@ import type {
   WorkerApplication,
   WorkerApplicationPage,
 } from "@/applications/contract";
+import { jobStatuses } from "@/jobs/lifecycle";
+import { employerTypes, known } from "@/server/api/dto";
 import { apiRequest } from "@/server/session/session";
 
 type MyApplicationDto = {
@@ -14,6 +16,8 @@ type MyApplicationDto = {
     id: string;
     title: string;
     position?: string | null;
+    employerType?: string | null;
+    status?: string | null;
     companyName?: string | null;
     cityName?: string | null;
     districtName?: string | null;
@@ -90,6 +94,8 @@ function toWorkerApplication(dto: MyApplicationDto): WorkerApplication {
     appliedAt: dto.applicationDateTime,
     answeredAt: dto.answeredDateTime ?? null,
     assignmentId: dto.assignmentId ?? null,
+    employerType: known(dto.job.employerType, employerTypes),
+    jobStatus: known(dto.job.status, jobStatuses),
   };
 }
 

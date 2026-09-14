@@ -118,7 +118,20 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, []);
   }
   if (request.method === "GET" && url.pathname === "/users/me/payouts") {
-    return backendSuccess(response, []);
+    // Tek ödeme çıkışı; satır iş adını taşımıyor, web onu atama listesinden
+    // `jobAssignmentId` ile eşler (is-koala/koala-web#165).
+    return backendSuccess(response, [
+      {
+        id: "7e1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f70",
+        jobAssignmentId: paidAssignmentId,
+        amount: "1250.00",
+        currency: "TRY",
+        status: "PENDING",
+        failureReason: null,
+        completedAt: null,
+        createdAt: "2026-09-10T09:00:00Z",
+      },
+    ]);
   }
 
   /*
@@ -218,6 +231,25 @@ const server = createServer(async (request, response) => {
   }
   const assignmentMatch = assignmentPathPattern.exec(url.pathname);
   if (request.method === "GET" && assignmentMatch) {
+    // Emanete alınmış atamanın tek başarılı denemesi; çalışan çizelgesi
+    // "Ödeme emanete alındı" satırını bunun `completedAt`'inden kurar.
+    if (assignmentMatch[2] === "payments" && assignmentMatch[1] === paidAssignmentId) {
+      return backendSuccess(response, [
+        {
+          id: "8e1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f71",
+          status: "SUCCEEDED",
+          currency: "TRY",
+          workerPayout: "1250.00",
+          commissionRate: "0.20",
+          commissionAmount: "250.00",
+          totalCharged: "1500.00",
+          pricing: openJob().pricing,
+          failureReason: null,
+          completedAt: "2026-09-02T14:30:00Z",
+          createdAt: "2026-09-02T14:29:00Z",
+        },
+      ]);
+    }
     if (assignmentMatch[2] === "cancellation-preview") {
       return backendSuccess(response, {
         feeRate: "0.00",
@@ -393,7 +425,8 @@ function openJob() {
     duties: "Bilet kontrolü ve yönlendirme",
     dressCode: "Siyah kıyafet",
     category: { id: "category-1", name: "Etkinlik", code: "EVENT" },
-    company: { name: "Koala Etkinlik", logoUrl: null },
+    employerType: "COMPANY",
+    company: { name: "Koala Etkinlik", logoUrl: null, website: "https://koala.example" },
     creator: { firstName: "Ayşe", lastName: "Yıldız" },
     type: "ONE_TIME",
     salaryType: "DAILY",
@@ -435,12 +468,12 @@ function assignments() {
       title: job.title,
       position: "Karşılama",
       category: job.category,
-      employerType: "INDIVIDUAL",
+      employerType: job.employerType,
       startDateTime: job.startDateTime,
       endDateTime: job.endDateTime,
       cityName: job.address.cityName,
       districtName: job.address.districtName,
-      companyName: null,
+      companyName: job.company.name,
     },
     worker: { id: assignmentWorkerId, firstName: "Ayşe", lastName: "Yılmaz" },
     assignmentDateTime: "2026-09-01T09:00:00Z",

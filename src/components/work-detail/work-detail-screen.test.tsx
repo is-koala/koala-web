@@ -34,14 +34,29 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
       paymentStatus: "HELD_IN_ESCROW",
       workerPayout: "1250.00",
       currency: "TRY",
+      employerType: "COMPANY",
       assignedAt: "2026-09-06T10:00:00Z",
       completedAt: null,
+      appliedAt: null,
+      acceptedAt: null,
+      confirmedAt: null,
+      paymentSecuredAt: null,
       messaging: null,
+    },
+    employer: {
+      kind: "company",
+      name: "Koala Etkinlik",
+      imageUrl: "https://cdn.example.test/companies/koala.webp",
+      website: "https://koala.example",
     },
     description: "Misafirleri karşıla.",
     duties: "Yaka kartlarını dağıt.",
     dressCode: "Siyah gömlek",
     fullAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4",
+    additionalDirections: "Arka kapıdan girin.",
+    headcount: 4,
+    hiredCount: 1,
+    createdAt: "2026-08-30T07:15:00Z",
     sessions: [{
       id: "4b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
       checkInAt: "2026-09-11T09:00:00Z",
@@ -572,5 +587,138 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       evidence: [file],
     }));
     await vi.waitFor(() => expect(input.files).toHaveLength(0));
+  });
+
+  it("şirket ilanında işveren kartını logo, ad ve web sitesiyle; kontenjan, ilan tarihi ve tarifi çizer", () => {
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={vi.fn()} locate={located} />);
+
+    const employer = screen.getByTestId("work-employer");
+    expect(within(employer).getByText("Şirket")).toBeVisible();
+    expect(within(employer).getByText("Koala Etkinlik")).toBeVisible();
+    // Logo süsleyici (`alt=""`): adı yanında yazılı, ekran okuyucu iki kez duymaz.
+    expect(employer.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://cdn.example.test/companies/koala.webp",
+    );
+    expect(within(employer).getByRole("link", { name: "Web sitesi" })).toHaveAttribute(
+      "href",
+      "https://koala.example",
+    );
+    expect(screen.getByText("Şirket ilanı")).toBeVisible();
+    // Ad kartta; başlığın altında ikinci kez yazılmıyor.
+    expect(screen.getAllByText("Koala Etkinlik")).toHaveLength(1);
+    expect(screen.getByText("Kontenjan")).toBeVisible();
+    expect(screen.getByText("1 / 4 kişi")).toBeVisible();
+    expect(screen.getByText("İlan tarihi")).toBeVisible();
+    expect(screen.getByText("30 Ağu 2026 10:15")).toBeVisible();
+    expect(screen.getByText("Arka kapıdan girin.")).toBeVisible();
+  });
+
+  it("bireysel ilanda ilanı açan kişiyi baş harfli avatarla ve rozetle gösterir; web sitesi bağlantısı yok", () => {
+    const individual = workDetail({
+      assignment: { ...workDetail().assignment, employerType: "INDIVIDUAL", companyName: null },
+      employer: { kind: "person", name: "Ayşe Yıldız", imageUrl: null, website: null },
+    });
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={individual} action={vi.fn()} locate={located} />);
+
+    const employer = screen.getByTestId("work-employer");
+    expect(within(employer).getByText("İşveren")).toBeVisible();
+    expect(within(employer).getByText("Ayşe Yıldız")).toBeVisible();
+    expect(within(employer).getByText("A")).toBeInTheDocument();
+    expect(employer.querySelector("img")).toBeNull();
+    expect(within(employer).queryByRole("link", { name: "Web sitesi" })).toBeNull();
+    expect(screen.getByText("Bireysel ilan")).toBeVisible();
+    expect(screen.queryByText("Şirket ilanı")).toBeNull();
+  });
+
+  it("işveren, kontenjan, ilan tarihi ve tarif gelmediyse o satırları çizmez; şirket adı başlık altına düşer", () => {
+    const bare = workDetail({
+      assignment: { ...workDetail().assignment, employerType: "UNKNOWN" },
+      employer: null,
+      additionalDirections: null,
+      headcount: null,
+      hiredCount: 0,
+      createdAt: null,
+    });
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={bare} action={vi.fn()} locate={located} />);
+
+    expect(screen.queryByTestId("work-employer")).toBeNull();
+    expect(screen.getByText("Koala Etkinlik")).toBeVisible();
+    expect(screen.queryByText("Kontenjan")).toBeNull();
+    expect(screen.queryByText("İlan tarihi")).toBeNull();
+    expect(screen.queryByText(/Tarif:/)).toBeNull();
+    expect(screen.queryByText("Şirket ilanı")).toBeNull();
+    expect(screen.queryByText("Bireysel ilan")).toBeNull();
+  });
+
+  it("çizelgeye başvuru, kabul, onay ve ödeme adımlarını yalnız zamanları geldiyse sırayla koyar", () => {
+    const stamped = workDetail({
+      assignment: {
+        ...workDetail().assignment,
+        appliedAt: "2026-09-05T08:00:00Z",
+        acceptedAt: "2026-09-06T09:59:00Z",
+        confirmedAt: "2026-09-06T12:00:00Z",
+        paymentSecuredAt: "2026-09-07T09:00:00Z",
+      },
+    });
+    const { unmount } = render(
+      <WorkDetailScreen conversationAction={conversationAction} initialDetail={stamped} action={vi.fn()} locate={located} />,
+    );
+
+    const timeline = screen.getByRole("list", { name: "Atama zaman çizelgesi" });
+    expect(within(timeline).getAllByRole("listitem").map((item) => item.querySelector("strong")?.textContent)).toEqual([
+      "Başvuru yapıldı",
+      "Başvurun kabul edildi",
+      "Atama oluşturuldu",
+      "Atamayı onayladın",
+      "Ödeme emanete alındı",
+      "İşe giriş yapıldı",
+      "İşten çıkış yapıldı",
+    ]);
+    expect(within(timeline).getByText("7 Eyl 2026 12:00")).toBeVisible();
+    unmount();
+
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={vi.fn()} locate={located} />);
+    const bare = screen.getByRole("list", { name: "Atama zaman çizelgesi" });
+    expect(within(bare).queryByText("Başvuru yapıldı")).toBeNull();
+    expect(within(bare).queryByText("Başvurun kabul edildi")).toBeNull();
+    expect(within(bare).queryByText("Atamayı onayladın")).toBeNull();
+    expect(within(bare).queryByText("Ödeme emanete alındı")).toBeNull();
+  });
+
+  it("iptal edilmiş atamada çizelgeye iptal kaydının anını yazar; kayıt yoksa satır zamansız kalır", () => {
+    const cancelledAt = "2026-09-11T15:30:00Z";
+    const cancelled = workDetail({
+      assignment: { ...workDetail().assignment, status: "CANCELLED" },
+      sessions: [],
+      resolution: {
+        cancellationPreview: null,
+        cancellation: {
+          id: "cancellation-1",
+          cancelledByParty: "EMPLOYER",
+          reason: "Etkinlik ertelendi",
+          noticeMinutes: 4_320,
+          cancelledAt,
+        },
+        disputes: [],
+      },
+    });
+    const { unmount } = render(
+      <WorkDetailScreen conversationAction={conversationAction} initialDetail={cancelled} action={vi.fn()} locate={located} />,
+    );
+
+    const timeline = screen.getByRole("list", { name: "Atama zaman çizelgesi" });
+    const row = within(timeline).getByText("Atama iptal edildi").closest("li")!;
+    expect(within(row).getByText("11 Eyl 2026 18:30")).toHaveAttribute("datetime", cancelledAt);
+    unmount();
+
+    const withoutRecord = workDetail({
+      assignment: { ...workDetail().assignment, status: "CANCELLED" },
+      sessions: [],
+      resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
+    });
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={withoutRecord} action={vi.fn()} locate={located} />);
+    const bareRow = screen.getByText("Atama iptal edildi").closest("li")!;
+    expect(bareRow.querySelector("time")).toBeNull();
   });
 });

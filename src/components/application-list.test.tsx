@@ -26,6 +26,8 @@ const application: WorkerApplication = {
   appliedAt: "2026-09-06T10:00:00Z",
   answeredAt: null,
   assignmentId: null,
+  employerType: "COMPANY",
+  jobStatus: "OPEN",
 };
 
 function pageOf(...content: WorkerApplication[]): WorkerApplicationPage {
@@ -193,5 +195,57 @@ describe("başvurularım listesi", () => {
 
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.getByText("İlan görseli yok")).toBeVisible();
+  });
+
+  it("yanıt anını, işveren tipi rozetini ve kapanan ilanı gösterir", () => {
+    render(
+      <ApplicationList
+        initialPage={pageOf({
+          ...application,
+          status: "REJECTED",
+          rejectionReason: "Kontenjan doldu.",
+          answeredAt: "2026-09-07T11:00:00Z",
+          employerType: "INDIVIDUAL",
+          companyName: null,
+          jobStatus: "CLOSED",
+        })}
+        filter="ALL"
+        action={idleAction}
+      />,
+    );
+
+    const card = screen.getByRole("article", { name: "Etkinlik görevlisi" });
+    expect(within(card).getByText("Yanıt")).toBeVisible();
+    expect(within(card).getByText("7 Eyl 2026 14:00")).toHaveAttribute("datetime", "2026-09-07T11:00:00Z");
+    expect(within(card).getByText("Bireysel ilan")).toBeVisible();
+    expect(within(card).getByText("İlan kapandı")).toBeVisible();
+  });
+
+  it("cevapsız başvuruda yanıt satırı, açık ilanda ilan rozeti, tanınmayan tipte işveren rozeti yok", () => {
+    render(
+      <ApplicationList
+        initialPage={pageOf({ ...application, employerType: "UNKNOWN", jobStatus: "OPEN" })}
+        filter="ALL"
+        action={idleAction}
+      />,
+    );
+
+    const card = screen.getByRole("article", { name: "Etkinlik görevlisi" });
+    expect(within(card).queryByText("Yanıt")).toBeNull();
+    expect(within(card).queryByText(/ilan kapandı|ilan iptal edildi/i)).toBeNull();
+    expect(within(card).queryByText(/Bireysel ilan|Şirket ilanı/)).toBeNull();
+  });
+
+  it("iptal edilen ilanı ayrı rozetle söyler", () => {
+    render(
+      <ApplicationList
+        initialPage={pageOf({ ...application, jobStatus: "CANCELLED" })}
+        filter="ALL"
+        action={idleAction}
+      />,
+    );
+
+    expect(screen.getByText("İlan iptal edildi")).toBeVisible();
+    expect(screen.getByText("Şirket ilanı")).toBeVisible();
   });
 });

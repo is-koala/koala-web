@@ -31,6 +31,20 @@ export const employerTypeValues = ["INDIVIDUAL", "COMPANY"] as const;
 /** `JobEmployerType`; okunamayan bir değer rozet uydurmaz. */
 export type JobEmployerType = (typeof employerTypeValues)[number] | "UNKNOWN";
 
+/**
+ * İşveren tipinin rozet metni. Arama süzgeci, işverenin ilan listesi ve
+ * çalışanın atama/başvuru/iş ayrıntısı ekranları aynı iki sözcüğü kullanıyor;
+ * `UNKNOWN` için metin yok ve rozet çizilmiyor.
+ */
+export const employerTypeLabels: Readonly<Record<(typeof employerTypeValues)[number], string>> = {
+  INDIVIDUAL: "Bireysel ilan",
+  COMPANY: "Şirket ilanı",
+};
+
+export function employerTypeLabel(type: JobEmployerType): string | null {
+  return type === "UNKNOWN" ? null : employerTypeLabels[type];
+}
+
 /** `JobSummaryDto`'nun bu listede okunan parçası. */
 export type EmployerJob = {
   readonly id: string;

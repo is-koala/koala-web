@@ -503,6 +503,11 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .earnings-item-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .earnings-item-heading > strong { font-size: var(--size-18); }
 .earnings-item time { color: var(--muted); font-size: .82rem; }
+.earnings-item-job { margin: 0; font-size: var(--size-14); overflow-wrap: anywhere; }
+.earnings-item-job span { color: var(--muted); }
+.earnings-item-dates { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.earnings-item-dates dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
+.earnings-item-dates dd { margin: 2px 0 0; }
 .payout-failure { padding: 12px 14px; border-radius: var(--r-12); background: var(--danger-wash); }
 .payout-failure p { margin: 0 0 6px; }
 .account-settings { display: flex; flex-direction: column; gap: 22px; }
@@ -552,6 +557,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .application-card h2 { margin-bottom: 4px; font-size: var(--size-18); letter-spacing: -.01em; }
 .application-company { margin: 0; color: var(--muted); }
 .application-position { margin: 6px 0 0; font-size: var(--size-13); font-weight: var(--w-medium); color: var(--text-muted); }
+.application-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .application-facts { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 0; }
 .application-facts dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
 .application-facts dd { margin: 3px 0 0; font-weight: var(--w-semibold); }
@@ -700,6 +706,14 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .work-address h2, .work-brief-grid h2 { margin-bottom: 7px; font-size: 1rem; letter-spacing: -.015em; }
 .work-address address { font-style: normal; font-weight: 750; overflow-wrap: anywhere; }
 .work-address p, .work-brief-grid p { margin: 0; }
+.work-address .work-address-directions { margin-top: 8px; font-size: var(--size-14); overflow-wrap: anywhere; }
+/* İşveren kartı: logo/avatar solda, tür etiketi + ad + web sitesi sağda. Tanıtımdaki
+   `.job-detail-employer` ile aynı düzen; kabuk yüzeyi olduğu için kart token'larını okur. */
+.work-employer { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 14px 16px; border-radius: var(--r-16); background: var(--surface-sunken); }
+.work-employer-copy { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.work-employer-copy .muted { font-size: var(--size-12); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
+.work-employer-copy strong { font-size: var(--size-18); letter-spacing: -.01em; }
+.work-employer .ui-avatar { object-fit: contain; background: var(--surface); }
 .work-brief-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .work-detail-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr); gap: 22px; align-items: start; }
 .work-detail-section > h2, .work-session-panel h2 { margin-bottom: 18px; font-size: var(--size-22); }

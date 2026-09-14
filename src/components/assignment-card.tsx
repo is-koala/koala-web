@@ -10,6 +10,8 @@ import {
   paymentStatusLabel,
 } from "@/components/assignment-presenters";
 import { StatusBadge, assignmentStatusTone, paymentStatusTone } from "@/components/ui";
+import { employerTypeLabel } from "@/jobs/employer-jobs";
+import { formatDateTime } from "@/lib/dates";
 
 export function AssignmentCard({
   assignment,
@@ -25,6 +27,11 @@ export function AssignmentCard({
   onPrepareAcceptance: (assignment: WorkerAssignment) => void;
 }) {
   const location = [assignment.districtName, assignment.cityName].filter(Boolean).join(", ");
+  // Bireysel ilanda `companyName` boş: kart işverenin kim olduğunu ancak bu
+  // rozetle söyleyebiliyor. Şirket ilanında ad zaten yazıyor, rozet gereksiz.
+  const employerBadge = assignment.employerType === "INDIVIDUAL"
+    ? employerTypeLabel(assignment.employerType)
+    : null;
 
   return (
     <article
@@ -39,6 +46,7 @@ export function AssignmentCard({
         <StatusBadge tone={paymentStatusTone(assignment.paymentStatus)}>
           {paymentStatusLabel[assignment.paymentStatus]}
         </StatusBadge>
+        {employerBadge ? <StatusBadge tone="neutral">{employerBadge}</StatusBadge> : null}
       </div>
 
       <div>
@@ -66,6 +74,14 @@ export function AssignmentCard({
           <dt>Kazanç</dt>
           <dd>{formatMoney(assignment.workerPayout, assignment.currency)}</dd>
         </div>
+        {assignment.assignedAt ? (
+          <div>
+            <dt>Teklif</dt>
+            <dd>
+              <time dateTime={assignment.assignedAt}>{formatDateTime(assignment.assignedAt)}</time>
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       {assignment.status === "CONFIRMED" &&

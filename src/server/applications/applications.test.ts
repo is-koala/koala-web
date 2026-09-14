@@ -56,6 +56,8 @@ describe("çalışan başvuruları BFF sözleşmesi", () => {
           id: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
           title: "Etkinlik görevlisi",
           position: "Karşılama",
+          employerType: "COMPANY",
+          status: "CLOSED",
           companyName: "Koala Etkinlik",
           cityName: "İstanbul",
           districtName: "Kadıköy",
@@ -89,6 +91,8 @@ describe("çalışan başvuruları BFF sözleşmesi", () => {
         appliedAt: "2026-09-06T10:00:00Z",
         answeredAt: "2026-09-07T11:00:00Z",
         assignmentId: null,
+        employerType: "COMPANY",
+        jobStatus: "CLOSED",
       }],
       page: 1,
       size: 20,
@@ -100,6 +104,30 @@ describe("çalışan başvuruları BFF sözleşmesi", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://api.example.test/users/me/applications?status=REJECTED&page=1&size=20",
     );
+  });
+
+  it("işveren tipi ve ilan durumu gelmediyse ya da tanınmıyorsa UNKNOWN yazar", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(page([
+      {
+        id: applicationId,
+        job: {
+          id: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
+          title: "Etkinlik görevlisi",
+          startDateTime: "2026-09-12T09:00:00",
+          status: "ARCHIVED",
+        },
+        status: "APPLIED",
+        applicationDateTime: "2026-09-06T10:00:00Z",
+      },
+    ])))));
+
+    const result = await readWorkerApplications({ status: "ALL", page: 0 });
+
+    expect(result.content[0]).toMatchObject({
+      employerType: "UNKNOWN",
+      jobStatus: "UNKNOWN",
+      answeredAt: null,
+    });
   });
 
   it("tüm durumlar filtresinde status parametresi göndermez", async () => {

@@ -8,6 +8,7 @@ const backendURL = `http://127.0.0.1:${backendPort}`;
 const baseURL = `http://localhost:${webPort}`;
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
 
 /**
  * İş arayanın web'deki kritik yolu (is-koala/koala-web#154): kayıtlı çalışan
@@ -65,6 +66,44 @@ test("kayıtlı çalışan ilanı bulur, başvurur ve başvurusunu panelinde gö
     "href",
     "/is-ilanlari",
   );
+});
+
+test("iş ayrıntısı işvereni, ilan bilgilerini ve ödeme damgasını gösterir; liste ve kazanç satırları işi adlandırır", async ({
+  page,
+}) => {
+  // İşveren kimliği ve zaman çizelgesi (is-koala/koala-web#165). Sahte backend
+  // şirket ilanı veriyor: kart şirket adı + web sitesi, rozet "Şirket ilanı".
+  await page.goto(`/panel/is/${paidAssignmentId}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Etkinlik görevlisi" })).toBeVisible();
+
+  const employer = page.getByTestId("work-employer");
+  await expect(employer).toContainText("Şirket");
+  await expect(employer).toContainText("Koala Etkinlik");
+  await expect(employer.getByRole("link", { name: "Web sitesi" })).toHaveAttribute(
+    "href",
+    "https://koala.example",
+  );
+  await expect(page.getByText("Şirket ilanı")).toBeVisible();
+  await expect(page.getByText("1 / 4 kişi")).toBeVisible();
+  await expect(page.getByText("İlan tarihi")).toBeVisible();
+
+  const timeline = page.getByRole("list", { name: "Atama zaman çizelgesi" });
+  await expect(timeline).toContainText("Atama oluşturuldu");
+  await expect(timeline).toContainText("Ödeme emanete alındı");
+  await expect(timeline.locator("time[datetime='2026-09-02T14:30:00Z']")).toBeVisible();
+
+  // İşlerim kartı teklif anını yazar.
+  await page.goto("/panel/islerim");
+  await expect(page.getByText("Teklif").first()).toBeVisible();
+  await expect(page.locator("time[datetime='2026-09-01T09:00:00Z']").first()).toBeVisible();
+
+  // Kazançlar satırı işi adlandırır; ad atama listesinden eşlenir.
+  await page.goto("/panel/kazanclarim");
+  const payoutRow = page.getByRole("listitem").filter({ hasText: "Aktarım bekliyor" });
+  await expect(payoutRow).toContainText("Etkinlik görevlisi");
+  await expect(payoutRow).toContainText("Koala Etkinlik");
+  await expect(payoutRow).toContainText("Oluşturuldu");
+  await expect(payoutRow).not.toContainText("Tamamlandı");
 });
 
 test("panel bölümleri gerçek sayfalarla açılır; bilinmeyen adres 404 kalır", async ({ page }) => {

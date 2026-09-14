@@ -1,3 +1,6 @@
+import type { JobEmployerType } from "@/jobs/employer-jobs";
+import type { JobStatus } from "@/jobs/lifecycle";
+
 export type ApplicationStatus = "APPLIED" | "ACCEPTED" | "REJECTED" | "WITHDRAWN" | "UNKNOWN";
 
 export type ApplicationFilter = Exclude<ApplicationStatus, "UNKNOWN"> | "ALL";
@@ -16,8 +19,13 @@ export type WorkerApplication = {
   notes: string | null;
   rejectionReason: string | null;
   appliedAt: string;
+  /** `answeredDateTime` — işverenin kabul ya da ret anı; cevapsız başvuruda `null`. */
   answeredAt: string | null;
   assignmentId: string | null;
+  /** `job.employerType`; bireysel ilanda `companyName` boş olduğu için rozet gerekiyor. */
+  employerType: JobEmployerType;
+  /** `job.status`; kapanmış ya da iptal edilmiş ilanı bekleyen başvuru üstünde söyler. */
+  jobStatus: JobStatus | "UNKNOWN";
 };
 
 export type WorkerApplicationPage = {

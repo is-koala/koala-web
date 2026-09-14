@@ -25,6 +25,8 @@ const baseAssignment: WorkerAssignment = {
   paymentStatus: "PENDING_COLLECTION",
   workerPayout: "1250.00",
   currency: "TRY",
+  employerType: "COMPANY",
+  assignedAt: "2026-09-06T10:00:00Z",
 };
 
 function pageOf(...content: WorkerAssignment[]): WorkerAssignmentPage {
@@ -251,5 +253,42 @@ describe("çalışan atama listesi", () => {
     } finally {
       release();
     }
+  });
+
+  it("kartta teklif anını yazar; bireysel ilanda işveren rozeti çizer, şirket ilanında çizmez", () => {
+    const { unmount } = render(
+      <AssignmentList
+        initialPage={pageOf({ ...baseAssignment, employerType: "INDIVIDUAL", companyName: null })}
+        respondAction={unusedAction}
+        acceptanceAction={detailAction}
+      />,
+    );
+
+    expect(screen.getByText("Teklif")).toBeVisible();
+    expect(screen.getByText("6 Eyl 2026 13:00")).toHaveAttribute("datetime", "2026-09-06T10:00:00Z");
+    expect(screen.getByText("Bireysel ilan")).toBeVisible();
+    unmount();
+
+    render(
+      <AssignmentList
+        initialPage={pageOf(baseAssignment)}
+        respondAction={unusedAction}
+        acceptanceAction={detailAction}
+      />,
+    );
+    expect(screen.getByText("Koala Etkinlik")).toBeVisible();
+    expect(screen.queryByText(/Bireysel ilan|Şirket ilanı/)).toBeNull();
+  });
+
+  it("teklif anı gelmediyse satırı çizmez", () => {
+    render(
+      <AssignmentList
+        initialPage={pageOf({ ...baseAssignment, assignedAt: null })}
+        respondAction={unusedAction}
+        acceptanceAction={detailAction}
+      />,
+    );
+
+    expect(screen.queryByText("Teklif")).toBeNull();
   });
 });
