@@ -439,6 +439,15 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .settings-list-item p:last-child, .notification-item p:last-child { margin-bottom: 0; }
 .masked-value { overflow-wrap: anywhere; }
 .status-row, .compact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.bank-account-item { align-items: flex-start; }
+.bank-account-main { min-width: 0; flex: 1; }
+.verification-starter { margin-top: 10px; }
+.verification-instructions { margin-top: 12px; border: 1px solid var(--line); border-left: 5px solid var(--brand-accent); border-radius: 16px; padding: 16px; background: var(--surface-sunken); }
+.verification-instructions h3 { font-size: 1.05rem; margin-bottom: 6px; }
+.verification-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0; }
+.verification-facts dt { font-size: .78rem; font-weight: 750; color: var(--muted); }
+.verification-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.verification-facts code { font-size: .95em; }
 .status-pill { display: inline-flex; width: fit-content; border-radius: 999px; padding: 4px 9px; background: var(--success-wash); color: var(--success-strong); font-size: .72rem; font-weight: 800; }
 .status-pill-warn { background: var(--danger-wash); color: var(--danger-strong); }
 .compact-form { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }

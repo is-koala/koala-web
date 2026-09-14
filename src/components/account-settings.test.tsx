@@ -101,6 +101,46 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(screen.queryByText(/REVIEWING_BY_BANK/)).toBeNull();
   });
 
+  it("doğrulanmamış hesapta transfer talimatını gösterir, doğrulanmışta düğme yok", async () => {
+    const startBankAccountVerification = vi.fn(async (): Promise<SettingsActionState> => ({
+      status: "done",
+      ibanVerification: {
+        accountId: "08e9bbd8-9348-4667-9801-0e887824525a",
+        maskedIban: "TR12 **** **** **** **** **99 01",
+        status: "PENDING",
+        reference: "KOALA-7Q2M",
+        amount: "1.37",
+        currency: "TRY",
+        targetIban: "TR90 0006 2000 0000 0000 0000 01",
+        expiresAt: "2026-09-20T12:00:00Z",
+        attemptsLeft: 2,
+      },
+    }));
+    renderSettings({
+      startBankAccountVerification,
+      data: {
+        ...data,
+        bankAccounts: [
+          { ...data.bankAccounts[0] },
+          { ...data.bankAccounts[1], verificationStatus: "UNVERIFIED" },
+        ],
+      },
+    });
+    const user = userEvent.setup();
+
+    // Doğrulanmış birincil hesapta düğme yok: backend 409 ile reddeder.
+    expect(screen.getAllByRole("button", { name: "IBAN'ı doğrula" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "IBAN'ı doğrula" }));
+
+    expect(startBankAccountVerification).toHaveBeenCalledOnce();
+    const instructions = await screen.findByRole("status", { name: "IBAN doğrulama talimatı" });
+    expect(instructions).toHaveTextContent("1,37 ₺");
+    expect(instructions).toHaveTextContent("KOALA-7Q2M");
+    expect(instructions).toHaveTextContent("TR90 0006 2000 0000 0000 0000 01");
+    expect(instructions).toHaveTextContent("Kalan deneme2");
+    expect(screen.queryByRole("button", { name: "IBAN'ı doğrula" })).toBeNull();
+  });
+
   it("IBAN eklendiğinde action'a gönderir fakat başarı görünümüne ham değeri taşımaz", async () => {
     const addBankAccount = vi.fn(async (): Promise<SettingsActionState> => ({ status: "done" }));
     renderSettings({ addBankAccount });
@@ -327,6 +367,7 @@ function actions() {
   return {
     addBankAccount: idle,
     selectPrimaryBankAccount: idle,
+    startBankAccountVerification: idle,
     deleteBankAccount: idle,
     updateContact: idle,
     confirmVerification: idle,

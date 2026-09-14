@@ -18,6 +18,7 @@ import {
   listNotifications,
   requestAccountDeletion,
   selectPrimaryBankAccount,
+  startBankAccountVerification,
 } from "./settings";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
@@ -117,6 +118,50 @@ describe("hesap ayarları banka sözleşmesi", () => {
     ]);
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe("POST");
     expect((fetchMock.mock.calls[1]?.[1] as RequestInit).method).toBe("DELETE");
+  });
+
+  it("IBAN doğrulamasını başlatır ve BigDecimal tutarı iki ondalıklı dize olarak taşır", async () => {
+    const accountId = "b4bca2a3-ced9-4fc5-8434-6e5a45c26e80";
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        200,
+        envelope({
+          accountId,
+          maskedIban: "TR33 **** **** **** **** **13 26",
+          status: "PENDING",
+          reference: "KOALA-7Q2M",
+          amount: 1.3,
+          targetIban: "TR900006200000000000000001",
+          expiresAt: "2026-09-20T12:00:00Z",
+          attemptsLeft: 2,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(startBankAccountVerification(accountId)).resolves.toEqual({
+      accountId,
+      maskedIban: "TR33 **** **** **** **** **13 26",
+      status: "PENDING",
+      reference: "KOALA-7Q2M",
+      amount: "1.30",
+      currency: "TRY",
+      targetIban: "TR900006200000000000000001",
+      expiresAt: "2026-09-20T12:00:00Z",
+      attemptsLeft: 2,
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.example.test/users/me/bank-accounts/${accountId}/verification`,
+    );
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe("POST");
+  });
+
+  it("referanssız doğrulama yanıtını talimat gibi göstermez", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(null))));
+
+    await expect(
+      startBankAccountVerification("b4bca2a3-ced9-4fc5-8434-6e5a45c26e80"),
+    ).rejects.toMatchObject({ errorCode: "UNEXPECTED" });
   });
 
   it("hesap silme talebinin güncel durumunu auth'lu ve no-store olarak okur", async () => {

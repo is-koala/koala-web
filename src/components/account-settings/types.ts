@@ -14,6 +14,7 @@ export type AccountSettingsViewer = {
 export type AccountSettingsActions = {
   addBankAccount: SettingsAction;
   selectPrimaryBankAccount: SettingsAction;
+  startBankAccountVerification: SettingsAction;
   deleteBankAccount: SettingsAction;
   updateContact: SettingsAction;
   confirmVerification: SettingsAction;

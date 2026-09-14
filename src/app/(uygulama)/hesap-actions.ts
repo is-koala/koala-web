@@ -19,7 +19,9 @@ import {
   revokeOtherSessions,
   revokeSession,
   selectPrimaryBankAccount,
+  startBankAccountVerification,
   updatePassword,
+  type IbanVerification,
 } from "@/server/account-settings/settings";
 import { failureState, textField, validationState } from "@/server/form";
 import {
@@ -30,7 +32,7 @@ import { requireSessionForCurrentPath } from "@/server/session/guard";
 
 export type SettingsActionState =
   | Exclude<FormState, { status: "done" }>
-  | { status: "done"; verification?: PendingVerification };
+  | { status: "done"; verification?: PendingVerification; ibanVerification?: IbanVerification };
 
 export type SettingsAction = (
   state: SettingsActionState,
@@ -79,6 +81,29 @@ export async function selectPrimaryBankAccountAction(
   const accountId = textField(formData, "accountId");
   if (!uuidPattern.test(accountId)) return invalidResource("accountId");
   return runMutation(() => selectPrimaryBankAccount(accountId));
+}
+
+/**
+ * IBAN sahiplik doğrulamasını başlatır ve transfer talimatını forma taşır.
+ *
+ * `runMutation` değil: cevabın gövdesi ekranda lazım — tutar, referans ve
+ * hedef IBAN olmadan kullanıcı transferi yapamaz.
+ */
+export async function startBankAccountVerificationAction(
+  _state: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  await requireSessionForCurrentPath();
+  const accountId = textField(formData, "accountId");
+  if (!uuidPattern.test(accountId)) return invalidResource("accountId");
+  try {
+    const ibanVerification = await startBankAccountVerification(accountId);
+    revalidateSettings();
+    return { status: "done", ibanVerification };
+  } catch (error) {
+    unstable_rethrow(error);
+    return failureState(error);
+  }
 }
 
 export async function deleteBankAccountAction(

@@ -13,6 +13,7 @@ import {
   revokeSessionAction,
   requestAccountDeletionAction,
   selectPrimaryBankAccountAction,
+  startBankAccountVerificationAction,
   updateContactAction,
   updatePasswordAction,
 } from "./hesap-actions";
@@ -418,6 +419,69 @@ describe("hesap ayarları action'ları", () => {
       `https://api.example.test/users/me/bank-accounts/${accountId}/primary`,
       `https://api.example.test/users/me/bank-accounts/${accountId}`,
     ]);
+  });
+
+  it("IBAN doğrulama talimatını state'e taşır; 409'u koduyla döndürür", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope({
+            accountId,
+            maskedIban: "TR33 **** **** **** **** **13 26",
+            status: "PENDING",
+            reference: "KOALA-7Q2M",
+            amount: 1.37,
+            targetIban: "TR900006200000000000000001",
+            expiresAt: null,
+            attemptsLeft: 3,
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(409, {
+          success: false,
+          httpStatus: 409,
+          errorCode: "USER_BANK_ACCOUNT_ALREADY_VERIFIED",
+          errorCategory: "CONFLICT",
+          message: "ham mesaj",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      startBankAccountVerificationAction({ status: "idle" }, fields({ accountId })),
+    ).resolves.toEqual({
+      status: "done",
+      ibanVerification: {
+        accountId,
+        maskedIban: "TR33 **** **** **** **** **13 26",
+        status: "PENDING",
+        reference: "KOALA-7Q2M",
+        amount: "1.37",
+        currency: "TRY",
+        targetIban: "TR900006200000000000000001",
+        expiresAt: null,
+        attemptsLeft: 3,
+      },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/panel/kazanclarim");
+
+    await expect(
+      startBankAccountVerificationAction({ status: "idle" }, fields({ accountId })),
+    ).resolves.toMatchObject({
+      status: "error",
+      errorCode: "USER_BANK_ACCOUNT_ALREADY_VERIFIED",
+      httpStatus: 409,
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `https://api.example.test/users/me/bank-accounts/${accountId}/verification`,
+    );
+
+    await expect(
+      startBankAccountVerificationAction({ status: "idle" }, fields({ accountId: "nope" })),
+    ).resolves.toMatchObject({ fieldErrors: { accountId: "Kaynak kimliği geçerli değil." } });
   });
 
   it("iletişim değişikliğinin doğrulama kimliğini koda kadar güvenle taşır", async () => {
