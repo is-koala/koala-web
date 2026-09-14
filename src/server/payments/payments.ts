@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import type { AssignmentStatus, PaymentStatus } from "@/assignments/contract";
 import { isActiveDisputeStatus } from "@/assignments/resolution";
 import type { PricingBreakdown } from "@/lib/job-posting";
@@ -21,7 +23,9 @@ import {
 } from "@/payments/checkout";
 import { messagingAvailabilityFrom } from "@/messaging/contract";
 import { safeImageUrl } from "@/lib/urls";
+import { ApiError } from "@/server/api/errors";
 import { clean, known } from "@/server/api/dto";
+import { getCompany } from "@/server/company/company";
 import { backendPaths, jobPath } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
@@ -178,14 +182,33 @@ export async function readPaymentAttempts(assignmentId: string): Promise<readonl
   return (attempts ?? []).map(projectPaymentAttempt);
 }
 
+/**
+ * Şirket ilanının ödeme kapısı için şirket kimliği ve adres varlığı.
+ *
+ * Kimlik `GET /jobs/{jobId}`'den, adres `GET /companies/{companyId}`'den
+ * okunur. İlan yanıtındaki `company` bir özet DTO (`JobCompanyDto`) ve adres
+ * taşımıyor (is-koala/koala-backend#159); oradan okumak her şirket ilanında
+ * "adres eksik" uyarısı çiziyordu (is-koala/koala-web#171). Şirket
+ * okunamazsa (403/404) adres bilinmiyor sayılır: backend'in kendi reddi
+ * (`JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER`) ödeme anında zaten
+ * gösteriliyor.
+ */
 export async function readEmployerPaymentCompany(jobId: string): Promise<EmployerPaymentCompany> {
-  const job = await apiRequest<{
-    company?: { id?: string | null; address?: unknown } | null;
-  } | null>(`${backendPaths.jobs}/${encodeURIComponent(jobId)}`, { cache: "no-store" });
-  return {
-    companyId: job?.company?.id ?? "",
-    hasAddress: job?.company?.address != null,
-  };
+  const job = await apiRequest<{ company?: { id?: string | null } | null } | null>(
+    `${backendPaths.jobs}/${encodeURIComponent(jobId)}`,
+    { cache: "no-store" },
+  );
+  const companyId = job?.company?.id ?? "";
+  if (companyId === "") return { companyId, hasAddress: null };
+
+  try {
+    const company = await getCompany(companyId);
+    return { companyId, hasAddress: company.address !== null };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError) return { companyId, hasAddress: null };
+    throw error;
+  }
 }
 
 export async function readAssignmentHasActiveDispute(assignmentId: string): Promise<boolean> {

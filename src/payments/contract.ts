@@ -101,5 +101,6 @@ export type PaymentReconciliation = {
 
 export type EmployerPaymentCompany = {
   readonly companyId: string;
-  readonly hasAddress: boolean;
+  /** `null`: şirket okunamadı (403/404); kapı bilinmiyor sayılır ve uyarı çizmez. */
+  readonly hasAddress: boolean | null;
 };

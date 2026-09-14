@@ -160,13 +160,15 @@ export function corporateJobGate(gates: ViewerGates, companyId: string): GateVer
 export function corporatePaymentGate(
   gates: ViewerGates,
   companyId: string,
-  companyHasAddress: boolean,
+  companyHasAddress: boolean | null,
 ): GateVerdict {
   const membership = gates.companies.find((company) => company.companyId === companyId);
 
+  // `null` = şirket okunamadı. Bilinmeyeni "eksik" saymak, adresi kayıtlı
+  // şirkete yanlış uyarı çizerdi; gerçek eksiği backend ödeme anında reddeder.
   return verdict([
     ...absent<GateId>(membership !== undefined, "companyContact"),
-    ...absent<GateId>(companyHasAddress, "companyBillingAddress"),
+    ...absent<GateId>(companyHasAddress !== false, "companyBillingAddress"),
   ]);
 }
 

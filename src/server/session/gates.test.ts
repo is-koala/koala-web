@@ -349,6 +349,19 @@ describe("şirket ilanının ödeme kapısı", () => {
     expect(corporatePaymentGate(gates, "c1", true)).toEqual({ open: true });
   });
 
+  it("şirket okunamadığında adres uyarısı çizmez", () => {
+    // `null` = `GET /companies/{id}` 403/404 döndü. Bilinmeyeni eksik saymak
+    // adresi kayıtlı şirkete yanlış şerit çizerdi (is-koala/koala-web#171);
+    // gerçek eksiği backend ödeme anında zaten reddediyor.
+    const gates = viewerGates(viewerWith({ companies: twoCompanies }));
+
+    expect(corporatePaymentGate(gates, "c1", null)).toEqual({ open: true });
+    expect(corporatePaymentGate(gates, "c3", null)).toEqual({
+      open: false,
+      blockedBy: ["companyContact"],
+    });
+  });
+
   it("adres tamam olsa da yetkili olmayan kapıyı geçemez", () => {
     const gates = viewerGates(viewerWith({ companies: twoCompanies }));
 
