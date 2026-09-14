@@ -22,9 +22,9 @@ bayta çıkarmıştı; boş durum maskotu bu yüzden düz `<img>` ve önceden k�
 (`src/components/ui/mascot.tsx`). İstemci bileşenlerinden okunan ortak modüllere (`states.tsx`,
 `form-controls.tsx`) yeni bağımlılık eklerken bu sayıyı yeniden ölç.
 
-2026-09-14 (is-koala/koala-web#166, işveren ayrıntı yüzeyleri) ölçümü: ana sayfa 247.727,
-ilan listesi 249.625, ilan ayrıntısı **255.638** bayt — sınıra 362 bayt kaldı. Bu işte ilan
-ayrıntısına yayın tarihi ve işveren güven kartı yalnız sunucu bileşeni olarak girdi; 79 baytlık
+2026-09-14 (is-koala/koala-web#166, işveren ayrıntı yüzeyleri) ölçümü: ana sayfa 247.761,
+ilan listesi 249.659, ilan ayrıntısı **255.672** bayt — sınıra 328 bayt kaldı. Bu işte ilan
+ayrıntısına yayın tarihi ve işveren güven kartı yalnız sunucu bileşeni olarak girdi; 113 baytlık
 artış istemci kodundan değil, sayfanın istemci referans yükünden geliyor. İlan ayrıntısına yeni
 istemci bileşeni **sığmıyor**; bir sonraki istemci ihtiyacı önce bütçe düşürmeyi gerektirir.
 
