@@ -138,7 +138,8 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
  * satırı gizler, ayrıntıyı değil. Programlama hataları yine fırlatılıyor.
  */
 async function readPaymentSecuredAt(assignment: AssignmentDto): Promise<string | null> {
-  if (assignment.paymentSecuredAt) return assignment.paymentSecuredAt;
+  const secured = clean(assignment.paymentSecuredAt);
+  if (secured) return secured;
   if (!securedPaymentStatuses.has(assignment.paymentStatus)) return null;
   try {
     const attempts = await apiRequest<readonly PaymentAttemptDto[] | null>(
