@@ -1,41 +1,70 @@
-import Link from "next/link";
-import { homeContent } from "@/content/marketing";
+import { AppDemo } from "@/components/marketing/app-demo";
+import { EarlyAccess } from "@/components/marketing/early-access";
+import { Hero } from "@/components/marketing/hero";
+import {
+  About,
+  Campaign,
+  CategoryTicker,
+  HomeFaq,
+  HowItWorks,
+  SampleJobs,
+  Stats,
+  Testimonials,
+  WhyKoala,
+} from "@/components/marketing/home-sections";
+import { TwoSides } from "@/components/marketing/two-sides";
+import { frequentlyAskedQuestions } from "@/content/marketing";
 import { controllerIdentity } from "@/content/support";
 import { pageMetadata } from "@/lib/metadata";
 import { publicEnvironment } from "@/lib/env";
 import { site } from "@/lib/site";
 
+import { submitEarlyAccessAction } from "./actions";
+
 export const metadata = pageMetadata(
-  "Koala — Bugünün işi, bugünün insanı",
+  "Koala — Boş vaktini paraya çevir",
   site.description,
   "/",
 );
 
+/**
+ * Ana sayfa. Bölüm sırası tasarımcının v2 mockup'ıyla birebir
+ * (is-koala/koala-web#155): hero → kategori şeridi → örnek ilanlar → sayılar →
+ * biz kimiz → neden Koala → nasıl çalışır → uygulama → kampanya → iki taraf →
+ * yorumlar → SSS → erken erişim. Altbilgi tanıtım yerleşiminde.
+ */
 export default function HomePage() {
   return (
-    <div>
-      <section className="hero home-hero">
-        <p className="eyebrow">{homeContent.eyebrow}</p>
-        <h1>{homeContent.title[0]}<br />{homeContent.title[1]}</h1>
-        <p className="lede">{homeContent.intro}</p>
-        <div className="button-row">
-          <Link href="/is-arayanlar" className="button button-primary">{homeContent.workerAction}</Link>
-          <Link href="/isverenler" className="button button-secondary">{homeContent.employerAction}</Link>
-        </div>
-        <div className="proof-row" aria-label="Koala'nın temel özellikleri">
-          {homeContent.proofs.map((proof) => <span key={proof}>{proof}</span>)}
-        </div>
-      </section>
-      <section className="manifesto">
-        <p className="eyebrow">{homeContent.manifestoEyebrow}</p>
-        <h2>{homeContent.manifesto}</h2>
-      </section>
+    <div className="mk-home">
+      <Hero />
+      <CategoryTicker />
+      <SampleJobs />
+      <Stats />
+      <About />
+      <WhyKoala />
+      <HowItWorks />
+      <AppDemo />
+      <Campaign />
+      <TwoSides />
+      <Testimonials />
+      <HomeFaq />
+      <EarlyAccess action={submitEarlyAccessAction} kvkkPath={controllerIdentity.kvkkNoticePath} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         "@context": "https://schema.org",
         "@type": "Organization",
         name: site.name,
         url: publicEnvironment().siteUrl,
         email: controllerIdentity.email,
+      }) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        url: publicEnvironment().siteUrl,
+        mainEntity: frequentlyAskedQuestions.slice(0, 6).map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
       }) }} />
     </div>
   );

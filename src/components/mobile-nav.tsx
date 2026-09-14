@@ -89,12 +89,18 @@ export function MobileNav() {
       <button
         ref={toggleRef}
         type="button"
-        className="button button-small mobile-nav-toggle"
+        className="button button-secondary button-small mobile-nav-toggle"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen(true)}
       >
-        Menüyü aç
+        {/* Simge satır içi: tanıtımın ikon haritası sunucuda kalsın, her
+            sayfanın istemci paketine girmesin. Dar telefonda yalnız simge
+            sığıyor; ad ekran okuyucuya metinden gider. */}
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+        <span className="mobile-nav-toggle-text">Menüyü aç</span>
       </button>
       {/*
         Panel belge gövdesine çıkar: başlıktaki `backdrop-filter` sabit

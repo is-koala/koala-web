@@ -1,22 +1,60 @@
+import Link from "next/link";
+
 import type { MarketingPage as MarketingPageContent } from "@/content/marketing";
 
-export function MarketingPage({ content }: { content: MarketingPageContent }) {
+import { Icon } from "./marketing/icon";
+import { Section, SectionHeading } from "./marketing/section";
+
+/**
+ * İç tanıtım sayfalarının ortak yerleşimi: giriş, kart ızgarası, çağrı.
+ *
+ * Ana sayfayla aynı bileşen setini kullanıyor (#155): bölüm kabuğu, başlık
+ * bloğu, düz kartlar. Kartlar numaralı ("01", "02"); `steps` verilirse adım
+ * çizgisi gibi çizilir — Nasıl Çalışır sayfası bunu ister.
+ */
+export function MarketingPage({
+  content,
+  steps = false,
+}: {
+  content: MarketingPageContent;
+  steps?: boolean;
+}) {
   return (
     <article>
-      <header className="hero hero-compact">
-        <p className="eyebrow">{content.eyebrow}</p>
-        <h1>{content.title}</h1>
-        <p className="lede">{content.intro}</p>
-      </header>
-      <div className="feature-grid">
-        {content.sections.map((section, index) => (
-          <section className="feature-card" key={section.title}>
-            <span className="feature-number" aria-hidden="true">0{index + 1}</span>
-            <h2>{section.title}</h2>
-            <p>{section.body}</p>
-          </section>
-        ))}
-      </div>
+      <Section className="mk-page-hero">
+        <SectionHeading as="h1" eyebrow={content.eyebrow} title={content.title} intro={content.intro} />
+      </Section>
+      <Section tone="sunken">
+        {steps ? (
+          <ol className="mk-steps mk-steps-page">
+            {content.sections.map((section, index) => (
+              <li key={section.title} className="mk-step">
+                <span className="mk-step-dot" aria-hidden="true">{index + 1}</span>
+                <div className="mk-step-body">
+                  <h2>{section.title}</h2>
+                  <p>{section.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ul className="mk-card-grid mk-page-grid">
+            {content.sections.map((section, index) => (
+              <li key={section.title} className="mk-feature-card">
+                <span className="mk-feature-number" aria-hidden="true">0{index + 1}</span>
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mk-section-foot">
+          <Link className="button button-primary" href={content.action.href}>
+            {content.action.label}
+            <Icon name="arrowRight" />
+          </Link>
+        </p>
+      </Section>
     </article>
   );
 }
