@@ -60,6 +60,15 @@
   --rating: #FFC107;
   --rating-strong: #B77E00;
   --rating-wash: rgba(255, 193, 7, .18);
+  /* Durum yıkaması üstündeki **yazı** renkleri. `--*-strong` tonları dekor ve
+     ikon için; açık yıkama üstünde AA'yı geçmiyorlar (yeşil 3,7:1, turuncu
+     3,1:1, mavi 4,2:1). Rozet ve şerit metni bunları okur;
+     `src/brand/contrast.test.ts` çiftleri tutar. */
+  --success-ink: #2E6B31;
+  --warning-ink: #8A5300;
+  --info-ink: #2A56A8;
+  --info-wash: #EBF1FD;
+  --rating-ink: #7A5200;
   --danger: #F44336;
   --danger-strong: #8c2424;
   --danger-wash: #fff0ed;
@@ -299,10 +308,10 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 
 /* Durum rozeti: renkler tasarım sisteminin durum token'ları. */
 .ui-badge, .job-status, .application-status, .assignment-status, .payout-status, .payment-status, .payment-attempt-status, .status-pill, .verification { display: inline-flex; align-items: center; gap: 6px; width: fit-content; min-height: 26px; padding: 3px 10px; border-radius: var(--r-pill); background: var(--grey-200); color: var(--grey-800); font-size: var(--size-12); font-weight: var(--w-semibold); line-height: 1.3; white-space: nowrap; }
-.ui-badge-success, .job-status-open, .application-status-accepted, .assignment-status-confirmed, .assignment-status-completed, .payout-status-completed, .payment-status-positive, .payment-attempt-status-positive, .status-pill, .verification.verified { background: var(--success-wash); color: var(--success-strong); }
-.ui-badge-warning, .assignment-status-pending_confirmation, .payout-status-pending, .payout-status-processing, .payment-status-warning, .payment-attempt-status-warning { background: var(--warning-wash); color: var(--warning-strong); }
+.ui-badge-success, .job-status-open, .application-status-accepted, .assignment-status-confirmed, .assignment-status-completed, .payout-status-completed, .payment-status-positive, .payment-attempt-status-positive, .status-pill, .verification.verified { background: var(--success-wash); color: var(--success-ink); }
+.ui-badge-warning, .assignment-status-pending_confirmation, .payout-status-pending, .payout-status-processing, .payment-status-warning, .payment-attempt-status-warning { background: var(--warning-wash); color: var(--warning-ink); }
 .ui-badge-pending, .application-status-applied { background: var(--pending-wash); color: var(--pending-strong); }
-.ui-badge-info, .assignment-status-in_progress { background: var(--biz-blue-wash); color: var(--biz-blue-strong); }
+.ui-badge-info, .assignment-status-in_progress { background: var(--info-wash); color: var(--info-ink); }
 .ui-badge-danger, .job-status-cancelled, .application-status-rejected, .assignment-status-rejected, .assignment-status-cancelled, .payout-status-failed, .payment-status-negative, .payment-attempt-status-negative, .status-pill-warn, .verification { background: var(--danger-wash); color: var(--danger-strong); }
 .ui-badge-neutral, .job-status-closed, .job-status-completed, .application-status-withdrawn, .payout-status-unknown, .payment-status-neutral { background: var(--grey-200); color: var(--grey-800); }
 
@@ -312,8 +321,8 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .ui-tab, .application-filters a, .application-filters button, .employer-job-sort a, .payment-filters a, .job-form-steps .step, .settings-jump a { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); text-decoration: none; font: inherit; font-size: var(--size-13); font-weight: var(--w-medium); line-height: 1.2; cursor: pointer; transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease); }
 .ui-tab:hover, .application-filters a:hover, .application-filters button:hover, .employer-job-sort a:hover, .payment-filters a:hover, .job-form-steps .step:hover, .settings-jump a:hover { border-color: var(--primary-soft); color: var(--koala-green-ink); background: var(--success-wash); }
 .ui-tab[aria-current="page"], .application-filters a[aria-current="page"], .application-filters button[aria-current="true"], .employer-job-sort a[aria-current="page"], .payment-filters a[aria-current="page"], .job-form-steps .step.is-current { border-color: var(--koala-green-ink); background: var(--koala-green-ink); color: var(--on-primary); font-weight: var(--w-semibold); }
-.ui-tab-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding-inline: 6px; border-radius: var(--r-pill); background: rgba(0, 0, 0, .08); font-size: 11px; }
-.ui-tab[aria-current="page"] .ui-tab-count { background: rgba(255, 255, 255, .22); }
+.ui-tab-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding-inline: 6px; border-radius: var(--r-pill); background: var(--grey-200); font-size: 11px; }
+.ui-tab[aria-current="page"] .ui-tab-count { background: var(--koala-green-deep); }
 .ui-tabs-segmented { display: inline-flex; flex-wrap: nowrap; gap: 0; padding: 4px; border-radius: var(--r-pill); background: var(--surface-sunken); max-width: 100%; overflow-x: auto; }
 .ui-tabs-segmented .ui-tab { border: 0; background: transparent; min-height: 34px; }
 .ui-tabs-segmented .ui-tab[aria-current="page"] { background: var(--surface); color: var(--koala-green-ink); }
@@ -344,7 +353,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 
 /* Avatar */
 .ui-avatar { display: inline-grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: var(--r-16); object-fit: cover; background: var(--primary-wash); color: var(--koala-green-ink); font-weight: var(--w-semibold); font-size: var(--size-18); overflow: hidden; }
-.ui-avatar-sm { width: 32px; height: 32px; border-radius: 10px; font-size: var(--size-14); }
+.ui-avatar-sm { width: 32px; height: 32px; border-radius: var(--r-12); font-size: var(--size-14); }
 .ui-avatar-lg { width: 72px; height: 72px; border-radius: var(--r-secondary); font-size: var(--size-26); }
 
 /* Boş durum: maskot + başlık + cümle */
@@ -362,8 +371,8 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .ui-stat-link:hover { border-color: var(--primary-soft); background: var(--primary-wash-soft); }
 .ui-stat-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 10px; border-radius: var(--r-12); }
 .ui-stat-icon-green { background: var(--primary-wash); color: var(--koala-green-ink); }
-.ui-stat-icon-blue { background: var(--biz-blue-wash); color: var(--biz-blue-strong); }
-.ui-stat-icon-amber { background: var(--biz-amber-wash); color: var(--warning-strong); }
+.ui-stat-icon-blue { background: var(--info-wash); color: var(--info-ink); }
+.ui-stat-icon-amber { background: var(--biz-amber-wash); color: var(--warning-ink); }
 .ui-stat-icon-purple { background: var(--pending-wash); color: var(--pending-strong); }
 .ui-stat-value { font-size: var(--size-30); font-weight: var(--w-semibold); line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .ui-stat-label { font-size: var(--size-14); font-weight: var(--w-medium); color: var(--text-body); }
@@ -466,7 +475,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .assignment-facts div { min-width: 0; }
 .assignment-facts dt { color: var(--text-subtle); font-size: 11px; font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
 .assignment-facts dd { margin: 3px 0 0; font-weight: var(--w-semibold); overflow-wrap: anywhere; }
-.assignment-notice { margin: 0; padding: 12px 14px; border-radius: var(--r-12); background: var(--warning-wash); color: var(--warning-strong); font-weight: var(--w-medium); font-size: var(--size-14); }
+.assignment-notice { margin: 0; padding: 12px 14px; border-radius: var(--r-12); background: var(--warning-wash); color: var(--warning-ink); font-weight: var(--w-medium); font-size: var(--size-14); }
 .assignment-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; }
 .assignment-actions .button:disabled { opacity: .6; cursor: wait; transform: none; box-shadow: none; }
 .assignment-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; }
@@ -649,7 +658,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .applicant-actions form { margin: 0; }
 .applicant-decision { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; padding-top: 16px; border-top: 1px solid var(--border-soft); }
 .applicant-decision > .form-warning { width: 100%; margin: 0; }
-.applicant-decision-done { width: 100%; margin: 0; padding: 12px 14px; border-radius: var(--r-12); background: var(--success-wash); color: var(--success-strong); font-size: var(--size-14); font-weight: var(--w-medium); }
+.applicant-decision-done { width: 100%; margin: 0; padding: 12px 14px; border-radius: var(--r-12); background: var(--success-wash); color: var(--success-ink); font-size: var(--size-14); font-weight: var(--w-medium); }
 .applicant-decision > .muted { margin: 0; font-size: .88rem; }
 .applicant-decision-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .applicant-decision-reject { width: 100%; }
@@ -678,7 +687,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .talent-pool-note { margin: 9px 0 0; font-size: .88rem; }
 .work-detail { display: flex; flex-direction: column; gap: 22px; }
 .work-detail > .form-warning, .work-location-notice { margin: 0; }
-.work-location-notice { padding: 14px 18px; border-radius: var(--r-16); background: var(--warning-wash); color: var(--warning-strong); font-size: var(--size-14); font-weight: var(--w-medium); }
+.work-location-notice { padding: 14px 18px; border-radius: var(--r-16); background: var(--warning-wash); color: var(--warning-ink); font-size: var(--size-14); font-weight: var(--w-medium); }
 .work-detail-summary, .work-detail-section, .assignment-resolution { min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--r-secondary); background: var(--surface); padding: clamp(20px, 3.5vw, 32px); }
 .work-detail-summary { display: flex; flex-direction: column; gap: 26px; }
 .work-detail-summary .eyebrow { margin-bottom: 9px; }
@@ -723,7 +732,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .assignment-completion { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding-top: 20px; border-top: 1px solid var(--line); }
 .assignment-completion form { margin: 0; }
 .assignment-completion p { flex: 1 1 220px; margin: 0; font-size: .86rem; }
-.job-headcount { margin: 0 0 18px; padding: 14px 18px; border-radius: var(--r-16); background: var(--biz-blue-wash); }
+.job-headcount { margin: 0 0 18px; padding: 14px 18px; border-radius: var(--r-16); background: var(--info-wash); }
 .job-headcount .field-hint { margin: 6px 0 0; }
 .work-secondary-actions { display: grid; gap: 12px; }
 .work-secondary-actions > h2 { margin-bottom: 4px; }

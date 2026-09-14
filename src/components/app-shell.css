@@ -17,7 +17,7 @@
 .app-bar-logout:hover { background: var(--surface-sunken); color: var(--primary); }
 .app-bar .message-badge-link { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: var(--r-pill); text-decoration: none; font-size: var(--size-14); font-weight: var(--w-medium); color: var(--text-body); }
 .app-bar .message-badge-link:hover { background: var(--surface-sunken); color: var(--primary); }
-.message-badge { display: grid; place-items: center; min-width: 22px; height: 22px; padding-inline: 6px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: var(--size-12); font-weight: var(--w-semibold); }
+.message-badge { display: grid; place-items: center; min-width: 22px; height: 22px; padding-inline: 6px; border-radius: var(--r-pill); background: var(--danger-strong); color: var(--on-primary); font-size: var(--size-12); font-weight: var(--w-semibold); }
 
 /* ─── Gövde: sol menü + içerik ────────────────────────────────────────── */
 .app-body { flex: 1; width: min(var(--content), calc(100% - 2 * var(--gutter))); margin-inline: auto; padding: 24px 0 96px; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
@@ -46,10 +46,14 @@ a.app-nav-link[aria-current="page"] svg { color: var(--koala-green-ink); }
 .app-panel .eyebrow { margin-bottom: 8px; }
 
 /* ─── Kabuk kökü: karşılama ve özet ────────────────────────────────────── */
-.shell-welcome { position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding: clamp(22px, 3.5vw, 34px); border-radius: var(--r-secondary); color: #fff; background: linear-gradient(135deg, var(--koala-green) 0%, rgba(130, 193, 128, .85) 55%, var(--koala-green-deep) 100%); }
-.shell-welcome .eyebrow { color: rgba(255, 255, 255, .85); }
-.shell-welcome h1 { color: #fff; margin-bottom: 6px; font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -.02em; }
-.shell-welcome .lede { color: rgba(255, 255, 255, .92); margin: 0; max-width: 46ch; }
+/* Beyaz yazı yalnız mürekkep yeşili ve koyu yeşil üstünde AA geçiyor (5,2:1 /
+   7,8:1); marka yeşili (#82C180) 2,1:1 ile zemin olamaz. Gradyan bu yüzden
+   iki koyu ton arasında ve yazının üçü de düz beyaz — yarı saydam beyaz
+   4,5'in altına düşüyordu. */
+.shell-welcome { position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding: clamp(22px, 3.5vw, 34px); border-radius: var(--r-secondary); color: var(--on-primary); background: linear-gradient(135deg, var(--koala-green-ink) 0%, var(--koala-green-deep) 100%); }
+.shell-welcome .eyebrow { color: var(--on-primary); }
+.shell-welcome h1 { color: var(--on-primary); margin-bottom: 6px; font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -.02em; }
+.shell-welcome .lede { color: var(--on-primary); margin: 0; max-width: 46ch; }
 .shell-welcome-copy { flex: 1 1 320px; min-width: 0; }
 .shell-welcome-mascot { flex: none; margin-block: -14px -40px; align-self: flex-end; }
 .shell-welcome-mascot img { display: block; width: auto; height: 150px; }
@@ -80,8 +84,8 @@ a.app-nav-link[aria-current="page"] svg { color: var(--koala-green-ink); }
 .applicant-compare > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--r-12); background: var(--surface-sunken); min-width: 0; }
 .applicant-compare dt { font-size: 11px; font-weight: var(--w-medium); letter-spacing: .04em; text-transform: uppercase; color: var(--text-subtle); }
 .applicant-compare dd { margin: 0; font-size: var(--size-14); font-weight: var(--w-semibold); overflow-wrap: anywhere; }
-.applicant-compare dd.is-empty { color: var(--text-placeholder); font-weight: var(--w-regular); }
-.applicant-compare .ui-rating { color: var(--rating-strong); }
+.applicant-compare dd.is-empty { color: var(--text-subtle); font-weight: var(--w-regular); }
+.applicant-compare .ui-rating { color: var(--rating-ink); }
 .applicant-compare .ui-rating::before { content: "★ "; color: var(--rating); }
 
 /* ─── Dar ekran ────────────────────────────────────────────────────────── */
