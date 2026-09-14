@@ -9,6 +9,16 @@ import {
   type JobTypeValue,
   type SalaryType,
 } from "./contract";
+import {
+  boundingBoxAround,
+  distanceKm,
+  formatGeoPoint,
+  parseDistanceKm,
+  parseGeoPoint,
+  defaultDistanceKm,
+  type DistanceKm,
+  type GeoPoint,
+} from "./distance";
 import { employerTypeValues, type JobEmployerType } from "./employer-jobs";
 import type { JobStatus } from "./lifecycle";
 
@@ -129,9 +139,28 @@ export const jobSortOptions = [
   { id: "baslik", label: "Başlığa göre (A-Z)", field: "title,asc" },
 ] as const;
 
-export type JobSortId = (typeof jobSortOptions)[number]["id"];
+/**
+ * Yakınlık sıralaması.
+ *
+ * Backend alanı **yok**: `SORTABLE_FIELDS` mesafeyi tanımıyor ve `/jobs`
+ * yalnız sınırlayıcı kutuyla süzüyor. Bu seçim sunucuya varsayılan sıralamayla
+ * gidiyor, gelen sayfa `distance.ts` ile burada diziliyor. Yani birden çok
+ * sayfalık bir sonuçta "en yakın" yalnız **bu sayfanın** en yakını; liste bunu
+ * kullanıcıya yazıyor. Konum seçili değilken seçenek sunulmuyor ve adres
+ * çubuğunda gelse de varsayılana düşüyor — mesafesiz bir yakınlık yok.
+ */
+export const nearestJobSort = { id: "en-yakin", label: "Önce en yakın" } as const;
+
+export type JobSortId = (typeof jobSortOptions)[number]["id"] | typeof nearestJobSort.id;
 
 export const defaultJobSort: JobSortId = "en-yeni";
+
+/** Liste ile harita aynı sorguyu paylaşıyor; adres çubuğunda `gorunum=harita`. */
+export const jobViewValues = ["liste", "harita"] as const;
+
+export type JobView = (typeof jobViewValues)[number];
+
+export const mapJobView: JobView = "harita";
 
 /** İlan türünün Türkçe karşılığı; `job-form.tsx`'teki etiketlerle aynı. */
 export const jobTypeLabels: Readonly<Record<JobType, string>> = {
@@ -236,6 +265,11 @@ export const jobSearchParamNames = {
   insuranceRequired: "sigorta",
   experienceRequired: "deneyim",
   sort: "sirala",
+  /** `enlem,boylam`; tarayıcı konumundan ya da harita merkezinden gelir. */
+  location: "konum",
+  /** km; yalnız `konum` ile birlikte anlamlı. */
+  distance: "mesafe",
+  view: "gorunum",
 } as const;
 
 /** Sayfanın kanonik arama modeli; adres çubuğu ile backend arasındaki tek biçim. */
@@ -265,6 +299,15 @@ export type JobSearchQuery = {
   readonly insuranceRequired: boolean | null;
   readonly experienceRequired: boolean | null;
   readonly sort: JobSortId;
+  /**
+   * Konum süzgeci: merkez ve yarıçap birlikte. Merkezsiz yarıçap düşer;
+   * yarıçapsız merkez varsayılan yarıçapı alır — kullanıcı "buraya yakın"
+   * dediğinde bir yakınlık ölçüsü zaten kastediliyor.
+   */
+  readonly location: GeoPoint | null;
+  readonly distanceKm: DistanceKm | null;
+  /** Aynı sonuç kümesinin iki görünümü; süzgeç değil, canonical'a girmez. */
+  readonly view: JobView;
 };
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
@@ -280,6 +323,12 @@ export type RawSearchParams = Record<string, string | string[] | undefined>;
  */
 export function parseJobSearchParams(raw: RawSearchParams): JobSearchQuery {
   const cityId = uuidParam(raw[jobSearchParamNames.cityId]);
+  const location = parseGeoPoint(single(raw[jobSearchParamNames.location]));
+  const distance =
+    location === null
+      ? null
+      : (parseDistanceKm(single(raw[jobSearchParamNames.distance])) ?? defaultDistanceKm);
+  const sort = sortParam(raw[jobSearchParamNames.sort]);
 
   return {
     page: parsePage(raw[jobSearchParamNames.page]),
@@ -294,7 +343,10 @@ export function parseJobSearchParams(raw: RawSearchParams): JobSearchQuery {
     maxSalary: salaryParam(raw[jobSearchParamNames.maxSalary]),
     insuranceRequired: booleanParam(raw[jobSearchParamNames.insuranceRequired]),
     experienceRequired: booleanParam(raw[jobSearchParamNames.experienceRequired]),
-    sort: sortParam(raw[jobSearchParamNames.sort]),
+    sort: sort === nearestJobSort.id && location === null ? defaultJobSort : sort,
+    location,
+    distanceKm: distance,
+    view: enumParam(raw[jobSearchParamNames.view], jobViewValues) ?? "liste",
   };
 }
 
@@ -349,6 +401,13 @@ export function backendJobSearchParams(query: JobSearchQuery): URLSearchParams {
   if (query.experienceRequired !== null) {
     params.set("experienceRequired", String(query.experienceRequired));
   }
+  if (query.location !== null && query.distanceKm !== null) {
+    const box = boundingBoxAround(query.location, query.distanceKm);
+    params.set("minLatitude", String(box.minLatitude));
+    params.set("maxLatitude", String(box.maxLatitude));
+    params.set("minLongitude", String(box.minLongitude));
+    params.set("maxLongitude", String(box.maxLongitude));
+  }
 
   // Kullanıcıya 1 tabanlı sayı gösteriliyor, sunucu 0 tabanlı istiyor.
   params.set("page", String(query.page - 1));
@@ -384,7 +443,14 @@ export function jobSearchParams(query: JobSearchQuery): URLSearchParams {
       booleanFilterParam(query.experienceRequired),
     );
   }
+  if (query.location !== null) {
+    params.set(jobSearchParamNames.location, formatGeoPoint(query.location));
+    if (query.distanceKm !== null && query.distanceKm !== defaultDistanceKm) {
+      params.set(jobSearchParamNames.distance, String(query.distanceKm));
+    }
+  }
   if (query.sort !== defaultJobSort) params.set(jobSearchParamNames.sort, query.sort);
+  if (query.view !== "liste") params.set(jobSearchParamNames.view, query.view);
   if (query.page > 1) params.set(jobSearchParamNames.page, String(query.page));
   return params;
 }
@@ -422,7 +488,8 @@ export function hasJobFilters(query: JobSearchQuery): boolean {
     query.minSalary !== null ||
     query.maxSalary !== null ||
     query.insuranceRequired !== null ||
-    query.experienceRequired !== null
+    query.experienceRequired !== null ||
+    query.location !== null
   );
 }
 
@@ -533,7 +600,51 @@ export function activeJobFilters(
       without: drop({ experienceRequired: null }),
     });
   }
+  if (query.location !== null) {
+    // Konum düşünce yakınlık sıralaması da düşer: mesafesiz "en yakın" yok.
+    filters.push({
+      id: "konum",
+      label: "Konumuma yakın",
+      without: drop({
+        location: null,
+        distanceKm: null,
+        sort: query.sort === nearestJobSort.id ? defaultJobSort : query.sort,
+      }),
+    });
+    // Yarıçap ayrı bir rozet, ama yalnız varsayılandan sapmışsa: "kaldır"
+    // burada varsayılana dönmek demek, ve varsayılan yarıçapın rozeti
+    // kaldırılınca hiçbir şey değişmezdi.
+    if (query.distanceKm !== null && query.distanceKm !== defaultDistanceKm) {
+      filters.push({
+        id: "mesafe",
+        label: `${query.distanceKm} km çevre`,
+        without: drop({ distanceKm: defaultDistanceKm }),
+      });
+    }
+  }
   return filters;
+}
+
+/**
+ * Gelen sayfayı yakınlığa göre dizer; yalnız `en-yakin` seçiliyken ve konum
+ * varken. Koordinatsız ilan sona düşer — ADR-0003 bazı ilanlarda konumu hiç
+ * vermiyor ve onları gizlemek "N ilan bulundu" ile çelişirdi.
+ */
+export function orderPageByDistance(
+  jobs: readonly JobSummary[],
+  query: JobSearchQuery,
+): readonly JobSummary[] {
+  const center = query.location;
+  if (center === null || query.sort !== nearestJobSort.id) return jobs;
+  return [...jobs].sort(
+    (left, right) => (jobDistanceKm(left, center) ?? Infinity) - (jobDistanceKm(right, center) ?? Infinity),
+  );
+}
+
+/** Kartın mesafesi; koordinatsız ilanda yok. */
+export function jobDistanceKm(job: JobSummary, center: GeoPoint): number | null {
+  if (job.latitude === null || job.longitude === null) return null;
+  return distanceKm(center, { latitude: job.latitude, longitude: job.longitude });
 }
 
 /** Sigorta süzgecinin üç hâlinden ikisi; "farketmez" bir rozet çizmiyor. */
@@ -628,7 +739,9 @@ export function lastJobPage(page: JobSearchPage): number {
 }
 
 function sortField(sort: JobSortId): string {
-  return jobSortOptions.find((option) => option.id === sort)!.field;
+  // Yakınlık sunucuda yok; varsayılan alanla istenip sayfa içinde dizilir.
+  const option = jobSortOptions.find((candidate) => candidate.id === sort);
+  return (option ?? jobSortOptions.find((candidate) => candidate.id === defaultJobSort)!).field;
 }
 
 function single(value: string | string[] | undefined): string | null {
@@ -717,5 +830,6 @@ function salaryParam(value: string | string[] | undefined): string | null {
 
 function sortParam(value: string | string[] | undefined): JobSortId {
   const raw = single(value);
+  if (raw === nearestJobSort.id) return nearestJobSort.id;
   return jobSortOptions.find((option) => option.id === raw)?.id ?? defaultJobSort;
 }

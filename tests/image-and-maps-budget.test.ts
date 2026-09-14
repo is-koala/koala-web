@@ -24,7 +24,12 @@ describe("görsel ve harita bütçesi", () => {
     const guarded = [
       "src/app/layout.tsx",
       "src/app/(marketing)/layout.tsx",
+      "src/app/(marketing)/is-ilanlari/page.tsx",
       "src/components/job-search.tsx",
+      "src/components/job-location-filter.tsx",
+      // Harita kabuğu SDK'yı yalnız `next/dynamic` parçasında (`job-map.tsx`)
+      // ister; kabuğun kendisi liste sayfasına giriyor ve temiz kalmalı.
+      "src/components/job-map-view.tsx",
       "src/components/job-detail.tsx",
       "src/components/job-application-form.tsx",
     ];

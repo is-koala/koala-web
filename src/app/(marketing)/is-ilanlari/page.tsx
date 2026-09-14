@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 
+import { defaultMapCenter } from "@/address/contract";
+import { JobMapView } from "@/components/job-map-view";
 import { JobPagination, JobResultList, JobSearchForm } from "@/components/job-search";
 import { ErrorState } from "@/components/states";
 import {
   defaultJobSort,
+  mapJobView,
   hasJobFilters,
   jobSearchParams,
   parseJobSearchParams,
@@ -73,7 +76,8 @@ export async function generateMetadata({ searchParams }: JobsPageProps): Promise
  * normalize ettiği süzgeçler deterministik sırayla yazılıyor.
  */
 function canonicalPath(query: JobSearchQuery): string {
-  const params = jobSearchParams({ ...query, sort: defaultJobSort });
+  // Görünüm de sıralama gibi düşüyor: harita aynı kümenin başka bir yüzeyi.
+  const params = jobSearchParams({ ...query, sort: defaultJobSort, view: "liste" });
   return params.size === 0 ? publicJobsPath : `${publicJobsPath}?${params}`;
 }
 
@@ -129,6 +133,19 @@ export async function JobsPage({ searchParams }: JobsPageProps) {
         <ErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
       ) : (
         <>
+          {/*
+            Harita listenin **üstünde**, yerine değil: ilan bağlantıları ilk
+            HTML'de kalmalı (JavaScript kapalı ziyaretçi ve arama motoru) ve
+            harita yalnız aynı ilanları başka bir yüzeyde gösteriyor. Merkez
+            konum süzgecinden; süzgeç yoksa hizmet alanının varsayılanı.
+          */}
+          {query.view === mapJobView ? (
+            <JobMapView
+              jobs={result.jobs.content}
+              query={query}
+              center={query.location ?? defaultMapCenter}
+            />
+          ) : null}
           <JobResultList jobs={result.jobs} query={query} options={options} />
           <JobPagination jobs={result.jobs} query={query} />
         </>

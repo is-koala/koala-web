@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { JobLocationFilter } from "@/components/job-location-filter";
 import { LinkPending } from "@/components/link-pending";
 import { EmptyState } from "@/components/states";
+import { formatDistanceKm, type GeoPoint } from "@/jobs/distance";
 import { employerTypeValues } from "@/jobs/employer-jobs";
 import {
   activeJobFilters,
@@ -13,11 +15,15 @@ import {
   hasJobFilters,
   insuranceFilterLabels,
   isPageOutOfRange,
+  jobDistanceKm,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
   jobTypeLabels,
   lastJobPage,
+  mapJobView,
+  nearestJobSort,
+  orderPageByDistance,
   referenceFieldOptions,
   referenceFilterLabels,
   salaryTypeFilterLabels,
@@ -201,14 +207,30 @@ export function JobSearchForm({
                 {option.label}
               </option>
             ))}
+            {/*
+              Yakınlık yalnız konum seçiliyken bir seçenek: konumsuz gelirse
+              ayrıştırıcı zaten varsayılana düşürüyor, ve kullanıcıya
+              seçemeyeceği bir sıralama göstermek boş bir vaat olurdu.
+            */}
+            {query.location === null ? null : (
+              <option value={nearestJobSort.id}>{nearestJobSort.label}</option>
+            )}
           </select>
         </div>
+
+        <JobLocationFilter query={query} />
       </div>
+
+      {/* Görünüm süzgeç değil; seçim adres çubuğunda taşınır ki gönderim onu düşürmesin. */}
+      {query.view === "liste" ? null : (
+        <input type="hidden" name={jobSearchParamNames.view} value={query.view} />
+      )}
 
       <div className="job-filter-actions">
         <button className="button button-primary" type="submit">
           İlanları süz
         </button>
+        <JobViewToggle query={query} />
         {hasJobFilters(query) ? (
           <Link className="text-link" href={publicJobsPath}>
             Süzgeçleri temizle
@@ -218,6 +240,34 @@ export function JobSearchForm({
 
       <ActiveFilterBadges query={query} options={options} />
     </form>
+  );
+}
+
+/**
+ * Liste / harita geçişi.
+ *
+ * Gerçek bağlantılar: görünüm adres çubuğunda (`gorunum=harita`) taşınıyor,
+ * yani paylaşılan bağlantı aynı görünümü açıyor ve JavaScript kapalıyken de
+ * geçilebiliyor. Sayfa numarası korunuyor — iki görünüm aynı kümenin aynı
+ * dilimi.
+ */
+function JobViewToggle({ query }: { query: JobSearchQuery }) {
+  const isMap = query.view === mapJobView;
+  return (
+    <nav className="job-view-toggle" aria-label="Görünüm">
+      <Link
+        href={jobSearchHref({ ...query, view: "liste" })}
+        aria-current={isMap ? undefined : "page"}
+      >
+        Liste
+      </Link>
+      <Link
+        href={jobSearchHref({ ...query, view: mapJobView })}
+        aria-current={isMap ? "page" : undefined}
+      >
+        Harita
+      </Link>
+    </nav>
   );
 }
 
@@ -431,15 +481,28 @@ export function JobResultList({
     );
   }
 
+  const ordered = orderPageByDistance(jobs.content, query);
+
   return (
     <>
       <p className="job-result-count" aria-live="polite">
         {jobs.totalElements} ilan bulundu
       </p>
+      {/*
+        Yakınlık sunucuda yok: sıralama bu sayfanın içinde. Birden çok sayfa
+        varken bunu yazmamak, ikinci sayfadaki daha yakın bir ilanı kullanıcıdan
+        saklamak olurdu.
+      */}
+      {query.sort === nearestJobSort.id && jobs.totalPages > 1 ? (
+        <p className="job-result-note">
+          Yakınlık sıralaması bu sayfadaki ilanlar için; daha dar bir uzaklık seçersen liste
+          tek sayfaya iner.
+        </p>
+      ) : null}
       <ul className="job-grid">
-        {jobs.content.map((job) => (
+        {ordered.map((job) => (
           <li key={job.id}>
-            <JobCard job={job} />
+            <JobCard job={job} center={query.location} />
           </li>
         ))}
       </ul>
@@ -498,9 +561,10 @@ export function jobSearchHref(query: JobSearchQuery): string {
   return params.size === 0 ? publicJobsPath : `${publicJobsPath}?${params}`;
 }
 
-function JobCard({ job }: { job: JobSummary }) {
+function JobCard({ job, center }: { job: JobSummary; center: GeoPoint | null }) {
   const titleId = `ilan-${job.id}`;
   const cover = safeImageUrl(job.coverImageUrl);
+  const distance = center === null ? null : jobDistanceKm(job, center);
 
   return (
     <article className="job-card" aria-labelledby={titleId}>
@@ -537,6 +601,8 @@ function JobCard({ job }: { job: JobSummary }) {
 
         <dl className="job-card-facts">
           <Fact label="Konum" value={locationLabel(job)} />
+          {/* Mesafe yalnız konum süzgeci açıkken; iki ondalıklı koordinat bir tahmin. */}
+          <Fact label="Uzaklık" value={distance === null ? null : formatDistanceKm(distance)} />
           <Fact label="İş tarihi" value={formatJobDate(job.startsAt)} />
           <Fact label="Ücret" value={payoutLabel(job)} />
           {job.type === "UNKNOWN" ? null : <Fact label="Tür" value={jobTypeLabels[job.type]} />}

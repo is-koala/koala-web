@@ -44,10 +44,20 @@ export function googleMapsJavaScriptKey(): string {
 }
 
 export async function loadGoogleMaps(key: string): Promise<MapSurface> {
+  await ensureGoogleMapsScript(key);
+  return googleMapSurface();
+}
+
+/**
+ * Betiği bir kez indirir; ikinci çağıran aynı yüklemeyi bekler.
+ *
+ * Adres seçici ile ilan haritası aynı betiği paylaşıyor; ikisi ayrı ayrı
+ * `<script>` eklese Google ikinci yüklemeyi hata olarak günlükler.
+ */
+export async function ensureGoogleMapsScript(key: string): Promise<void> {
   const url = mapsJavaScriptUrl(key);
   if (!url) throw new Error("Maps JavaScript anahtarı yok.");
   await injectMapsScript(url);
-  return googleMapSurface();
 }
 
 function googleMapSurface(): MapSurface {

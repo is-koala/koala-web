@@ -156,6 +156,9 @@ describe("herkese açık ilan listesi", () => {
       insuranceRequired: null,
       experienceRequired: null,
       sort: "en-yeni",
+      location: null,
+      distanceKm: null,
+      view: "liste",
     });
   });
 
@@ -255,13 +258,71 @@ describe("herkese açık ilan listesi", () => {
       districts: [{ id: districtId, name: "Kadıköy" }],
     });
 
-    const { container } = render(await renderPage({ il: cityId }));
+    // Konum ve görünüm alanları yalnız seçiliyken formda: konumsuz yarıçap
+    // sunucuya gitmiyor, liste görünümü ise varsayılan. İkisi de seçiliyken
+    // gönderim onları düşürmemeli; ölçülen bu.
+    const { container } = render(
+      await renderPage({ il: cityId, konum: "41.008238,28.978359", gorunum: "harita" }),
+    );
     const form = container.querySelector("form")!;
 
     for (const [field, param] of Object.entries(jobSearchParamNames)) {
       if (field === "page") continue;
       expect(form.elements.namedItem(param), param).not.toBeNull();
     }
+  });
+
+  it("konum süzgeci açıkken kartta yaklaşık uzaklık ve yakınlık sıralaması sunulur", async () => {
+    searchJobs.mockResolvedValue(
+      page({
+        content: [
+          job({ id: "far", title: "Uzak iş", latitude: 41.1, longitude: 29.1 }),
+          job({ id: "near", title: "Yakın iş", latitude: 41.01, longitude: 28.98 }),
+        ],
+        totalElements: 2,
+      }),
+    );
+
+    render(await renderPage({ konum: "41.008238,28.978359", sirala: "en-yakin" }));
+
+    const cards = screen.getAllByRole("article");
+    expect(within(cards[0]).getByRole("heading")).toHaveTextContent("Yakın iş");
+    expect(within(cards[0]).getByText("1 km'den yakın")).toBeInTheDocument();
+    expect(within(cards[1]).getByText(/^yaklaşık \d+(,\d)? km$/)).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Önce en yakın" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Konumuma yakın süzgecini kaldır" })).toHaveAttribute(
+      "href",
+      "/is-ilanlari",
+    );
+    // Sunucuya kutu gitti, yakınlık gitmedi.
+    expect(searchJobs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: { latitude: 41.008238, longitude: 28.978359 },
+        distanceKm: 5,
+        sort: "en-yakin",
+      }),
+    );
+  });
+
+  it("konum yokken yakınlık sıralaması sunulmaz ve kartta uzaklık yazmaz", async () => {
+    render(await renderPage({ sirala: "en-yakin" }));
+
+    expect(screen.queryByRole("option", { name: "Önce en yakın" })).toBeNull();
+    expect(screen.queryByText("Uzaklık")).toBeNull();
+    expect(searchJobs).toHaveBeenCalledWith(expect.objectContaining({ sort: "en-yeni" }));
+  });
+
+  it("harita görünümü anahtarsız ortamda yer tutucu çizer, liste ve bağlantılar kalır", async () => {
+    render(await renderPage({ gorunum: "harita" }));
+
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Harita bu ortamda kapalı");
+    expect(screen.getByRole("link", { name: /Etkinlik görevlisi/ })).toHaveAttribute(
+      "href",
+      `/is-ilanlari/${jobId}`,
+    );
+    const toggle = screen.getByRole("navigation", { name: "Görünüm" });
+    expect(within(toggle).getByRole("link", { name: "Harita" })).toHaveAttribute("aria-current", "page");
+    expect(within(toggle).getByRole("link", { name: "Liste" })).toHaveAttribute("href", "/is-ilanlari");
   });
 
   it("süzgeç seçili değilken rozet şeridi hiç çizilmez", async () => {
@@ -558,6 +619,26 @@ describe("ilan listesinin indekslenmesi", () => {
     expect(metadata.alternates?.canonical).toBe(
       `https://iskoala.com/is-ilanlari?ara=garson&il=${cityId}`,
     );
+  });
+
+  it("harita görünümü canonical'a girmez ve indekslemeyi değiştirmez", async () => {
+    const metadata = await generateMetadata({
+      searchParams: Promise.resolve({ gorunum: "harita", sayfa: "2" }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe("https://iskoala.com/is-ilanlari?sayfa=2");
+    expect(metadata.robots).toBeUndefined();
+  });
+
+  it("konum süzgeçli sayfa noindex alır ve canonical konumu korur", async () => {
+    const metadata = await generateMetadata({
+      searchParams: Promise.resolve({ konum: "41.008238,28.978359", mesafe: "10", sirala: "en-yakin" }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      "https://iskoala.com/is-ilanlari?konum=41.008238%2C28.978359&mesafe=10",
+    );
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
   });
 
   it("canonical UUID harflerini ve eşdeğer BigDecimal ölçeklerini tek biçime indirir", async () => {
