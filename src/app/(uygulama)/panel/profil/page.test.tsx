@@ -33,7 +33,7 @@ describe("profil sayfası yükleyicisi", () => {
     });
     getNotificationPreferences.mockResolvedValue([]);
     getUniversities.mockResolvedValue([]);
-    getAvailability.mockResolvedValue({ slots: [], exceptions: [] });
+    getAvailability.mockResolvedValue({ slots: [], exceptions: [], unreadableSlotCount: 0 });
   });
 
   it("oturum yenilemesinin yönlendirmesini profil verisi hatasına dönüştürmez", async () => {

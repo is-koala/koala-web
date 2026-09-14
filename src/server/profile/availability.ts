@@ -21,9 +21,13 @@ export async function getAvailability(userId: string): Promise<Availability> {
   const response = await apiRequest<AvailabilityDto | null>(
     `/users/${encodeURIComponent(userId)}/availability`,
   );
+  const rawSlots = response?.slots ?? [];
+  const slots = rawSlots.flatMap(toSlot);
   return {
-    slots: (response?.slots ?? []).flatMap(toSlot),
+    slots,
     exceptions: (response?.exceptions ?? []).flatMap(toException),
+    // Düşen satır sessizce kaybolmaz: sayı ekrana çıkar ve düzenleyiciyi kilitler.
+    unreadableSlotCount: rawSlots.length - slots.length,
   };
 }
 

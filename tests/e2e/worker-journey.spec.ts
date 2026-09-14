@@ -90,6 +90,13 @@ test("panel bölümleri gerçek sayfalarla açılır; bilinmeyen adres 404 kalı
 test("konum süzgeci kartta uzaklık yazar; harita görünümü anahtarsız ortamda yer tutucu çizer", async ({
   page,
 }) => {
+  // Dinleyici gezinmeden ÖNCE: anahtarsız ortamda harita görünümü de liste
+  // görünümü de Maps JavaScript'i hiç istememeli.
+  const mapsRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("maps.googleapis.com")) mapsRequests.push(request.url());
+  });
+
   await page.goto("/is-ilanlari?konum=41.008238,28.978359&mesafe=10&sirala=en-yakin&gorunum=harita");
 
   await expect(page.getByText("Harita bu ortamda kapalı")).toBeVisible();
@@ -100,11 +107,7 @@ test("konum süzgeci kartta uzaklık yazar; harita görünümü anahtarsız orta
   await expect(page.getByRole("link", { name: "Konumuma yakın süzgecini kaldır" })).toBeVisible();
   await expect(page.getByRole("link", { name: "10 km çevre süzgecini kaldır" })).toBeVisible();
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
-  // Maps JavaScript anahtarsız ortamda hiç istenmez.
-  const mapsRequests: string[] = [];
-  page.on("request", (request) => {
-    if (request.url().includes("maps.googleapis.com")) mapsRequests.push(request.url());
-  });
+  expect(mapsRequests).toEqual([]);
   await page.getByRole("link", { name: "Liste" }).click();
   await expect(page).toHaveURL(/\/is-ilanlari\?konum=/);
   expect(mapsRequests).toEqual([]);

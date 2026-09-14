@@ -150,7 +150,10 @@ export function ProfilePageView({
           <ErrorState errorCode={availability.errorCode} status={availability.httpStatus} />
         ) : (
           <>
-            <AvailabilityEditor slots={availability.data.slots} />
+            <AvailabilityEditor
+              slots={availability.data.slots}
+              unreadableSlotCount={availability.data.unreadableSlotCount}
+            />
             <h3 className="availability-subheading">Tarih istisnaları</h3>
             <AvailabilityExceptions exceptions={availability.data.exceptions} />
           </>

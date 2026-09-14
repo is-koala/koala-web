@@ -51,6 +51,13 @@ export type AvailabilityException = {
 export type Availability = {
   slots: readonly AvailabilitySlot[];
   exceptions: readonly AvailabilityException[];
+  /**
+   * Backend'in gönderdiği ama bu istemcinin okuyamadığı aralık sayısı
+   * (tanınmayan gün ya da saat biçimi). Sıfırdan büyükse düzenleyici salt
+   * okunur: `PUT /users/me/availability` haftanın tamamını değiştiriyor ve
+   * okunamayan satırlar gövdeye giremediği için bir kayıt onları silerdi.
+   */
+  unreadableSlotCount: number;
 };
 
 export type SlotWrite = Pick<AvailabilitySlot, "dayOfWeek" | "startTime" | "endTime">;

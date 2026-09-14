@@ -48,7 +48,7 @@ describe("müsaitlik backend modülü", () => {
         envelope({
           slots: [
             { id: "s1", dayOfWeek: "MONDAY", startTime: "09:00:00", endTime: "13:00:00" },
-            // Tanınmayan gün düşer; yanıtın kalanı çizilmeye devam eder.
+            // Tanınmayan gün ekranda çizilmez ama sayılır (`unreadableSlotCount`).
             { id: "s2", dayOfWeek: "FUNDAY", startTime: "09:00", endTime: "13:00" },
           ],
           exceptions: [{ id: "e1", date: "2026-10-29", available: false, note: null }],
@@ -60,6 +60,8 @@ describe("müsaitlik backend modülü", () => {
     await expect(getAvailability(userId)).resolves.toEqual({
       slots: [{ id: "s1", dayOfWeek: "MONDAY", startTime: "09:00", endTime: "13:00" }],
       exceptions: [{ id: "e1", date: "2026-10-29", available: false, note: null }],
+      // Düşen satır sayılır: düzenleyici bu sayıyla kilitlenir, kayıt onu silemez.
+      unreadableSlotCount: 1,
     });
     expect(fetchMock.mock.calls[0][0]).toBe(
       `https://api.example.test/users/${userId}/availability`,
@@ -69,7 +71,11 @@ describe("müsaitlik backend modülü", () => {
   it("gövdesiz yanıtı boş müsaitlik olarak okur", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(null))));
 
-    await expect(getAvailability(userId)).resolves.toEqual({ slots: [], exceptions: [] });
+    await expect(getAvailability(userId)).resolves.toEqual({
+      slots: [],
+      exceptions: [],
+      unreadableSlotCount: 0,
+    });
   });
 
   it("haftalık aralıkları SaveAvailabilityDto olarak toptan yazar", async () => {

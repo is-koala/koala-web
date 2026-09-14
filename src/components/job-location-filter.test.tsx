@@ -47,6 +47,19 @@ describe("konum süzgeci", () => {
     expect(submit).toHaveBeenCalledOnce();
   });
 
+  it("konumu mount'ta değil yalnız tıklamada ister", async () => {
+    // Sayfa açılır açılmaz izin istemek, kullanıcının sormadığı bir soruyu
+    // tarayıcı penceresi olarak önüne koyardı.
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal("navigator", { ...navigator, geolocation: { getCurrentPosition } });
+    const user = userEvent.setup();
+    renderInForm();
+
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Konumumu kullan" }));
+    expect(getCurrentPosition).toHaveBeenCalledOnce();
+  });
+
   it("izin reddedilince il/ilçe yolunu hatırlatır, gizli alan yazmaz", async () => {
     stubGeolocation((_success, failure) => failure({ code: 1, PERMISSION_DENIED: 1 }));
     const user = userEvent.setup();

@@ -42,7 +42,13 @@ type EditableSlot = SlotWrite & { key: number };
  * öbür satırları silerdi. Satır ekleme/çıkarma istemci durumu; gönderim
  * `FormData.getAll` ile sırayla okunuyor.
  */
-export function AvailabilityEditor({ slots }: { slots: readonly AvailabilitySlot[] }) {
+export function AvailabilityEditor({
+  slots,
+  unreadableSlotCount = 0,
+}: {
+  slots: readonly AvailabilitySlot[];
+  unreadableSlotCount?: number;
+}) {
   const [state, submit] = useActionState(saveAvailabilityAction, idleFormState);
   const [rows, setRows] = useState<EditableSlot[]>(() =>
     sortSlots(slots).map((slot, index) => ({
@@ -77,10 +83,23 @@ export function AvailabilityEditor({ slots }: { slots: readonly AvailabilitySlot
 
   const slotsError = fieldError(state, "slots");
   const slotsErrorId = `${idPrefix}-slots-error`;
+  /**
+   * Okunamayan aralık varsa düzenleyici kilitli: kaydetmek haftanın tamamını
+   * yazıyor ve gövdeye giremeyen satırlar kalıcı silinirdi. Kullanıcı
+   * gördüğü satırları okuyabilir; değişiklik mobil uygulamadan yapılır.
+   */
+  const locked = unreadableSlotCount > 0;
+  const quotaFull = rows.length >= maximumSlots;
 
   return (
     <form className="form availability-form" action={submit}>
       <FormAlert state={state} />
+      {locked ? (
+        <p className="settings-empty availability-locked" role="status">
+          Bu cihazdan düzenlenemeyen {unreadableSlotCount} aralık var; kaydetmek onları silerdi.
+          Müsaitliğini şimdilik mobil uygulamadan güncelle.
+        </p>
+      ) : null}
       {rows.length === 0 ? (
         <p className="settings-empty" role="status">
           Henüz haftalık aralık yok. İşverenler seni her gün müsait sayar; aralık ekleyerek daraltabilirsin.
@@ -101,6 +120,7 @@ export function AvailabilityEditor({ slots }: { slots: readonly AvailabilitySlot
                     id={`${rowId}-day`}
                     name={slotFieldNames.dayOfWeek}
                     value={row.dayOfWeek}
+                    disabled={locked}
                     onChange={(event) => updateRow(row.key, { dayOfWeek: event.target.value as DayOfWeek })}
                   >
                     {dayOfWeekValues.map((day) => (
@@ -116,6 +136,7 @@ export function AvailabilityEditor({ slots }: { slots: readonly AvailabilitySlot
                     name={slotFieldNames.startTime}
                     value={row.startTime}
                     required
+                    disabled={locked}
                     onChange={(event) => updateRow(row.key, { startTime: event.target.value })}
                   />
                 </div>
@@ -127,34 +148,53 @@ export function AvailabilityEditor({ slots }: { slots: readonly AvailabilitySlot
                     name={slotFieldNames.endTime}
                     value={row.endTime}
                     required
+                    disabled={locked}
                     onChange={(event) => updateRow(row.key, { endTime: event.target.value })}
                   />
                 </div>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  onClick={() => removeRow(row.key)}
-                  aria-label={`${index + 1}. aralığı kaldır`}
-                >
-                  Kaldır
-                </button>
+                {locked ? null : (
+                  <button
+                    type="button"
+                    className="button button-secondary button-small"
+                    onClick={() => removeRow(row.key)}
+                    aria-label={`${index + 1}. aralığı kaldır`}
+                  >
+                    Kaldır
+                  </button>
+                )}
               </li>
             );
           })}
         </ul>
       )}
       <FieldError id={slotsErrorId} message={slotsError} />
-      <div className="button-row">
-        <button
-          type="button"
-          className="button button-secondary button-small"
-          onClick={addRow}
-          disabled={rows.length >= maximumSlots}
-        >
-          Aralık ekle
-        </button>
-        <SubmitButton label="Müsaitliği kaydet" pendingLabel="Kaydediliyor…" />
-      </div>
+      {locked ? null : (
+        <div className="button-row">
+          {/*
+            Tavan bir ürün sınırı (`SaveAvailabilityDto` `@Size(max = 50)`),
+            beklemekle açılmaz: gerekçesi yanında ve `permanent` işaretiyle
+            (`AGENTS.md`, "Ekran durumları").
+          */}
+          {quotaFull ? (
+            <p className="payment-disabled-reason">
+              <button
+                type="button"
+                className="button button-secondary button-small"
+                disabled
+                data-disabled-kind="permanent"
+              >
+                Aralık ekle
+              </button>
+              <span>{`En fazla ${maximumSlots} aralık kaydedilebilir; yeni aralık için birini kaldır.`}</span>
+            </p>
+          ) : (
+            <button type="button" className="button button-secondary button-small" onClick={addRow}>
+              Aralık ekle
+            </button>
+          )}
+          <SubmitButton label="Müsaitliği kaydet" pendingLabel="Kaydediliyor…" />
+        </div>
+      )}
     </form>
   );
 }

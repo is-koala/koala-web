@@ -53,7 +53,10 @@ function profile(overrides: Partial<EditableProfile> = {}): EditableProfile {
   };
 }
 
-const emptyAvailability = { status: "ready", data: { slots: [], exceptions: [] } } as const;
+const emptyAvailability = {
+  status: "ready",
+  data: { slots: [], exceptions: [], unreadableSlotCount: 0 },
+} as const;
 
 describe("profil sayfası", () => {
   it("tamamlanma, profil, deneyim, eğitim ve iletişim tercihlerinin hepsini gösterir", () => {
@@ -91,6 +94,7 @@ describe("profil sayfası", () => {
               { id: "s2", dayOfWeek: "MONDAY", startTime: "09:00:00", endTime: "13:00:00" },
             ],
             exceptions: [{ id: "77777777-7777-4777-8777-777777777777", date: "2026-10-29", available: false, note: "Bayram" }],
+            unreadableSlotCount: 0,
           },
         }}
       />,
@@ -246,5 +250,54 @@ describe("profil sayfası", () => {
 
     await user.click(screen.getByRole("button", { name: "1. aralığı kaldır" }));
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("50 aralık tavanında ekleme düğmesini kalıcı kapatır ve gerekçesini yazar", () => {
+    const slots = Array.from({ length: 50 }, (_, index) => ({
+      id: `s${index}`,
+      dayOfWeek: "MONDAY" as const,
+      startTime: `${String(index % 24).padStart(2, "0")}:00`,
+      endTime: `${String(index % 24).padStart(2, "0")}:30`,
+    }));
+    render(
+      <ProfilePageView
+        profile={profile()}
+        preferences={{ status: "ready", data: [] }}
+        universities={{ status: "ready", data: [] }}
+        availability={{ status: "ready", data: { slots, exceptions: [], unreadableSlotCount: 0 } }}
+      />,
+    );
+
+    const add = screen.getByRole("button", { name: "Aralık ekle" });
+    expect(add).toBeDisabled();
+    expect(add).toHaveAttribute("data-disabled-kind", "permanent");
+    expect(screen.getByText(/En fazla 50 aralık kaydedilebilir/)).toBeInTheDocument();
+    // Kaydetme açık kalır: kullanıcı bir satır kaldırıp yeniden ekleyebilir.
+    expect(screen.getByRole("button", { name: "Müsaitliği kaydet" })).toBeEnabled();
+  });
+
+  it("okunamayan aralık varsa düzenleyiciyi kilitler; kaydet ve ekle çizilmez", () => {
+    // Toptan PUT gövdeye giremeyen satırları silerdi; kilitlemek veri kaybını kapatır.
+    render(
+      <ProfilePageView
+        profile={profile()}
+        preferences={{ status: "ready", data: [] }}
+        universities={{ status: "ready", data: [] }}
+        availability={{
+          status: "ready",
+          data: {
+            slots: [{ id: "s1", dayOfWeek: "MONDAY", startTime: "09:00", endTime: "13:00" }],
+            exceptions: [],
+            unreadableSlotCount: 2,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/Bu cihazdan düzenlenemeyen 2 aralık var/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Müsaitliği kaydet" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Aralık ekle" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /aralığı kaldır/ })).toBeNull();
+    expect(screen.getByLabelText("Gün")).toBeDisabled();
   });
 });
