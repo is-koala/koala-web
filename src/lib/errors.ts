@@ -648,10 +648,11 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   companyBillingAddress: {
     title: "Şirketin fatura adresi kayıtlı değil",
     message:
-      "Şirket ilanlarında ödeme senin adresini değil şirketin adresini kullanıyor ve bu şirketin kayıtlı bir adresi yok. Şirket adresi web'den henüz düzenlenemiyor; Koala uygulamasından ekleyebilirsin.",
-    // Web'de şirket adresi düzenleme is-koala/koala-web#172 ile geliyor;
-    // gelince `href` oraya döner.
-    remedy: { href: openAppPath, label: "Şirket adresini uygulamada ekle" },
+      "Şirket ilanlarında ödeme senin adresini değil şirketin adresini kullanıyor ve bu şirketin kayıtlı bir adresi yok. Şirket adresi şu an ne web'den ne uygulamadan değiştirilebiliyor; düzenleme yakında geliyor, o zamana kadar destekle iletişime geç.",
+    // Adres düzenleme henüz hiçbir istemcide yok (backend #288, web #172,
+    // mobil is-koala/koala#184). Web düzenleme gelince `href` oraya döner;
+    // o güne kadar bağlantı uygulamayı açar, orada en azından adres görünür.
+    remedy: { href: openAppPath, label: "Şirket adresini uygulamada gör" },
     errorCodes: ["JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER"],
   },
 };

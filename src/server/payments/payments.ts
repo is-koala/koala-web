@@ -191,7 +191,8 @@ export async function readPaymentAttempts(assignmentId: string): Promise<readonl
  * "adres eksik" uyarısı çiziyordu (is-koala/koala-web#171). Şirket
  * okunamazsa (403/404) adres bilinmiyor sayılır: backend'in kendi reddi
  * (`JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER`) ödeme anında zaten
- * gösteriliyor.
+ * gösteriliyor. Başka bir `ApiError` (5xx) yutulmaz — o, ödeme sayfasının
+ * genel hata yolu.
  */
 export async function readEmployerPaymentCompany(jobId: string): Promise<EmployerPaymentCompany> {
   const job = await apiRequest<{ company?: { id?: string | null } | null } | null>(
@@ -206,7 +207,9 @@ export async function readEmployerPaymentCompany(jobId: string): Promise<Employe
     return { companyId, hasAddress: company.address !== null };
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof ApiError) return { companyId, hasAddress: null };
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      return { companyId, hasAddress: null };
+    }
     throw error;
   }
 }

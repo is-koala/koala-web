@@ -9,6 +9,7 @@ import {
   requestHeaders,
 } from "../../../tests/support/session-cookies";
 
+import { ApiError } from "@/server/api/errors";
 import {
   createPaymentSession,
   readAllEmployerAssignments,
@@ -468,6 +469,23 @@ describe("işveren ödeme BFF sözleşmesi", () => {
         companyId: "company-1",
         hasAddress: null,
       });
+    });
+
+    it("şirket ucu 5xx dönerse hatayı yutmaz", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(200, envelope({ company: { id: "company-1" } })))
+        .mockResolvedValueOnce(jsonResponse(503, {
+          success: false,
+          data: null,
+          message: "unavailable",
+          errorCode: "SERVICE_UNAVAILABLE",
+          errorCategory: "INTERNAL",
+          httpStatus: 503,
+          timeStamp: "2026-09-14T09:00:00",
+        }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(readEmployerPaymentCompany(backendAssignment.job.id)).rejects.toBeInstanceOf(ApiError);
     });
 
     it("ilanda şirket kimliği yoksa şirket ucuna çıkmaz", async () => {
