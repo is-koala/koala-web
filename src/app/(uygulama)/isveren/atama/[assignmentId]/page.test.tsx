@@ -29,6 +29,10 @@ vi.mock("@/server/assignments/employer-tracking", () => ({
   readAssignmentWorkSessions,
   completeAssignment: vi.fn(),
 }));
+vi.mock("@/server/assignments/reviews", () => ({
+  createAssignmentReview: vi.fn(),
+  isAlreadyReviewed: vi.fn(() => false),
+}));
 vi.mock("@/server/session/gates", () => ({ viewerGates }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
 vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
@@ -216,6 +220,37 @@ describe("işveren atama ayrıntısı", () => {
 
     expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeDisabled();
     expect(screen.getByText(/İşçi atamayı onaylamadan/)).toBeVisible();
+  });
+
+  it("değerlendirme formunu yalnız tamamlanmış atamada çizer", async () => {
+    // Backend başka durumda 409 `REVIEW_WORK_NOT_COMPLETED` döndürüyor ve
+    // koşul satırdan okunabiliyor: form açık bırakılıp 409 yedirilmiyor.
+    for (const status of ["PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS", "CANCELLED"] as const) {
+      const { unmount } = render(await EmployerAssignmentContent({
+        assignment: { ...assignment, status },
+        viewer,
+        searchParams: Promise.resolve({}),
+      }));
+      expect(screen.queryByRole("heading", { name: "İşçiyi değerlendir" })).toBeNull();
+      unmount();
+    }
+
+    render(await EmployerAssignmentContent({
+      assignment: {
+        ...assignment,
+        status: "COMPLETED",
+        paymentStatus: "RELEASED_TO_WORKER",
+        completedAt: "2026-09-12T18:05:00Z",
+      },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(screen.getByRole("heading", { name: "İşçiyi değerlendir" })).toBeVisible();
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    expect(screen.getByRole("radio", { name: "5 yıldız" })).toBeVisible();
+    expect(screen.getByLabelText("Yorum (isteğe bağlı)")).toHaveAttribute("maxlength", "2000");
+    expect(screen.getByRole("button", { name: "Değerlendirmeyi gönder" })).toBeEnabled();
   });
 
   it("işçi kartını fotoğraf, ad ve aday dosyası bağlantısıyla çizer; şirket adını başlığa yazar", async () => {

@@ -8,6 +8,7 @@ const createAssignmentDispute = vi.hoisted(() => vi.fn());
 const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
 const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const completeAssignment = vi.hoisted(() => vi.fn());
+const createAssignmentReview = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 const openApplicantConversation = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() =>
@@ -24,6 +25,10 @@ vi.mock("@/server/assignments/resolution", () => ({
   uploadAssignmentDisputeEvidence,
 }));
 vi.mock("@/server/assignments/employer-tracking", () => ({ completeAssignment }));
+vi.mock("@/server/assignments/reviews", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/assignments/reviews")>()),
+  createAssignmentReview,
+}));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/server/applications/employer-review", () => ({ openApplicantConversation }));
 vi.mock("next/navigation", () => ({ redirect, unstable_rethrow: vi.fn() }));
@@ -32,6 +37,7 @@ import {
   completeAssignmentAction,
   employerConversationAction,
   employerResolutionAction,
+  employerReviewAction,
 } from "./actions";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
@@ -235,5 +241,69 @@ describe("işveren atama ekranından konuşma açma action'ı", () => {
     await expect(employerConversationAction(jobId, "", { status: "idle" }, new FormData()))
       .resolves.toEqual({ status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 });
     expect(openApplicantConversation).not.toHaveBeenCalled();
+  });
+});
+
+describe("işçiyi değerlendirme action'ı", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireSessionForCurrentPath.mockResolvedValue({});
+  });
+
+  function reviewForm(rating: string, comment = ""): FormData {
+    const form = new FormData();
+    form.set("rating", rating);
+    form.set("comment", comment);
+    return form;
+  }
+
+  it("puanı ve kırpılmış yorumu ortak uca yollar, yanıtı durumda taşır ve sayfayı yeniler", async () => {
+    createAssignmentReview.mockResolvedValueOnce({ rating: 4, comment: "Dakikti" });
+
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("4", "  Dakikti  ")))
+      .resolves.toEqual({
+        status: "done",
+        review: { rating: 4, comment: "Dakikti" },
+      });
+    expect(createAssignmentReview).toHaveBeenCalledWith(assignmentId, 4, "Dakikti");
+    expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
+  });
+
+  it("backend'e çıkmadan 1–5 dışı puanı, bozuk kimliği ve uzun yorumu durdurur", async () => {
+    const validationFailed = { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("6"))).resolves.toEqual(validationFailed);
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("0"))).resolves.toEqual(validationFailed);
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("2.5"))).resolves.toEqual(validationFailed);
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm(""))).resolves.toEqual(validationFailed);
+    await expect(employerReviewAction("42", { status: "idle" }, reviewForm("5"))).resolves.toEqual(validationFailed);
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("5", "x".repeat(2001))))
+      .resolves.toEqual(validationFailed);
+    expect(createAssignmentReview).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("409 REVIEW_ALREADY_REVIEWED reddini 'zaten değerlendirilmiş' durumuna çevirir", async () => {
+    createAssignmentReview.mockRejectedValueOnce(new ApiError({
+      status: 409,
+      errorCode: "REVIEW_ALREADY_REVIEWED",
+      errorCategory: "CONFLICT",
+      message: "Bu iş için zaten değerlendirme yaptınız.",
+    }));
+
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("5")))
+      .resolves.toEqual({ status: "reviewed" });
+  });
+
+  it("öbür backend redlerini hata koduyla forma geri verir", async () => {
+    createAssignmentReview.mockRejectedValueOnce(new ApiError({
+      status: 409,
+      errorCode: "REVIEW_WORK_NOT_COMPLETED",
+      errorCategory: "CONFLICT",
+      message: "",
+    }));
+
+    await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("3", "Geç kaldı")))
+      .resolves.toEqual({ status: "error", errorCode: "REVIEW_WORK_NOT_COMPLETED", httpStatus: 409 });
   });
 });

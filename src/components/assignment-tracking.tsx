@@ -8,6 +8,7 @@ import {
   type CompletionDecision,
   type TrackingEvent,
 } from "@/assignments/employer-tracking";
+import { assignmentNotFoundMessage } from "@/assignments/contract";
 import type { WorkSession } from "@/assignments/work-detail";
 import { formatDuration, totalMinutes } from "@/components/work-detail/presenters";
 import { formatDateTime } from "@/lib/dates";
@@ -121,8 +122,6 @@ function completionErrorMessage(errorCode: string, httpStatus: number): string {
   if (errorCode === "JOB_ASSIGNMENT_NOT_COMPLETABLE") {
     return "Atamanın durumu bu sırada değişmiş; tamamlanabilir bir durumda değil. Sayfayı yenileyip güncel durumu gör.";
   }
-  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") {
-    return "Atama bulunamadı veya erişim yetkin yok.";
-  }
+  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") return assignmentNotFoundMessage;
   return errorPresentation(errorCode, httpStatus).message;
 }
