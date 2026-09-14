@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
-import { DM_Sans, Manrope } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { ConsentManager } from "@/components/consent-manager";
 import { publicEnvironment } from "@/lib/env";
 import { mainContentId } from "@/lib/landmarks";
 import { site } from "@/lib/site";
 import "./globals.css";
 
-const bodyFont = DM_Sans({ subsets: ["latin", "latin-ext"], variable: "--font-body" });
-const displayFont = Manrope({ subsets: ["latin", "latin-ext"], variable: "--font-display" });
+/**
+ * Tasarım sisteminin tek yazı ailesi. Beş ağırlığın dördü yeter: 800 yalnız
+ * wordmark içindi ve o artık görsel. `latin-ext` Türkçe harfler için şart.
+ */
+const sansFont = Poppins({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
+});
 const env = publicEnvironment();
 
 export const metadata: Metadata = {
@@ -22,7 +30,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr" data-scroll-behavior="smooth">
-      <body className={`${bodyFont.variable} ${displayFont.variable}`}>
+      <body className={sansFont.variable}>
         <a className="skip-link" href={`#${mainContentId}`}>
           Ana içeriğe geç
         </a>

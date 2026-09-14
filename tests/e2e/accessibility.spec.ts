@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 
 const stablePublicRoutes = [
-  ["ana sayfa", "/", "Bugünün işini bugün bul."],
+  ["ana sayfa", "/", "Boş vaktini paraya çevir."],
   ["ilan listesi", "/is-ilanlari", "İş İlanları"],
   ["ilan ayrıntısı", `/is-ilanlari/${openJobId}`, "Etkinlik görevlisi"],
   ["giriş", "/giris", "Giriş yap"],

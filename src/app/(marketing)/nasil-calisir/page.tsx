@@ -6,5 +6,5 @@ const content = marketingContent["nasil-calisir"];
 export const metadata = pageMetadata(content.title, content.description, "/nasil-calisir");
 
 export default function Page() {
-  return <MarketingPage content={content} />;
+  return <MarketingPage content={content} steps />;
 }

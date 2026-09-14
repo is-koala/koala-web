@@ -1,29 +1,60 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Wordmark } from "@/brand/Wordmark";
-import { companyNav, legalNav, site } from "@/lib/site";
 
+import { controllerIdentity } from "@/content/support";
+import { companyNav, legalNav, marketingNav, site } from "@/lib/site";
+
+import lockup from "../../public/brand/lockup-green.png";
+
+/* 778×320; Vitest görseli düz yol olarak çözdüğü için oran elle yazılı. */
+const lockupRatio = 778 / 320;
+
+const columns = [
+  { title: "Ürün", links: marketingNav },
+  { title: "Kurumsal", links: [...companyNav, { href: "/hesap-silme", label: "Hesap Silme" }] },
+  { title: "Yasal", links: legalNav },
+] as const;
+
+/**
+ * Altbilgi: koyu zemin, marka sütunu ve üç bağlantı sütunu (mockup #155).
+ * Mockup'taki Instagram/LinkedIn bağlantılarının gerçek adresi yok, o yüzden
+ * İletişim sütunu yalnız e-posta ve formu taşıyor.
+ */
 export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="footer-inner">
-        <div><Wordmark /><p>Bugünün işi, bugünün insanı.</p></div>
-        <ul className="footer-links">
-          {companyNav.map((item) => (
-            <li key={item.href}>
-              <Link href={item.href}>
-                {item.label}
-              </Link>
+        <div className="footer-brand">
+          <Link href="/" aria-label="Koala ana sayfa" className="footer-lockup">
+            <Image src={lockup} alt="" height={44} width={Math.round(lockupRatio * 44)} style={{ height: 44, width: "auto" }} />
+          </Link>
+          <p>{"Öğrenciler için günlük iş ilanları. İstanbul'da başlıyoruz."}</p>
+        </div>
+        {columns.map((column) => (
+          <div key={column.title} className="footer-column">
+            <p className="footer-column-title">{column.title}</p>
+            <ul className="footer-links">
+              {column.links.map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href}>{item.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <div className="footer-column">
+          <p className="footer-column-title">İletişim</p>
+          <ul className="footer-links">
+            <li>
+              <a href={`mailto:${controllerIdentity.email}`}>{controllerIdentity.email}</a>
             </li>
-          ))}
-          <li><Link href="/hesap-silme">Hesap Silme</Link></li>
-          {legalNav.map((item) => (
-            <li key={item.href}>
-              <Link href={item.href}>
-                {item.label}
-              </Link>
+            <li>
+              <Link href="/iletisim">Destek formu</Link>
             </li>
-          ))}
-        </ul>
+          </ul>
+        </div>
+      </div>
+      <div className="footer-bottom">
         {/*
           Telif satırında yıl **bilerek yok**. Yıl, statik üretilen sayfalarda
           (`AGENTS.md` § Yapı: tanıtım sayfaları statik üretilir) build anında
@@ -36,7 +67,8 @@ export function SiteFooter() {
           JS'i eklemek olurdu. Telif ihbarı yılı zorunlu tutmuyor, o yüzden
           kaynağı kurutuldu (is-koala/koala-web#90).
         */}
-        <p className="copyright">© {site.name}</p>
+        <p className="copyright">© {site.name}. Tüm hakları saklıdır.</p>
+        <p className="footer-place">Yıldız Teknik Üniversitesi, İstanbul</p>
       </div>
     </footer>
   );

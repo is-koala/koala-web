@@ -1,4 +1,5 @@
 import { ControllerIdentity } from "@/components/controller-identity";
+import { Section, SectionHeading } from "@/components/marketing/section";
 import { SupportForm } from "@/components/support-form";
 import { supportContent } from "@/content/support";
 import { pageMetadata } from "@/lib/metadata";
@@ -13,12 +14,16 @@ export const metadata = pageMetadata(
 
 export default function Page() {
   return (
-    <article className="hero hero-compact">
-      <p className="eyebrow">{supportContent.eyebrow}</p>
-      <h1>{supportContent.title}</h1>
-      <p className="lede">{supportContent.intro}</p>
-      <ControllerIdentity heading="Şirket ve başvuru bilgileri" />
-      <SupportForm action={submitSupportAction} />
+    <article>
+      <Section className="mk-page-hero">
+        <SectionHeading as="h1" eyebrow={supportContent.eyebrow} title={supportContent.title} intro={supportContent.intro} />
+      </Section>
+      <Section tone="sunken" narrow>
+        <div className="mk-form-card">
+          <ControllerIdentity heading="Şirket ve başvuru bilgileri" />
+          <SupportForm action={submitSupportAction} />
+        </div>
+      </Section>
     </article>
   );
 }

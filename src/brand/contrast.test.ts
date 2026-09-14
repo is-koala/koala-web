@@ -5,32 +5,50 @@ import { describe, expect, it } from "vitest";
 
 import { brandTokens } from "./tokens";
 
-const paper = "#fffdf9";
-const ink = "#282828";
+const { paper, surface, ink, greenInk, greenDeep, muted, subtle } = brandTokens;
 
 describe("metin kontrast bütçesi", () => {
-  it("açık zemindeki marka ve soluk metin WCAG AA 4,5:1 geçiyor", () => {
-    expect(contrast(brandTokens.brandPrimary, paper)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(brandTokens.brandAccent, paper)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(cssVariable("--muted"), paper)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(brandTokens.ink, paper)).toBeGreaterThanOrEqual(4.5);
+  it("açık zeminde yazı renkleri WCAG AA 4,5:1 geçiyor", () => {
+    for (const background of [paper, surface]) {
+      expect(contrast(greenInk, background), `greenInk on ${background}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(greenDeep, background), `greenDeep on ${background}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(muted, background), `muted on ${background}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(subtle, background), `subtle on ${background}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(ink, background), `ink on ${background}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
-  it("koyu manifesto kaşlığı da AA eşiğini geçiyor", () => {
-    expect(contrast(brandTokens.manifestoEyebrow, ink)).toBeGreaterThanOrEqual(4.5);
+  it("yeşil dolgu üstündeki beyaz yazı AA eşiğini geçiyor", () => {
+    // Marka yeşili (#82C180) bu eşiği geçmiyor; düğme ve koyu yüzeyler bu
+    // yüzden mürekkep yeşilini kullanıyor. Test iki dolguyu da tutuyor.
+    expect(contrast("#FFFFFF", greenInk)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#FFFFFF", greenDeep)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("CSS değişkenleri adlandırılmış marka tokenlarıyla aynı kalıyor", () => {
-    expect(cssVariable("--brand-primary")).toBe(brandTokens.brandPrimary);
-    expect(cssVariable("--brand-accent")).toBe(brandTokens.brandAccent);
-    expect(cssVariable("--ink")).toBe(brandTokens.ink);
-    expect(cssVariable("--manifesto-eyebrow")).toBe(brandTokens.manifestoEyebrow);
+    expect(cssVariable("--koala-green")).toBe(brandTokens.green);
+    expect(cssVariable("--koala-green-ink")).toBe(greenInk);
+    expect(cssVariable("--koala-green-deep")).toBe(greenDeep);
+    expect(cssVariable("--grey-900")).toBe(ink);
+    expect(cssVariable("--grey-100")).toBe(surface);
+    expect(cssVariable("--grey-700")).toBe(muted);
+    expect(cssVariable("--text-subtle")).toBe(subtle);
+    expect(cssVariable("--paper")).toBe(paper);
+  });
+
+  it("yazı ve düğme dolgusu mürekkep yeşilinden, marka yeşili dekor için", () => {
+    const css = globalsCss();
+    expect(css).toMatch(/--primary:\s*var\(--koala-green-ink\)/);
+    expect(css).toMatch(/--brand-primary:\s*var\(--koala-green-ink\)/);
   });
 });
 
+function globalsCss(): string {
+  return readFileSync(join(import.meta.dirname, "../app/globals.css"), "utf8");
+}
+
 function cssVariable(name: string): string {
-  const css = readFileSync(join(import.meta.dirname, "../app/globals.css"), "utf8");
-  const match = new RegExp(`${name.replaceAll("-", "\\-")}:\\s*(#[0-9a-fA-F]{3,8})`).exec(css);
+  const match = new RegExp(`${name.replaceAll("-", "\\-")}:\\s*(#[0-9a-fA-F]{3,8})`).exec(globalsCss());
   if (!match) throw new Error(`${name} globals.css içinde bulunamadı`);
   return match[1];
 }

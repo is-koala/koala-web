@@ -1,3 +1,5 @@
+import { FaqList } from "@/components/marketing/faq-list";
+import { Section, SectionHeading } from "@/components/marketing/section";
 import { faqContent, frequentlyAskedQuestions } from "@/content/marketing";
 import { pageMetadata } from "@/lib/metadata";
 import { publicEnvironment } from "@/lib/env";
@@ -11,19 +13,12 @@ export const metadata = pageMetadata(
 export default function Page() {
   return (
     <article>
-      <header className="hero hero-compact">
-        <p className="eyebrow">{faqContent.eyebrow}</p>
-        <h1>{faqContent.title}</h1>
-        <p className="lede">{faqContent.intro}</p>
-      </header>
-      <div className="faq-list">
-        {frequentlyAskedQuestions.map((item) => (
-          <details key={item.question}>
-            <summary>{item.question}</summary>
-            <p>{item.answer}</p>
-          </details>
-        ))}
-      </div>
+      <Section className="mk-page-hero">
+        <SectionHeading as="h1" eyebrow={faqContent.eyebrow} title={faqContent.title} intro={faqContent.intro} />
+      </Section>
+      <Section tone="sunken" narrow>
+        <FaqList items={frequentlyAskedQuestions} />
+      </Section>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify({
