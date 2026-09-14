@@ -19,11 +19,12 @@ import type {
 } from "@/applications/employer-review";
 import { isUuid } from "@/lib/identifiers";
 import { emptyBackendPage } from "@/lib/pagination";
-import { messagingAvailabilityFrom, type MessagingAvailability } from "@/messaging/contract";
+import { messagingAvailabilityFrom } from "@/messaging/contract";
+import type { EmployerAssignment } from "@/payments/contract";
 import { clean, known, type PageDto } from "@/server/api/dto";
 import { ApiError } from "@/server/api/errors";
-import { backendPaths, notFoundStatus } from "@/server/contract";
-import { readAllEmployerAssignments } from "@/server/payments/payments";
+import { backendPaths } from "@/server/contract";
+import { readAllEmployerAssignments, readAllJobAssignments } from "@/server/payments/payments";
 import { apiRequest } from "@/server/session/session";
 
 /**
@@ -251,49 +252,26 @@ export async function removeFromTalentPool(workerId: string): Promise<void> {
 }
 
 /**
- * Kabul edilmiş adayların atamaları, işçi kimliğine göre.
+ * İlanın atamaları, işçi kimliğine göre — kartın mesaj kapısının kaynağı.
  *
- * İki yol var ve hangisinin açık olduğunu başvuru satırı söylüyor:
+ * Tek çağrı: `GET /jobs/{jobId}/assignments` (backend 0.9.23; sahibe ya da
+ * şirket yetkilisine, sayfalı, `MyAssignmentDto`). Yalnız eski bir sunucu bu
+ * yolu tanımadığında (`ENDPOINT_NOT_FOUND`) işverenin bütün atamaları
+ * sayfalanıp ilan kimliğiyle eleniyor; başka bir hata çağırana çıkıyor.
+ * Kabul edilmiş aday yoksa hiç tur atılmıyor — atama yalnız kabulle kurulur.
  *
- * 1. **Doğrudan** — kabul edilmiş her başvuru `assignmentId` taşıyorsa
- *    (is-koala/koala-backend#282) her atama `GET /job-assignments/{id}` ile
- *    tek tek okunuyor; uç tarafı denetliyor ve `messagingAvailable` kararını
- *    satırda taşıyor. Kabul edilmiş aday yoksa hiç tur atılmıyor.
- * 2. **Tarama** — alan gelmiyorsa (#282 öncesi) işverenin bütün atamaları
- *    sayfalanıp ilan kimliğiyle eleniyor: `GET /users/me/assignments?asEmployer=true`
- *    ilana göre süzülemiyor (aynı sınırla: `readAllEmployerAssignments` en
- *    çok 100 sayfa). Aynı işçi için birden çok atama varsa — iptal edilip
- *    yeniden kabul edilen aday — en son kurulan kazanıyor: eski atamanın
- *    `CLOSED` kararı yeni atamanın kapısını anlatmıyor. Sıralama ucun
- *    varsayılanına bırakılmıyor (`sort` belgede boş), `assignmentDateTime`
- *    karşılaştırılıyor.
- *
- * Ayrım "hepsi" üzerinden: kabul edilmiş adaylardan biri bile kimliksizse
- * tarama yolu; yarım bir doğrudan okuma o adayın mesaj kapısını sessizce
- * kapatırdı.
+ * Aynı işçi için birden çok atama varsa — iptal edilip yeniden kabul edilen
+ * aday — en son kurulan kazanıyor: eski atamanın `CLOSED` kararı yeni
+ * atamanın kapısını anlatmıyor. Sıralama ucun varsayılanına bırakılmıyor,
+ * `assignmentDateTime` karşılaştırılıyor.
  */
 export async function readApplicantAssignments(
   jobId: string,
   applicants: readonly JobApplicant[],
 ): Promise<ReadonlyMap<string, ApplicantAssignment>> {
-  const accepted = applicants.filter((applicant) => applicant.status === "ACCEPTED");
-  if (accepted.length === 0) return new Map();
+  if (!applicants.some((applicant) => applicant.status === "ACCEPTED")) return new Map();
 
-  if (accepted.every((applicant) => applicant.assignmentId !== null)) {
-    const rows = await Promise.all(
-      accepted.map((applicant) => readAssignmentRow(applicant.assignmentId as string)),
-    );
-    return new Map(
-      rows.flatMap((row, index) => {
-        const workerId = accepted[index].applicant.id;
-        return row === null || !workerId
-          ? []
-          : [[workerId, { workerId, assignmentId: row.id, messaging: row.messaging }] as const];
-      }),
-    );
-  }
-
-  const { assignments } = await readAllEmployerAssignments();
+  const assignments = await readJobAssignmentsOrScan(jobId);
   const latest = new Map<string, { assignedAt: number; entry: ApplicantAssignment }>();
   for (const assignment of assignments) {
     if (assignment.jobId !== jobId || !assignment.workerId || !assignment.id) continue;
@@ -312,32 +290,21 @@ export async function readApplicantAssignments(
   return new Map([...latest].map(([workerId, { entry }]) => [workerId, entry]));
 }
 
-/**
- * `GET /job-assignments/{id}` — yalnız mesaj kapısı için okunan dar satır.
- *
- * Taraf olmayan çağırana 404 dönüyor; bu ekranda 404 "atama artık yok" demek
- * ve kartın mesaj düğmesi çizilmiyor, sayfa düşmüyor. Öbür hatalar çağırana
- * çıkıyor.
- */
-async function readAssignmentRow(
-  assignmentId: string,
-): Promise<{ id: string; messaging: MessagingAvailability | null } | null> {
+/** İlan ucunu dener; yalnız ucu tanımayan sunucuda eski taramaya düşer. */
+async function readJobAssignmentsOrScan(jobId: string): Promise<readonly EmployerAssignment[]> {
   try {
-    const dto = await apiRequest<{
-      id?: string | null;
-      messagingAvailable?: boolean | null;
-      messagingAvailableReason?: string | null;
-    } | null>(`${backendPaths.jobAssignments}/${encodeURIComponent(assignmentId)}`, {
-      cache: "no-store",
-    });
-    if (dto === null) return null;
-    return { id: dto.id ?? assignmentId, messaging: messagingAvailabilityFrom(dto) };
+    return await readAllJobAssignments(jobId);
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof ApiError && error.status === notFoundStatus) return null;
+    if (error instanceof ApiError && error.errorCode === endpointNotFound) {
+      return (await readAllEmployerAssignments()).assignments;
+    }
     throw error;
   }
 }
+
+/** `ErrorCategory.ENDPOINT_NOT_FOUND`; kod verilmediğinde `ErrorResult` kategoriyi koda kopyalar. */
+const endpointNotFound = "ENDPOINT_NOT_FOUND";
 
 /**
  * `POST /jobs/{jobId}/conversation?workerId=` — var olan konuşmayı da aynı

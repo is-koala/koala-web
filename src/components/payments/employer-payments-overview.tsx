@@ -78,6 +78,12 @@ export function EmployerPaymentsOverview({
                 </p>
                 <p className="payment-overview-dates">
                   <span>{formatAssignmentDate(assignment.startsAt, assignment.endsAt)}</span>
+                  {assignment.assignedAt && isFormattableDate(assignment.assignedAt) ? (
+                    <span>
+                      {"Atama: "}
+                      <time dateTime={assignment.assignedAt}>{formatDateTime(assignment.assignedAt)}</time>
+                    </span>
+                  ) : null}
                   {/*
                     Ödeme tarihi `paymentSecuredAt`: satıra is-koala/koala-backend#282
                     ile geliyor; gelene kadar yok ve satır yalnız çalışma

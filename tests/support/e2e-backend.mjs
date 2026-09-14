@@ -284,6 +284,19 @@ const server = createServer(async (request, response) => {
       last: true,
     });
   }
+  if (request.method === "GET" && url.pathname === `/jobs/${openJobId}/assignments`) {
+    // Backend 0.9.23: ilanın atamaları sahibe sayfalı; aday kartının mesaj
+    // kapısı buradan okunur (is-koala/koala-web#166).
+    return backendSuccess(response, {
+      content: assignments(),
+      page: 0,
+      size: Number(url.searchParams.get("size") ?? 20),
+      totalElements: 2,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }
   const assignmentMatch = assignmentPathPattern.exec(url.pathname);
   if (request.method === "GET" && assignmentMatch) {
     // Emanete alınmış atamanın tek başarılı denemesi; çalışan çizelgesi

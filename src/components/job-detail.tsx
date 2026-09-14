@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ratingSummaryLabel } from "@/applications/employer-review";
 import type { EmployerStats, JobDetail, JobImage } from "@/jobs/contract";
 import { jobApplicationsClosedReason } from "@/jobs/lifecycle";
 import { jobTypeLabels, salaryTypeLabels } from "@/jobs/search";
@@ -20,7 +21,7 @@ import { JobApplicationForm } from "./job-application-form";
  * Ekranda adresten yalnız il ve ilçe var; modelde başka bir adres alanı zaten
  * yok (`src/jobs/contract.ts`, ADR-0003).
  *
- * Gövde (`JobFacts`, `JobDetailBody`) işverenin kendi ilan sayfasıyla ortak
+ * Gövde (`*JobFacts`, `JobDetailBody`) işverenin kendi ilan sayfasıyla ortak
  * (`/isveren/ilan/{id}`, is-koala/koala-web#166): aynı `JobDetailDto`
  * alanlarını iki ekran ayrı ayrı çizerken işverenin sayfası yirmi beş alanın
  * üçünü gösterir olmuştu. Ayrışan tek şey kenar çubuğu — burada başvuru
@@ -47,7 +48,7 @@ export function JobDetailView({
           <p className="eyebrow">{job.categoryName ?? "İş ilanı"}</p>
           <h1>{job.title}</h1>
         </div>
-        <JobFacts job={job} audience="public" />
+        <PublicJobFacts job={job} />
       </header>
 
       <div className="job-detail-layout">
@@ -79,70 +80,97 @@ export function JobDetailView({
   );
 }
 
+/** Özet satırı; `time` taşıyan hücre `value` yerine `node` veriyor. */
+type FactEntry = { readonly label: string; readonly value: string; readonly at?: string };
+
 /**
- * İlan özeti: tarih, konum, tür, kontenjan, yayın tarihi.
+ * Ziyaretçinin ilan özeti: tarih, kazanç, konum, tür, açık pozisyon, yayın tarihi.
  *
- * İki izleyici aynı satırları farklı sorularla okuyor ve fark iki hücrede:
- *
- * - **Kazanç** yalnız ziyaretçiye. İşveren fiyatı dökümde üç satır olarak
- *   zaten görüyor; özete yalnız çalışan ücretini yazmak ona "ilanım bu kadar"
- *   dedirtirdi (ADR-0002).
- * - **Kontenjan** ziyaretçiye kalan yer ("3 / 4 kişi"), işverene dolan yer
- *   ("1 / 4 kişi işe alındı"). İki sayı aynı iki alandan çıkıyor ama soru
- *   farklı: biri "bana yer var mı", öbürü "kaç kişiyi aldım".
- *
- * `address` işverenin sayfasında backend'in sahibe kurduğu adres satırı;
- * ziyaretçide hiç geçmiyor ve etiket il/ilçeye düşüyor (ADR-0003).
+ * Kazanç yalnız çalışanın alacağı tutar (ADR-0002); konum etiketi
+ * `addressPrecision`'dan seçiliyor ama alanlar hep il/ilçe — bayrağın yanlış
+ * gelmesi bir sızıntıya dönüşemiyor (ADR-0003). Açık pozisyon kalan yer.
  */
-export function JobFacts({
+export function PublicJobFacts({ job }: { job: JobDetail }) {
+  return (
+    <FactList
+      entries={[
+        { label: "Tarih", value: formatSchedule(job) },
+        { label: "Kazanç", value: formatPayout(job) },
+        { label: job.addressPrecision === "EXACT" ? "Konum" : "Yaklaşık konum", value: locationLabel(job) },
+        ...typeFact(job),
+        ...optionalFact("Açık pozisyon", remainingOpenings(job)),
+        ...publishedFact(job),
+      ]}
+    />
+  );
+}
+
+/**
+ * Sahibin ilan özeti: tarih, adres, tür, dolan kontenjan, başvuru sayısı, yayın tarihi.
+ *
+ * Kazanç satırı yok — işveren fiyatı dökümde üç satır olarak görüyor ve
+ * özete yalnız çalışan ücretini yazmak ona "ilanım bu kadar" dedirtirdi.
+ * Kontenjan dolan yer ("1 / 4 kişi işe alındı"): soru "kaç kişiyi aldım".
+ * `address` backend'in sahibe kurduğu satır; maskeli geldiyse etiket
+ * "Yaklaşık konum", satır yoksa il/ilçe.
+ */
+export function EmployerJobFacts({
   job,
-  audience,
-  address = null,
-  applicationCount = null,
+  address,
+  applicationCount,
   className,
 }: {
   job: JobDetail;
-  audience: "public" | "employer";
-  /** Sahibe açılan adres satırı; yalnız işveren sayfası geçiriyor. */
-  address?: string | null;
+  /** Sahibe açılan adres satırı (`displayAddress`); yoksa il/ilçe. */
+  address: string | null;
   /** `JobDetailDto.applicationCount`; alan gelmediyse satır yok. */
-  applicationCount?: number | null;
+  applicationCount: number | null;
   className?: string;
 }) {
-  const openings = audience === "public" ? remainingOpenings(job) : hiredOpenings(job);
   const exact = job.addressPrecision === "EXACT";
+  return (
+    <FactList
+      className={className}
+      entries={[
+        { label: "Tarih", value: formatSchedule(job) },
+        {
+          label: exact ? (address ? "Adres" : "Konum") : "Yaklaşık konum",
+          value: address ?? locationLabel(job),
+        },
+        ...typeFact(job),
+        ...optionalFact("Kontenjan", hiredOpenings(job)),
+        ...optionalFact("Başvuru", applicationCount === null ? null : `${applicationCount} başvuru`),
+        ...publishedFact(job),
+      ]}
+    />
+  );
+}
 
+function FactList({ entries, className }: { entries: readonly FactEntry[]; className?: string }) {
   return (
     <dl className={["job-facts", className].filter(Boolean).join(" ")} aria-label="İlan özeti">
-      <Fact label="Tarih" value={formatSchedule(job)} />
-      {audience === "public" ? <Fact label="Kazanç" value={formatPayout(job)} /> : null}
-      <Fact
-        /*
-          Etiket `addressPrecision`'ı okuyor ama alanları o seçmiyor: yanıt
-          hangi kesinlikte gelirse gelsin ziyaretçiye yalnız il ve ilçe çıkıyor.
-          Bayrak burada ziyaretçiye vaadi doğru kuruyor — "Konum" yazıp
-          ilçe göstermek, adresin bundan ibaret olduğunu ima ederdi.
-        */
-        label={exact ? (address ? "Adres" : "Konum") : "Yaklaşık konum"}
-        value={address ?? locationLabel(job)}
-      />
-      {job.type === "UNKNOWN" ? null : <Fact label="Tür" value={jobTypeLabels[job.type]} />}
-      {openings === null ? null : (
-        <Fact label={audience === "public" ? "Açık pozisyon" : "Kontenjan"} value={openings} />
-      )}
-      {applicationCount === null ? null : (
-        <Fact label="Başvuru" value={`${applicationCount} başvuru`} />
-      )}
-      {job.createdAt && isFormattableDate(job.createdAt) ? (
-        <div>
-          <dt>Yayın tarihi</dt>
-          <dd>
-            <time dateTime={job.createdAt}>{formatDate(job.createdAt)}</time>
-          </dd>
+      {entries.map((entry) => (
+        <div key={entry.label}>
+          <dt>{entry.label}</dt>
+          <dd>{entry.at ? <time dateTime={entry.at}>{entry.value}</time> : entry.value}</dd>
         </div>
-      ) : null}
+      ))}
     </dl>
   );
+}
+
+function typeFact(job: JobDetail): readonly FactEntry[] {
+  return job.type === "UNKNOWN" ? [] : [{ label: "Tür", value: jobTypeLabels[job.type] }];
+}
+
+function optionalFact(label: string, value: string | null): readonly FactEntry[] {
+  return value === null ? [] : [{ label, value }];
+}
+
+/** Yayın tarihi (`createdAt`, `Instant`); okunamayan değerde satır düşer. */
+function publishedFact(job: JobDetail): readonly FactEntry[] {
+  if (!job.createdAt || !isFormattableDate(job.createdAt)) return [];
+  return [{ label: "Yayın tarihi", value: formatDate(job.createdAt), at: job.createdAt }];
 }
 
 /**
@@ -225,6 +253,7 @@ function JobEmployerCard({ job, stats }: { job: JobDetail; stats: EmployerStats 
  * soruyu değiştirmiyor.
  */
 function EmployerTrust({ stats }: { stats: EmployerStats }) {
+  const rating = ratingSummaryLabel(stats);
   const memberSince =
     stats.memberSince && isFormattableDate(stats.memberSince)
       ? formatMonthYear(stats.memberSince)
@@ -240,10 +269,10 @@ function EmployerTrust({ stats }: { stats: EmployerStats }) {
         <dt>Tamamlanan iş</dt>
         <dd>{stats.completedJobs}</dd>
       </div>
-      {stats.averageRating !== null && stats.reviewCount > 0 ? (
+      {rating ? (
         <div>
           <dt>Puan</dt>
-          <dd>{`${stats.averageRating} / 5 · ${stats.reviewCount} değerlendirme`}</dd>
+          <dd>{rating}</dd>
         </div>
       ) : null}
       {memberSince ? (

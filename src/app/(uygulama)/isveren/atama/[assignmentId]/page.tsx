@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
@@ -8,6 +7,7 @@ import {
   assignmentNextStep,
   employerAssignmentTimeline,
 } from "@/assignments/employer-tracking";
+import { ApplicantNameLink } from "@/components/applicant-name-link";
 import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
 import { EmployerAssignmentTracking } from "@/components/assignment-tracking";
 import { formatAssignmentDate } from "@/components/assignment-presenters";
@@ -20,7 +20,6 @@ import {
 } from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
 import { Avatar, PageHeader, PagePanel } from "@/components/ui";
-import { applicantDossierPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
@@ -235,11 +234,7 @@ function AssignmentWorkerCard({ assignment }: { assignment: EmployerAssignment }
       <div className="work-employer-copy">
         <span className="muted">İşçi</span>
         <strong>{name}</strong>
-        {isUuid(assignment.workerId) ? (
-          <Link className="text-link" href={applicantDossierPath(assignment.workerId)}>
-            Aday dosyasını aç
-          </Link>
-        ) : null}
+        <ApplicantNameLink workerId={assignment.workerId} name={name} label="Aday dosyasını aç" />
       </div>
     </div>
   );

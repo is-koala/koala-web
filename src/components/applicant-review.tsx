@@ -12,6 +12,7 @@ import {
   applicationDecisionGate,
   badgeSummary,
   badgeTierLabel,
+  ratingSummaryLabel,
   idleApplicantDossierState,
   idleApplicationDecisionState,
   idleConversationState,
@@ -31,13 +32,12 @@ import {
   type JobApplicant,
   type TalentPoolAction,
 } from "@/applications/employer-review";
+import { ApplicantNameLink } from "@/components/applicant-name-link";
 import { AssignmentDialog } from "@/components/assignment-dialog";
 import { MessagingGate } from "@/components/messaging/messaging-gate";
 import { ErrorState } from "@/components/states";
 import { EmptyStateCard, Field, StatusBadge, applicationStatusTone, fieldDescribedBy } from "@/components/ui";
-import { applicantDossierPath } from "@/lib/app-routes";
 import { formatDateTime, isFormattableDate } from "@/lib/dates";
-import { isUuid } from "@/lib/identifiers";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { errorPresentation } from "@/lib/errors";
 
@@ -339,13 +339,10 @@ function ApplicantCard({
             bağlantı yok.
           */}
           <h2 id={titleId}>
-            {isUuid(workerId) ? (
-              <Link className="applicant-name-link" href={applicantDossierPath(workerId)}>
-                {applicant.applicant.fullName || "Adı paylaşılmadı"}
-              </Link>
-            ) : (
-              applicant.applicant.fullName || "Adı paylaşılmadı"
-            )}
+            <ApplicantNameLink
+              workerId={workerId}
+              name={applicant.applicant.fullName || "Adı paylaşılmadı"}
+            />
           </h2>
         </div>
         <ApplicantCompareStrip dossier={dossier} />
@@ -356,7 +353,7 @@ function ApplicantCard({
           <div><dt>Başvuru tarihi</dt><dd>{formatDateTime(applicant.appliedAt)}</dd></div>
           {/*
             Yanıt zamanı `answeredDateTime` (#282); gelene kadar satır yok.
-            Etiket karara göre: kabulde "Kabul tarihi", redde "Red tarihi".
+            Etiket karara göre: redde "Red tarihi", öbür hâllerde "Yanıt tarihi".
           */}
           {applicant.answeredAt && isFormattableDate(applicant.answeredAt) ? (
             <div>
@@ -746,11 +743,7 @@ function ApplicantDossierPanel({ dossier }: { dossier: ApplicantDossier }) {
         ) : null}
         <div>
           <dt>Puan özeti</dt>
-          <dd>
-            {dossier.ratingSummary && dossier.ratingSummary.reviewCount > 0
-              ? `${dossier.ratingSummary.averageRating} / 5 · ${dossier.ratingSummary.reviewCount} değerlendirme`
-              : "Henüz değerlendirilmemiş"}
-          </dd>
+          <dd>{ratingSummaryLabel(dossier.ratingSummary) ?? "Henüz değerlendirilmemiş"}</dd>
         </div>
       </dl>
 

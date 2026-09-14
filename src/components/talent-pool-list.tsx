@@ -8,11 +8,11 @@ import {
   type TalentPoolPage,
   type TalentPoolRemovalAction,
 } from "@/applications/employer-review";
+import { ApplicantNameLink } from "@/components/applicant-name-link";
 import { Avatar } from "@/components/ui";
 import { formatDate, isFormattableDate } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
-import { isUuid } from "@/lib/identifiers";
-import { applicantDossierPath, talentPoolPath } from "@/lib/app-routes";
+import { talentPoolPath } from "@/lib/app-routes";
 
 /**
  * Yetenek havuzunun liste ekranı.
@@ -49,13 +49,9 @@ export function TalentPoolList({
                 kartın altına dosya çizen başvuru ekranı burada yok; dosya
                 sayfası (#166) o boşluğu kapatıyor. Kimlik UUID değilse düz ad.
               */}
-              {isUuid(entry.workerId) ? (
-                <Link className="applicant-name-link" href={applicantDossierPath(entry.workerId)}>
-                  <strong>{entry.fullName || "Adı paylaşılmadı"}</strong>
-                </Link>
-              ) : (
-                <strong>{entry.fullName || "Adı paylaşılmadı"}</strong>
-              )}
+              <strong>
+                <ApplicantNameLink workerId={entry.workerId} name={entry.fullName || "Adı paylaşılmadı"} />
+              </strong>
               {/*
                 `dateTime` makineye ayrıştırılabilir bir tarih söz veriyor ve
                 `createdAt` yanıtta eksikse boş dizeye düşüyor; o sözü

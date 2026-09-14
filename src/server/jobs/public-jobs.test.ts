@@ -14,6 +14,7 @@ import {
 import {
   fetchJobSitemapManifest,
   fetchJobSitemapShard,
+  readEmployerStats,
   readJobDetail,
 } from "./public-jobs";
 
@@ -228,5 +229,43 @@ describe("herkese açık ilan sitemap okuması", () => {
       `https://api.example.test/sitemap/jobs/manifests/${version}/shards/1`,
     );
     expect(init).toMatchObject({ cache: "no-store" });
+  });
+
+  it("işveren istatistiğini oturumsuz okur, ortalamayı dize taşır", async () => {
+    const employerId = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      userId: employerId,
+      jobsPosted: 12,
+      completedJobs: 9,
+      averageRating: 4.6,
+      reviewCount: 7,
+      memberSince: "2025-03-14T10:00:00Z",
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(readEmployerStats(employerId)).resolves.toEqual({
+      jobsPosted: 12,
+      completedJobs: 9,
+      averageRating: "4.6",
+      reviewCount: 7,
+      memberSince: "2025-03-14T10:00:00Z",
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`https://api.example.test/users/${employerId}/employer-stats`);
+    expect(init).toMatchObject({ cache: "force-cache" });
+    expect(new Headers(init.headers).has("authorization")).toBe(false);
+  });
+
+  it("istatistik arızasını yutar: 5xx'te null döner, ilan sayfası kartsız çizilir", async () => {
+    // Kart ikincil; bir istatistik satırı yüzünden ilan 500'e düşmez. Bedeli
+    // bilinçli: arıza anında üretilen sayfa ISR penceresi boyunca kartsız.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(503, {
+      success: false,
+      errorCode: "SERVICE_UNAVAILABLE",
+      errorCategory: "UNEXPECTED",
+      message: "",
+    })));
+
+    await expect(readEmployerStats("11111111-1111-4111-8111-111111111112")).resolves.toBeNull();
   });
 });

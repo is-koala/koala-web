@@ -77,14 +77,21 @@ it("satırda çalışma zamanını, şirket adını ve gelen ödeme tarihini yaz
   // `paymentSecuredAt` is-koala/koala-backend#282 ile geliyor; yoksa satır
   // yalnız çalışma zamanını yazıyor, tarih uydurmuyor.
   const { rerender } = render(<EmployerPaymentsOverview assignments={[
-    { ...base, companyName: "Koala Etkinlik", paymentSecuredAt: "2026-09-02T14:30:00Z" },
+    {
+      ...base,
+      companyName: "Koala Etkinlik",
+      assignedAt: "2026-09-01T09:00:00Z",
+      paymentSecuredAt: "2026-09-02T14:30:00Z",
+    },
   ]} filter="all" totalsComplete />);
 
   expect(screen.getByText("Koala Etkinlik · Ayşe Yılmaz")).toBeVisible();
   expect(screen.getByText("12 Eylül 2026, 09:00–18:00")).toBeVisible();
+  expect(screen.getByText("1 Eyl 2026 12:00")).toBeVisible();
   expect(screen.getByText("2 Eyl 2026 17:30")).toBeVisible();
 
   rerender(<EmployerPaymentsOverview assignments={[base]} filter="all" totalsComplete />);
   expect(screen.getByText("Ayşe Yılmaz")).toBeVisible();
+  expect(screen.queryByText(/Atama:/)).toBeNull();
   expect(screen.queryByText(/Ödeme:/)).toBeNull();
 });

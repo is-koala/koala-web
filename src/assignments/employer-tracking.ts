@@ -125,6 +125,18 @@ const confirmedStatuses = new Set(["CONFIRMED", "IN_PROGRESS", "COMPLETED"]);
 /** Ödemenin bir kez emanete girdiği durumlar; `REFUNDED` da önce alınmış paranın iadesi. */
 const securedPaymentStatuses = new Set(["HELD_IN_ESCROW", "RELEASED_TO_WORKER", "REFUNDED"]);
 
+/** Çizelgenin girdisi; her alan zorunlu, bilinmeyen değer `null` yazılır. */
+export type TimelineInput = {
+  readonly status: string;
+  readonly paymentStatus: string;
+  readonly assignedAt: string | null;
+  readonly confirmedAt: string | null;
+  readonly paymentSecuredAt: string | null;
+  readonly cancelledAt: string | null;
+  readonly completedAt: string | null;
+  readonly sessions: readonly WorkSession[];
+};
+
 /**
  * `PENDING_CONFIRMATION → CONFIRMED → ödeme emanette → IN_PROGRESS → COMPLETED`
  * yolu ve iki çıkışı.
@@ -133,33 +145,24 @@ const securedPaymentStatuses = new Set(["HELD_IN_ESCROW", "RELEASED_TO_WORKER", 
  * atamada "iş başladı" adımını beklemede göstermek, hiç olmayacak bir adımı
  * bekletirdi. İptal ise geriye dönmüyor — o ana kadar gerçekleşen aşamalar
  * duruyor ve iptal son adım oluyor; zamanı iptal kaydından
- * (`CancellationDto.cancelledAt`) geliyor.
+ * (`CancellationDto.cancelledAt`) geliyor. İptalde tek istisna emanet
+ * adımı: ödeme hiç alınmadan iptal edilen atamada "Ödeme emanete alındı"
+ * beklemede kalmaz, çünkü artık olmayacak — reddin "iş başladı"yı düşürmesiyle
+ * aynı kural. Para alınmışsa adım duruyor; iade süreci onun devamı.
  *
  * Zamanlar yalnız backend verdiğinde yazılıyor, uydurulmuyor. `confirmedAt`
  * is-koala/koala-backend#282 ile satıra geliyor; gelene kadar onay adımı
- * zamansız ama ulaşılmış çiziliyor. Ödeme adımının zamanı ilk başarılı
- * ödeme denemesinin `completedAt`'i (`paymentSecuredAt`); zamanı okunamasa
- * bile ödeme durumu emanete girmişse adım ulaşılmış sayılıyor — para
- * gerçekten alındı, yalnız ne zaman alındığı bilinmiyor.
+ * zamansız ama ulaşılmış çiziliyor. Ödeme adımı yalnız iki kanıttan biriyle
+ * ulaşılmış sayılıyor: emanete alınma anı (`paymentSecuredAt`) ya da ödeme
+ * durumunun emanete girmiş olması. Atama durumundan (`COMPLETED`) **çıkarım
+ * yapılmıyor**: sunucu kuralı bugün emanetsiz tamamlamayı reddediyor ama bu
+ * çizelge ödeme kaydını anlatıyor, kuralı değil.
  */
-export function employerAssignmentTimeline(input: {
-  status: string;
-  paymentStatus?: string;
-  assignedAt: string | null;
-  confirmedAt?: string | null;
-  paymentSecuredAt?: string | null;
-  cancelledAt?: string | null;
-  completedAt: string | null;
-  sessions: readonly WorkSession[];
-}): readonly TrackingEvent[] {
+export function employerAssignmentTimeline(input: TimelineInput): readonly TrackingEvent[] {
   const started = startedStatuses.has(input.status) || input.sessions.length > 0;
   const confirmed = confirmedStatuses.has(input.status) || started;
-  // Tamamlanmış atamada ödeme kesin alınmış: sunucu emanet olmadan
-  // tamamlamayı 409 ile reddediyor (`assignmentCompletion`).
   const paymentSecured =
-    Boolean(input.paymentSecuredAt) ||
-    securedPaymentStatuses.has(input.paymentStatus ?? "") ||
-    input.status === "COMPLETED";
+    input.paymentSecuredAt !== null || securedPaymentStatuses.has(input.paymentStatus);
   const firstCheckIn = input.sessions.at(0)?.checkInAt ?? null;
 
   const offered: TrackingEvent = {
@@ -175,23 +178,21 @@ export function employerAssignmentTimeline(input: {
 
   const stages: TrackingEvent[] = [
     offered,
-    { key: "confirmed", label: "İşçi atamayı onayladı", at: input.confirmedAt ?? null, reached: confirmed },
+    { key: "confirmed", label: "İşçi atamayı onayladı", at: input.confirmedAt, reached: confirmed },
     {
       key: "payment-secured",
       label: "Ödeme emanete alındı",
-      at: input.paymentSecuredAt ?? null,
+      at: input.paymentSecuredAt,
       reached: paymentSecured,
     },
     { key: "started", label: "İş başladı", at: firstCheckIn, reached: started },
   ];
 
   if (input.status === "CANCELLED") {
-    // Ödeme hiç alınmadan iptal edilen atamada emanet adımı beklemede kalmaz:
-    // olmayacak bir adım. Alınmışsa adım duruyor; iade süreci onun devamı.
     const reachedStages = stages.filter((stage) => stage.key !== "payment-secured" || paymentSecured);
     return [
       ...reachedStages,
-      { key: "cancelled", label: "Atama iptal edildi", at: input.cancelledAt ?? null, reached: true },
+      { key: "cancelled", label: "Atama iptal edildi", at: input.cancelledAt, reached: true },
     ];
   }
 

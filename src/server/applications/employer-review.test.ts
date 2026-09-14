@@ -486,12 +486,11 @@ describe("işveren başvuru inceleme backend modülü", () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
   });
 
-  it("ilanın atamalarını, satır assignmentId taşımıyorsa işverenin atama listesinden işçi kimliğiyle eşler", async () => {
-    // #282 öncesi: `JobApplicantDto` atama taşımıyor ve atama listesi ilana
-    // göre süzülemiyor: bütün liste okunup ilan kimliğiyle eleniyor (#157).
-    // Aynı işçinin iki atamasında en son kurulan kazanıyor — eski atamanın
-    // kapalı sohbeti yeni atamanın kapısını anlatmıyor.
-    const otherJobId = "44444444-4444-4444-8444-444444444444";
+  it("ilanın atamalarını tek çağrıyla GET /jobs/{jobId}/assignments ucundan işçi kimliğiyle eşler", async () => {
+    // Backend 0.9.23 ilanın atamalarını sahibe sayfalı veriyor; işverenin
+    // bütün atamalarını tarayıp ilana göre elemeye gerek yok (#166). Aynı
+    // işçinin iki atamasında en son kurulan kazanıyor — eski atamanın kapalı
+    // sohbeti yeni atamanın kapısını anlatmıyor.
     const secondWorkerId = "55555555-5555-4555-8555-555555555555";
     const row = (overrides: Record<string, unknown>) => ({
       id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001",
@@ -516,10 +515,6 @@ describe("işveren başvuru inceleme backend modülü", () => {
           messagingAvailableReason: "CLOSED",
         }),
         row({
-          id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000003",
-          job: { id: otherJobId, title: "Garson", startDateTime: "2026-09-12T09:00:00", endDateTime: "2026-09-12T18:00:00" },
-        }),
-        row({
           id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000004",
           worker: { id: secondWorkerId, firstName: "Mehmet", lastName: "Kaya" },
           messagingAvailable: undefined,
@@ -528,7 +523,7 @@ describe("işveren başvuru inceleme backend modülü", () => {
       ],
       page: 0,
       size: 100,
-      totalElements: 4,
+      totalElements: 3,
       totalPages: 1,
       first: true,
       last: true,
@@ -540,9 +535,9 @@ describe("işveren başvuru inceleme backend modülü", () => {
       acceptedApplicant("a2", secondWorkerId, "aaaaaaaa-aaaa-4aaa-8aaa-000000000004"),
     ]);
 
-    // Kabul edilmişlerden biri kimliksiz: yarım doğrudan okuma yerine tarama.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://api.example.test/users/me/assignments?asEmployer=true&page=0&size=100",
+      `https://api.example.test/jobs/${jobId}/assignments?page=0&size=100`,
     );
     expect([...assignments.values()]).toEqual([
       {
@@ -570,54 +565,68 @@ describe("işveren başvuru inceleme backend modülü", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("her kabul edilmiş aday assignmentId taşıyorsa atamaları tek tek okur, listeyi taramaz", async () => {
-    // #282 sonrası yol: `GET /job-assignments/{id}` tarafı denetliyor ve
-    // mesaj kapısını satırda taşıyor. 404 "atama artık yok" demek; kart
-    // mesaj düğmesi çizmez, sayfa düşmez.
-    const firstAssignmentId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001";
-    const goneAssignmentId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000009";
-    const secondWorkerId = "55555555-5555-4555-8555-555555555555";
+  it("ucu tanımayan eski sunucuda işverenin atama listesini tarar; başka 404'ü yutmaz", async () => {
+    // Yalnız `ENDPOINT_NOT_FOUND` eski yola düşürüyor: sahibi olmadığı ilanın
+    // 404'ü (`JOB_NOT_FOUND`) bir yol eksikliği değil, bir yetki cevabı.
+    const otherJobId = "44444444-4444-4444-8444-444444444444";
+    const endpointMissing = (code: string) => jsonResponse(404, {
+      success: false,
+      errorCode: code,
+      errorCategory: code,
+      message: "",
+    });
     const fetchMock = vi.fn((input: string | URL | Request) => {
       const url = String(input);
-      if (url.endsWith(`/job-assignments/${firstAssignmentId}`)) {
-        return Promise.resolve(jsonResponse(200, envelope({
-          id: firstAssignmentId,
-          messagingAvailable: false,
-          messagingAvailableReason: "PAYMENT_REQUIRED",
-        })));
+      if (url.includes(`/jobs/${jobId}/assignments`)) {
+        return Promise.resolve(endpointMissing("ENDPOINT_NOT_FOUND"));
       }
-      if (url.endsWith(`/job-assignments/${goneAssignmentId}`)) {
-        return Promise.resolve(jsonResponse(404, {
-          success: false,
-          errorCode: "JOB_ASSIGNMENT_NOT_FOUND",
-          errorCategory: "RESOURCE_NOT_FOUND",
-          message: "",
-        }));
+      if (url.includes("/users/me/assignments?asEmployer=true")) {
+        return Promise.resolve(jsonResponse(200, envelope({
+          content: [
+            {
+              id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001",
+              job: { id: jobId, title: "Barista", startDateTime: "2026-09-12T09:00:00", endDateTime: "2026-09-12T18:00:00" },
+              worker: { id: workerId, firstName: "Ayşe", lastName: "Yılmaz" },
+              status: "CONFIRMED",
+              paymentStatus: "HELD_IN_ESCROW",
+              assignmentDateTime: "2026-09-01T09:00:00Z",
+              messagingAvailable: true,
+              messagingAvailableReason: "AVAILABLE",
+            },
+            {
+              id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000003",
+              job: { id: otherJobId, title: "Garson", startDateTime: "2026-09-12T09:00:00", endDateTime: "2026-09-12T18:00:00" },
+              worker: { id: workerId, firstName: "Ayşe", lastName: "Yılmaz" },
+              status: "CONFIRMED",
+              paymentStatus: "HELD_IN_ESCROW",
+              assignmentDateTime: "2026-09-02T09:00:00Z",
+            },
+          ],
+          page: 0, size: 100, totalElements: 2, totalPages: 1, first: true, last: true,
+        })));
       }
       throw new Error(`unexpected ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const assignments = await readApplicantAssignments(jobId, [
-      acceptedApplicant("a1", workerId, firstAssignmentId),
-      acceptedApplicant("a2", secondWorkerId, goneAssignmentId),
-      { ...acceptedApplicant("a3", "66666666-6666-4666-8666-666666666666", null), status: "REJECTED" },
-    ]);
+    const assignments = await readApplicantAssignments(jobId, [acceptedApplicant("a1", workerId, null)]);
 
-    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual(
-      expect.arrayContaining([
-        `https://api.example.test/job-assignments/${firstAssignmentId}`,
-        `https://api.example.test/job-assignments/${goneAssignmentId}`,
-      ]),
-    );
-    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/users/me/assignments"))).toBe(false);
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      `https://api.example.test/jobs/${jobId}/assignments?page=0&size=100`,
+      "https://api.example.test/users/me/assignments?asEmployer=true&page=0&size=100",
+    ]);
     expect([...assignments.values()]).toEqual([
       {
         workerId,
-        assignmentId: firstAssignmentId,
-        messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+        assignmentId: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001",
+        messaging: { available: true, reason: "AVAILABLE" },
       },
     ]);
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(endpointMissing("JOB_NOT_FOUND")));
+    await expect(
+      readApplicantAssignments(jobId, [acceptedApplicant("a1", workerId, null)]),
+    ).rejects.toMatchObject({ errorCode: "JOB_NOT_FOUND" });
   });
 
   it("başvuru satırındaki yanıt zamanını, red gerekçesini ve atama kimliğini taşır; UUID olmayan kimliği düşürür", async () => {

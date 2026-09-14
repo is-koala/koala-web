@@ -78,6 +78,8 @@ describe("atama zaman çizelgesi", () => {
       assignedAt: "2026-09-01T09:00:00Z",
       paymentSecuredAt: "2026-09-01T12:00:00Z",
       completedAt: null,
+      confirmedAt: null,
+      cancelledAt: null,
       sessions: [{ id: "s1", checkInAt: "2026-09-02T08:00:00Z", checkOutAt: null, minutes: null }],
     });
 
@@ -102,6 +104,9 @@ describe("atama zaman çizelgesi", () => {
       paymentStatus: "PENDING_COLLECTION",
       assignedAt: "2026-09-01T09:00:00Z",
       completedAt: null,
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       sessions: [],
     });
     expect(without.find((event) => event.key === "confirmed")).toMatchObject({ at: null, reached: true });
@@ -114,6 +119,7 @@ describe("atama zaman çizelgesi", () => {
       confirmedAt: "2026-09-01T10:00:00Z",
       paymentSecuredAt: null,
       completedAt: null,
+      cancelledAt: null,
       sessions: [],
     });
     expect(withStamps.find((event) => event.key === "confirmed")?.at).toBe("2026-09-01T10:00:00Z");
@@ -126,6 +132,10 @@ describe("atama zaman çizelgesi", () => {
       status: "COMPLETED",
       assignedAt: "2026-09-01T09:00:00Z",
       completedAt: "2026-09-03T18:00:00Z",
+      paymentStatus: "RELEASED_TO_WORKER",
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       sessions: [],
     });
 
@@ -140,6 +150,10 @@ describe("atama zaman çizelgesi", () => {
       status: "REJECTED",
       assignedAt: "2026-09-01T09:00:00Z",
       completedAt: null,
+      paymentStatus: "PENDING_COLLECTION",
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       sessions: [],
     });
 
@@ -154,6 +168,7 @@ describe("atama zaman çizelgesi", () => {
       paymentSecuredAt: "2026-09-01T12:00:00Z",
       cancelledAt: "2026-09-02T13:00:00Z",
       completedAt: null,
+      confirmedAt: null,
       sessions: [{ id: "s1", checkInAt: "2026-09-02T08:00:00Z", checkOutAt: "2026-09-02T12:00:00Z", minutes: 240 }],
     });
 
@@ -173,9 +188,31 @@ describe("atama zaman çizelgesi", () => {
       paymentStatus: "PENDING_COLLECTION",
       assignedAt: "2026-09-01T09:00:00Z",
       completedAt: null,
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       sessions: [],
     });
 
     expect(timeline.map((event) => event.key)).toEqual(["offered", "confirmed", "started", "cancelled"]);
+  });
+
+  it("emanet adımını atama durumundan çıkarmaz; yalnız ödeme kanıtıyla işaretler", () => {
+    // Çizelge ödeme kaydını anlatıyor, sunucunun "emanetsiz tamamlama olmaz"
+    // kuralını değil: ödeme durumu okunamamış tamamlanmış atamada adım
+    // beklemede kalır, uydurulmaz.
+    const timeline = employerAssignmentTimeline({
+      status: "COMPLETED",
+      paymentStatus: "UNKNOWN",
+      assignedAt: "2026-09-01T09:00:00Z",
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
+      completedAt: "2026-09-03T18:00:00Z",
+      sessions: [],
+    });
+
+    expect(timeline.find((event) => event.key === "payment-secured")).toMatchObject({ reached: false, at: null });
+    expect(timeline.at(-1)).toMatchObject({ key: "completed", reached: true });
   });
 });

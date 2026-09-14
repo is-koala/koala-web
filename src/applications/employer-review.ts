@@ -552,8 +552,16 @@ export function badgeSummary(badges: readonly ApplicantBadge[]): string {
   return count;
 }
 
-/** "4.6 / 5 · 7 değerlendirme"; değerlendirme yoksa `null` ve ekran kendi boş cümlesini yazar. */
-export function ratingSummaryLabel(summary: ApplicantRatingSummary | null): string | null {
-  if (summary === null || summary.reviewCount <= 0) return null;
+/**
+ * "4.6 / 5 · 7 değerlendirme"; değerlendirme yoksa `null` ve ekran kendi boş
+ * cümlesini yazar. Yapısal tip: aday puan özeti (`ApplicantRatingSummary`) ve
+ * işveren istatistiği (`EmployerStats`) aynı iki alanı taşıyor ve backend
+ * ikisinde de değerlendirmesi olmayan kullanıcıya `0` gönderiyor — "0,0 puan"
+ * yazmamak için kural tek yerde.
+ */
+export function ratingSummaryLabel(
+  summary: { readonly reviewCount: number; readonly averageRating: string | null } | null,
+): string | null {
+  if (summary === null || summary.reviewCount <= 0 || summary.averageRating === null) return null;
   return `${summary.averageRating} / 5 · ${summary.reviewCount} değerlendirme`;
 }

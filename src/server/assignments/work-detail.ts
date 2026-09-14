@@ -11,6 +11,7 @@ import type {
 import type { JobEmployerType } from "@/jobs/employer-jobs";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { messagingAvailabilityFrom } from "@/messaging/contract";
+import { firstSucceededCompletedAt } from "@/payments/checkout";
 import { backendPaths } from "@/server/contract";
 import { ApiError } from "@/server/api/errors";
 import { apiRequest } from "@/server/session/session";
@@ -146,12 +147,12 @@ async function readPaymentSecuredAt(assignment: AssignmentDto): Promise<string |
       `${backendPaths.jobAssignments}/${assignment.id}/payments`,
       { cache: "no-store" },
     );
-    const completed = (attempts ?? [])
-      .filter((attempt) => attempt.status === "SUCCEEDED")
-      .map((attempt) => clean(attempt.completedAt))
-      .filter((at): at is string => at !== null)
-      .sort((left, right) => Date.parse(left) - Date.parse(right));
-    return completed[0] ?? null;
+    return firstSucceededCompletedAt(
+      (attempts ?? []).map((attempt) => ({
+        status: attempt.status ?? "",
+        completedAt: clean(attempt.completedAt),
+      })),
+    );
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiError) return null;

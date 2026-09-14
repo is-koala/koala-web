@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 
-import { JobDetailBody, JobFacts } from "@/components/job-detail";
+import { EmployerJobFacts, JobDetailBody } from "@/components/job-detail";
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
 import { PageHeader, PagePanel, StatusBadge, jobStatusTone } from "@/components/ui";
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 /**
  * Yayımlanmış ilanın sayfası.
  *
- * Gövde herkese açık ilan sayfasıyla ortak (`JobFacts`, `JobDetailBody`,
+ * Gövde herkese açık ilan sayfasıyla ortak (`EmployerJobFacts`, `JobDetailBody`,
  * is-koala/koala-web#166): tarih/saat, adres ve kesinliği, kontenjan,
  * açıklama, görevler, aranan özellikler, galeri, kilitlenen fiyat ve yayın
  * tarihi aynı bileşenlerden çıkıyor. Bu sayfa ona yalnız sahibin gördüğünü
@@ -62,7 +62,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <PagePanel className="employer-job-detail">
       <PageHeader
-        eyebrow={job.categoryName ?? "İlanım"}
+        eyebrow="İlanım"
         title={job.title}
         actions={
           <>
@@ -84,9 +84,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <StatusBadge tone={jobStatusTone(job.status)}>{jobStatusLabel(job.status)}</StatusBadge>
       </PageHeader>
 
-      <JobFacts
+      <EmployerJobFacts
         job={job}
-        audience="employer"
         address={job.displayAddress}
         applicationCount={job.applicationCount}
         className="employer-job-facts"

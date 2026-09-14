@@ -15,13 +15,14 @@ import type {
   PaymentSession,
 } from "@/payments/contract";
 import {
+  firstSucceededCompletedAt,
   hasUnresolvedPaymentAttempt,
   paymentStatusPresentation,
 } from "@/payments/checkout";
 import { messagingAvailabilityFrom } from "@/messaging/contract";
 import { safeImageUrl } from "@/lib/urls";
 import { clean, known } from "@/server/api/dto";
-import { backendPaths } from "@/server/contract";
+import { backendPaths, jobPath } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
 type EmployerAssignmentDto = {
@@ -98,6 +99,42 @@ export async function readEmployerAssignments(
   if (page === null) return { ...emptyPage, page: pageNumber, size: pageSize };
 
   return { ...page, content: page.content.map(projectEmployerAssignment) };
+}
+
+/**
+ * `GET /jobs/{jobId}/assignments` — bir ilanın atamaları, sayfalı, sahibe
+ * ya da şirket yetkilisine (backend 0.9.23). Aynı `MyAssignmentDto`
+ * sözleşmesi; işverenin bütün atamalarını sayfalayıp ilana göre elemeye
+ * gerek bırakmıyor. Sıralama ucun varsayılanı (`assignmentDateTime` azalan);
+ * çağıran yine de karşılaştırıyor, belgeye yaslanmıyor.
+ *
+ * Yol yalnız bu uçta ve `jobPath` ile kuruluyor ki kimlik yola kaçırılmış
+ * girsin. Bilinmeyen bir yol eski sunucuda `ENDPOINT_NOT_FOUND` ile döner;
+ * o karar çağıranın (`readApplicantAssignments`).
+ */
+export async function readJobAssignmentsPage(
+  jobId: string,
+  pageNumber: number,
+  pageSize = 100,
+): Promise<EmployerAssignmentPage> {
+  const page = await apiRequest<EmployerAssignmentPageDto | null>(
+    `${jobPath(jobId)}/assignments?page=${pageNumber}&size=${pageSize}`,
+    { cache: "no-store" },
+  );
+  if (page === null) return { ...emptyPage, page: pageNumber, size: pageSize };
+
+  return { ...page, content: page.content.map(projectEmployerAssignment) };
+}
+
+/** İlanın bütün atamaları; sayfa sınırı `readAllEmployerAssignments` ile aynı. */
+export async function readAllJobAssignments(jobId: string): Promise<readonly EmployerAssignment[]> {
+  const content: EmployerAssignment[] = [];
+  for (let pageNumber = 0; pageNumber < maximumAssignmentPages; pageNumber += 1) {
+    const page = await readJobAssignmentsPage(jobId, pageNumber);
+    content.push(...page.content);
+    if (page.last || pageNumber + 1 >= page.totalPages) break;
+  }
+  return content;
 }
 
 type PaymentSessionDto = {
@@ -246,12 +283,7 @@ export function paymentSecuredAt(
   assignment: Pick<EmployerAssignment, "paymentSecuredAt">,
   attempts: readonly PaymentAttempt[],
 ): string | null {
-  if (assignment.paymentSecuredAt) return assignment.paymentSecuredAt;
-  const completed = attempts
-    .filter((attempt) => attempt.status === "SUCCEEDED" && attempt.completedAt)
-    .map((attempt) => attempt.completedAt as string)
-    .sort((left, right) => Date.parse(left) - Date.parse(right));
-  return completed[0] ?? null;
+  return assignment.paymentSecuredAt ?? firstSucceededCompletedAt(attempts);
 }
 
 function paymentReconciliation(

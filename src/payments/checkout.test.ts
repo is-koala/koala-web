@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  firstSucceededCompletedAt,
   hasUnresolvedPaymentAttempt,
   isAllowedPaymentPageUrl,
   paymentAttemptLabel,
@@ -65,5 +66,22 @@ describe("ödeme durumu sunumu", () => {
       tone: "neutral",
       resolution: "pending",
     });
+  });
+});
+
+describe("firstSucceededCompletedAt", () => {
+  it("ilk başarılı denemenin tamamlanma anını verir; başarılı deneme yoksa null", () => {
+    // İki ekran (çalışan iş ayrıntısı, işveren atama ayrıntısı) aynı satırı
+    // bu tek kuraldan türetiyor.
+    expect(
+      firstSucceededCompletedAt([
+        { status: "SUCCEEDED", completedAt: "2026-09-03T10:00:00Z" },
+        { status: "FAILED", completedAt: "2026-09-01T10:00:00Z" },
+        { status: "SUCCEEDED", completedAt: "2026-09-02T11:00:00Z" },
+        { status: "SUCCEEDED", completedAt: null },
+      ]),
+    ).toBe("2026-09-02T11:00:00Z");
+    expect(firstSucceededCompletedAt([{ status: "FAILED", completedAt: "2026-09-01T10:00:00Z" }])).toBeNull();
+    expect(firstSucceededCompletedAt([])).toBeNull();
   });
 });

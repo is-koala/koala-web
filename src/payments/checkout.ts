@@ -131,3 +131,22 @@ export function paymentAttemptLabel(status: string): string {
 export function paymentReturnToneTitle(status: "success" | "failed"): string {
   return status === "success" ? "Ödeme dönüşü alındı" : "Ödeme tamamlanamadı bildirimi alındı";
 }
+
+/**
+ * Ödemenin emanete alındığı an: ilk `SUCCEEDED` denemenin `completedAt`'i.
+ *
+ * Çalışanın iş ayrıntısı ile işverenin atama ayrıntısı aynı çizelge satırını
+ * aynı listeden türetiyor; kural iki modülde ayrı ayrı yazılıydı ve biri
+ * değişince öbürü sessizce eski kalırdı. Backend #282 bunu satıra
+ * `paymentSecuredAt` olarak yazacak; çağıranlar önce onu, yoksa bunu okuyor.
+ * Başarılı deneme yoksa `null`: adım zamansız kalır, uydurulmaz.
+ */
+export function firstSucceededCompletedAt(
+  attempts: ReadonlyArray<{ readonly status: string; readonly completedAt: string | null }>,
+): string | null {
+  const completed = attempts
+    .filter((attempt) => attempt.status === "SUCCEEDED" && attempt.completedAt)
+    .map((attempt) => attempt.completedAt as string)
+    .sort((left, right) => Date.parse(left) - Date.parse(right));
+  return completed[0] ?? null;
+}
