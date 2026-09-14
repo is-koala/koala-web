@@ -1,3 +1,5 @@
+import type { CanonicalAddress } from "@/address/contract";
+
 /**
  * Sunucu action'ı ile formun paylaştığı durum.
  *
@@ -43,6 +45,20 @@ export type ActionFailure = {
 
 /** `useActionState` imzası; durumun kendisini çağıran seçiyor. */
 export type ActionFor<State> = (state: State, formData: FormData) => Promise<State>;
+
+/**
+ * Kanonik adresi tek bir yazma ucuna bağlayan üç formun (bireysel fatura
+ * adresi, aday adresi, şirket adresi) paylaştığı durum: bitişte kaydedilen
+ * adres geri gelir ki ekran onu yeniden çekmeden gösterebilsin. Kabuğu
+ * `@/components/address-form-shell` çiziyor; durum burada, çünkü
+ * `"use server"` eylemleri bir istemci modülünden değer alamaz.
+ */
+export type AddressFormState =
+  | { status: "idle" }
+  | { status: "done"; address: CanonicalAddress }
+  | Extract<FormState, { status: "error" }>;
+
+export const idleAddressFormState: AddressFormState = { status: "idle" };
 
 /**
  * Kimliğini kendi içinde taşıyan eylem durumu.

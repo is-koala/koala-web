@@ -108,7 +108,22 @@ export const editableCompanyFields = [
 
 export type EditableCompanyField = (typeof editableCompanyFields)[number];
 
-export type CompanyUpdateBody = Record<EditableCompanyField, string>;
+/** Beş metin alanının tamamı; `companyUpdateBody` kurar. */
+export type CompanyDetailsUpdateBody = Record<EditableCompanyField, string>;
+
+/**
+ * `UpdateCompanyRequestDto`. Backend yalnız `null` olmayan alanları uyguluyor
+ * (`CompanyManager.updateCompany`), bu yüzden metin alanları ve adres ayrı
+ * gövdelerle gidebiliyor: yalnız `{ address }` göndermek beş metin alanına
+ * dokunmaz, yalnız beş alan göndermek adresi olduğu gibi bırakır.
+ *
+ * `address` 0.9.24 ile geldi (is-koala/koala-backend#288); bu PR o sürüm
+ * canlıya çıkmadan merge edilmiyor, yani adresi tanımayan sunucu yok.
+ * (Daha eskisi bilinmeyen alanı reddetmez, düşürüp 200 ile eski adresi
+ * döndürürdü — Spring varsayılanı; bunun için sezgisel bir denetim
+ * yazılmadı.)
+ */
+export type CompanyUpdateBody = Partial<CompanyDetailsUpdateBody> & { address?: AddressWrite };
 
 /**
  * Kurulduktan sonra değiştirilemeyen alanlar ve nedenleri.
@@ -116,6 +131,11 @@ export type CompanyUpdateBody = Record<EditableCompanyField, string>;
  * Ekranda gerekçesiyle birlikte duruyor: kullanıcı "neden düzenleyemiyorum"
  * sorusunun cevabını başka bir sayfada aramamalı. Liste tek yerde, çünkü
  * düzenleme ekranı ile profil aynı gerekçeyi yazıyor.
+ *
+ * Adres bu listede **değil** (is-koala/koala-web#172): `PATCH /companies/{id}`
+ * 0.9.24'ten beri `address` taşıyor ve düzenleme kendi sayfasında
+ * (`companyAddressPath`), çünkü adres bileşeni arama/harita akışıyla beş
+ * metin alanının formuna sığmıyor ve tek kullanımlık aday kanıtı taşıyor.
  */
 export const lockedCompanyFields = [
   {
@@ -129,12 +149,6 @@ export const lockedCompanyFields = [
     label: "Şirket türü",
     reason:
       "Şirket türü kayıt anında seçiliyor ve güncelleme ucu bu alanı taşımıyor, yani sonradan değiştirilemiyor.",
-  },
-  {
-    name: "address",
-    label: "Şirket adresi",
-    reason:
-      "Şirket adresi kayıt anında onaylanan konuma bağlı ve güncelleme ucu adresi taşımıyor. Adres değişikliği için destek ekibiyle iletişime geçmen gerekiyor.",
   },
 ] as const;
 
@@ -273,8 +287,8 @@ export function companyCreateBody(
  * (`CompanyManager.java:281-300`), yani alanı atlamak kullanıcının sildiği
  * web adresini eski hâliyle bırakırdı.
  */
-export function companyUpdateBody(draft: CompanyDraft): CompanyUpdateBody {
+export function companyUpdateBody(draft: CompanyDraft): CompanyDetailsUpdateBody {
   return Object.fromEntries(
     editableCompanyFields.map((field) => [field, draft[field].trim()]),
-  ) as CompanyUpdateBody;
+  ) as CompanyDetailsUpdateBody;
 }

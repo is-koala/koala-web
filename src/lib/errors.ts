@@ -1,6 +1,6 @@
 import { serviceAreaNotice } from "@/address/contract";
 import { identityChipPaUnavailableErrorCode, identityVerificationPath } from "@/identity/handoff";
-import { employerBillingAddressPath } from "@/lib/app-routes";
+import { companyAddressSectionHref, employerBillingAddressPath } from "@/lib/app-routes";
 
 import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
 import type { GateId } from "./gates";
@@ -589,12 +589,14 @@ export type GateNotice = {
 
 /**
  * Fatura adresi #28 ile `/isveren/adres` üzerinde; iş arayan adresi #133
- * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir.
+ * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir
+ * (#172): kapı metni şirket kimliğini bilmiyor, bu yüzden bağlantı bölümün
+ * girişine (`/isveren/sirket`) düşer ve tek şirketli kullanıcıyı giriş
+ * kendisi profile bırakır.
  *
  * Kimlik kapısı `/kimlik-dogrula`'ya düşer: tarayıcı çip PA üretemez; ekran
  * dört TCKK fotoğrafını alır (koala-backend#219).
  */
-const openAppPath = "/uygulamayi-ac";
 
 const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   identityVerification: {
@@ -647,12 +649,14 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   },
   companyBillingAddress: {
     title: "Şirketin fatura adresi kayıtlı değil",
+    // Kısa tutuluyor: bu dosya ilan sayfasının istemci paketinde ve bütçe
+    // dolu (`docs/performance-accessibility-budget.md`).
     message:
-      "Şirket ilanlarında ödeme senin adresini değil şirketin adresini kullanıyor ve bu şirketin kayıtlı bir adresi yok. Şirket adresi şu an ne web'den ne uygulamadan değiştirilebiliyor; düzenleme yakında geliyor, o zamana kadar destekle iletişime geç.",
-    // Adres düzenleme henüz hiçbir istemcide yok (backend #288, web #172,
-    // mobil is-koala/koala#184). Web düzenleme gelince `href` oraya döner;
-    // o güne kadar bağlantı uygulamayı açar, orada en azından adres görünür.
-    remedy: { href: openAppPath, label: "Şirket adresini uygulamada gör" },
+      "Ödeme şirketin adresine kesilir ve bu şirketin kayıtlı adresi yok. Şirket yöneticisi profildeki adres bölümünden ekleyebilir.",
+    // Bölüm girişi tek şirketli kullanıcıyı profildeki adres bölümüne
+    // bırakıyor (`companyAddressSectionHref`); kapı metni şirket kimliğini
+    // taşımıyor.
+    remedy: { href: companyAddressSectionHref, label: "Şirket adresini düzenle" },
     errorCodes: ["JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER"],
   },
 };

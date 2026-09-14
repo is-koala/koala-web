@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Company } from "@/server/company/company";
@@ -34,6 +34,7 @@ function renderProfile(overrides: Partial<Company> = {}, viewerRole = "ADMIN") {
       company={{ ...company, ...overrides }}
       viewerRole={viewerRole}
       editHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/duzenle"
+      addressHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/adres"
       contactsHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/yetkililer"
       galleryHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/galeri"
       newJobHref="/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ilan/yeni"
@@ -114,6 +115,28 @@ describe("şirket profili", () => {
     cleanup();
     renderProfile({}, "STAFF");
     expect(screen.queryByRole("link", { name: "Şirket bilgilerini düzenle" })).not.toBeInTheDocument();
+  });
+
+  it("adres düzenleme bağlantısını yalnız yöneticiye verir, yetkili salt okur", () => {
+    // `PATCH /companies/{id}` `address` alanını da `requireCompanyAdmin`
+    // arkasında alıyor (is-koala/koala-backend#288); CONTACT'a bağlantı
+    // vermek onu 404'e yollardı. Adres bölümü ödeme kapısının hedefi
+    // (`#sirket-adresi`), o yüzden her rolde çizilir.
+    renderProfile({}, "ADMIN");
+    const section = screen.getByRole("region", { name: "Şirket adresi" });
+    expect(section).toHaveAttribute("id", "sirket-adresi");
+    expect(within(section).getByRole("link", { name: "Düzenle" })).toHaveAttribute(
+      "href",
+      "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/adres",
+    );
+
+    cleanup();
+    renderProfile({}, "CONTACT");
+    const readOnly = screen.getByRole("region", { name: "Şirket adresi" });
+    expect(within(readOnly).queryByRole("link", { name: "Düzenle" })).not.toBeInTheDocument();
+    expect(
+      within(readOnly).getByText("Büyükdere Caddesi No: 12, Levent, Beşiktaş/İstanbul"),
+    ).toBeInTheDocument();
   });
 
   it("adres eklenmemiş şirkette de çizilir", () => {

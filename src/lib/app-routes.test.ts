@@ -5,6 +5,7 @@ import {
   companyProfilePath,
   companySectionPath,
   editCompanyPath,
+  companyAddressPath,
   employerJobsPath,
   companyGalleryPath,
   jobApplicantsPath,
@@ -173,6 +174,15 @@ describe("kabuk rota kaydı", () => {
       "/isveren/sirket/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/duzenle",
     );
     expect(companyProfilePath("a b/../hesap")).toBe("/isveren/sirket/a%20b%2F..%2Fhesap");
+  });
+
+  it("şirket adresi ekranı profilin altında ve kimliği kaçırır", () => {
+    // Adres düzenleme beş alanın formundan ayrı (is-koala/koala-web#172);
+    // adres çubuğundan gelen kimlik yolu değiştiremez.
+    expect(companyAddressPath("4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99")).toBe(
+      "/isveren/sirket/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/adres",
+    );
+    expect(companyAddressPath("a b/../hesap")).toBe("/isveren/sirket/a%20b%2F..%2Fhesap/adres");
   });
 
   it("şirket alt adreslerini bölüm saymaz", () => {

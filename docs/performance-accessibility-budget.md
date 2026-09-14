@@ -28,6 +28,15 @@ ayrıntısına yayın tarihi ve işveren güven kartı yalnız sunucu bileşeni 
 artış istemci kodundan değil, sayfanın istemci referans yükünden geliyor. İlan ayrıntısına yeni
 istemci bileşeni **sığmıyor**; bir sonraki istemci ihtiyacı önce bütçe düşürmeyi gerektirir.
 
+2026-09-14 (is-koala/koala-web#172, şirket adresi düzenleme; #175 üzerinde) ölçümü: ana sayfa
+247.833, ilan listesi 249.724, ilan ayrıntısı **255.735** bayt — sınıra 265 bayt kaldı. İlan
+ayrıntısına hiç istemci kodu girmedi; artışın kaynağı `src/lib/errors.ts`. O dosya ilan
+sayfasının istemci paketinde (`ErrorState` → `errorPresentation`) ve **her kapı metni, her hata
+cümlesi ilan sayfasına gider**: `errors.ts`'e `@/lib/company` içe aktarması eklemek sayfayı
+256.983 bayta çıkarıp kapıyı kırdı (983 bayt aşım), `companyBillingAddress` metni kısaltılıp
+web'e özgü bir hata kodu geri alınınca 255.735'e indi. `errors.ts`'e yeni cümle ya da içe
+aktarma eklerken önce bunu ölç; ilan ayrıntısına sığan pay artık bir uzun cümle kadar.
+
 Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
 kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;
 Raspberry Pi koşucunun daha düşük `benchmarkIndex` değeri için CI tavanı 12 saniyedir. Her

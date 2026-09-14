@@ -3,17 +3,13 @@
 import { unstable_rethrow } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import type { CanonicalAddress } from "@/address/contract";
 import { readAddressWrite, writeFieldErrors } from "@/address/write";
 import { workerApplicantAddressPath } from "@/lib/app-routes";
-import type { FormState } from "@/lib/form-state";
+import type { AddressFormState } from "@/lib/form-state";
 import { failureState, validationState } from "@/server/form";
 import { updateCurrentUserAddress } from "@/server/address/user-address";
 
-export type ApplicantAddressState =
-  | { status: "idle" }
-  | { status: "done"; address: CanonicalAddress }
-  | Extract<FormState, { status: "error" }>;
+export type ApplicantAddressState = AddressFormState;
 
 export async function saveApplicantAddressAction(
   _state: ApplicantAddressState,

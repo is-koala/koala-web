@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { AddressView } from "@/components/address-view";
-import { canManageCompany, companyTypeLabel, lockedCompanyFields } from "@/lib/company";
+import { CompanyAddressSection } from "@/components/company/company-address-section";
+import { canManageCompany, companyTypeLabel } from "@/lib/company";
 import type { Company } from "@/server/company/company";
 
 /**
@@ -20,6 +20,8 @@ export type CompanyProfileProps = {
   /** Kullanıcının bu şirketteki rolü; `GET /users/me` üyelik listesinden. */
   viewerRole: string;
   editHref: string;
+  /** Şirket adresinin düzenleme ekranı (is-koala/koala-web#172); yalnız `ADMIN`'e çizilir. */
+  addressHref: string;
   contactsHref: string;
   /**
    * Şirket galerisi. Adres şirket kimliğini taşır: issue `/isveren/sirket/galeri`
@@ -42,6 +44,7 @@ export function CompanyProfileView({
   company,
   viewerRole,
   editHref,
+  addressHref,
   contactsHref,
   galleryHref,
   newJobHref,
@@ -108,16 +111,10 @@ export function CompanyProfileView({
         {company.description ? <p className="record-description">{company.description}</p> : null}
       </section>
 
-      <section className="app-panel" aria-labelledby="company-address-title">
-        <div className="section-heading-row">
-          <div>
-            <p className="eyebrow">Adres</p>
-            <h2 id="company-address-title">Şirket adresi</h2>
-          </div>
-        </div>
-        <AddressView address={company.address} />
-        <p className="muted">{addressLockReason}</p>
-      </section>
+      <CompanyAddressSection
+        address={company.address}
+        editHref={canManageCompany(viewerRole) ? addressHref : null}
+      />
 
       <section className="app-panel" aria-labelledby="company-contacts-link-title">
         <div className="section-heading-row">
@@ -153,10 +150,6 @@ export function CompanyProfileView({
     </div>
   );
 }
-
-/** Adresin neden düzenlenemediği tek yerden okunuyor. */
-const addressLockReason =
-  lockedCompanyFields.find((field) => field.name === "address")?.reason ?? "";
 
 function ApprovalBadge({ approved }: { approved: boolean }) {
   return approved ? (

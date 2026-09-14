@@ -198,7 +198,8 @@ export function CompanyForm({
          */}
         <p className="field-hint">{serviceAreaNotice}</p>
         <p className="field-hint">
-          Şirket adresi kayıttan sonra değiştirilemiyor; güncelleme ucu adres alanını taşımıyor.
+          Şirket adresini sonradan şirket profilindeki &quot;Şirket adresi&quot; bölümünden
+          değiştirebilirsin.
         </p>
         <CanonicalAddressForm
           gateway={addressGateway}

@@ -16,6 +16,16 @@ const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
 const jobCreatorId = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
 const assignmentPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/(payments|disputes|work-sessions|cancellation-preview)$/;
 const reviewPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/reviews$/;
+// Şirket adresi düzenleme (is-koala/koala-web#172). Üyelik yalnız
+// `?companyRole=` ile sıfırlanan durumda verilir: öbür senaryolar şirketsiz
+// kullanıcıyı varsayıyor ve `/isveren/sirket` onlarda "şirket yok" ekranı.
+const companyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const referenceCountryId = "2f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f52";
+const referenceCityId = "6f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f50";
+const referenceDistricts = [
+  { id: "1f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f51", name: "Beşiktaş" },
+  { id: "1f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f53", name: "Kadıköy" },
+];
 const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
@@ -37,6 +47,9 @@ const server = createServer(async (request, response) => {
       applications: [],
       applicationRequests: [],
       reviews: [],
+      companyRole: url.searchParams.get("companyRole"),
+      companyAddress: initialCompanyAddress(),
+      companyRequests: [],
     });
     return json(response, 200, { ok: true });
   }
@@ -50,6 +63,12 @@ const server = createServer(async (request, response) => {
     const state = stateFrom(url);
     return state
       ? json(response, 200, state.reviews)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/company-requests") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.companyRequests)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
   if (request.method === "GET" && url.pathname === "/__test__/application-requests") {
@@ -127,8 +146,52 @@ const server = createServer(async (request, response) => {
       identityVerified: true,
       maskedTcIdentityNumber: "*********11",
       address: { id: "address-placeholder" },
-      companies: [],
+      companies: state.companyRole
+        ? [{ companyId, companyName: "Koala Temizlik", role: state.companyRole, approved: true }]
+        : [],
     });
+  }
+  if (url.pathname === `/companies/${companyId}`) {
+    // `GET` üyeliğe bakmıyor (backend'deki gibi); `PATCH` yalnız ADMIN'e açık
+    // ve geçemeyene 404 `USER_NOT_ASSOCIATED_WITH_COMPANY` (backend 0.9.24,
+    // is-koala/koala-backend#288).
+    if (request.method === "GET") {
+      return backendSuccess(response, companyOf(state));
+    }
+    if (request.method === "PATCH") {
+      const body = await readJson(request);
+      state.companyRequests.push({ method: request.method, path: url.pathname, body });
+      if (state.companyRole !== "ADMIN") {
+        return backendError(response, 404, "USER_NOT_ASSOCIATED_WITH_COMPANY", "RESOURCE_NOT_FOUND");
+      }
+      if (body?.address) {
+        const written = body.address;
+        const district =
+          referenceDistricts.find((entry) => entry.id === written.districtId) ?? referenceDistricts[0];
+        const components = written.components ?? {};
+        state.companyAddress = {
+          countryName: "Türkiye",
+          cityName: "İstanbul",
+          districtName: district.name,
+          components,
+          displayAddress: `${components.thoroughfare ?? ""} No: ${components.buildingNumber ?? ""}, ${
+            components.neighborhood ?? ""
+          }, ${district.name}/İstanbul`,
+          needsReview: false,
+          position: { ...written.position },
+        };
+      }
+      return backendSuccess(response, companyOf(state));
+    }
+  }
+  if (request.method === "GET" && url.pathname === "/reference/countries") {
+    return backendSuccess(response, [{ id: referenceCountryId, name: "Türkiye", code: "TR" }]);
+  }
+  if (request.method === "GET" && url.pathname === `/reference/countries/${referenceCountryId}/cities`) {
+    return backendSuccess(response, [{ id: referenceCityId, name: "İstanbul" }]);
+  }
+  if (request.method === "GET" && url.pathname === `/reference/cities/${referenceCityId}/districts`) {
+    return backendSuccess(response, referenceDistricts);
   }
   // Atamanın işçisinin aday dosyası (is-koala/koala-web#166): profil, puan
   // özeti, değerlendirmeler ve rozetler dört ayrı uçtan okunuyor.
@@ -481,6 +544,36 @@ async function drain(request) {
   for await (const chunk of request) {
     void chunk;
   }
+}
+
+function initialCompanyAddress() {
+  return {
+    countryName: "Türkiye",
+    cityName: "İstanbul",
+    districtName: "Beşiktaş",
+    components: { neighborhood: "Levent", thoroughfare: "Büyükdere Caddesi", buildingNumber: "12", postalCode: "34330" },
+    displayAddress: "Büyükdere Caddesi No: 12, Levent, Beşiktaş/İstanbul",
+    needsReview: false,
+    position: { latitude: 41.081235, longitude: 29.008765, source: "LEGACY_UNVERIFIED" },
+  };
+}
+
+function companyOf(state) {
+  return {
+    id: companyId,
+    name: "Koala Temizlik",
+    email: "bilgi@koala.test",
+    logoUrl: null,
+    phoneNumber: "05001112233",
+    website: null,
+    description: null,
+    taxNumber: "1234567890",
+    type: "LIMITED",
+    address: state.companyAddress,
+    companyContacts: [],
+    followerCount: 0,
+    approved: true,
+  };
 }
 
 function galleryOf(state) {

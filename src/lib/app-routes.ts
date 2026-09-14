@@ -158,6 +158,31 @@ export function editCompanyPath(companyId: string): string {
   return `${companyProfilePath(companyId)}/duzenle`;
 }
 
+/** Profildeki "Şirket adresi" bölümünün çapası (`id`). */
+export const companyAddressAnchor = "sirket-adresi";
+
+/**
+ * Bölüm girişinin "hangi bölüme" sorgusu. Ödeme kapısı şirket kimliğini
+ * bilmediği için bölüm girişine yollar; giriş tek şirketli kullanıcıyı
+ * profile yönlendirirken hedefi buradan okuyup çapayı ekler. Parça (`#`)
+ * sunucuya hiç ulaşmaz ve App Router'ın istemci yönlendirmesi onu düşürüyor
+ * (ölçüldü, `tests/e2e/sirket-adres.spec.ts`); sorgu iki yolda da yaşıyor.
+ */
+export const companySectionFocusParam = "bolum";
+export const companyAddressSectionHref = `${companySectionPath}?${companySectionFocusParam}=${companyAddressAnchor}`;
+
+/**
+ * Şirket adresinin düzenleme ekranı; yalnız `ADMIN` kaydedebiliyor.
+ *
+ * Beş metin alanının formundan ayrı bir sayfa: adres bileşeni arama/harita
+ * akışı taşıyor ve tek kullanımlık aday kanıtı (`candidateToken`, 10 dakika)
+ * ile gidiyor. Metin alanlarındaki bir doğrulama hatası aynı formdaki adres
+ * kanıtını da yakardı (is-koala/koala-web#172).
+ */
+export function companyAddressPath(companyId: string): string {
+  return `${companyProfilePath(companyId)}/adres`;
+}
+
 /**
  * Şirket adına ilan açma formu.
  *

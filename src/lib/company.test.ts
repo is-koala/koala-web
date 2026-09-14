@@ -207,14 +207,11 @@ describe("şirket bölümünün girişi", () => {
 });
 
 describe("kilitli alanlar", () => {
-  it("değiştirilemeyen üç alanı gerekçesiyle birlikte sayar", () => {
+  it("değiştirilemeyen iki alanı gerekçesiyle birlikte sayar", () => {
     // Ekran "neden düzenleyemiyorum" sorusunu cevapsız bırakmamalı; gerekçe
-    // alanın yanında duruyor ve tek yerden okunuyor.
-    expect(lockedCompanyFields.map((field) => field.name)).toEqual([
-      "taxNumber",
-      "type",
-      "address",
-    ]);
+    // alanın yanında duruyor ve tek yerden okunuyor. Adres listede değil:
+    // `PATCH /companies/{id}` 0.9.24'ten beri `address` taşıyor (#172).
+    expect(lockedCompanyFields.map((field) => field.name)).toEqual(["taxNumber", "type"]);
     for (const field of lockedCompanyFields) {
       expect(field.label.length).toBeGreaterThan(0);
       expect(field.reason.length).toBeGreaterThan(0);

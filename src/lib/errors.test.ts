@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { backendErrorFamilies } from "./backend-error-codes";
 import { errorPresentation, errorRecoveryAction, gateNotice } from "./errors";
 import { gateModes, type GateId } from "./gates";
+import { appShells } from "./app-routes";
 import { privateRoutes } from "./private-routes";
 
 describe("API hata sunumu", () => {
@@ -387,6 +388,21 @@ describe("kapı metinleri", () => {
     });
   });
 
+  it("şirket fatura adresi kapısını web'deki şirket bölümüne yollar", () => {
+    // Düzenleme web'de (is-koala/koala-web#172): bağlantı artık uygulamayı
+    // açmıyor, metin de "uygulamadan" ya da "destekle" demiyor. Kapı şirket
+    // kimliğini bilmediği için hedef bölüm girişi; tek şirketli kullanıcıyı
+    // giriş profile bırakıyor.
+    const notice = gateNotice("companyBillingAddress");
+
+    expect(notice.remedy).toEqual({
+      href: "/isveren/sirket?bolum=sirket-adresi",
+      label: "Şirket adresini düzenle",
+    });
+    expect(notice.message).not.toMatch(/uygulama/i);
+    expect(notice.message).not.toMatch(/destek/i);
+  });
+
   it("iki fatura adresi kapısını farklı metinlerle anlatır", () => {
     // Ödeme, şirket ilanında **şirketin** adresini okuyor
     // (`JobAssignmentManager.java:316-326`), kullanıcınınkini değil; tek metin
@@ -456,13 +472,23 @@ describe("kapı sözlüğünün bütünlüğü", () => {
 
   it("kapının gösterdiği yol gerçekten var olan bir rota", () => {
     // Var olmayan bir adrese yollayan kapı, kapı olmamasından kötü: kullanıcı
-    // eksiğini öğrenip 404'e düşer.
-    const known = new Set<string>(privateRoutes);
+    // eksiğini öğrenip 404'e düşer. Kabuk bölümleri `private-routes.ts`'te
+    // tek tek değil ağaç olarak duruyor; onlar için kayıt `app-routes.ts` ve
+    // yalnız `ready` bölüm sayılır — "henüz açılmadı" ekranına yollamak da
+    // 404'e yollamak kadar boş.
+    // Sorgu rotanın parçası değil; bölüm girişine "hangi bölüm" sorgusuyla
+    // gitmek geçerli.
+    const known = new Set<string>([
+      ...privateRoutes,
+      ...Object.values(appShells).flatMap((shell) =>
+        shell.sections.filter((section) => section.status === "ready").map((section) => section.href),
+      ),
+    ]);
 
     for (const gate of Object.keys(gateModes) as GateId[]) {
       const remedy = gateNotice(gate).remedy;
       if (remedy === null) continue;
-      expect(known.has(remedy.href), `${gate} → ${remedy.href}`).toBe(true);
+      expect(known.has(remedy.href.split("?")[0]), `${gate} → ${remedy.href}`).toBe(true);
     }
   });
 

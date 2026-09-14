@@ -144,6 +144,35 @@ describe("şirket backend modülü", () => {
     });
   });
 
+  it("adresi aynı PATCH ucuna tek başına gönderir ve yanıttaki adresi okur", async () => {
+    // 0.9.24 sözleşmesi (is-koala/koala-backend#288): `address` isteğe bağlı,
+    // metin alanları gövdede yoksa dokunulmuyor. Yanıt güncel adresi taşır.
+    const fetchMock = successfulFetch({
+      id: companyId,
+      address: {
+        countryName: "Türkiye",
+        cityName: "İstanbul",
+        districtName: "Beyoğlu",
+        components: details.address.components,
+        displayAddress: "Piyalepaşa, Kaptanpaşa / Beyoğlu",
+        needsReview: false,
+        position: { latitude: "41.050000", longitude: "28.980000", source: "AUTOCOMPLETE_CONFIRMED" },
+      },
+    });
+
+    const company = await updateCompany(companyId, { address: details.address });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`https://api.example.test/companies/${companyId}`);
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ address: details.address });
+    expect(company.address).toMatchObject({
+      districtName: "Beyoğlu",
+      displayAddress: "Piyalepaşa, Kaptanpaşa / Beyoğlu",
+      position: { latitude: 41.05, longitude: 28.98 },
+    });
+  });
+
   it("logoyu kendi ucuna multipart olarak yazar", async () => {
     // `PUT /companies/{companyId}/logo` parça adını `logo` bekliyor ve
     // şirket güncellemesinden ayrı bir uç: formun kaydetmesine bağlanamaz.
