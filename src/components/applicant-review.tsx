@@ -10,6 +10,8 @@ import {
   applicantStatusLabel,
   applicantsInFilter,
   applicationDecisionGate,
+  badgeSummary,
+  badgeTierLabel,
   idleApplicantDossierState,
   idleApplicationDecisionState,
   idleConversationState,
@@ -695,16 +697,6 @@ function ApplicantCompareStrip({ dossier }: { dossier: ApplicantDossier | null }
   );
 }
 
-/** "3 rozet · 1 altın" — en yüksek seviye sayısıyla birlikte. */
-function badgeSummary(badges: readonly ApplicantBadge[]): string {
-  const count = `${badges.length} rozet`;
-  for (const tier of ["GOLD", "SILVER", "BRONZE"] as const) {
-    const tierCount = badges.filter((badge) => badge.tier === tier).length;
-    if (tierCount > 0) return `${count} · ${tierCount} ${badgeTierLabel[tier].toLocaleLowerCase("tr-TR")}`;
-  }
-  return count;
-}
-
 function ApplicantDossierPanel({ dossier }: { dossier: ApplicantDossier }) {
   return (
     <section className="applicant-dossier" aria-label="Aday ayrıntısı">
@@ -858,22 +850,6 @@ function decisionErrorMessage(errorCode: string, httpStatus: number): string {
   }
   return errorPresentation(errorCode, httpStatus).message;
 }
-
-/**
- * Rozet seviyesinin Türkçesi.
- *
- * `NONE` ve `UNKNOWN` boş: ilki seviyesi olmayan bir rozet ailesi
- * (`BadgeTier.NONE`), ikincisi backend'in tanımadığımız bir seviye
- * göndermesi. İkisinde de rozet adı tek başına doğru; uydurulmuş bir seviye
- * yazmak yanlış olurdu.
- */
-const badgeTierLabel: Readonly<Record<ApplicantBadge["tier"], string>> = {
-  BRONZE: "Bronz",
-  SILVER: "Gümüş",
-  GOLD: "Altın",
-  NONE: "",
-  UNKNOWN: "",
-};
 
 const filterOptions: ReadonlyArray<{ value: ApplicantFilter; label: string }> = [
   { value: "ALL", label: "Tümü" },

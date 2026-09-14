@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PaymentAttempt } from "@/payments/contract";
+
 import {
   cookieStore,
   envelope,
@@ -12,6 +14,7 @@ import {
   readAllEmployerAssignments,
   readEmployerPaymentCompany,
   readPaymentDetailsForAssignment,
+  paymentSecuredAt,
   readEmployerAssignments,
   readPaymentReconciliation,
   readPaymentAttempts,
@@ -161,9 +164,59 @@ describe("işveren ödeme BFF sözleşmesi", () => {
 
     expect(result.content[0]).toMatchObject({
       assignedAt: null,
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       completedAt: null,
       workHours: 0,
+      workerPictureUrl: null,
+      companyName: null,
     });
+  });
+
+  it("#282 damgalarını, şirket adını ve işçi fotoğrafını geldiklerinde satırdan taşır", async () => {
+    // `confirmedAt`, `paymentSecuredAt`, `cancellation` is-koala/koala-backend#282
+    // ile geliyor; alan varsa çizelge zamanı yazar, yoksa adım zamansız kalır.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope(assignmentPage([{
+        ...backendAssignment,
+        job: { ...backendAssignment.job, companyName: "Koala Etkinlik" },
+        worker: {
+          id: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
+          firstName: "Ayşe",
+          lastName: "Yılmaz",
+          profilePictureUrl: "https://cdn.example.test/ayse.jpg",
+        },
+        confirmedAt: "2026-09-01T10:00:00Z",
+        paymentSecuredAt: "2026-09-01T12:00:00Z",
+        cancellation: { cancelledByParty: "EMPLOYER", cancelledAt: "2026-09-02T08:00:00Z" },
+      }]))),
+    ));
+
+    const result = await readEmployerAssignments();
+
+    expect(result.content[0]).toMatchObject({
+      companyName: "Koala Etkinlik",
+      workerPictureUrl: "https://cdn.example.test/ayse.jpg",
+      confirmedAt: "2026-09-01T10:00:00Z",
+      paymentSecuredAt: "2026-09-01T12:00:00Z",
+      cancelledAt: "2026-09-02T08:00:00Z",
+    });
+  });
+
+  it("emanete alınma anını satırdan, yoksa ilk başarılı denemeden türetir", () => {
+    const attempt = (status: string, completedAt: string | null) => ({
+      id: "a", status, currency: "TRY", workerPayout: "1", serviceFeeRate: "0", serviceFeeAmount: "0",
+      employerTotal: "1", completedAt, createdAt: "2026-09-01T00:00:00Z", failureMessage: null,
+    }) as PaymentAttempt;
+
+    expect(paymentSecuredAt({ paymentSecuredAt: "2026-09-01T12:00:00Z" }, [])).toBe("2026-09-01T12:00:00Z");
+    expect(paymentSecuredAt({ paymentSecuredAt: null }, [
+      attempt("SUCCEEDED", "2026-09-03T10:00:00Z"),
+      attempt("FAILED", "2026-09-02T10:00:00Z"),
+      attempt("SUCCEEDED", "2026-09-02T11:00:00Z"),
+    ])).toBe("2026-09-02T11:00:00Z");
+    expect(paymentSecuredAt({ paymentSecuredAt: null }, [attempt("FAILED", "2026-09-02T10:00:00Z")])).toBeNull();
   });
 
   it("güvenlik sayfa sınırına gelince atama koleksiyonunu eksik diye işaretler", async () => {

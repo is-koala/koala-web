@@ -122,27 +122,44 @@ export type TrackingEvent = {
 
 const startedStatuses = new Set(["IN_PROGRESS", "COMPLETED"]);
 const confirmedStatuses = new Set(["CONFIRMED", "IN_PROGRESS", "COMPLETED"]);
+/** Ödemenin bir kez emanete girdiği durumlar; `REFUNDED` da önce alınmış paranın iadesi. */
+const securedPaymentStatuses = new Set(["HELD_IN_ESCROW", "RELEASED_TO_WORKER", "REFUNDED"]);
 
 /**
- * `PENDING_CONFIRMATION → CONFIRMED → IN_PROGRESS → COMPLETED` yolu ve iki
- * çıkışı.
+ * `PENDING_CONFIRMATION → CONFIRMED → ödeme emanette → IN_PROGRESS → COMPLETED`
+ * yolu ve iki çıkışı.
  *
  * Red ve iptal aşamaları **kısaltıyor**, işaretlemiyor: reddedilmiş bir
  * atamada "iş başladı" adımını beklemede göstermek, hiç olmayacak bir adımı
  * bekletirdi. İptal ise geriye dönmüyor — o ana kadar gerçekleşen aşamalar
- * duruyor ve iptal son adım oluyor.
+ * duruyor ve iptal son adım oluyor; zamanı iptal kaydından
+ * (`CancellationDto.cancelledAt`) geliyor.
  *
- * `CONFIRMED` adımının zamanı yok, bilerek: backend onay anını ayrı bir alanda
- * taşımıyor ve uydurulmuş bir zaman, olmayan bir kaydı varmış gibi gösterirdi.
+ * Zamanlar yalnız backend verdiğinde yazılıyor, uydurulmuyor. `confirmedAt`
+ * is-koala/koala-backend#282 ile satıra geliyor; gelene kadar onay adımı
+ * zamansız ama ulaşılmış çiziliyor. Ödeme adımının zamanı ilk başarılı
+ * ödeme denemesinin `completedAt`'i (`paymentSecuredAt`); zamanı okunamasa
+ * bile ödeme durumu emanete girmişse adım ulaşılmış sayılıyor — para
+ * gerçekten alındı, yalnız ne zaman alındığı bilinmiyor.
  */
 export function employerAssignmentTimeline(input: {
   status: string;
+  paymentStatus?: string;
   assignedAt: string | null;
+  confirmedAt?: string | null;
+  paymentSecuredAt?: string | null;
+  cancelledAt?: string | null;
   completedAt: string | null;
   sessions: readonly WorkSession[];
 }): readonly TrackingEvent[] {
   const started = startedStatuses.has(input.status) || input.sessions.length > 0;
   const confirmed = confirmedStatuses.has(input.status) || started;
+  // Tamamlanmış atamada ödeme kesin alınmış: sunucu emanet olmadan
+  // tamamlamayı 409 ile reddediyor (`assignmentCompletion`).
+  const paymentSecured =
+    Boolean(input.paymentSecuredAt) ||
+    securedPaymentStatuses.has(input.paymentStatus ?? "") ||
+    input.status === "COMPLETED";
   const firstCheckIn = input.sessions.at(0)?.checkInAt ?? null;
 
   const offered: TrackingEvent = {
@@ -158,12 +175,24 @@ export function employerAssignmentTimeline(input: {
 
   const stages: TrackingEvent[] = [
     offered,
-    { key: "confirmed", label: "İşçi atamayı onayladı", at: null, reached: confirmed },
+    { key: "confirmed", label: "İşçi atamayı onayladı", at: input.confirmedAt ?? null, reached: confirmed },
+    {
+      key: "payment-secured",
+      label: "Ödeme emanete alındı",
+      at: input.paymentSecuredAt ?? null,
+      reached: paymentSecured,
+    },
     { key: "started", label: "İş başladı", at: firstCheckIn, reached: started },
   ];
 
   if (input.status === "CANCELLED") {
-    return [...stages, { key: "cancelled", label: "Atama iptal edildi", at: null, reached: true }];
+    // Ödeme hiç alınmadan iptal edilen atamada emanet adımı beklemede kalmaz:
+    // olmayacak bir adım. Alınmışsa adım duruyor; iade süreci onun devamı.
+    const reachedStages = stages.filter((stage) => stage.key !== "payment-secured" || paymentSecured);
+    return [
+      ...reachedStages,
+      { key: "cancelled", label: "Atama iptal edildi", at: input.cancelledAt ?? null, reached: true },
+    ];
   }
 
   return [

@@ -514,3 +514,36 @@ export const applicantStatusLabel: Readonly<Record<ApplicationStatus, string>> =
   WITHDRAWN: "Aday başvurusunu geri çekti",
   UNKNOWN: "Durum güncelleniyor",
 };
+
+/**
+ * Rozet seviyesinin Türkçesi.
+ *
+ * `NONE` ve `UNKNOWN` boş: ilki seviyesi olmayan bir rozet ailesi
+ * (`BadgeTier.NONE`), ikincisi backend'in tanımadığımız bir seviye
+ * göndermesi. İkisinde de rozet adı tek başına doğru; uydurulmuş bir seviye
+ * yazmak yanlış olurdu. Aday kartı ve aday dosyası sayfası aynı sözlüğü
+ * okur.
+ */
+export const badgeTierLabel: Readonly<Record<BadgeTier, string>> = {
+  BRONZE: "Bronz",
+  SILVER: "Gümüş",
+  GOLD: "Altın",
+  NONE: "",
+  UNKNOWN: "",
+};
+
+/** "3 rozet · 1 altın" — en yüksek seviye sayısıyla birlikte. */
+export function badgeSummary(badges: readonly ApplicantBadge[]): string {
+  const count = `${badges.length} rozet`;
+  for (const tier of ["GOLD", "SILVER", "BRONZE"] as const) {
+    const tierCount = badges.filter((badge) => badge.tier === tier).length;
+    if (tierCount > 0) return `${count} · ${tierCount} ${badgeTierLabel[tier].toLocaleLowerCase("tr-TR")}`;
+  }
+  return count;
+}
+
+/** "4.6 / 5 · 7 değerlendirme"; değerlendirme yoksa `null` ve ekran kendi boş cümlesini yazar. */
+export function ratingSummaryLabel(summary: ApplicantRatingSummary | null): string | null {
+  if (summary === null || summary.reviewCount <= 0) return null;
+  return `${summary.averageRating} / 5 · ${summary.reviewCount} değerlendirme`;
+}

@@ -737,6 +737,13 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .work-timeline li:not(:last-child)::after { content: ""; position: absolute; left: 7px; top: 22px; bottom: 4px; width: 2px; background: var(--line); }
 .work-timeline time { color: var(--muted); font-size: .82rem; }
 
+/* Aday dosyası sayfası: başvuru kartındaki panelin sayfa hâli; kimlik kartı
+   çalışan ekranındaki işveren kartıyla aynı düzen (`.work-employer`). */
+.applicant-dossier-page { display: flex; flex-direction: column; gap: 20px; }
+.applicant-dossier-page .work-detail-section > h2 { margin-bottom: 6px; font-size: var(--size-20); }
+.applicant-dossier-page .applicant-about { margin: 8px 0 0; font-size: var(--size-15); }
+.applicant-dossier-page .applicant-reviews li { background: var(--surface-sunken); }
+.applicant-dossier-page .applicant-badges li { background: var(--surface-sunken); }
 /* İşveren atama takibi ve ilan kontenjanı */
 .assignment-tracking { display: flex; flex-direction: column; gap: 24px; }
 .assignment-tracking > h2 { margin-bottom: 0; }

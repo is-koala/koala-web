@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
@@ -18,13 +19,14 @@ import {
   PaymentResultNotice,
 } from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
-import { PageHeader, PagePanel } from "@/components/ui";
+import { Avatar, PageHeader, PagePanel } from "@/components/ui";
+import { applicantDossierPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
 import {
   readEmployerAssignment,
-  readPaymentResolutionForAssignment,
+  readPaymentTimelineForAssignment,
 } from "@/server/payments/payments";
 import { readEmployerPaymentRequirements } from "@/server/payments/preflight";
 import { readAssignmentResolution } from "@/server/assignments/resolution";
@@ -91,12 +93,13 @@ export async function EmployerAssignmentContent({
   searchParams: EmployerAssignmentPageProps["searchParams"];
 }) {
   const loaded = await Promise.all([
-    readPaymentResolutionForAssignment(assignment),
+    readPaymentTimelineForAssignment(assignment),
     readEmployerPaymentRequirements(viewerGates(viewer), assignment),
     readAssignmentResolution(assignment.id, assignment.status),
     readAssignmentWorkSessions(assignment.id),
-  ]).then(([paymentResolution, requirements, resolution, sessions]) => ({
-    paymentResolution,
+  ]).then(([payment, requirements, resolution, sessions]) => ({
+    paymentResolution: payment.resolution,
+    paymentSecuredAt: payment.securedAt,
     requirements,
     resolution,
     sessions,
@@ -118,10 +121,12 @@ export async function EmployerAssignmentContent({
       <PageHeader
         eyebrow="İşveren ataması"
         title={assignment.title}
-        lede={assignment.workerName || "İşçi bilgisi bekleniyor"}
+        lede={assignment.companyName ?? undefined}
       />
 
       {showPaymentResult ? <PaymentResultNotice resolution={loaded.paymentResolution} /> : null}
+
+      <AssignmentWorkerCard assignment={assignment} />
 
       <dl className="assignment-detail-facts">
         <div>
@@ -132,6 +137,17 @@ export async function EmployerAssignmentContent({
           <dt>Konum</dt>
           <dd>{[assignment.districtName, assignment.cityName].filter(Boolean).join(", ") || "Bekleniyor"}</dd>
         </div>
+        {/*
+          Sıfır saat "henüz çalışılmadı" demek; sayı olarak yazmak
+          çalışıldığını ama kaydın boş olduğunu sandırırdı. Değer backend'in
+          `workHours` alanı, oturumlardan yeniden hesaplanmıyor.
+        */}
+        {assignment.workHours > 0 ? (
+          <div>
+            <dt>Çalışılan saat</dt>
+            <dd>{`${assignment.workHours} saat`}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Sıradaki adım</dt>
           <dd>{assignmentNextStep(assignment.status, assignment.paymentStatus)}</dd>
@@ -158,7 +174,13 @@ export async function EmployerAssignmentContent({
       <EmployerAssignmentTracking
         timeline={employerAssignmentTimeline({
           status: assignment.status,
+          paymentStatus: assignment.paymentStatus,
           assignedAt: assignment.assignedAt,
+          confirmedAt: assignment.confirmedAt,
+          paymentSecuredAt: loaded.paymentSecuredAt,
+          // İptal anı satırda yoksa (#282 öncesi) iptal kaydından geliyor;
+          // sayfa o kaydı uyuşmazlık paneli için zaten okuyor.
+          cancelledAt: assignment.cancelledAt ?? loaded.resolution.cancellation?.cancelledAt ?? null,
           completedAt: assignment.completedAt,
           sessions: loaded.sessions,
         })}
@@ -194,5 +216,31 @@ export async function EmployerAssignmentContent({
         action={employerResolutionAction.bind(null, assignment.id)}
       />
     </PagePanel>
+  );
+}
+
+/**
+ * İşçi kartı: fotoğraf, ad ve aday dosyasına bağlantı.
+ *
+ * Ad başlığın altındaki `lede`'den karta taşındı: orada düz bir metindi ve
+ * işçinin kim olduğuna bakmanın yolu yoktu. Dosya sayfası (`/isveren/aday`)
+ * başvuru kartındaki panelin aynısını gösteriyor; kimlik `MyAssignmentDto.
+ * worker.id` ve UUID değilse bağlantı çizilmiyor.
+ */
+function AssignmentWorkerCard({ assignment }: { assignment: EmployerAssignment }) {
+  const name = assignment.workerName || "İşçi bilgisi bekleniyor";
+  return (
+    <div className="work-employer assignment-worker" data-testid="assignment-worker">
+      <Avatar name={assignment.workerName || "?"} src={assignment.workerPictureUrl} size="lg" />
+      <div className="work-employer-copy">
+        <span className="muted">İşçi</span>
+        <strong>{name}</strong>
+        {isUuid(assignment.workerId) ? (
+          <Link className="text-link" href={applicantDossierPath(assignment.workerId)}>
+            Aday dosyasını aç
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 }

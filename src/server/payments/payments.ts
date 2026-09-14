@@ -19,6 +19,7 @@ import {
   paymentStatusPresentation,
 } from "@/payments/checkout";
 import { messagingAvailabilityFrom } from "@/messaging/contract";
+import { safeImageUrl } from "@/lib/urls";
 import { clean, known } from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
@@ -34,8 +35,14 @@ type EmployerAssignmentDto = {
     endDateTime?: string | null;
     cityName?: string | null;
     districtName?: string | null;
+    companyName?: string | null;
   } | null;
-  worker?: { id?: string | null; firstName?: string | null; lastName?: string | null } | null;
+  worker?: {
+    id?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    profilePictureUrl?: string | null;
+  } | null;
   status?: string | null;
   paymentStatus?: string | null;
   assignmentDateTime?: string | null;
@@ -44,6 +51,10 @@ type EmployerAssignmentDto = {
   pricing?: Partial<PricingBreakdown> | null;
   messagingAvailable?: boolean | null;
   messagingAvailableReason?: string | null;
+  /** is-koala/koala-backend#282 ile geliyor; alan yoksa ekran satırı çizmez, uydurmaz. */
+  confirmedAt?: string | null;
+  paymentSecuredAt?: string | null;
+  cancellation?: { cancelledAt?: string | null } | null;
 };
 
 type EmployerAssignmentPageDto = Omit<EmployerAssignmentPage, "content"> & {
@@ -205,11 +216,42 @@ export async function readPaymentDetailsForAssignment(
   return paymentReconciliation(assignment, attempts, hasActiveDispute);
 }
 
-/** Atama ayrıntısının uyuşmazlık görünümünü tekrar okumadan ödeme sonucunu çözer. */
-export async function readPaymentResolutionForAssignment(
+/**
+ * Atama ayrıntısının ödeme sonucu ve emanete alınma anı — tek deneme turuyla.
+ *
+ * İkisi de aynı listeden okunuyor (`GET /job-assignments/{id}/payments`);
+ * ayrı ayrı okumak aynı sayfada aynı uca iki tur demekti. Uyuşmazlık
+ * görünümü burada yeniden okunmuyor; sayfa onu zaten `readAssignmentResolution`
+ * ile taşıyor.
+ */
+export async function readPaymentTimelineForAssignment(
   assignment: EmployerAssignment,
-): Promise<PaymentResolution> {
-  return paymentResolution(assignment, await readPaymentAttempts(assignment.id));
+): Promise<{ readonly resolution: PaymentResolution; readonly securedAt: string | null }> {
+  const attempts = await readPaymentAttempts(assignment.id);
+  return {
+    resolution: paymentResolution(assignment, attempts),
+    securedAt: paymentSecuredAt(assignment, attempts),
+  };
+}
+
+/**
+ * Ödemenin emanete alındığı an.
+ *
+ * Satır `paymentSecuredAt` taşıyorsa (is-koala/koala-backend#282) o; yoksa
+ * ilk `SUCCEEDED` denemenin `completedAt`'i — çalışan ekranı da aynı kuralla
+ * türetiyor (`server/assignments/work-detail.ts`). Başarılı deneme yoksa
+ * `null`: çizelge adımı zamansız kalır, uydurulmaz.
+ */
+export function paymentSecuredAt(
+  assignment: Pick<EmployerAssignment, "paymentSecuredAt">,
+  attempts: readonly PaymentAttempt[],
+): string | null {
+  if (assignment.paymentSecuredAt) return assignment.paymentSecuredAt;
+  const completed = attempts
+    .filter((attempt) => attempt.status === "SUCCEEDED" && attempt.completedAt)
+    .map((attempt) => attempt.completedAt as string)
+    .sort((left, right) => Date.parse(left) - Date.parse(right));
+  return completed[0] ?? null;
 }
 
 function paymentReconciliation(
@@ -264,6 +306,8 @@ function projectEmployerAssignment(dto: EmployerAssignmentDto): EmployerAssignme
     employerType: known(dto.job?.employerType, employerTypes),
     workerId: dto.worker?.id ?? "",
     workerName,
+    workerPictureUrl: safeImageUrl(clean(dto.worker?.profilePictureUrl)),
+    companyName: clean(dto.job?.companyName),
     cityName: clean(dto.job?.cityName),
     districtName: clean(dto.job?.districtName),
     startsAt: dto.job?.startDateTime ?? "",
@@ -272,6 +316,9 @@ function projectEmployerAssignment(dto: EmployerAssignmentDto): EmployerAssignme
     paymentStatus: known(dto.paymentStatus, paymentStatuses),
     pricing: completePricing(dto.pricing),
     assignedAt: dto.assignmentDateTime ?? null,
+    confirmedAt: clean(dto.confirmedAt),
+    paymentSecuredAt: clean(dto.paymentSecuredAt),
+    cancelledAt: clean(dto.cancellation?.cancelledAt),
     completedAt: dto.actualCompletionDateTime ?? null,
     workHours: dto.workHours ?? 0,
     messaging: messagingAvailabilityFrom(dto),

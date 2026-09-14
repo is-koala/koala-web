@@ -230,6 +230,20 @@ export function companyGalleryPath(companyId: string): string {
  */
 export const talentPoolPath = "/isveren/yetenek-havuzu";
 
+/**
+ * Aday dosyası: bir çalışanın işverene açık profili, puanı, rozetleri ve
+ * son değerlendirmeleri (`GET /users/{id}` ve komşuları).
+ *
+ * Kendi adresi var çünkü üç ekran aynı kişiye bakıyor — aday kartı, yetenek
+ * havuzu satırı ve atamanın işçi kartı — ve üçünde de dosya yalnız bir
+ * eylemle kartın altına çizilmek zorunda değil. Menüde yok: bir kaydın
+ * adresi, liste maddesi değil. Kapısı da yok; kimliği bilen işveren
+ * `readApplicantDossier`'in okuduğu uçları zaten çağırabiliyor.
+ */
+export function applicantDossierPath(userId: string): string {
+  return `/isveren/aday/${encodeURIComponent(userId)}`;
+}
+
 export type AppShell = {
   readonly id: AppShellId;
   /** Kabuğun kökü; `private-routes.ts` içindeki ağaç girdisiyle aynı olmalı. */
