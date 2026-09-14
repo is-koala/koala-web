@@ -51,11 +51,8 @@ export default async function Page({ params }: { params: Promise<{ userId: strin
 
   return (
     <PagePanel className="applicant-dossier-panel">
-      <PageHeader
-        eyebrow="Aday dosyası"
-        title={result.dossier.profile.fullName || "Adı paylaşılmadı"}
-        lede={result.dossier.profile.occupation ?? undefined}
-      />
+      {/* Meslek başlığın altına yazılmıyor: kimlik kartı onu fotoğrafla birlikte veriyor. */}
+      <PageHeader eyebrow="Aday dosyası" title={result.dossier.profile.fullName || "Adı paylaşılmadı"} />
       <ApplicantDossierView dossier={result.dossier} />
     </PagePanel>
   );
