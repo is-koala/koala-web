@@ -31,6 +31,7 @@ export {
   createAssignmentDisputeWithEvidence,
   uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/resolution";
+export { createAssignmentReview } from "@/server/assignments/reviews";
 
 /**
  * `JobDetailDto`'nun bu ekranda okunan parçası.
@@ -202,17 +203,6 @@ export async function checkpoint(
   await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/${kind}`, {
     method: "POST",
     ...(point ? { body: point } : {}),
-  });
-}
-
-export async function createAssignmentReview(
-  assignmentId: string,
-  rating: number,
-  comment: string,
-): Promise<void> {
-  await apiRequest(`${backendPaths.jobAssignments}/${assignmentId}/reviews`, {
-    method: "POST",
-    body: { rating, comment, anonymous: false },
   });
 }
 

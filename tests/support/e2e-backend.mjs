@@ -11,9 +11,11 @@ const expiredOpenJobId = "f62dc02c-70df-4e85-b1df-17b799ba17c1";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const unpaidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f61";
 const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
+const completedAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f63";
 const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
 const jobCreatorId = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
 const assignmentPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/(payments|disputes|work-sessions|cancellation-preview)$/;
+const reviewPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/reviews$/;
 const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
@@ -34,6 +36,7 @@ const server = createServer(async (request, response) => {
       jobGallery: [],
       applications: [],
       applicationRequests: [],
+      reviews: [],
     });
     return json(response, 200, { ok: true });
   }
@@ -41,6 +44,12 @@ const server = createServer(async (request, response) => {
     const state = stateFrom(url);
     return state
       ? json(response, 200, state.accountDeletionRequests)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/reviews") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.reviews)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
   if (request.method === "GET" && url.pathname === "/__test__/application-requests") {
@@ -278,7 +287,7 @@ const server = createServer(async (request, response) => {
       content,
       page: Number(url.searchParams.get("page") ?? 0),
       size: Number(url.searchParams.get("size") ?? 20),
-      totalElements: 2,
+      totalElements: assignments().length,
       totalPages: 1,
       first: true,
       last: true,
@@ -291,10 +300,47 @@ const server = createServer(async (request, response) => {
       content: assignments(),
       page: 0,
       size: Number(url.searchParams.get("size") ?? 20),
-      totalElements: 2,
+      totalElements: assignments().length,
       totalPages: 1,
       first: true,
       last: true,
+    });
+  }
+  /*
+   * İşçiyi değerlendirme (is-koala/koala-web#173). Backend `ReviewManager`
+   * gibi: yalnız tamamlanmış atama, yazar başına tek kayıt; ikincisi 409
+   * `REVIEW_ALREADY_REVIEWED`. Kayıt test anahtarının durumunda birikir.
+   */
+  const reviewMatch = reviewPathPattern.exec(url.pathname);
+  if (request.method === "POST" && reviewMatch) {
+    const body = await readJson(request);
+    const assignmentId = reviewMatch[1];
+    if (!assignments().some((assignment) => assignment.id === assignmentId)) {
+      return backendError(response, 404, "REVIEW_ASSIGNMENT_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    }
+    if (assignmentId !== completedAssignmentId) {
+      return backendError(response, 409, "REVIEW_WORK_NOT_COMPLETED", "CONFLICT");
+    }
+    if (!Number.isInteger(body?.rating) || body.rating < 1 || body.rating > 5) {
+      return backendError(response, 400, "REVIEW_RATING_RANGE", "VALIDATION");
+    }
+    if (state.reviews.some((review) => review.assignmentId === assignmentId)) {
+      return backendError(response, 409, "REVIEW_ALREADY_REVIEWED", "CONFLICT");
+    }
+    const review = {
+      id: `dddddddd-dddd-4ddd-8ddd-${String(state.reviews.length + 1).padStart(12, "0")}`,
+      author: { id: userId, firstName: "Ali", lastName: "Yılmaz" },
+      rating: body.rating,
+      comment: body.comment ?? null,
+      anonymous: body.anonymous === true,
+      createdAt: "2026-09-14T10:00:00Z",
+    };
+    state.reviews.push({ ...review, assignmentId });
+    return json(response, 201, {
+      success: true,
+      httpStatus: "CREATED",
+      timeStamp: "2026-09-09T12:00:00Z",
+      data: review,
     });
   }
   const assignmentMatch = assignmentPathPattern.exec(url.pathname);
@@ -567,6 +613,18 @@ function assignments() {
       paymentStatus: "HELD_IN_ESCROW",
       messagingAvailable: true,
       messagingAvailableReason: "AVAILABLE",
+    },
+    // Tamamlanmış atama: işverenin değerlendirme formu yalnız burada açılır
+    // (is-koala/koala-web#173).
+    {
+      ...base,
+      id: completedAssignmentId,
+      status: "COMPLETED",
+      paymentStatus: "RELEASED_TO_WORKER",
+      actualCompletionDateTime: "2026-09-03T18:05:00Z",
+      workHours: 8,
+      messagingAvailable: false,
+      messagingAvailableReason: "CLOSED",
     },
   ];
 }

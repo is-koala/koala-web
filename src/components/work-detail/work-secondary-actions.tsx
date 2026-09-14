@@ -11,6 +11,7 @@ import {
   canCancelAssignment,
   showsCancellationPreview,
 } from "@/assignments/resolution";
+import { canReviewAssignment, reviewCommentMaxLength } from "@/assignments/review";
 import {
   DisputeEvidenceFields,
   selectedDisputeEvidence,
@@ -36,7 +37,7 @@ export function WorkSecondaryActions({
     assignmentStatus: detail.assignment.status,
     resolution: detail.resolution,
   });
-  const canReview = detail.assignment.status === "COMPLETED";
+  const canReview = canReviewAssignment(detail.assignment.status);
   const showDispute = canOpenDispute(detail);
   const activeDispute = detail.resolution.disputes.find((dispute) => dispute.status !== "RESOLVED");
   if (!showsCancellation && !showDispute && !canReview && !activeDispute) return null;
@@ -109,7 +110,7 @@ export function WorkSecondaryActions({
             </div>
             <div className="field">
               <label htmlFor="review-comment">Yorum</label>
-              <textarea id="review-comment" name="comment" maxLength={2000} rows={4} />
+              <textarea id="review-comment" name="comment" maxLength={reviewCommentMaxLength} rows={4} />
             </div>
             <button className="button button-secondary button-small" disabled={pending}>Değerlendirmeyi gönder</button>
           </form>

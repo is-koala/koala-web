@@ -13,6 +13,7 @@ import {
   validateDisputeEvidenceFiles,
   type DisputeEvidenceUploadResult,
 } from "@/assignments/resolution";
+import { reviewCommentMaxLength } from "@/assignments/review";
 import { isUuid } from "@/lib/identifiers";
 import type { ConversationState } from "@/messaging/contract";
 import {
@@ -192,7 +193,7 @@ function validateCommand(value: unknown): WorkDetailCommand | null {
       value.rating < 1 ||
       value.rating > 5 ||
       typeof value.comment !== "string" ||
-      value.comment.length > 2000
+      value.comment.length > reviewCommentMaxLength
     ) return null;
     return { type: "review", rating: value.rating, comment: value.comment.trim() };
   }

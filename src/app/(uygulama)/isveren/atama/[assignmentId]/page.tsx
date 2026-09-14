@@ -7,8 +7,10 @@ import {
   assignmentNextStep,
   employerAssignmentTimeline,
 } from "@/assignments/employer-tracking";
+import { canReviewAssignment } from "@/assignments/review";
 import { ApplicantNameLink } from "@/components/applicant-name-link";
 import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
+import { AssignmentReviewSection } from "@/components/assignment-review";
 import { EmployerAssignmentTracking } from "@/components/assignment-tracking";
 import { formatAssignmentDate } from "@/components/assignment-presenters";
 import { EmployerResolutionActions } from "@/components/employer-resolution-actions";
@@ -37,6 +39,7 @@ import {
   completeAssignmentAction,
   employerConversationAction,
   employerResolutionAction,
+  employerReviewAction,
 } from "./actions";
 
 type EmployerAssignmentPageProps = {
@@ -190,6 +193,18 @@ export async function EmployerAssignmentContent({
         })}
         action={completeAssignmentAction.bind(null, assignment.id)}
       />
+
+      {/*
+        Değerlendirme takip panelinin hemen altında: "iş bitti" adımının
+        doğal devamı. Yalnız `COMPLETED` atamada çiziliyor; backend başka
+        durumda 409 döndürüyor ve karar satırdan okunabiliyor (#173).
+      */}
+      {canReviewAssignment(assignment.status) ? (
+        <AssignmentReviewSection
+          workerName={assignment.workerName || "İşçi"}
+          action={employerReviewAction.bind(null, assignment.id)}
+        />
+      ) : null}
 
       <EmployerAssignmentPayment assignment={assignment} requirements={loaded.requirements} />
 

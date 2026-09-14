@@ -18,6 +18,7 @@ const baseURL = `http://localhost:${webPort}`;
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
+const completedAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f63";
 const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
 
 test.beforeEach(async ({ context, request }, testInfo) => {
@@ -66,6 +67,49 @@ test("atama çizelgesi ödeme damgasını taşır, işçi kartı aday dosyasına
   await expect(page.getByText("4.7 / 5 · 3 değerlendirme")).toBeVisible();
   await expect(page.getByRole("list", { name: "Rozetler" })).toContainText("Dakik");
   await expect(page.getByText("Dakik ve güler yüzlü.")).toBeVisible();
+});
+
+/**
+ * İşçiyi değerlendirme (is-koala/koala-web#173). Form yalnız tamamlanmış
+ * atamada; yıldızlar klavyeyle seçilebilen bir radyo grubu; gönderim sahte
+ * backend'e `POST /job-assignments/{id}/reviews` olarak düşer ve başarı
+ * sonrası form kapanıp "Değerlendirmeniz: ★4 · yorum" yazılır. Aynı atamaya
+ * ikinci gönderim 409 `REVIEW_ALREADY_REVIEWED` ile "zaten değerlendirdiniz"
+ * durumuna varır.
+ */
+test("tamamlanmamış atamada değerlendirme formu yok", async ({ page }) => {
+  await page.goto(`/isveren/atama/${paidAssignmentId}`);
+  await expect(page.getByRole("heading", { name: "Etkinlik görevlisi" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "İşçiyi değerlendir" })).toHaveCount(0);
+});
+
+test("tamamlanan atamada işçi yıldızla değerlendirilir, ikinci deneme 409'a düşer", async ({ page, request }, testInfo) => {
+  await page.goto(`/isveren/atama/${completedAssignmentId}`);
+  await expect(page.getByRole("heading", { name: "İşçiyi değerlendir" })).toBeVisible();
+
+  const group = page.getByRole("group", { name: "Puan" });
+  await expect(group.getByRole("radio")).toHaveCount(5);
+  await group.getByRole("radio", { name: "4 yıldız" }).check();
+  await expect(group.getByText("4 / 5")).toBeVisible();
+  await page.getByLabel("Yorum (isteğe bağlı)").fill("Dakik ve güler yüzlü.");
+  await page.getByRole("button", { name: "Değerlendirmeyi gönder" }).click();
+
+  const summary = page.getByTestId("assignment-review-summary");
+  await expect(summary).toContainText("Değerlendirmeniz: ★4 · Dakik ve güler yüzlü.");
+  await expect(page.getByRole("button", { name: "Değerlendirmeyi gönder" })).toHaveCount(0);
+
+  const reviews = await request.get(`${backendURL}/__test__/reviews?key=${stateKeyFor(testInfo)}`);
+  expect(await reviews.json()).toMatchObject([
+    { assignmentId: completedAssignmentId, rating: 4, comment: "Dakik ve güler yüzlü.", anonymous: false },
+  ]);
+
+  // Atama satırı yazarın değerlendirmesini taşımıyor; yeniden açılan sayfada
+  // form geri gelir ve backend'in 409'u formu "zaten değerlendirdiniz"e çevirir.
+  await page.reload();
+  await page.getByRole("group", { name: "Puan" }).getByRole("radio", { name: "5 yıldız" }).check();
+  await page.getByRole("button", { name: "Değerlendirmeyi gönder" }).click();
+  await expect(page.getByTestId("assignment-review-existing")).toContainText("Bu atamayı daha önce değerlendirdiniz.");
+  await expect(page.getByRole("button", { name: "Değerlendirmeyi gönder" })).toHaveCount(0);
 });
 
 function stateKeyFor(testInfo: TestInfo): string {

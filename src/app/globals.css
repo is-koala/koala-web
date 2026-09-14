@@ -699,6 +699,21 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .work-detail { display: flex; flex-direction: column; gap: 22px; }
 .work-detail > .form-warning, .work-location-notice { margin: 0; }
 .work-location-notice { padding: 14px 18px; border-radius: var(--r-16); background: var(--warning-wash); color: var(--warning-ink); font-size: var(--size-14); font-weight: var(--w-medium); }
+/* İşçiyi değerlendirme (is-koala/koala-web#173). Yıldızlar radyo grubu: giriş
+   etiketin üstünde görünmez duruyor, odak halkası etikete çiziliyor. */
+.assignment-review-form { gap: 16px; }
+.assignment-review-form .field { align-self: stretch; }
+.rating-field { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 8px; }
+.rating-field legend { padding: 0; margin-bottom: 4px; font-weight: var(--w-medium); font-size: var(--size-14); color: var(--text-strong); }
+.rating-stars { display: inline-flex; gap: 4px; }
+.rating-star { position: relative; display: inline-flex; }
+.rating-star input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.rating-star input:disabled { cursor: wait; }
+.rating-star label { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--r-12); font-size: 28px; line-height: 1; color: var(--grey-500); transition: color var(--dur-fast) var(--ease); }
+.rating-star label[data-filled="true"] { color: var(--warning); }
+.rating-star input:focus-visible + label { outline: var(--stroke-focus) solid var(--primary); outline-offset: 2px; }
+.assignment-review-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; padding: 14px 18px; border-radius: var(--r-16); background: var(--success-wash); color: var(--success-ink); font-size: var(--size-14); font-weight: var(--w-medium); overflow-wrap: anywhere; }
+.assignment-review-stars { color: var(--warning); font-size: var(--size-18); letter-spacing: .08em; }
 .work-detail-summary, .work-detail-section, .assignment-resolution { min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--r-secondary); background: var(--surface); padding: clamp(20px, 3.5vw, 32px); }
 .work-detail-summary { display: flex; flex-direction: column; gap: 26px; }
 .work-detail-summary .eyebrow { margin-bottom: 9px; }

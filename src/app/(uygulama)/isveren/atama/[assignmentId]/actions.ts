@@ -5,6 +5,11 @@ import { redirect, unstable_rethrow } from "next/navigation";
 
 import type { CompletionActionState } from "@/assignments/employer-tracking";
 import {
+  parseReviewRating,
+  reviewCommentMaxLength,
+  type ReviewActionState,
+} from "@/assignments/review";
+import {
   disputeEvidenceFilesFromFormData,
   disputeEvidenceFormValidationError,
   disputeEvidenceUploadFeedback,
@@ -21,6 +26,7 @@ import {
   createAssignmentDisputeWithEvidence,
   uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/resolution";
+import { createAssignmentReview, isAlreadyReviewed } from "@/server/assignments/reviews";
 import { failureView, textField } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
@@ -159,4 +165,44 @@ export async function employerConversationAction(
 
   // `redirect()` istisna atarak çalışıyor; `try` dışında kalmalı.
   redirect(`/isveren/mesajlar/${encodeURIComponent(conversationId)}`);
+}
+
+/**
+ * "İşçiyi değerlendir".
+ *
+ * Çalışan kabuğuyla aynı uç ve gövde (`createAssignmentReview`); backend
+ * yazarı oturumdan çözüp konuyu işçi yapıyor. Sınırlar `@/assignments/review`
+ * içindeki backend DTO sabitleri; ekran da aynı sabitleri okuyor, burada
+ * yalnız istemcinin atlattığı gövde durduruluyor.
+ *
+ * 409 `REVIEW_ALREADY_REVIEWED` bir hata değil, cevap: form kapanır ve
+ * "zaten değerlendirdiniz" yazılır. Atama satırı yazarın değerlendirmesini
+ * taşımadığı için (`MyAssignmentDto`'da `reviews[]` yok) içerik bilinmiyor;
+ * bilinseydi ekran onu sayfa açılır açılmaz gösterirdi. Başarıda yeni
+ * değerlendirme yanıttan durumda taşınıyor: sayfa yenilense de sunucudan
+ * geri okunacak bir yer yok.
+ */
+export async function employerReviewAction(
+  assignmentId: string,
+  _state: ReviewActionState,
+  formData: FormData,
+): Promise<ReviewActionState> {
+  void _state;
+  await requireSessionForCurrentPath();
+
+  const rating = parseReviewRating(textField(formData, "rating"));
+  const comment = textField(formData, "comment").trim();
+  if (!isUuid(assignmentId) || rating === null || comment.length > reviewCommentMaxLength) {
+    return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+  }
+
+  try {
+    const review = await createAssignmentReview(assignmentId, rating, comment);
+    revalidatePath(`/isveren/atama/${assignmentId}`);
+    return { status: "done", review };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (isAlreadyReviewed(error)) return { status: "reviewed" };
+    return { status: "error", ...failureView(error) };
+  }
 }
