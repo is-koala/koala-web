@@ -23,6 +23,7 @@ const viewer: Viewer = {
   interests: null,
   experiences: [],
   educations: [],
+  badges: [],
   isEmployer: true,
   identityVerified: true,
   hasIdentityNumber: true,

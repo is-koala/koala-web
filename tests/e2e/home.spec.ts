@@ -110,7 +110,8 @@ test("SSS akordeonu klavyeyle açılır ve erken erişim formu etiketli", async 
 
 test("diğer tanıtım sayfaları aynı bileşen setiyle çizilir", async ({ page }) => {
   for (const [path, heading, action] of [
-    ["/is-arayanlar", "İş Arayanlar için Koala", "/is-ilanlari"],
+    // İş arayan sayfası web akışına çağırıyor: kayıt asıl, ilanlar ve uygulama ikincil (#154).
+    ["/is-arayanlar", "İş Arayanlar için Koala", "/kayit"],
     ["/isverenler", "İşverenler için Koala", "/isveren"],
     ["/nasil-calisir", "Koala Nasıl Çalışır?", "/is-ilanlari"],
     ["/hakkimizda", "Koala Hakkında", "/iletisim"],
@@ -120,6 +121,11 @@ test("diğer tanıtım sayfaları aynı bileşen setiyle çizilir", async ({ pag
     await expect(page.locator("main .mk-section").first()).toBeVisible();
     await expect(page.locator("main .button-primary").last()).toHaveAttribute("href", action);
   }
+
+  await page.goto("/is-arayanlar");
+  const main = page.getByRole("main");
+  await expect(main.getByRole("link", { name: "İlanlara bak" })).toHaveAttribute("href", "/is-ilanlari");
+  await expect(main.getByRole("link", { name: "Uygulamayı indir" })).toHaveAttribute("href", "/uygulamayi-ac");
 
   await page.goto("/sss");
   await expect(page.getByRole("heading", { level: 1, name: "Sıkça Sorulan Sorular" })).toBeVisible();

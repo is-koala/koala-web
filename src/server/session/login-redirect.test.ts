@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loginRedirect, returnDestination } from "./login-redirect";
+import { loginRedirect, postLoginDestination, returnDestination } from "./login-redirect";
 
 describe("giriş dönüş hedefi", () => {
   it("kullanıcıyı geri döneceği adresle birlikte girişe yollar", () => {
@@ -43,7 +43,22 @@ describe("dönüş hedefinin çözülmesi", () => {
     "/\\kotu.example",
     "panel",
     "/\t/kotu.example",
-  ])("%j değerini hedef saymaz ve ana sayfaya düşer", (candidate) => {
-    expect(returnDestination(candidate)).toBe("/");
+  ])("%j değerini hedef saymaz", (candidate) => {
+    expect(returnDestination(candidate)).toBeNull();
+  });
+});
+
+describe("giriş sonrası hedef", () => {
+  it("dönülecek sayfa varsa rolü beklemeden oraya döner", () => {
+    expect(postLoginDestination("/is-ilanlari/abc", "employer")).toBe("/is-ilanlari/abc");
+  });
+
+  it("dönülecek sayfa yoksa kullanıcının kabuğuna yollar", () => {
+    expect(postLoginDestination(undefined, "worker")).toBe("/panel");
+    expect(postLoginDestination("", "employer")).toBe("/isveren");
+  });
+
+  it("rol okunamadıysa kabuk tahmin etmez, ana sayfaya düşer", () => {
+    expect(postLoginDestination("//kotu.example", null)).toBe("/");
   });
 });

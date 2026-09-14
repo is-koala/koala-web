@@ -5,7 +5,8 @@ import { cache } from "react";
 
 import type { CanonicalAddress } from "@/address/contract";
 import { canonicalAddressFrom } from "@/address/read";
-import type { Education, Experience } from "@/lib/profile";
+import type { AppShellId } from "@/lib/app-routes";
+import type { Badge, Education, Experience } from "@/lib/profile";
 import { ApiError } from "@/server/api/errors";
 import { backendPaths, unauthorizedStatus, unexpectedError } from "@/server/contract";
 
@@ -58,6 +59,8 @@ export type Viewer = {
   interests: string | null;
   experiences: readonly Experience[];
   educations: readonly Education[];
+  /** Kazanılmış rozetler; profil sayfası çiziyor. `BadgeDto[]`, aynı yanıttan. */
+  badges: readonly Badge[];
   /** JSON'da `isEmployer`; Java alan adı `employer` okunmaz. */
   isEmployer: boolean;
   identityVerified: boolean;
@@ -104,6 +107,26 @@ export const currentViewer: () => Promise<ViewerContext> = cache(loadViewer);
  */
 export function currentUserAddress(): Promise<CanonicalAddress | null> {
   return loadProfile().then((loaded) => loaded.address);
+}
+
+/**
+ * Kullanıcının kabuğu. `isEmployer` kayıt anında yazılıyor ve değişmiyor
+ * (`AGENTS.md`, "Rol değiştirici yok"); bu bir yetki kapısı değil, girişin
+ * ve başlığın varsayılan hedefi. İki kabuk da yalnız oturuma göre kapalı.
+ */
+export function shellFor(viewer: Pick<Viewer, "isEmployer">): AppShellId {
+  return viewer.isEmployer ? "employer" : "worker";
+}
+
+/**
+ * Bu isteğin kullanıcısının kabuğu; profil okunamadıysa `null`.
+ *
+ * Giriş action'ı ve başlığın `/api/session` ucu okuyor. Oturum bitmişse
+ * `loadProfile` girişe yönlendirir; çağıran onu bir arıza gibi yutmamalı.
+ */
+export async function viewerShell(): Promise<AppShellId | null> {
+  const { viewer } = await currentViewer();
+  return viewer === null ? null : shellFor(viewer);
 }
 
 /**
@@ -187,6 +210,7 @@ type UserMeResponse = {
   interests?: string | null;
   experiences?: readonly Experience[] | null;
   educations?: readonly Education[] | null;
+  badges?: readonly Partial<Badge>[] | null;
   isEmployer?: boolean;
   identityVerified?: boolean;
   maskedTcIdentityNumber?: string | null;
@@ -215,6 +239,7 @@ function toViewer(response: UserMeResponse): Viewer {
     interests: response.interests ?? null,
     experiences: (response.experiences ?? []).map(toExperience),
     educations: (response.educations ?? []).map(toEducation),
+    badges: (response.badges ?? []).flatMap(toBadge),
     isEmployer: response.isEmployer === true,
     identityVerified: response.identityVerified === true,
     hasIdentityNumber: Boolean(response.maskedTcIdentityNumber),
@@ -239,6 +264,22 @@ function toExperience(experience: Experience): Experience {
     endDate: experience.endDate ?? null,
     description: experience.description ?? null,
   };
+}
+
+/** Kodu ya da adı olmayan rozet çizilemez; düşürülür, yanıtın kalanı bozulmaz. */
+function toBadge(badge: Partial<Badge>): Badge[] {
+  if (!badge.code || !badge.name) return [];
+  return [
+    {
+      code: badge.code,
+      family: badge.family ?? "OTHER",
+      tier: badge.tier ?? "NONE",
+      name: badge.name,
+      description: badge.description ?? null,
+      iconUrl: badge.iconUrl ?? null,
+      earnedAt: badge.earnedAt ?? null,
+    },
+  ];
 }
 
 function toEducation(education: Education): Education {

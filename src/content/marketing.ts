@@ -8,6 +8,12 @@ export type MarketingPage = {
   sections: ReadonlyArray<{ title: string; body: string }>;
   /** Sayfa sonundaki çağrı; hedef her zaman sitenin gerçek bir rotası. */
   action: { label: string; href: string };
+  /**
+   * Asıl çağrının yanındaki ikincil bağlantılar. İş arayan sayfası web
+   * akışına çağırıyor (kayıt → ilanlar, is-koala/koala-web#154); uygulama
+   * mağazaları burada ek seçenek olarak duruyor, ana çağrı değil.
+   */
+  secondaryActions?: ReadonlyArray<{ label: string; href: string }>;
 };
 
 /**
@@ -25,11 +31,16 @@ export const marketingContent = {
     eyebrow: "İş arayanlar",
     intro: "Uygun olduğun zamanda çalışabileceğin kısa süreli işleri keşfet.",
     sections: [
-      { title: "Yakınındaki ilanları gör", body: "İhtiyaçlarına ve konumuna uyan ilanları karşılaştır, sana uygun olana başvur." },
+      { title: "Yakınındaki ilanları gör", body: "İhtiyaçlarına ve konumuna uyan ilanları listede ya da haritada karşılaştır, sana uygun olana web'den başvur." },
       { title: "Adresin kontrollü paylaşılır", body: "Tam iş adresi ilan aşamasında gizli kalır; yalnız atanan İş Arayan ile paylaşılır." },
       { title: "Ücretini baştan bil", body: "Çalışan Ücreti ilan ayrıntısında görünür. Koala Hizmet Bedeli bu ücretten kesilmez." },
+      { title: "Süreci panelinden takip et", body: "Başvurun, atanman, mesajların ve kazancın tarayıcındaki panelinde; uygulama istersen ek." },
     ],
-    action: { label: "İlanlara bak", href: "/is-ilanlari" },
+    action: { label: "Ücretsiz kayıt ol", href: "/kayit" },
+    secondaryActions: [
+      { label: "İlanlara bak", href: "/is-ilanlari" },
+      { label: "Uygulamayı indir", href: "/uygulamayi-ac" },
+    ],
   },
   isverenler: {
     title: "İşverenler için Koala",

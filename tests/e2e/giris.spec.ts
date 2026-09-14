@@ -17,9 +17,11 @@ test("dönüş hedefi yalnız site içi yollarda taşınır", async ({ page }) =
   await page.goto("/giris?next=%2Fpanel%2Fislerim%3Ffiltre%3Dacik");
   await expect(page.locator("input[name='next']")).toHaveValue("/panel/islerim?filtre=acik");
 
+  // Site dışı hedef düşer; gizli alan boş kalır ve giriş sonrası hedefi rol
+  // seçer (çalışan `/panel`, işveren `/isveren`, is-koala/koala-web#154).
   for (const hostile of ["https%3A%2F%2Fkotu.example", "%2F%2Fkotu.example", "%2F%5Ckotu.example"]) {
     await page.goto(`/giris?next=${hostile}`);
-    await expect(page.locator("input[name='next']")).toHaveValue("/");
+    await expect(page.locator("input[name='next']")).toHaveValue("");
   }
 });
 

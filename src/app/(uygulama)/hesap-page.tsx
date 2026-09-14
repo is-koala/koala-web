@@ -19,6 +19,7 @@ import {
   revokeSessionAction,
   requestAccountDeletionAction,
   selectPrimaryBankAccountAction,
+  startBankAccountVerificationAction,
   updateContactAction,
   updatePasswordAction,
 } from "./hesap-actions";
@@ -26,6 +27,7 @@ import {
 const actions: AccountSettingsActions = {
   addBankAccount: addBankAccountAction,
   selectPrimaryBankAccount: selectPrimaryBankAccountAction,
+  startBankAccountVerification: startBankAccountVerificationAction,
   deleteBankAccount: deleteBankAccountAction,
   updateContact: updateContactAction,
   confirmVerification: confirmVerificationAction,

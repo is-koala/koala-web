@@ -27,13 +27,25 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/__test__/reset") {
     const key = stateKeyFrom(url);
     if (!key) return backendError(response, 400, "INVALID_TEST_KEY", "VALIDATION");
-    states.set(key, { accountDeletion: null, accountDeletionRequests: [], jobGallery: [] });
+    states.set(key, {
+      accountDeletion: null,
+      accountDeletionRequests: [],
+      jobGallery: [],
+      applications: [],
+      applicationRequests: [],
+    });
     return json(response, 200, { ok: true });
   }
   if (request.method === "GET" && url.pathname === "/__test__/requests") {
     const state = stateFrom(url);
     return state
       ? json(response, 200, state.accountDeletionRequests)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/application-requests") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.applicationRequests)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
 
@@ -98,6 +110,76 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && url.pathname === "/users/me/bank-accounts") {
     return backendSuccess(response, []);
+  }
+  if (request.method === "GET" && url.pathname === `/users/${userId}/availability`) {
+    return backendSuccess(response, { slots: [], exceptions: [] });
+  }
+  if (request.method === "GET" && url.pathname === "/reference/universities") {
+    return backendSuccess(response, []);
+  }
+  if (request.method === "GET" && url.pathname === "/users/me/payouts") {
+    return backendSuccess(response, []);
+  }
+
+  /*
+   * Kritik yol (is-koala/koala-web#154): kayıtlı çalışan ilan bulur, başvurur,
+   * başvurusunu görür. Başvuru test anahtarının durumunda birikir; ikinci
+   * başvuru backend gibi 409 ile reddedilir.
+   */
+  if (request.method === "POST" && url.pathname === `/jobs/${openJobId}/applications`) {
+    const body = await readJson(request);
+    state.applicationRequests.push({
+      method: request.method,
+      path: url.pathname,
+      body,
+      authorization: request.headers.authorization,
+      deviceId: request.headers["x-device-id"],
+    });
+    if (state.applications.some((application) => application.job.id === openJobId)) {
+      return backendError(response, 409, "JOB_APPLICATION_ALREADY_EXISTS", "CONFLICT");
+    }
+    const job = openJobSummary();
+    const application = {
+      id: `cccccccc-cccc-4ccc-8ccc-${String(state.applications.length + 1).padStart(12, "0")}`,
+      job: {
+        id: job.id,
+        title: job.title,
+        position: job.position,
+        companyName: job.companyName,
+        cityName: job.cityName,
+        districtName: job.districtName,
+        startDateTime: job.startDateTime,
+        coverImageUrl: null,
+      },
+      status: "APPLIED",
+      notes: body?.notes ?? null,
+      rejectionReason: null,
+      applicationDateTime: "2026-09-14T10:00:00Z",
+      answeredDateTime: null,
+      assignmentId: null,
+    };
+    state.applications.push(application);
+    return json(response, 201, {
+      success: true,
+      httpStatus: "CREATED",
+      timeStamp: "2026-09-09T12:00:00Z",
+      data: application,
+    });
+  }
+  if (request.method === "GET" && url.pathname === "/users/me/applications") {
+    const status = url.searchParams.get("status");
+    const content = state.applications.filter(
+      (application) => status === null || application.status === status,
+    );
+    return backendSuccess(response, {
+      content,
+      page: 0,
+      size: 20,
+      totalElements: content.length,
+      totalPages: content.length === 0 ? 0 : 1,
+      first: true,
+      last: true,
+    });
   }
   if (request.method === "GET" && url.pathname === "/users/me/notifications") {
     return backendSuccess(response, {

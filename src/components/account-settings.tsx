@@ -42,6 +42,7 @@ export function AccountSettings({
         accounts={data.bankAccounts}
         addAction={actions.addBankAccount}
         selectPrimaryAction={actions.selectPrimaryBankAccount}
+        verifyAction={actions.startBankAccountVerification}
         deleteAction={actions.deleteBankAccount}
       />
       <ContactSettings

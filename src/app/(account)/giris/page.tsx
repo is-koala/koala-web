@@ -24,8 +24,9 @@ export default async function Page({
 }) {
   const { next } = await searchParams;
   // Tekrarlanan parametre dizi olarak gelir; hangisinin kastedildiği belli
-  // olmadığı için hedef sayılmaz ve ana sayfaya düşer.
-  const destination = returnDestination(typeof next === "string" ? next : undefined);
+  // olmadığı için hedef sayılmaz.
+  // Hedef yoksa gizli alan boş kalır; action rolü okuyup kabuğa yollar.
+  const destination = returnDestination(typeof next === "string" ? next : undefined) ?? "";
 
   return (
     <section className="account-card">

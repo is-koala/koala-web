@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell, SectionNotOpen, ShellNotice } from "@/components/app-shell";
 import { GateBlocks } from "@/components/employer-gate";
 import { UnreadMessagesBadge } from "@/components/messaging/unread-messages-badge";
-import { appShells, sectionAt, type AppShellId } from "@/lib/app-routes";
+import { appShells, publicJobsPath, sectionAt, type AppShellId } from "@/lib/app-routes";
 import { enterSection, enterShellGates } from "@/server/session/gates";
 import { enterShell } from "@/server/session/viewer";
 
@@ -82,12 +83,57 @@ export async function ShellHome({ shell }: { shell: AppShellId }) {
        */}
       <GateBlocks gates={blocked} />
 
-      {/* Kabuk kökü, menüdeki hazır ve planlı bölümlere ortak yön verir. */}
-      <ShellNotice
-        title="Bölümler sırayla açılıyor"
-        message="Hazır bölümlere menüden ulaşabilirsin. Diğer maddeler açıldığında tıklanabilir olacak."
-      />
+      {/*
+       * Kabuk kökü artık girişin de indiği yer (is-koala/koala-web#154). Planlı
+       * bölümü kalan kabuk bunu söyler; hepsi teslim edilmiş kabuk ise
+       * kullanıcıyı ilk işe yönlendirir — iş arayan için ilan bulmak, ve o
+       * liste kabuğun dışında (`/is-ilanlari`), menüden ulaşılmıyor.
+       */}
+      {definition.sections.some((section) => section.status === "planned") ? (
+        <ShellNotice
+          title="Bölümler sırayla açılıyor"
+          message="Hazır bölümlere menüden ulaşabilirsin. Diğer maddeler açıldığında tıklanabilir olacak."
+        />
+      ) : (
+        <ShellStart shell={shell} />
+      )}
     </section>
+  );
+}
+
+/**
+ * Teslimi tamamlanmış kabuğun giriş kartı.
+ *
+ * Bugün yalnız iş arayan kabuğu bu dala düşüyor; bağlantılar kayıttaki
+ * adreslerden okunuyor ki bir bölüm taşınırsa kart da onunla taşınsın.
+ */
+function ShellStart({ shell }: { shell: AppShellId }) {
+  if (shell !== "worker") return null;
+
+  return (
+    <div role="status" className="state-card shell-start">
+      <h2>Buradan başla</h2>
+      <p>
+        Yakınındaki ilanları bul, başvur; başvurunun kabulünü, işi ve ödemeyi buradan takip et.
+      </p>
+      <ul className="shell-start-links">
+        <li>
+          <Link className="button button-primary button-small" href={publicJobsPath}>
+            İlanlara göz at
+          </Link>
+        </li>
+        <li>
+          <Link className="button button-secondary button-small" href="/panel/basvurularim">
+            Başvurularım
+          </Link>
+        </li>
+        <li>
+          <Link className="button button-secondary button-small" href="/panel/profil">
+            Profilimi tamamla
+          </Link>
+        </li>
+      </ul>
+    </div>
   );
 }
 

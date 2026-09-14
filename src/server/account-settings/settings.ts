@@ -120,6 +120,67 @@ export async function addBankAccount(iban: string): Promise<BankAccount> {
   });
 }
 
+/**
+ * `IbanVerificationDto`. Sahiplik doğrulaması küçük tutarlı bir transferle
+ * yapılıyor: kullanıcı kayıtlı IBAN'ından `targetIban`'a `amount` tutarını
+ * `reference` açıklamasıyla gönderiyor; personel transferi görünce onaylıyor.
+ * Tutar dize olarak taşınıyor — `money.ts` kayan noktadan bilerek kaçınıyor.
+ */
+export type IbanVerification = {
+  accountId: string;
+  maskedIban: string;
+  status: string;
+  reference: string;
+  amount: string;
+  currency: string;
+  targetIban: string;
+  expiresAt: string | null;
+  attemptsLeft: number | null;
+};
+
+type IbanVerificationDto = {
+  accountId?: string;
+  maskedIban?: string;
+  status?: string;
+  reference?: string;
+  amount?: number | string | null;
+  targetIban?: string;
+  expiresAt?: string | null;
+  attemptsLeft?: number | null;
+};
+
+/**
+ * Doğrulama transferini başlatır; bekleyen doğrulama varsa backend aynı
+ * tutar ve referansı yeniden döndürür, yani düğmeye ikinci basış zararsız.
+ */
+export async function startBankAccountVerification(accountId: string): Promise<IbanVerification> {
+  const dto = await apiRequest<IbanVerificationDto | null>(
+    `${backendPaths.bankAccounts}/${encodeURIComponent(accountId)}/verification`,
+    { method: "POST" },
+  );
+  if (dto === null || !dto.reference || !dto.targetIban) {
+    throw new ApiError({
+      status: 0,
+      errorCode: unexpectedError,
+      errorCategory: unexpectedError,
+      message: "IBAN verification response is unusable.",
+    });
+  }
+  return {
+    accountId: dto.accountId ?? accountId,
+    maskedIban: dto.maskedIban ?? "",
+    status: dto.status ?? "PENDING",
+    reference: dto.reference,
+    // `BigDecimal` JSON'da sayı olarak geliyor; iki ondalığa sabitlenmiş dize
+    // ekrana `formatMoney` ile giriyor. Jackson kuruşu zaten yuvarlamış durumda.
+    amount: typeof dto.amount === "number" ? dto.amount.toFixed(2) : (dto.amount ?? "0.00"),
+    currency: "TRY",
+    targetIban: dto.targetIban,
+    expiresAt: dto.expiresAt ?? null,
+    attemptsLeft: typeof dto.attemptsLeft === "number" ? dto.attemptsLeft : null,
+  };
+}
+
 export async function selectPrimaryBankAccount(accountId: string): Promise<BankAccount> {
   return apiRequest<BankAccount>(`${backendPaths.bankAccounts}/${encodeURIComponent(accountId)}/primary`, {
     method: "POST",

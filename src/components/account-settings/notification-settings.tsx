@@ -25,6 +25,7 @@ export function NotificationSettings({
         feed={feed}
         markReadAction={markReadAction}
         markAllReadAction={markAllReadAction}
+        pageHref={(page) => `?bildirimSayfasi=${page}#bildirimler`}
       />
       <section className="settings-card" aria-labelledby="bildirim-tercihleri-baslik">
         <h2 id="bildirim-tercihleri-baslik">Bildirim tercihleri</h2>
@@ -35,14 +36,25 @@ export function NotificationSettings({
   );
 }
 
-function NotificationCenter({
+/**
+ * Bildirim akışı: okunmamış sayısı, liste ve sayfalama.
+ *
+ * İki adreste çiziliyor — hesap sayfasında bir kart olarak ve `/panel/bildirimler`
+ * altında sayfanın kendisi olarak. Sayfa bağlantısını çağıran kuruyor: hesap
+ * kartı kendi çıpasına dönerken bölüm sayfası düz `?sayfa=` taşıyor, ve aynı
+ * listeyi iki kez yazmak iki sayfayı sessizce ayrıştırırdı.
+ */
+export function NotificationCenter({
   feed,
   markReadAction,
   markAllReadAction,
+  pageHref,
 }: {
   feed: NotificationFeed;
   markReadAction: SettingsAction;
   markAllReadAction: SettingsAction;
+  /** 1 tabanlı, kullanıcıya görünen sayfa numarasından bağlantı üretir. */
+  pageHref: (page: number) => string;
 }) {
   return (
     <section className="settings-card" id="bildirimler" aria-label="Bildirim merkezi">
@@ -60,7 +72,7 @@ function NotificationCenter({
         ) : null}
       </div>
       {feed.notifications.content.length === 0 ? (
-        <p className="settings-empty">Henüz bildirimin yok.</p>
+        <p className="settings-empty" role="status">Henüz bildirimin yok.</p>
       ) : (
         <ul className="notification-list">
           {feed.notifications.content.map((notification) => (
@@ -77,7 +89,7 @@ function NotificationCenter({
           {!feed.notifications.first ? (
             <Link
               className="button button-secondary button-small"
-              href={`?bildirimSayfasi=${feed.notifications.page}#bildirimler`}
+              href={pageHref(feed.notifications.page)}
             >
               Daha yeni bildirimler
             </Link>
@@ -85,7 +97,7 @@ function NotificationCenter({
           {!feed.notifications.last ? (
             <Link
               className="button button-secondary button-small"
-              href={`?bildirimSayfasi=${feed.notifications.page + 2}#bildirimler`}
+              href={pageHref(feed.notifications.page + 2)}
             >
               Daha eski bildirimler
             </Link>

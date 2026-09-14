@@ -5,12 +5,15 @@ import {
   backendJobSearchParams,
   districtCityParamName,
   hasJobFilters,
+  jobDistanceKm,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
+  orderPageByDistance,
   parseJobSearchParams,
   type JobFilterOptions,
   type JobSearchQuery,
+  type JobSummary,
   type RawSearchParams,
 } from "./search";
 
@@ -18,6 +21,38 @@ const categoryId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const cityId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const otherCityId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const districtId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+/** Yakınlık testlerinin ortak ilanı; yalnız koordinatları değişiyor. */
+const job: JobSummary = {
+  id: "job",
+  title: "Garson",
+  position: null,
+  sector: null,
+  categoryId: null,
+  categoryName: null,
+  categoryCode: null,
+  employerType: "INDIVIDUAL",
+  type: "ONE_TIME",
+  salaryType: "DAILY",
+  salary: null,
+  workerPayout: null,
+  currency: null,
+  insuranceRequired: false,
+  experienceRequired: false,
+  startsAt: "2026-09-20T09:00:00",
+  endsAt: "2026-09-20T18:00:00",
+  status: "OPEN",
+  cityName: null,
+  districtName: null,
+  companyName: null,
+  coverImageUrl: null,
+  applicationCount: 0,
+  headcount: null,
+  hiredCount: 0,
+  latitude: null,
+  longitude: null,
+  addressPrecision: "APPROXIMATE",
+};
 
 /** `JobManager.SORTABLE_FIELDS`; sunucu bunun dışındaki alanı 400 ile reddediyor. */
 const sortableFields = ["createdAt", "salary", "startDateTime", "title"];
@@ -197,6 +232,9 @@ describe("adres çubuğuna geri yazma", () => {
     insuranceRequired: null,
     experienceRequired: null,
     sort: "en-yeni",
+    location: null,
+    distanceKm: null,
+    view: "liste",
   };
 
   it("varsayılan sayfa ve sıralamayı URL'ye yazmaz", () => {
@@ -405,6 +443,9 @@ describe("tam süzgeç seti", () => {
       insuranceRequired: true,
       experienceRequired: false,
       sort: "baslik",
+      location: { latitude: 41.008238, longitude: 28.978359 },
+      distanceKm: 10,
+      view: "harita",
     };
     const written = Object.fromEntries(jobSearchParams(query));
 
@@ -420,10 +461,84 @@ describe("tam süzgeç seti", () => {
       "max-ucret": "1500.5",
       sigorta: "evet",
       deneyim: "hayir",
+      konum: "41.008238,28.978359",
+      mesafe: "10",
       sirala: "baslik",
+      gorunum: "harita",
       sayfa: "2",
     });
     expect(parseJobSearchParams(written)).toEqual({ ...query, maxSalary: "1500.5" });
+  });
+});
+
+describe("konum süzgeci ve yakınlık sıralaması", () => {
+  const konum = "41.008238,28.978359";
+
+  it("konumsuz yarıçapı ve konumsuz yakınlık sıralamasını düşürür", () => {
+    const query = parseJobSearchParams({ mesafe: "10", sirala: "en-yakin" });
+    expect(query.location).toBeNull();
+    expect(query.distanceKm).toBeNull();
+    expect(query.sort).toBe("en-yeni");
+    expect(jobSearchParams(query).size).toBe(0);
+  });
+
+  it("konum varken varsayılan yarıçapı alır ve yakınlık sıralamasını korur", () => {
+    const query = parseJobSearchParams({ konum, sirala: "en-yakin" });
+    expect(query.location).toEqual({ latitude: 41.008238, longitude: 28.978359 });
+    expect(query.distanceKm).toBe(5);
+    expect(query.sort).toBe("en-yakin");
+    // Varsayılan yarıçap adres çubuğuna yazılmaz; yakınlık yazılır.
+    expect(Object.fromEntries(jobSearchParams(query))).toEqual({ konum, sirala: "en-yakin" });
+  });
+
+  it("yarıçapı backend'in sınırlayıcı kutusuna çevirir; yakınlık sunucuya varsayılan sırayla gider", () => {
+    const params = backendJobSearchParams(parseJobSearchParams({ konum, mesafe: "3", sirala: "en-yakin" }));
+    expect(Number(params.get("minLatitude"))).toBeLessThan(41.008238);
+    expect(Number(params.get("maxLatitude"))).toBeGreaterThan(41.008238);
+    expect(Number(params.get("minLongitude"))).toBeLessThan(28.978359);
+    expect(Number(params.get("maxLongitude"))).toBeGreaterThan(28.978359);
+    // `SORTABLE_FIELDS` mesafeyi tanımıyor; bilinmeyen alan 400 üretirdi.
+    expect(params.get("sort")).toBe("createdAt,desc");
+  });
+
+  it("gelen sayfayı yalnız yakınlık seçiliyken diziyor; koordinatsız ilan sona düşer", () => {
+    const near = { ...job, id: "near", latitude: 41.01, longitude: 28.98 };
+    const far = { ...job, id: "far", latitude: 41.1, longitude: 29.1 };
+    const unknown = { ...job, id: "unknown", latitude: null, longitude: null };
+
+    const nearest = parseJobSearchParams({ konum, sirala: "en-yakin" });
+    expect(orderPageByDistance([far, unknown, near], nearest).map(({ id }) => id)).toEqual([
+      "near",
+      "far",
+      "unknown",
+    ]);
+
+    const newest = parseJobSearchParams({ konum });
+    expect(orderPageByDistance([far, unknown, near], newest).map(({ id }) => id)).toEqual([
+      "far",
+      "unknown",
+      "near",
+    ]);
+    expect(jobDistanceKm(unknown, nearest.location!)).toBeNull();
+  });
+
+  it("konum rozeti kaldırılınca yarıçap ve yakınlık sıralaması da düşer", () => {
+    const query = parseJobSearchParams({ konum, mesafe: "10", sirala: "en-yakin" });
+    const filters = activeJobFilters(query, { categories: [], cities: [], districts: [] });
+    expect(filters.map(({ id, label }) => [id, label])).toEqual([
+      ["konum", "Konumuma yakın"],
+      ["mesafe", "10 km çevre"],
+    ]);
+    expect(filters[0].without).toMatchObject({ location: null, distanceKm: null, sort: "en-yeni" });
+    expect(filters[1].without).toMatchObject({ distanceKm: 5, sort: "en-yakin" });
+  });
+
+  it("görünüm süzgeç değil: indekslemeyi değiştirmez, adres çubuğunda kalır", () => {
+    const query = parseJobSearchParams({ gorunum: "harita" });
+    expect(query.view).toBe("harita");
+    expect(hasJobFilters(query)).toBe(false);
+    expect(Object.fromEntries(jobSearchParams(query))).toEqual({ gorunum: "harita" });
+    expect(parseJobSearchParams({ gorunum: "uydu" }).view).toBe("liste");
   });
 });
 
@@ -538,10 +653,13 @@ describe("silinebilir süzgeç rozetleri", () => {
  *   `hasJobFilters`'ın kendi yorumu taşıyor.
  */
 describe("süzgeç listelerinin ayrışmaması", () => {
-  /** `sayfa` ve `sirala` bir süzgeç değil: ikisi de aynı kümenin dilimi. */
+  /**
+   * `sayfa`, `sirala` ve `gorunum` bir süzgeç değil: üçü de aynı kümenin
+   * dilimi ya da görünümü; harita aynı ilanları başka bir yüzeyde çiziyor.
+   */
   type JobFilterParam = Exclude<
     (typeof jobSearchParamNames)[keyof typeof jobSearchParamNames],
-    "sayfa" | "sirala"
+    "sayfa" | "sirala" | "gorunum"
   >;
 
   /**
@@ -566,6 +684,9 @@ describe("süzgeç listelerinin ayrışmaması", () => {
     "max-ucret": { value: "1500" },
     sigorta: { value: "evet" },
     deneyim: { value: "hayir" },
+    konum: { value: "41.008238,28.978359" },
+    // Yarıçap konumsuz okunmuyor; varsayılan 5 km olduğu için örnek 10.
+    mesafe: { value: "10", context: { konum: "41.008238,28.978359" } },
   };
 
   const options: JobFilterOptions = { categories: [], cities: [], districts: [] };
@@ -576,7 +697,7 @@ describe("süzgeç listelerinin ayrışmaması", () => {
     // süzgeç birliğin dışlama listesine yazılarak `tsc`'den kaçırılsaydı bu
     // iddia onu yine görürdü.
     const filterParams = Object.entries(jobSearchParamNames)
-      .filter(([field]) => field !== "page" && field !== "sort")
+      .filter(([field]) => field !== "page" && field !== "sort" && field !== "view")
       .map(([, param]) => param);
 
     expect(Object.keys(filterSamples).toSorted()).toEqual(filterParams.toSorted());

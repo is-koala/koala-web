@@ -17,6 +17,8 @@ import {
   talentPoolPath,
   employerBillingAddressPath,
   workerApplicantAddressPath,
+  workerNotificationsPath,
+  shellHomePath,
 } from "./app-routes";
 import { gateModes } from "./gates";
 import { privateRouteTrees } from "./private-routes";
@@ -313,6 +315,27 @@ describe("kabuk rota kaydı", () => {
       requires: [],
       status: "ready",
     });
+  });
+
+  it("Bildirimler bölümünü teslim edilmiş çalışan bağlantısı olarak kaydeder", () => {
+    expect(workerNotificationsPath).toBe("/panel/bildirimler");
+    expect(sectionAt("worker", ["bildirimler"])).toEqual({
+      href: "/panel/bildirimler",
+      label: "Bildirimler",
+      requires: [],
+      status: "ready",
+    });
+  });
+
+  it("iş arayan kabuğunun her bölümü teslim edilmiş; yakalayıcı yalnız 404 üretir", () => {
+    // is-koala/koala-web#154: kabukta "henüz açılmadı" ekranı kalmadı. Yeni
+    // bir bölüm `planned` olarak eklenirse bu test onu görünür kılar.
+    expect(appShells.worker.sections.every((section) => section.status === "ready")).toBe(true);
+  });
+
+  it("giriş sonrası hedefi kabuk kökünden okur", () => {
+    expect(shellHomePath("worker")).toBe("/panel");
+    expect(shellHomePath("employer")).toBe("/isveren");
   });
 
   it("bildirilmemiş yolu tanımaz", () => {

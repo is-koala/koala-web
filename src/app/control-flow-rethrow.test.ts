@@ -629,6 +629,7 @@ describe("oturumlu catch sınırları Next kontrol akışını yeniden fırlatı
     ["app/api/users/me/identity-documents/route.ts", "loadViewer"],
     ["server/gallery/gallery.ts", "apiRequest"],
     ["server/jobs/submission.ts", "fetchJobCategories → apiRequest"],
+    ["app/(account)/giris/actions.ts", "viewerShell → currentViewer → loadProfile"],
   ])("%s oturum modülü olarak taranır (%s)", (file) => {
     expect(scannedModules(graph).map((unit) => unit.file)).toContain(absolute(file));
   });
@@ -637,7 +638,6 @@ describe("oturumlu catch sınırları Next kontrol akışını yeniden fırlatı
     ["app/(account)/hesap-dogrula/page.tsx", "oturumsuz doğrulama; action yalnız prop olarak geçiyor"],
     ["app/(marketing)/is-ilanlari/[jobId]/page.tsx", "herkese açık ilan; başvuru action'ı yalnız prop"],
     ["app/(account)/kayit/actions.ts", "oturumsuz kayıt"],
-    ["app/(account)/giris/actions.ts", "redirect try dışında; signIn anonim"],
     ["server/seo/sitemap.ts", "publicReaderCaller"],
   ])("%s taranmaz (%s)", (file) => {
     expect(graph.modules.has(absolute(file))).toBe(true);
@@ -724,15 +724,18 @@ describe("tarayıcı sözleşmesi", () => {
   });
 
   it("try gövdesi redirect'e doğrudan dokunuyorsa oturum modülü olmasa da yakalar", () => {
-    const file = absolute("app/(account)/giris/actions.ts");
-    const moved = readFileSync(file, "utf8").replace(
-      /\n  \} catch \(error\) \{\n    return failureState\(error\);\n  \}\n\n  redirect\(destination\);\n/,
-      "\n    redirect(destination);\n  } catch (error) {\n    return failureState(error);\n  }\n",
-    );
-    expect(moved).not.toBe(readFileSync(file, "utf8"));
+    // Kayıt action'ı oturumsuz ve taranmıyor; try gövdesine bir `redirect()`
+    // konduğunda catch'i yine yakalanmalı.
+    const file = absolute("app/(account)/kayit/actions.ts");
+    const original = readFileSync(file, "utf8");
+    const moved = original
+      .replace('"use server";\n', '"use server";\n\nimport { redirect } from "next/navigation";\n')
+      .replace(/\n  \} catch \(error\) \{\n    return failureState\(error\);\n  \}\n/, "\n    redirect(\"/\");\n  } catch (error) {\n    return failureState(error);\n  }\n");
+    expect(moved).not.toBe(original);
+    const catchLine = moved.slice(0, moved.indexOf("} catch (error)")).split("\n").length;
 
     expect(describeFindings(unsafeBoundaries(graphWith(file, moved)))).toEqual([
-      "app/(account)/giris/actions.ts:27 (catch)",
+      `app/(account)/kayit/actions.ts:${catchLine} (catch)`,
     ]);
   });
 });
