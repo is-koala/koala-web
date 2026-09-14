@@ -1,4 +1,4 @@
-import { roundCoordinate, type AddressWrite } from "@/address/contract";
+import type { AddressWrite } from "@/address/contract";
 
 /**
  * Şirket kaydının istemci tarafı kuralları.
@@ -117,11 +117,11 @@ export type CompanyDetailsUpdateBody = Record<EditableCompanyField, string>;
  * gövdelerle gidebiliyor: yalnız `{ address }` göndermek beş metin alanına
  * dokunmaz, yalnız beş alan göndermek adresi olduğu gibi bırakır.
  *
- * `address` 0.9.24 ile geldi (is-koala/koala-backend#288). Daha eski sunucu
- * bilinmeyen alanı reddetmiyor, **sessizce düşürüyor** — Spring'in
- * varsayılan `FAIL_ON_UNKNOWN_PROPERTIES=false` ayarı — ve 200 ile eski
- * adresi döndürüyor. Bu yüzden adres yazan çağıran yanıttaki adresi
- * gönderdiğiyle karşılaştırmak zorunda (`companyAddressApplied`).
+ * `address` 0.9.24 ile geldi (is-koala/koala-backend#288); bu PR o sürüm
+ * canlıya çıkmadan merge edilmiyor, yani adresi tanımayan sunucu yok.
+ * (Daha eskisi bilinmeyen alanı reddetmez, düşürüp 200 ile eski adresi
+ * döndürürdü — Spring varsayılanı; bunun için sezgisel bir denetim
+ * yazılmadı.)
  */
 export type CompanyUpdateBody = Partial<CompanyDetailsUpdateBody> & { address?: AddressWrite };
 
@@ -291,28 +291,4 @@ export function companyUpdateBody(draft: CompanyDraft): CompanyDetailsUpdateBody
   return Object.fromEntries(
     editableCompanyFields.map((field) => [field, draft[field].trim()]),
   ) as CompanyDetailsUpdateBody;
-}
-
-/**
- * Adres yazmasının sunucuda gerçekten uygulanıp uygulanmadığı.
- *
- * Yalnız konum karşılaştırılıyor: yazma gövdesi il/ilçeyi kimlikle, yanıt
- * adla taşıyor ve ikisi istemcide eşlenemiyor; bileşenler ise backend'de
- * biçimlendirilebiliyor. Konum iki yönde de altı ondalığa yuvarlanmış aynı
- * sayı çifti, ve adresi düşüren eski sunucu eski konumu geri veriyor.
- *
- * Yanıt konum taşımıyorsa karar verilemez ve yazma **uygulanmış sayılır**:
- * doğru çalışan sunucuyu yanlış yere hata verdirmek, sessiz düşmeyi kaçırmaktan
- * daha sık olurdu. Adresin tümden yokluğu ise kesin bir "uygulanmadı".
- */
-export function companyAddressApplied(
-  sent: AddressWrite,
-  saved: { position?: { latitude: number; longitude: number } | null } | null,
-): boolean {
-  if (saved === null) return false;
-  if (!saved.position) return true;
-  return (
-    roundCoordinate(saved.position.latitude) === roundCoordinate(sent.position.latitude) &&
-    roundCoordinate(saved.position.longitude) === roundCoordinate(sent.position.longitude)
-  );
 }

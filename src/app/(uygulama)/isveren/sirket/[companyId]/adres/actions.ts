@@ -3,17 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
-import type { CanonicalAddress } from "@/address/contract";
 import { readAddressWrite, writeFieldErrors } from "@/address/write";
 import { companyAddressPath, companyProfilePath, editCompanyPath } from "@/lib/app-routes";
-import { companyAddressApplied } from "@/lib/company";
-import { companyAddressNotAppliedErrorCode } from "@/lib/errors";
+import { idleAddressFormState, type AddressFormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/identifiers";
 import { updateCompany } from "@/server/company/company";
+import { unexpectedError } from "@/server/contract";
 import { failureState, validationState } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
-import { idleCompanyAddressState, type CompanyAddressState } from "./state";
 
 /**
  * Şirket adresini `PATCH /companies/{companyId}` `{ address }` ile değiştirir.
@@ -23,16 +21,15 @@ import { idleCompanyAddressState, type CompanyAddressState } from "./state";
  * çeviriyor. İstemcide ikinci bir denetim, ekrandaki rol ile gerçek yetkinin
  * ayrışabildiği bir yer daha açardı.
  *
- * Yanıt gönderilen adresle karşılaştırılıyor. `address` alanı 0.9.24 ile
- * geldi ve daha eski sunucu bilinmeyen alanı reddetmek yerine **sessizce
- * düşürüp** 200 ile eski adresi döndürüyor; "kaydedildi" deyip eski adresi
- * göstermek kullanıcıyı ödeme anında yeniden aynı kapıya çarptırırdı.
+ * Yanıttaki `CompanyDto.address` güncel kaydı taşıyor ve onay kartı onu
+ * çiziyor. Adres alanını tanımayan (0.9.24 öncesi) sunucuya karşı bir
+ * denetim yok: bu ekran o sürüm canlıya çıkmadan yayına girmiyor.
  */
 export async function saveCompanyAddressAction(
   companyId: string,
-  _state: CompanyAddressState,
+  _state: AddressFormState,
   formData: FormData,
-): Promise<CompanyAddressState> {
+): Promise<AddressFormState> {
   void _state;
 
   await requireSessionForCurrentPath();
@@ -43,25 +40,26 @@ export async function saveCompanyAddressAction(
 
   try {
     const company = await updateCompany(companyId, { address });
-    if (!companyAddressApplied(address, company.address)) {
-      return { status: "error", errorCode: companyAddressNotAppliedErrorCode, httpStatus: 200 };
+    // Sözleşme adresi her zaman döndürüyor; yokluğu bir arıza, "kaydedildi"
+    // deyip boş kart çizmek değil.
+    if (company.address === null) {
+      return { status: "error", errorCode: unexpectedError, httpStatus: 500 };
     }
     refresh(companyId);
-    // `companyAddressApplied` yanıtta adres olduğunu zaten kanıtladı.
-    return { status: "done", address: company.address as CanonicalAddress };
+    return { status: "done", address: company.address };
   } catch (error) {
     unstable_rethrow(error);
     const failure = failureState(error);
-    if (failure.status !== "error") return idleCompanyAddressState;
+    if (failure.status !== "error") return idleAddressFormState;
     return failure.fieldErrors
       ? { ...failure, fieldErrors: companyAddressFieldErrors(failure.fieldErrors) }
       : failure;
   }
 }
 
-function invalid(fieldErrors: Record<string, string>): CompanyAddressState {
+function invalid(fieldErrors: Record<string, string>): AddressFormState {
   const state = validationState(fieldErrors);
-  return state.status === "error" ? state : idleCompanyAddressState;
+  return state.status === "error" ? state : idleAddressFormState;
 }
 
 /**

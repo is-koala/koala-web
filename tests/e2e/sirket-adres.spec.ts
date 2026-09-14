@@ -99,6 +99,35 @@ test("yönetici şirket adresini kaydeder ve profil yeni adresi gösterir", asyn
   await expect(page.getByText(currentAddress)).toHaveCount(0);
 });
 
+test("ödeme kapısının çapalı bağlantısı tek şirketli yöneticiyi profildeki adres bölümüne bırakır", async ({
+  page,
+  context,
+  request,
+}, testInfo) => {
+  await signIn({ context, request }, testInfo, "ADMIN");
+
+  // Tam yükleme: 307 hedefi çapayı taşır; bölüm `Suspense` arkasından
+  // geldiği için kaydırmayı `AnchorReveal` yapar.
+  await page.goto("/isveren/sirket?bolum=sirket-adresi");
+  await expect(page).toHaveURL(new RegExp(`${profilePath}#sirket-adresi$`));
+  await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
+  await expect(page.locator("#sirket-adresi")).toBeInViewport();
+
+  // İstemci gezinmesi: kapı bağlantısı `next/link`, yönlendirme App Router'ın
+  // içinde çözülüyor. Parça (`#`) bu yolda düşüyor (ölçüldü), sorgu düşmüyor.
+  await page.goto("/isveren");
+  // Hidrasyon bitmeden verilen `push` düşüyor; kabuk menüsü çizilince hazır.
+  await expect(page.getByRole("navigation").first()).toBeVisible();
+  await page.waitForFunction(() => Boolean((window as unknown as { next?: { router?: unknown } }).next?.router));
+  await page.evaluate(() =>
+    (window as unknown as { next: { router: { push(href: string): void } } }).next.router.push(
+      "/isveren/sirket?bolum=sirket-adresi",
+    ),
+  );
+  await expect(page).toHaveURL(new RegExp(`${profilePath}#sirket-adresi$`), { timeout: 15_000 });
+  await expect(page.locator("#sirket-adresi")).toBeInViewport();
+});
+
 test("yetkili adresi salt okur; düzenleme adresi 404 döner", async ({
   page,
   context,

@@ -396,7 +396,7 @@ describe("kapı metinleri", () => {
     const notice = gateNotice("companyBillingAddress");
 
     expect(notice.remedy).toEqual({
-      href: "/isveren/sirket",
+      href: "/isveren/sirket?bolum=sirket-adresi",
       label: "Şirket adresini düzenle",
     });
     expect(notice.message).not.toMatch(/uygulama/i);
@@ -476,6 +476,8 @@ describe("kapı sözlüğünün bütünlüğü", () => {
     // tek tek değil ağaç olarak duruyor; onlar için kayıt `app-routes.ts` ve
     // yalnız `ready` bölüm sayılır — "henüz açılmadı" ekranına yollamak da
     // 404'e yollamak kadar boş.
+    // Sorgu rotanın parçası değil; bölüm girişine "hangi bölüm" sorgusuyla
+    // gitmek geçerli.
     const known = new Set<string>([
       ...privateRoutes,
       ...Object.values(appShells).flatMap((shell) =>
@@ -486,7 +488,7 @@ describe("kapı sözlüğünün bütünlüğü", () => {
     for (const gate of Object.keys(gateModes) as GateId[]) {
       const remedy = gateNotice(gate).remedy;
       if (remedy === null) continue;
-      expect(known.has(remedy.href), `${gate} → ${remedy.href}`).toBe(true);
+      expect(known.has(remedy.href.split("?")[0]), `${gate} → ${remedy.href}`).toBe(true);
     }
   });
 

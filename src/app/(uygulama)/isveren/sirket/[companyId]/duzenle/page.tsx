@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 
-import { AddressView } from "@/components/address-view";
+import { CompanyAddressSection } from "@/components/company/company-address-section";
 import { CompanyEditForm } from "@/components/company/company-edit-form";
 import { CompanyLogoForms } from "@/components/company/company-logo-forms";
 import { ErrorState, LoadingState } from "@/components/states";
@@ -110,23 +110,12 @@ export async function EditPanel({ companyId }: { companyId: string }) {
         />
       </section>
 
-      <section className="app-panel" aria-labelledby="company-address-edit-title">
-        <div className="section-heading-row">
-          <div>
-            <p className="eyebrow">Adres</p>
-            <h2 id="company-address-edit-title">Şirket adresi</h2>
-          </div>
-          <Link className="text-link" href={companyAddressPath(companyId)}>
-            Adresi düzenle
-          </Link>
-        </div>
-        {/*
-          Adres kendi ekranında (is-koala/koala-web#172): arama/harita akışı
-          tek kullanımlık aday kanıtı taşıyor ve beş alanın formundaki bir
-          doğrulama hatası o kanıtı da yakardı.
-        */}
-        <AddressView address={company.address} />
-      </section>
+      {/*
+        Adres kendi ekranında (is-koala/koala-web#172): arama/harita akışı
+        tek kullanımlık aday kanıtı taşıyor ve beş alanın formundaki bir
+        doğrulama hatası o kanıtı da yakardı. Bölüm profilinkiyle aynı.
+      */}
+      <CompanyAddressSection address={company.address} editHref={companyAddressPath(companyId)} />
 
       <LockedFields company={company} />
     </div>

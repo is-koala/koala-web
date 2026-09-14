@@ -12,7 +12,6 @@ import {
   editableCompanyFields,
   emptyCompanyDraft,
   lockedCompanyFields,
-  companyAddressApplied,
   type CompanyDraft,
 } from "./company";
 
@@ -224,34 +223,5 @@ describe("kilitli alanlar", () => {
     for (const field of lockedCompanyFields) {
       expect(editable.has(field.name), field.name).toBe(false);
     }
-  });
-});
-
-describe("adres yazmasının uygulandığı kararı", () => {
-  const sent = {
-    countryId: "c",
-    cityId: "i",
-    districtId: "d",
-    components: {},
-    position: { latitude: 41.0812345, longitude: 29.0087654, source: "USER_CONFIRMED_PIN" as const },
-  };
-
-  it("yanıttaki konum gönderilenle altı ondalıkta eşleşiyorsa uygulanmış sayar", () => {
-    expect(
-      companyAddressApplied(sent, { position: { latitude: 41.081235, longitude: 29.008765 } }),
-    ).toBe(true);
-  });
-
-  it("eski sunucunun eski konumu geri vermesini uygulanmadı sayar", () => {
-    // Spring varsayılanı bilinmeyen `address` alanını sessizce düşürüyor ve
-    // 200 ile eski adresi döndürüyor; 400 gelmiyor. Tek gösterge konum.
-    expect(
-      companyAddressApplied(sent, { position: { latitude: 41.0, longitude: 28.9 } }),
-    ).toBe(false);
-    expect(companyAddressApplied(sent, null)).toBe(false);
-  });
-
-  it("konum taşımayan yanıtta karar veremez ve uygulanmış sayar", () => {
-    expect(companyAddressApplied(sent, { position: null })).toBe(true);
   });
 });

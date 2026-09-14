@@ -8,8 +8,9 @@ import {
   requestHeaders,
 } from "../../../../../../../tests/support/session-cookies";
 
+import { idleAddressFormState } from "@/lib/form-state";
+
 import { saveCompanyAddressAction } from "./actions";
-import { idleCompanyAddressState } from "./state";
 
 const revalidatePath = vi.hoisted(() => vi.fn());
 
@@ -52,13 +53,6 @@ const savedAddress = {
   position: { latitude: 41.081235, longitude: 29.008765, source: "USER_CONFIRMED_PIN" },
 };
 
-const staleAddress = {
-  ...savedAddress,
-  districtName: "Kadıköy",
-  displayAddress: "Eski adres, Kadıköy",
-  position: { latitude: 40.99, longitude: 29.03, source: "LEGACY_UNVERIFIED" },
-};
-
 function formWith(value: unknown) {
   const formData = new FormData();
   formData.set("address", value === "" ? "" : JSON.stringify(value));
@@ -87,7 +81,7 @@ describe("şirket adresi kaydı", () => {
 
     const state = await saveCompanyAddressAction(
       companyId,
-      idleCompanyAddressState,
+      idleAddressFormState,
       formWith(addressWrite),
     );
 
@@ -108,35 +102,29 @@ describe("şirket adresi kaydı", () => {
     ]);
   });
 
-  it("adresi sessizce düşüren eski sunucuyu kayıt saymaz", async () => {
-    // 0.9.24 öncesi `UpdateCompanyRequestDto` `address` tanımıyor; Spring
-    // bilinmeyen alanı reddetmiyor, 200 ile eski adresi döndürüyor.
-    // "Kaydedildi" deyip eski adresi göstermek kullanıcıyı ödeme anında
-    // yeniden aynı kapıya çarptırırdı.
-    successfulFetch({ id: companyId, address: staleAddress });
+  it("adres taşımayan yanıtı kayıt saymaz", async () => {
+    // Sözleşme `CompanyDto.address`'i her zaman döndürüyor; boş gelirse onay
+    // kartına boş adres çizmek yerine arıza gösterilir ve ekranlar tazelenmez.
+    successfulFetch({ id: companyId, address: null });
 
     const state = await saveCompanyAddressAction(
       companyId,
-      idleCompanyAddressState,
+      idleAddressFormState,
       formWith(addressWrite),
     );
 
-    expect(state).toEqual({
-      status: "error",
-      errorCode: "COMPANY_ADDRESS_UPDATE_NOT_APPLIED",
-      httpStatus: 200,
-    });
+    expect(state).toMatchObject({ status: "error", httpStatus: 500 });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("eski sunucunun 400'ünü alan hatası olarak taşır, sayfayı kırmaz", async () => {
+  it("backend alan hatası dönerse sayfayı kırmadan alanın altına yazar", async () => {
     failingFetch(400, "VALIDATION_FAILED", [
       { field: "address", message: "Bilinmeyen alan: address" },
     ]);
 
     const state = await saveCompanyAddressAction(
       companyId,
-      idleCompanyAddressState,
+      idleAddressFormState,
       formWith(addressWrite),
     );
 
@@ -157,7 +145,7 @@ describe("şirket adresi kaydı", () => {
 
     const state = await saveCompanyAddressAction(
       companyId,
-      idleCompanyAddressState,
+      idleAddressFormState,
       formWith(addressWrite),
     );
 
@@ -178,7 +166,7 @@ describe("şirket adresi kaydı", () => {
 
     const state = await saveCompanyAddressAction(
       companyId,
-      idleCompanyAddressState,
+      idleAddressFormState,
       formWith(addressWrite),
     );
 
@@ -193,7 +181,7 @@ describe("şirket adresi kaydı", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const state = await saveCompanyAddressAction(companyId, idleCompanyAddressState, formWith(""));
+    const state = await saveCompanyAddressAction(companyId, idleAddressFormState, formWith(""));
 
     expect(state).toMatchObject({
       status: "error",
@@ -209,7 +197,7 @@ describe("şirket adresi kaydı", () => {
 
     const state = await saveCompanyAddressAction(
       "../hesap",
-      idleCompanyAddressState,
+      idleAddressFormState,
       formWith(addressWrite),
     );
 

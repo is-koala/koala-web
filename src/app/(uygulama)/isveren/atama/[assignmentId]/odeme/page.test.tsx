@@ -95,7 +95,7 @@ it("şirket adresi eksiğini companyBillingAddress kapısıyla ödeme öncesinde
   // Çare web'in şirket bölümü (is-koala/koala-web#172), uygulama aktarımı değil.
   expect(screen.getByRole("link", { name: "Şirket adresini düzenle" })).toHaveAttribute(
     "href",
-    "/isveren/sirket",
+    "/isveren/sirket?bolum=sirket-adresi",
   );
 });
 

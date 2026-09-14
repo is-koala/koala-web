@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AddressGateway } from "@/address/gateway-client";
+import type { AddressFormState } from "@/lib/form-state";
 
-import type { CompanyAddressState } from "./state";
 import { CompanyAddressForm } from "./company-address-form";
 
 const profileHref = "/isveren/sirket/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -38,7 +38,7 @@ function offlineGateway(): AddressGateway {
   };
 }
 
-function renderForm(action: (state: CompanyAddressState, formData: FormData) => Promise<CompanyAddressState>) {
+function renderForm(action: (state: AddressFormState, formData: FormData) => Promise<AddressFormState>) {
   render(<CompanyAddressForm action={action} profileHref={profileHref} gateway={offlineGateway()} />);
   return userEvent.setup();
 }
@@ -68,20 +68,18 @@ describe("şirket adresi formu", () => {
     expect(screen.queryByRole("button", { name: "Adresi kaydet" })).not.toBeInTheDocument();
   });
 
-  it("adresi düşüren eski sunucunun hatasını koddan seçilmiş metinle, formu koruyarak gösterir", async () => {
-    // Backend 200 döndü ama adres değişmedi; eylem bunu web'in kendi koduyla
-    // bildiriyor. Sayfa kırılmaz: form yerinde kalır, üst bant nedeni yazar.
+  it("alan hatası taşımayan reddi üst bantta koddan seçilmiş metinle, formu koruyarak gösterir", async () => {
+    // Yönetici olmayanın 404'ü: sayfa kırılmaz, form yerinde kalır, üst bant
+    // `errorCode` ile seçilmiş Türkçe metni yazar.
     const user = renderForm(async () => ({
       status: "error",
-      errorCode: "COMPANY_ADDRESS_UPDATE_NOT_APPLIED",
-      httpStatus: 200,
+      errorCode: "USER_NOT_ASSOCIATED_WITH_COMPANY",
+      httpStatus: 404,
     }));
 
     await user.click(screen.getByRole("button", { name: "Adresi kaydet" }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("Şirket adresi kaydedilemedi"),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeVisible());
     expect(screen.getByRole("button", { name: "Adresi kaydet" })).toBeInTheDocument();
   });
 

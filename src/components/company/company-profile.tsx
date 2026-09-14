@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { AddressView } from "@/components/address-view";
+import { CompanyAddressSection } from "@/components/company/company-address-section";
 import { canManageCompany, companyTypeLabel } from "@/lib/company";
 import type { Company } from "@/server/company/company";
 
@@ -20,11 +20,7 @@ export type CompanyProfileProps = {
   /** Kullanıcının bu şirketteki rolü; `GET /users/me` üyelik listesinden. */
   viewerRole: string;
   editHref: string;
-  /**
-   * Şirket adresinin düzenleme ekranı (is-koala/koala-web#172). Bağlantı
-   * yalnız `ADMIN`'e çiziliyor: `PATCH /companies/{id}` `requireCompanyAdmin`
-   * istiyor ve geçemeyene 404 dönüyor; CONTACT adresi salt okur.
-   */
+  /** Şirket adresinin düzenleme ekranı (is-koala/koala-web#172); yalnız `ADMIN`'e çizilir. */
   addressHref: string;
   contactsHref: string;
   /**
@@ -115,29 +111,10 @@ export function CompanyProfileView({
         {company.description ? <p className="record-description">{company.description}</p> : null}
       </section>
 
-      <section className="app-panel" id="sirket-adresi" aria-labelledby="company-address-title">
-        <div className="section-heading-row">
-          <div>
-            <p className="eyebrow">Adres</p>
-            <h2 id="company-address-title">Şirket adresi</h2>
-          </div>
-          {canManageCompany(viewerRole) ? (
-            <Link className="text-link" href={addressHref}>
-              Düzenle
-            </Link>
-          ) : null}
-        </div>
-        <AddressView address={company.address} />
-        {/*
-          Ödeme buradaki adresi okuyor (`JobAssignmentManager`), kullanıcının
-          kendi adresini değil; adres eksikse ödeme sayfası kapısı buraya
-          yolluyor ve eksiğin neden burada kapandığı yazılı olmalı.
-        */}
-        <p className="muted">
-          Şirket ilanlarının faturası bu adrese kesilir; adres yoksa ödeme başlatılamaz. Adresi
-          yalnız şirket yöneticisi değiştirebilir.
-        </p>
-      </section>
+      <CompanyAddressSection
+        address={company.address}
+        editHref={canManageCompany(viewerRole) ? addressHref : null}
+      />
 
       <section className="app-panel" aria-labelledby="company-contacts-link-title">
         <div className="section-heading-row">
