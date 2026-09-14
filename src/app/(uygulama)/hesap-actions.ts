@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
+import { workerNotificationsPath } from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
 import { passwordProblem, passwordRequirement, passwordsDoNotMatch } from "@/lib/password";
 import { ApiError, safeRequestId } from "@/server/api/errors";
@@ -290,6 +291,10 @@ function safeIbanFailure(error: unknown): SettingsActionState {
 function revalidateSettings() {
   revalidatePath("/panel/hesap");
   revalidatePath("/isveren/hesap");
+  // Bildirim akışı ve banka hesapları iki adreste daha çiziliyor; okundu ya
+  // da IBAN eylemi hangi sayfadan gelirse gelsin öbürü bayat kalmamalı.
+  revalidatePath(workerNotificationsPath);
+  revalidatePath("/panel/kazanclarim");
 }
 
 function invalidResource(field: string): SettingsActionState {

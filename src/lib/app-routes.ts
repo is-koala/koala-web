@@ -97,6 +97,27 @@ export const companySectionPath = "/isveren/sirket";
 export const workerJobsPath = "/panel/islerim";
 
 /**
+ * İş arayanın bildirim akışı; kayıtta bir bölüm olarak da bildirilir.
+ *
+ * Hesap sayfası da aynı akışı bir kart olarak taşıyor; bu adres akışın
+ * **tamamı** için var: okundu işaretleme eylemleri iki adresi de tazeliyor,
+ * o yüzden adres tek yerde duruyor.
+ */
+export const workerNotificationsPath = "/panel/bildirimler";
+
+/**
+ * Giriş sonrası kabuk hedefi.
+ *
+ * Kayıt (`postRegistrationPath`, `site.ts`) ile **aynı karar değil**: giriş
+ * yapan kullanıcının rolü `GET /users/me` ile biliniyor ve is-koala/koala-web#154
+ * hedefi role bağladı — çalışan `/panel`, işveren `/isveren`. Kökler kayıttan
+ * okunuyor ki kabuk taşınırsa hedef de onunla taşınsın.
+ */
+export function shellHomePath(shell: AppShellId): string {
+  return appShells[shell].root;
+}
+
+/**
  * Şirket oluşturma formu.
  *
  * Menüde ayrı bir madde değil ve kayıtta da bir bölüm değil: kullanıcının
@@ -365,6 +386,14 @@ const workerShell: AppShell = {
     {
       href: "/panel/kazanclarim",
       label: "Kazançlarım",
+      requires: [],
+      status: "ready",
+    },
+    {
+      href: workerNotificationsPath,
+      label: "Bildirimler",
+      // `GET /users/me/notifications` yalnız oturum istiyor; okundu
+      // işaretlemek de öyle.
       requires: [],
       status: "ready",
     },
