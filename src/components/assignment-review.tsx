@@ -6,16 +6,14 @@ import { assignmentNotFoundMessage } from "@/assignments/contract";
 
 import {
   idleReviewActionState,
-  ratingStars,
   reviewCommentMaxLength,
   reviewRatings,
-  reviewSummary,
   type AssignmentReview,
   type ReviewAction,
   type ReviewRating,
 } from "@/assignments/review";
+import { ReviewSummary } from "@/components/review-summary";
 import { StatusBadge } from "@/components/ui";
-import { formatDateTime } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 
 /**
@@ -159,26 +157,6 @@ export function AssignmentReviewSection({
         </form>
       )}
     </section>
-  );
-}
-
-/**
- * `live` yalnız az önce gönderilen değerlendirmede: ekran okuyucuya sonucu
- * duyurur. Sayfayla gelen mevcut değerlendirme duyuru değil, içerik.
- */
-function ReviewSummary({ review, live = false }: { review: AssignmentReview; live?: boolean }) {
-  return (
-    <p
-      role={live ? "status" : undefined}
-      className="assignment-review-summary"
-      data-testid="assignment-review-summary"
-    >
-      <span aria-hidden="true" className="assignment-review-stars">{ratingStars(review.rating)}</span>
-      <span>{reviewSummary(review)}</span>
-      {review.createdAt ? (
-        <time dateTime={review.createdAt}>{formatDateTime(review.createdAt)}</time>
-      ) : null}
-    </p>
   );
 }
 

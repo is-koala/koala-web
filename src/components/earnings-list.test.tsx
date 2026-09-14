@@ -155,27 +155,31 @@ describe("kazanç listesi", () => {
       "2026-09-05T11:00:00Z",
     );
     expect(within(row).getByText("Banka hesabı").nextElementSibling).toHaveTextContent("—");
-    expect(within(row).getByText("Durum").nextElementSibling).toHaveTextContent(/tutar hesabında/);
+    expect(within(row).getByText("Durum").nextElementSibling).toHaveTextContent(/banka ekstresiyle doğrulandı/);
   });
 
-  it("her durumun sözlük açıklaması var ve başarısızlığın nedeni ayrı satırda kalır", () => {
+  it("her durumun sözlük açıklaması backend metnine sadık; başarısızlığın nedeni yalnız neden bloğunda", () => {
     render(<EarningsList payouts={[
       payout({ id: "1", status: "PENDING" }),
       payout({ id: "2", status: "PROCESSING" }),
       payout({ id: "3", status: "COMPLETED" }),
       payout({ id: "4", status: "FAILED", failureMessage: "Banka aktarımı tamamlanamadı. Ödeme hesabını kontrol edip destekten yardım alabilirsin." }),
-      payout({ id: "5", status: "UNKNOWN" }),
+      payout({ id: "5", status: "FAILED", failureMessage: null }),
+      payout({ id: "6", status: "UNKNOWN" }),
     ]} />);
 
     const descriptions = screen.getAllByText("Durum").map((term) => term.nextElementSibling?.textContent);
     expect(descriptions).toEqual([
       "Kazancın emanetten çıkışa alındı; ödeme sağlayıcısının onayı bekleniyor.",
       "Sağlayıcı çıkışı onayladı; banka transferi yolda.",
-      "Transfer banka ekstresiyle doğrulandı; tutar hesabında.",
-      "Çıkış tamamlanamadı; tutar Koala'da tutuluyor.",
+      "Transfer banka ekstresiyle doğrulandı.",
+      "Çıkış başarısız; ayrıntı için destekle iletişime geç.",
+      "Çıkış başarısız; ayrıntı için destekle iletişime geç.",
       "Durum güncelleniyor; biraz sonra yeniden kontrol edebilirsin.",
     ]);
-    expect(screen.getByText(/Banka aktarımı tamamlanamadı/)).toBeVisible();
+    expect(screen.getAllByText(/Banka aktarımı tamamlanamadı/)).toHaveLength(1);
+    // Backend'in söylemediği bir "tutar nerede" iddiası yok.
+    expect(document.body.textContent).not.toMatch(/Koala'da tutuluyor|tutar hesabında/);
   });
 
   it("iş adı eşlenemediyse ve aktarım bitmediyse o satırları çizmez, bağlantı kalır", () => {

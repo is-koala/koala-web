@@ -5,13 +5,14 @@ import {
   parseReviewRating,
   ratingStars,
   reviewSummary,
+  showsReviewSection,
 } from "./review";
 
 describe("atama değerlendirme modeli", () => {
   it("yalnız COMPLETED atama değerlendirilir", () => {
-    expect(canReviewAssignment("COMPLETED")).toBe(true);
+    expect(canReviewAssignment("COMPLETED", null)).toBe(true);
     for (const status of ["PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS", "REJECTED", "CANCELLED", "UNKNOWN"] as const) {
-      expect(canReviewAssignment(status)).toBe(false);
+      expect(canReviewAssignment(status, null)).toBe(false);
     }
   });
 
@@ -20,6 +21,13 @@ describe("atama değerlendirme modeli", () => {
     expect(canReviewAssignment("COMPLETED", review)).toBe(false);
     expect(canReviewAssignment("COMPLETED", null)).toBe(true);
     expect(canReviewAssignment("IN_PROGRESS", review)).toBe(false);
+  });
+
+  it("bölüm form açılabiliyorsa ya da gösterilecek değerlendirme varsa çizilir", () => {
+    const review = { rating: 4, comment: null, createdAt: null };
+    expect(showsReviewSection("COMPLETED", null)).toBe(true);
+    expect(showsReviewSection("COMPLETED", review)).toBe(true);
+    expect(showsReviewSection("IN_PROGRESS", null)).toBe(false);
   });
 
   it("form değerini 1–5 tam sayıya indirger, geri kalanı reddeder", () => {

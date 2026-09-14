@@ -2,16 +2,12 @@ import Link from "next/link";
 
 import { formatDateTime } from "@/lib/dates";
 import { formatMoney, sumMoney } from "@/lib/money";
-import { payoutStatusDescription, type PayoutStatus, type WorkerPayout } from "@/payments/payouts";
+import {
+  payoutStatusDescription,
+  payoutStatusLabel,
+  type WorkerPayout,
+} from "@/payments/payouts";
 import { StatusBadge, payoutStatusTone } from "@/components/ui";
-
-const payoutStatusLabel: Readonly<Record<PayoutStatus, string>> = {
-  PENDING: "Aktarım bekliyor",
-  PROCESSING: "Aktarılıyor",
-  COMPLETED: "Ödendi",
-  FAILED: "Aktarılamadı",
-  UNKNOWN: "Durum güncelleniyor",
-};
 
 export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) {
   const completedTotals = totalsFor(payouts, (payout) => payout.status === "COMPLETED");
@@ -103,7 +99,10 @@ function PayoutMoment({ term, at }: { term: string; at: string | null }) {
  * ne demek olduğu. Hesap kaydı silinmişse ya da sunucu alanı hiç
  * göndermiyorsa "—": boş bırakmak "hesap yok" ile "bilgi yok"u aynı gösterir,
  * tire ikisini de "burada gösterilemiyor" diye okutur ve tam IBAN zaten
- * hiçbir yanıtta gelmiyor.
+ * hiçbir yanıtta gelmiyor. Başarısız çıkışta sağlayıcının nedeni burada
+ * yinelenmiyor: güvenli biçimi (`failureMessage`) ve destek bağlantısı
+ * hemen üstteki `payout-failure` bloğunda, durum satırı sözlük cümlesini
+ * söyler.
  */
 function PayoutDetail({ payout }: { payout: WorkerPayout }) {
   return (

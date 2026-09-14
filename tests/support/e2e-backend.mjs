@@ -749,9 +749,14 @@ function assignments() {
 }
 
 /**
- * Atama satırının görüntüleyene göre biçimi (backend 0.9.25). İşçi fiyat
- * dökümünü ve işveren toplamını görmez; `workerPayout` her iki tarafta da
- * sayı. Değerlendirme: bu anahtarın yazdığı kayıt `myReview` olur;
+ * Atama satırının görüntüleyene göre biçimi (backend 0.9.25). Gerçek backend
+ * kararı satırın işçisi kim diye verir (görüntüleyen `worker.id` ise
+ * `pricing`/`totalCharged` null); bu sahtede tek kullanıcı (`userId`) iki
+ * kabuğu da sürüyor ve fikstür işçisi (`assignmentWorkerId`) o değil, yani
+ * "görüntüleyen işçi mi" sorusu istekten çıkarılamıyor. Backend'in kendi
+ * görünüm anahtarı `asEmployer` kullanılıyor: `asEmployer=false` zaten
+ * "görüntüleyenin işçi olduğu satırlar" demek. `workerPayout` her iki tarafta
+ * da sayı. Değerlendirme: bu anahtarın yazdığı kayıt `myReview` olur;
  * `counterpartyReviewed` tamamlanmış atamada işçiye "işveren seni
  * değerlendirdi" der, işverene henüz demez.
  */

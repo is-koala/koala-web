@@ -115,7 +115,7 @@ test("iş ayrıntısı işvereni, ilan bilgilerini ve ödeme damgasını göster
   await settledRow.getByText("Hakediş ayrıntısı").click();
   await expect(settledRow).toContainText("TR18***2315");
   await expect(settledRow).toContainText("IYZ-7F3A9C");
-  await expect(settledRow).toContainText("tutar hesabında");
+  await expect(settledRow).toContainText("banka ekstresiyle doğrulandı");
   await expect(settledRow.locator("time[datetime='2026-09-04T09:00:00Z']")).toBeVisible();
   await expect(settledRow.locator("time[datetime='2026-09-05T08:00:00Z']")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("9f1f0d24");
@@ -145,7 +145,7 @@ test("çalışan kazancını görür, komisyonu görmez; değerlendirme durumu s
   await page.getByRole("button", { name: "Değerlendirmeyi gönder" }).click();
 
   await expect(page.getByRole("status").filter({ hasText: "Değerlendirmen kaydedildi." })).toBeVisible();
-  await expect(page.getByTestId("work-review-summary")).toContainText("Değerlendirmen: ★4 · İyi bir işverendi.");
+  await expect(page.getByTestId("assignment-review-summary")).toContainText("Değerlendirmen: ★4 · İyi bir işverendi.");
   await expect(page.getByText("Değerlendirme bırak")).toHaveCount(0);
 
   const reviews = await request.get(`${backendURL}/__test__/reviews?key=${stateKeyFor(testInfo)}`);
@@ -155,7 +155,7 @@ test("çalışan kazancını görür, komisyonu görmez; değerlendirme durumu s
 
   // Yeniden açılan sayfada karar satırdan: özet yükleme anında, form yok.
   await page.reload();
-  await expect(page.getByTestId("work-review-summary")).toContainText("Değerlendirmen: ★4");
+  await expect(page.getByTestId("assignment-review-summary")).toContainText("Değerlendirmen: ★4");
   await expect(page.getByText("Değerlendirme bırak")).toHaveCount(0);
 });
 

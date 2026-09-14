@@ -69,13 +69,27 @@ export type ReviewAction = (
 /**
  * Backend `ReviewManager.leaveReview`: yalnız `COMPLETED` atama değerlendirilir
  * ve yazar başına tek kayıt vardır. Satır zaten `myReview` taşıyorsa form
- * açılmaz; 409 beklemek yerine karar sunucudan okunur.
+ * açılmaz; 409 beklemek yerine karar sunucudan okunur. İkinci argümanın
+ * varsayılanı yok: çağıran sunucunun kararını geçmek zorunda, "bilmiyorum"
+ * diye form açamaz.
  */
 export function canReviewAssignment(
   status: AssignmentStatus,
-  myReview: AssignmentReview | null = null,
+  myReview: AssignmentReview | null,
 ): boolean {
   return status === "COMPLETED" && myReview === null;
+}
+
+/**
+ * Değerlendirme bölümü çizilir mi: form açılabiliyorsa ya da gösterilecek
+ * bir değerlendirme varsa. İki kabuk da bölümü bununla açıyor; "yalnız
+ * COMPLETED" kuralı `canReviewAssignment`'ta tek yerde.
+ */
+export function showsReviewSection(
+  status: AssignmentStatus,
+  myReview: AssignmentReview | null,
+): boolean {
+  return canReviewAssignment(status, myReview) || myReview !== null;
 }
 
 /** Form alanından gelen puanı 1–5 tam sayıya indirger; başka her şey `null`. */

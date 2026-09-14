@@ -11,18 +11,12 @@ import {
   canCancelAssignment,
   showsCancellationPreview,
 } from "@/assignments/resolution";
-import {
-  canReviewAssignment,
-  ratingStars,
-  reviewCommentMaxLength,
-  reviewSummary,
-  type AssignmentReview,
-} from "@/assignments/review";
+import { canReviewAssignment, reviewCommentMaxLength } from "@/assignments/review";
 import {
   DisputeEvidenceFields,
   selectedDisputeEvidence,
 } from "@/components/dispute-evidence-fields";
-import { formatDateTime } from "@/lib/dates";
+import { ReviewSummary } from "@/components/review-summary";
 
 import { canOpenDispute, formatNotice } from "./presenters";
 
@@ -105,7 +99,11 @@ export function WorkSecondaryActions({
         <EvidenceUploadForm disputeId={activeDispute.id} pending={pending} onCommand={onCommand} />
       ) : null}
 
-      {myReview ? <WorkerReviewSummary review={myReview} /> : null}
+      {/*
+        Sayfayla gelen içerik, duyuru değil (`live` yok): gönderim sonrası
+        duyuruyu ekranın üst şeridi ("Değerlendirmen kaydedildi.") yapıyor.
+      */}
+      {myReview ? <ReviewSummary review={myReview} address="informal" /> : null}
 
       {canReview ? (
         <details>
@@ -129,24 +127,6 @@ export function WorkSecondaryActions({
         </details>
       ) : null}
     </section>
-  );
-}
-
-/**
- * İşçinin daha önce bıraktığı değerlendirme. Form bu hâlde hiç çizilmiyor;
- * `role="status"` yok, çünkü bu bir duyuru değil sayfayla gelen içerik —
- * gönderim sonrası duyuruyu ekranın üst şeridi ("Değerlendirmen kaydedildi.")
- * yapıyor.
- */
-function WorkerReviewSummary({ review }: { review: AssignmentReview }) {
-  return (
-    <p className="assignment-review-summary" data-testid="work-review-summary">
-      <span aria-hidden="true" className="assignment-review-stars">{ratingStars(review.rating)}</span>
-      <span>{reviewSummary(review, "informal")}</span>
-      {review.createdAt ? (
-        <time dateTime={review.createdAt}>{formatDateTime(review.createdAt)}</time>
-      ) : null}
-    </p>
   );
 }
 

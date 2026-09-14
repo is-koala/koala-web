@@ -745,7 +745,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     const action = vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: reviewed });
     render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={completed} action={action} locate={located} />);
 
-    expect(screen.queryByTestId("work-review-summary")).toBeNull();
+    expect(screen.queryByTestId("assignment-review-summary")).toBeNull();
     await user.click(screen.getByText("Değerlendirme bırak"));
     await user.selectOptions(screen.getByLabelText("Puan"), "4");
     await user.type(screen.getByLabelText("Yorum"), "İyi bir işverendi");
@@ -753,7 +753,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
 
     expect(action).toHaveBeenCalledWith({ type: "review", rating: 4, comment: "İyi bir işverendi" });
     expect(await screen.findByRole("status")).toHaveTextContent("Değerlendirmen kaydedildi.");
-    const summary = screen.getByTestId("work-review-summary");
+    const summary = screen.getByTestId("assignment-review-summary");
     expect(summary).toHaveTextContent("Değerlendirmen: ★4 · İyi bir işverendi");
     expect(summary.querySelector("time")).toHaveAttribute("datetime", "2026-09-13T10:00:00Z");
     expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
@@ -776,8 +776,8 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       <WorkDetailScreen conversationAction={conversationAction} initialDetail={reviewed} action={vi.fn()} locate={located} />,
     );
 
-    expect(screen.getByTestId("work-review-summary")).toHaveTextContent(/Değerlendirmen: ★5$/);
-    expect(screen.getByTestId("work-review-summary").querySelector("time")).toBeNull();
+    expect(screen.getByTestId("assignment-review-summary")).toHaveTextContent(/Değerlendirmen: ★5$/);
+    expect(screen.getByTestId("assignment-review-summary").querySelector("time")).toBeNull();
     expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
     expect(screen.getByTestId("counterparty-reviewed")).toHaveTextContent("İşveren seni değerlendirdi");
     unmount();
@@ -789,7 +789,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     });
     render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={legacy} action={vi.fn()} locate={located} />);
     expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
-    expect(screen.queryByTestId("work-review-summary")).toBeNull();
+    expect(screen.queryByTestId("assignment-review-summary")).toBeNull();
     expect(screen.queryByTestId("counterparty-reviewed")).toBeNull();
   });
 

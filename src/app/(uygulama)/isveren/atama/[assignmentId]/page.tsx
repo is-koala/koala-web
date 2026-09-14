@@ -7,6 +7,7 @@ import {
   assignmentNextStep,
   employerAssignmentTimeline,
 } from "@/assignments/employer-tracking";
+import { showsReviewSection } from "@/assignments/review";
 import { ApplicantNameLink } from "@/components/applicant-name-link";
 import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
 import { AssignmentReviewSection } from "@/components/assignment-review";
@@ -195,12 +196,13 @@ export async function EmployerAssignmentContent({
 
       {/*
         Değerlendirme takip panelinin hemen altında: "iş bitti" adımının
-        doğal devamı. Bölüm yalnız `COMPLETED` atamada; backend başka durumda
-        409 döndürüyor ve karar satırdan okunabiliyor (#173). Form ise ancak
-        satır `myReview` taşımıyorsa açılıyor (#179): varsa yükleme anında
-        özet çiziliyor, 409 yolu yarış yedeği.
+        doğal devamı. Bölüm yalnız `COMPLETED` atamada (`canReviewAssignment`,
+        kural tek yerde); backend başka durumda 409 döndürüyor ve karar
+        satırdan okunabiliyor (#173). Form ise ancak satır `myReview`
+        taşımıyorsa açılıyor (#179): varsa yükleme anında özet, 409 yolu
+        yarış yedeği.
       */}
-      {assignment.status === "COMPLETED" ? (
+      {showsReviewSection(assignment.status, assignment.myReview) ? (
         <AssignmentReviewSection
           workerName={assignment.workerName || "İşçi"}
           action={employerReviewAction.bind(null, assignment.id)}
