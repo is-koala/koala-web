@@ -12,7 +12,7 @@ import { ApiError } from "@/server/api/errors";
 import { notFoundStatus } from "@/server/contract";
 import { failureView } from "@/server/form";
 import { listCompanyImages, listJobImages } from "@/server/gallery/gallery";
-import { fetchJobDetail, type JobDetail } from "@/server/jobs/jobs";
+import { fetchJobDetail, type EmployerJobDetail } from "@/server/jobs/jobs";
 import { enterShell } from "@/server/session/viewer";
 
 import { replaceJobGalleryAction, uploadJobGalleryAction } from "./actions";
@@ -36,7 +36,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  let job: JobDetail;
+  let job: EmployerJobDetail;
   try {
     job = await fetchJobDetail(id);
   } catch (error) {
@@ -53,7 +53,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   );
 }
 
-export async function JobGalleryPanel({ job }: { job: JobDetail }) {
+export async function JobGalleryPanel({ job }: { job: EmployerJobDetail }) {
   let images;
   let companyImages = null;
   try {

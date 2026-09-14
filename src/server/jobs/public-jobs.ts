@@ -1,21 +1,12 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
-import type { PricingBreakdown } from "@/lib/job-posting";
-import { safeImageUrl } from "@/lib/urls";
-import type { JobDetail, JobImage } from "@/jobs/contract";
-import { jobStatuses } from "@/jobs/lifecycle";
-import {
-  clean,
-  jobTypes,
-  known,
-  openings,
-  precisionOf,
-  salaryTypes,
-} from "@/server/api/dto";
+import type { EmployerStats, JobDetail } from "@/jobs/contract";
 import { apiFetch } from "@/server/api/client";
-import { backendPaths, jobPath, jobSitemapShardPath } from "@/server/contract";
+import { backendPaths, employerStatsPath, jobPath, jobSitemapShardPath } from "@/server/contract";
+import { toJobDetail, type JobDetailDto } from "@/server/jobs/job-detail-dto";
 import { publicReaderCaller } from "@/server/session/session";
 
 /**
@@ -102,139 +93,48 @@ function sitemapPublicRequest() {
   };
 }
 
-/**
- * `JobDetailDto`'nun tel biçimi.
- *
- * `address` bilerek **eksik** yazılmış: yanıt `components`, `position` ve
- * `displayAddress` alanlarını da taşıyor ama bu tip yalnız iki adı tanıyor.
- * Tanımadığı bir alan `toJobDetail` içinde okunamaz, yani sızıntı tipin
- * kendisinde kapanıyor. Alanları buraya geri eklemek, ADR-0003'ün kapattığı
- * yüzeyi tek satırda açar.
- */
-type JobDetailDto = {
-  id?: string | null;
-  title?: string | null;
-  description?: string | null;
-  duties?: string | null;
-  dressCode?: string | null;
-  category?: { name?: string | null } | null;
-  company?: { name?: string | null; logoUrl?: string | null } | null;
-  creator?: { firstName?: string | null; lastName?: string | null } | null;
-  type?: string | null;
-  salaryType?: string | null;
-  startDateTime?: string | null;
-  endDateTime?: string | null;
-  createdAt?: string | null;
-  pricing?: PricingBreakdown | null;
-  minAge?: number | null;
-  maxAge?: number | null;
-  insuranceRequired?: boolean;
-  experienceRequired?: boolean;
-  headcount?: number | null;
-  hiredCount?: number | null;
-  images?: readonly GalleryImageDto[] | null;
-  address?: { cityName?: string | null; districtName?: string | null } | null;
-  addressPrecision?: string | null;
-  status?: string | null;
-  acceptingApplications?: boolean | null;
-};
-
-/** `GalleryImageDto`; sıralama backend'den geliyor, kapak bayrağı ayrı bir alan. */
-type GalleryImageDto = {
-  url?: string | null;
-  caption?: string | null;
-  cover?: boolean | null;
-  sortOrder?: number | null;
+/** `EmployerStatsDto`; `userId` ve `reviewCount` da geliyor, kart dördünü çiziyor. */
+type EmployerStatsDto = {
+  jobsPosted?: number | null;
+  completedJobs?: number | null;
+  averageRating?: string | number | null;
+  reviewCount?: number | null;
+  memberSince?: string | null;
 };
 
 /**
- * Tel biçimini ekranın modeline daraltır — ve adres yüzeyini burada kapatır.
+ * `GET /users/{userId}/employer-stats` — ilan sayfasının işveren güven kartı.
  *
- * Adresten yalnız `cityName` ve `districtName` geçiyor. `displayAddress`
- * **okunmuyor**, ve bu `addressPrecision`'a bakan bir dallanma değil, koşulsuz
- * bir kural: `JobAddressVisibility.precision()` bakan kişiye bakmadan
- * `publicCompanyAddress` ilanlarında `EXACT` diyor, yani anonim bir ziyaretçi
- * bugün tam sokak adresini ve tam hassasiyetli koordinatı içeren bir yanıt
- * alabiliyor (is-koala/koala-backend#7). Bayrağı okuyup "yaklaşıksa göster"
- * demek, o dalı sızdıran hâlde bırakırdı.
+ * Uç `permitAll` (`SecurityConfig`) ve değerler her istekte türetiliyor; bu
+ * yüzden ilanla aynı kademeden, oturumsuz ve istek bağlamsız okunuyor ki
+ * sayfa ISR'da kalsın. Kart ikincil: okunamazsa `null` döner ve sayfa kartsız
+ * çizilir — ilanın kendisi için geçerli olan "geçici hatayı at" kuralı
+ * (`loadJob`) burada uygulanmıyor, çünkü bir istatistik satırı yüzünden ilanı
+ * 500'e düşürmek ziyaretçiye ilanı hiç göstermemek olurdu. Bedeli bilinçli:
+ * arıza anında üretilen sayfa beş dakika kartsız kalır.
  *
- * Kayıp küçük ve bilinçli: `APPROXIMATE` yanıtta `displayAddress` zaten
- * "mahalle, ilçe, il" idi ve mahalle düşüyor. Karşılığında sayfanın adres
- * yüzeyi tek bir kurala iniyor ve ilan HTML'i ziyaretçiden bağımsız oluyor.
+ * `averageRating` **dize** olarak taşınıyor: backend `BigDecimal` gönderiyor
+ * ve yuvarlamayı istemcide yeniden üretmek yanlış sayı yazardı.
  */
-function toJobDetail(dto: JobDetailDto): JobDetail {
-  const employerName = [dto.creator?.firstName, dto.creator?.lastName]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .join(" ");
-
-  return {
-    id: dto.id ?? "",
-    title: dto.title ?? "",
-    description: clean(dto.description),
-    duties: clean(dto.duties),
-    dressCode: clean(dto.dressCode),
-    categoryName: clean(dto.category?.name),
-    companyName: clean(dto.company?.name),
-    companyLogoUrl: safeImageUrl(clean(dto.company?.logoUrl)),
-    employerName: employerName || null,
-    type: known(dto.type, jobTypes),
-    salaryType: known(dto.salaryType, salaryTypes),
-    startsAt: dto.startDateTime ?? "",
-    endsAt: dto.endDateTime ?? "",
-    createdAt: clean(dto.createdAt),
-    pricing: toPricing(dto.pricing),
-    // Yaş sınırı olmayan ilanda DTO alanı ilkel `int` ve sıfır kalıyor;
-    // eksik bir değeri sıfır yaş sanmak "0–0 yaş" yazardı.
-    minAge: positiveAge(dto.minAge),
-    maxAge: positiveAge(dto.maxAge),
-    insuranceRequired: dto.insuranceRequired === true,
-    experienceRequired: dto.experienceRequired === true,
-    ...openings(dto),
-    images: toJobImages(dto.images),
-    cityName: clean(dto.address?.cityName),
-    districtName: clean(dto.address?.districtName),
-    addressPrecision: precisionOf(dto.addressPrecision),
-    status: known(dto.status, jobStatuses),
-    // Alan eski/eksik bir backend yanıtında yoksa başvuru ve indeksleme
-    // yüzeylerini açık bırakmak yerine güvenli biçimde kapat.
-    acceptingApplications: dto.acceptingApplications === true,
-  };
-}
-
-/**
- * Fiyat anlık görüntüsü ya tam gelir ya hiç.
- *
- * Üç tutardan biri eksikse tamamı düşüyor: yarım bir döküm, çalışanın
- * alacağı ile işverenin ödeyeceği tutarın hangisi olduğunu belirsiz bırakır
- * ve ADR-0002'nin ayrı ayrı gösterme şartını sessizce bozardı.
- */
-function toPricing(dto: PricingBreakdown | null | undefined): PricingBreakdown | null {
-  if (!dto) return null;
-  const currency = clean(dto.currency);
-  const workerPayout = clean(dto.workerPayout);
-  const serviceFeeAmount = clean(dto.serviceFeeAmount);
-  const employerTotal = clean(dto.employerTotal);
-  if (!currency || !workerPayout || !serviceFeeAmount || !employerTotal) return null;
-  return {
-    pricingVersion: dto.pricingVersion ?? "",
-    currency,
-    workerPayout,
-    serviceFeeRate: dto.serviceFeeRate ?? "",
-    serviceFeeAmount,
-    employerTotal,
-  };
-}
-
-function positiveAge(value: number | null | undefined): number {
-  return typeof value === "number" && value > 0 ? value : 0;
-}
-
-/** Adresi olmayan görsel bir görsel değil; kapak sıralaması backend'in. */
-function toJobImages(images: readonly GalleryImageDto[] | null | undefined): readonly JobImage[] {
-  return (images ?? []).flatMap((image) => {
-    const url = safeImageUrl(clean(image?.url));
-    return url === null
-      ? []
-      : [{ url, caption: clean(image?.caption), cover: image?.cover === true }];
-  });
-}
+export const readEmployerStats = cache(async (userId: string): Promise<EmployerStats | null> => {
+  try {
+    const dto = await apiFetch<EmployerStatsDto | null>(employerStatsPath(userId), {
+      ...publicReaderCaller(),
+      cache: "force-cache",
+    });
+    if (dto === null) return null;
+    return {
+      jobsPosted: dto.jobsPosted ?? 0,
+      completedJobs: dto.completedJobs ?? 0,
+      reviewCount: dto.reviewCount ?? 0,
+      averageRating:
+        dto.averageRating === null || dto.averageRating === undefined
+          ? null
+          : String(dto.averageRating),
+      memberSince: dto.memberSince?.trim() || null,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    return null;
+  }
+});

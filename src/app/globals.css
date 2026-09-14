@@ -971,6 +971,24 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .job-application-form .state-card { background: var(--paper); }
 .application-remedy { align-self: flex-start; margin-top: -10px; }
 .job-detail-state { padding: clamp(70px, 12vw, 150px) 0; display: grid; justify-items: start; gap: 22px; }
+/* İşveren güven kartı: işveren kartının altında iki sütun; sayılar başvuru
+   kartının kendi sunumunda, tanıtımın büyük başlıklarına girmeden. */
+.job-employer-trust { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; flex-basis: 100%; margin: 0; padding-top: 16px; border-top: 1px solid var(--line); }
+.job-employer-trust dt { color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.job-employer-trust dd { margin: 3px 0 0; color: var(--ink); font-size: .95rem; font-weight: 800; overflow-wrap: anywhere; }
+.job-detail-employer { flex-wrap: wrap; }
+/* İşverenin kendi ilan sayfası: tanıtımla aynı gövde bileşenleri, kabuğun
+   ölçüleriyle. Özet hücreleri `work-detail-facts` ile aynı düzen; bölüm
+   başlıkları tanıtımın 2,2rem'ine değil kabuğun 22px'ine iniyor. */
+.employer-job-detail { display: flex; flex-direction: column; gap: 24px; }
+.employer-job-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.employer-job-facts > div { padding: 14px 16px; border-top: 0; border-radius: var(--r-16); background: var(--surface-sunken); }
+.employer-job-facts dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); letter-spacing: .06em; }
+.employer-job-facts dd { font-weight: var(--w-semibold); }
+.employer-job-body { gap: 22px; }
+.employer-job-body > section { padding: clamp(18px, 3vw, 26px); border: 1px solid var(--border-soft); border-radius: var(--r-secondary); background: var(--surface); }
+.employer-job-body h2 { margin-bottom: 10px; font-size: var(--size-20); }
+.employer-job-body .price-breakdown { margin-bottom: 12px; background: var(--surface-sunken); }
 /* İşveren ödeme akışı. Tutar kartları finansal hiyerarşiyi korur: çalışan
    ücreti ve hizmet bedeli ayrı, backend'in işveren toplamı en baskın satır. */
 .employer-assignment-detail, .checkout-page, .payment-history-page, .employer-payments-page { display: flex; flex-direction: column; gap: 24px; }
@@ -1034,5 +1052,5 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 @media (max-width: 520px) { .job-filters { padding: 18px; border-radius: 20px; } .job-card-facts { grid-template-columns: 1fr; } .job-pagination { gap: 8px; font-size: .85rem; } .job-detail { padding-top: 44px; } .job-detail-hero h1 { font-size: clamp(2.8rem, 14vw, 4rem); } .job-application-card { margin-inline: -8px; padding: 24px 20px; border-radius: 22px; } .job-application-form .button { width: 100%; } }
 @media (max-width: 860px) { .work-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .work-detail-facts, .work-brief-grid, .cancellation-facts { grid-template-columns: 1fr; } .work-session-panel .section-heading-row { flex-direction: column; gap: 8px; } .work-session-history li { flex-direction: column; gap: 2px; } }
-@media (max-width: 720px) { .assignment-detail-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }
+@media (max-width: 720px) { .assignment-detail-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts, .employer-job-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }
 @media print { .site-header, .site-footer { display: none !important; } .legal-shell { width: 100%; padding: 0; } body { background: white; color: black; font-size: 11pt; } a { text-decoration: none; } }

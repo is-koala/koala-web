@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-import type { JobDetail, JobImage } from "@/jobs/contract";
+import type { EmployerStats, JobDetail, JobImage } from "@/jobs/contract";
 import { jobApplicationsClosedReason } from "@/jobs/lifecycle";
 import { jobTypeLabels, salaryTypeLabels } from "@/jobs/search";
 import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
-import { formatJobDate } from "@/lib/dates";
+import { formatDate, formatJobDate, formatMonthYear, isFormattableDate } from "@/lib/dates";
 import type { FormAction } from "@/lib/form-state";
 import { formatMoney } from "@/lib/money";
 
@@ -19,12 +19,26 @@ import { JobApplicationForm } from "./job-application-form";
  *
  * Ekranda adresten yalnız il ve ilçe var; modelde başka bir adres alanı zaten
  * yok (`src/jobs/contract.ts`, ADR-0003).
+ *
+ * Gövde (`JobFacts`, `JobDetailBody`) işverenin kendi ilan sayfasıyla ortak
+ * (`/isveren/ilan/{id}`, is-koala/koala-web#166): aynı `JobDetailDto`
+ * alanlarını iki ekran ayrı ayrı çizerken işverenin sayfası yirmi beş alanın
+ * üçünü gösterir olmuştu. Ayrışan tek şey kenar çubuğu — burada başvuru
+ * kartı, orada işveren eylemleri.
  */
-export function JobDetailView({ job, applyAction }: { job: JobDetail; applyAction: FormAction }) {
+export function JobDetailView({
+  job,
+  applyAction,
+  employerStats = null,
+}: {
+  job: JobDetail;
+  applyAction: FormAction;
+  /** İşveren güven kartı; okunamadıysa `null` ve kart çizilmiyor. */
+  employerStats?: EmployerStats | null;
+}) {
   // Backend'in başvuru kapısı yine son güvenlik sınırı; web aynı kararı
   // önceden gösterir ki süresi dolmuş bağlantı çalışan bir form vaat etmesin.
   const applicationsClosed = jobApplicationsClosedReason(job);
-  const openings = remainingOpenings(job);
 
   return (
     <article className="job-detail">
@@ -33,51 +47,14 @@ export function JobDetailView({ job, applyAction }: { job: JobDetail; applyActio
           <p className="eyebrow">{job.categoryName ?? "İş ilanı"}</p>
           <h1>{job.title}</h1>
         </div>
-        <dl className="job-facts" aria-label="İlan özeti">
-          <Fact label="Tarih" value={formatSchedule(job)} />
-          <Fact label="Kazanç" value={formatPayout(job)} />
-          <Fact
-            /*
-              Etiket `addressPrecision`'ı okuyor ama alanları o seçmiyor: yanıt
-              hangi kesinlikte gelirse gelsin ekrana yalnız il ve ilçe çıkıyor.
-              Bayrak burada ziyaretçiye vaadi doğru kuruyor — "Konum" yazıp
-              ilçe göstermek, adresin bundan ibaret olduğunu ima ederdi.
-            */
-            label={job.addressPrecision === "EXACT" ? "Konum" : "Yaklaşık konum"}
-            value={locationLabel(job)}
-          />
-          {job.type === "UNKNOWN" ? null : <Fact label="Tür" value={jobTypeLabels[job.type]} />}
-          {openings === null ? null : <Fact label="Açık pozisyon" value={openings} />}
-        </dl>
+        <JobFacts job={job} audience="public" />
       </header>
 
       <div className="job-detail-layout">
-        <div className="job-detail-content">
-          <section>
-            <h2>İş hakkında</h2>
-            <p>{job.description ?? "İlan açıklaması paylaşılmadı."}</p>
-          </section>
-          {job.duties ? (
-            <section>
-              <h2>Görevler</h2>
-              <p>{job.duties}</p>
-            </section>
-          ) : null}
-          <section>
-            <h2>Aranan özellikler</h2>
-            <ul className="job-requirements">
-              <li>{job.insuranceRequired ? "Sigorta gerekiyor" : "Sigorta şartı yok"}</li>
-              <li>{job.experienceRequired ? "Deneyim gerekiyor" : "Deneyim şartı yok"}</li>
-              {ageRange(job) ? <li>Yaş aralığı: {ageRange(job)}</li> : null}
-              {job.dressCode ? <li>Kıyafet: {job.dressCode}</li> : null}
-            </ul>
-          </section>
-          <JobGallery images={job.images} title={job.title} />
-          <JobPricing job={job} />
-        </div>
+        <JobDetailBody job={job} />
 
         <aside className="job-application-card" aria-labelledby="application-title">
-          <JobEmployerCard job={job} />
+          <JobEmployerCard job={job} stats={employerStats} />
           <p className="eyebrow">Başvuru</p>
           {applicationsClosed === null ? (
             <>
@@ -103,6 +80,107 @@ export function JobDetailView({ job, applyAction }: { job: JobDetail; applyActio
 }
 
 /**
+ * İlan özeti: tarih, konum, tür, kontenjan, yayın tarihi.
+ *
+ * İki izleyici aynı satırları farklı sorularla okuyor ve fark iki hücrede:
+ *
+ * - **Kazanç** yalnız ziyaretçiye. İşveren fiyatı dökümde üç satır olarak
+ *   zaten görüyor; özete yalnız çalışan ücretini yazmak ona "ilanım bu kadar"
+ *   dedirtirdi (ADR-0002).
+ * - **Kontenjan** ziyaretçiye kalan yer ("3 / 4 kişi"), işverene dolan yer
+ *   ("1 / 4 kişi işe alındı"). İki sayı aynı iki alandan çıkıyor ama soru
+ *   farklı: biri "bana yer var mı", öbürü "kaç kişiyi aldım".
+ *
+ * `address` işverenin sayfasında backend'in sahibe kurduğu adres satırı;
+ * ziyaretçide hiç geçmiyor ve etiket il/ilçeye düşüyor (ADR-0003).
+ */
+export function JobFacts({
+  job,
+  audience,
+  address = null,
+  applicationCount = null,
+  className,
+}: {
+  job: JobDetail;
+  audience: "public" | "employer";
+  /** Sahibe açılan adres satırı; yalnız işveren sayfası geçiriyor. */
+  address?: string | null;
+  /** `JobDetailDto.applicationCount`; alan gelmediyse satır yok. */
+  applicationCount?: number | null;
+  className?: string;
+}) {
+  const openings = audience === "public" ? remainingOpenings(job) : hiredOpenings(job);
+  const exact = job.addressPrecision === "EXACT";
+
+  return (
+    <dl className={["job-facts", className].filter(Boolean).join(" ")} aria-label="İlan özeti">
+      <Fact label="Tarih" value={formatSchedule(job)} />
+      {audience === "public" ? <Fact label="Kazanç" value={formatPayout(job)} /> : null}
+      <Fact
+        /*
+          Etiket `addressPrecision`'ı okuyor ama alanları o seçmiyor: yanıt
+          hangi kesinlikte gelirse gelsin ziyaretçiye yalnız il ve ilçe çıkıyor.
+          Bayrak burada ziyaretçiye vaadi doğru kuruyor — "Konum" yazıp
+          ilçe göstermek, adresin bundan ibaret olduğunu ima ederdi.
+        */
+        label={exact ? (address ? "Adres" : "Konum") : "Yaklaşık konum"}
+        value={address ?? locationLabel(job)}
+      />
+      {job.type === "UNKNOWN" ? null : <Fact label="Tür" value={jobTypeLabels[job.type]} />}
+      {openings === null ? null : (
+        <Fact label={audience === "public" ? "Açık pozisyon" : "Kontenjan"} value={openings} />
+      )}
+      {applicationCount === null ? null : (
+        <Fact label="Başvuru" value={`${applicationCount} başvuru`} />
+      )}
+      {job.createdAt && isFormattableDate(job.createdAt) ? (
+        <div>
+          <dt>Yayın tarihi</dt>
+          <dd>
+            <time dateTime={job.createdAt}>{formatDate(job.createdAt)}</time>
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+/**
+ * İlanın gövdesi: açıklama, görevler, aranan özellikler, galeri, ücret dökümü.
+ *
+ * Boş açıklama yazılı bir cümleyle çiziliyor ("paylaşılmadı"); öbür bölümler
+ * alan yoksa hiç açılmıyor. Fark bilinçli: açıklama her ilanda beklenen tek
+ * bölüm, ötekiler seçimlik.
+ */
+export function JobDetailBody({ job, className }: { job: JobDetail; className?: string }) {
+  return (
+    <div className={["job-detail-content", className].filter(Boolean).join(" ")}>
+      <section>
+        <h2>İş hakkında</h2>
+        <p>{job.description ?? "İlan açıklaması paylaşılmadı."}</p>
+      </section>
+      {job.duties ? (
+        <section>
+          <h2>Görevler</h2>
+          <p>{job.duties}</p>
+        </section>
+      ) : null}
+      <section>
+        <h2>Aranan özellikler</h2>
+        <ul className="job-requirements">
+          <li>{job.insuranceRequired ? "Sigorta gerekiyor" : "Sigorta şartı yok"}</li>
+          <li>{job.experienceRequired ? "Deneyim gerekiyor" : "Deneyim şartı yok"}</li>
+          {ageRange(job) ? <li>Yaş aralığı: {ageRange(job)}</li> : null}
+          {job.dressCode ? <li>Kıyafet: {job.dressCode}</li> : null}
+        </ul>
+      </section>
+      <JobGallery images={job.images} title={job.title} />
+      <JobPricing job={job} />
+    </div>
+  );
+}
+
+/**
  * İşveren kartı.
  *
  * Şirkette logo ve ad; bireysel işverende yalnız ad ve o da bir şirket
@@ -110,7 +188,7 @@ export function JobDetailView({ job, applyAction }: { job: JobDetail; applyActio
  * (`job-posting-schema.ts`), ama ekranda görünmesi gerekiyor: ziyaretçi kime
  * başvurduğunu bilmeli.
  */
-function JobEmployerCard({ job }: { job: JobDetail }) {
+function JobEmployerCard({ job, stats }: { job: JobDetail; stats: EmployerStats | null }) {
   const name = job.companyName ?? job.employerName;
   if (name === null) return null;
 
@@ -132,7 +210,51 @@ function JobEmployerCard({ job }: { job: JobDetail }) {
         <br />
         {name}
       </p>
+      {stats ? <EmployerTrust stats={stats} /> : null}
     </div>
+  );
+}
+
+/**
+ * İşveren güven kartı: açtığı ilan, tamamlanan iş, puan, üyelik.
+ *
+ * Puan yalnız değerlendirme varken yazılıyor: backend değerlendirmesi
+ * olmayan işverene `0` döndürüyor ve "0,0 puan" yeni bir işvereni kötü bir
+ * işveren gibi gösterirdi. Sayılar ilanın kendisi gibi ISR penceresinde
+ * bayatlayabiliyor; kartın sorusu "bu işveren kim" ve beş dakikalık gecikme o
+ * soruyu değiştirmiyor.
+ */
+function EmployerTrust({ stats }: { stats: EmployerStats }) {
+  const memberSince =
+    stats.memberSince && isFormattableDate(stats.memberSince)
+      ? formatMonthYear(stats.memberSince)
+      : null;
+
+  return (
+    <dl className="job-employer-trust" aria-label="İşveren güven kartı">
+      <div>
+        <dt>Açtığı ilan</dt>
+        <dd>{stats.jobsPosted}</dd>
+      </div>
+      <div>
+        <dt>Tamamlanan iş</dt>
+        <dd>{stats.completedJobs}</dd>
+      </div>
+      {stats.averageRating !== null && stats.reviewCount > 0 ? (
+        <div>
+          <dt>Puan</dt>
+          <dd>{`${stats.averageRating} / 5 · ${stats.reviewCount} değerlendirme`}</dd>
+        </div>
+      ) : null}
+      {memberSince ? (
+        <div>
+          <dt>Üyelik</dt>
+          <dd>
+            <time dateTime={stats.memberSince ?? undefined}>{memberSince}</time>
+          </dd>
+        </div>
+      ) : null}
+    </dl>
   );
 }
 
@@ -213,6 +335,18 @@ function remainingOpenings(job: JobDetail): string | null {
   if (job.headcount === null) return null;
   const remaining = Math.max(job.headcount - job.hiredCount, 0);
   return `${remaining} / ${job.headcount} kişi`;
+}
+
+/**
+ * İşverenin gözünden dolan kontenjan.
+ *
+ * Aynı iki alandan farklı bir cümle: işveren kaç kişiyi aldığını soruyor ve
+ * `hiredCount` tam olarak onu sayıyor. Sınırsız ilanda yine `null` — "1 / ∞"
+ * yazmak olmayan bir kotayı bildirmek olurdu (`jobs/headcount.ts`).
+ */
+function hiredOpenings(job: JobDetail): string | null {
+  if (job.headcount === null) return null;
+  return `${Math.max(job.hiredCount, 0)} / ${job.headcount} kişi işe alındı`;
 }
 
 /** Yaş aralığı; iki uç da yoksa satır düşer. */

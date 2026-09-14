@@ -2,8 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
+import type { EmployerJobDetail } from "@/server/jobs/jobs";
 
 import { sessionExpiryRedirect } from "../../../../../../../tests/support/control-flow";
+import { jobDetailFixture } from "../../../../../../../tests/support/job-detail";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const fetchJobDetail = vi.hoisted(() => vi.fn());
@@ -113,17 +115,11 @@ describe("ilan galerisi sayfası", () => {
   });
 });
 
-function jobDetail(company: string | null) {
+function jobDetail(company: string | null): EmployerJobDetail {
   return {
-    id: jobId,
-    title: "Hafta sonu garson",
-    status: "OPEN",
-    salaryType: "DAILY",
-    startDateTime: "2026-10-10T09:00",
-    endDateTime: "2026-10-11T18:00",
-    pricing: null,
-    headcount: null,
-    hiredCount: 0,
+    ...jobDetailFixture({ id: jobId, title: "Hafta sonu garson", pricing: null, headcount: null, hiredCount: 0 }),
     companyId: company,
+    displayAddress: null,
+    applicationCount: null,
   };
 }

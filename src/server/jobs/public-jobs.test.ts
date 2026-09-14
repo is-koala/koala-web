@@ -64,6 +64,7 @@ describe("herkese açık ilan okumasının BFF sözleşmesi", () => {
       companyName: "Koala Etkinlik",
       companyLogoUrl: "https://cdn.example.test/logo.png",
       employerName: "Ayşe Yıldız",
+      employerId: null,
       type: "ONE_TIME",
       salaryType: "DAILY",
       startsAt: "2026-09-12T09:00:00",

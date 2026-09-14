@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 
+import { JobDetailBody, JobFacts } from "@/components/job-detail";
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
 import { PageHeader, PagePanel, StatusBadge, jobStatusTone } from "@/components/ui";
 import { jobStatusLabel } from "@/jobs/lifecycle";
 import { jobApplicantsPath, jobGalleryPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
-import { formatMoney } from "@/lib/money";
 import { ApiError } from "@/server/api/errors";
 import { notFoundStatus } from "@/server/contract";
 import { failureView } from "@/server/form";
-import { fetchJobDetail, type JobDetail } from "@/server/jobs/jobs";
+import { fetchJobDetail, type EmployerJobDetail } from "@/server/jobs/jobs";
 import { enterShell } from "@/server/session/viewer";
 
 import { jobLifecycleAction } from "./actions";
@@ -25,13 +25,15 @@ export const metadata: Metadata = {
 /**
  * Yayımlanmış ilanın sayfası.
  *
- * Bugün yalnız okuyor: yayımın gerçekten olduğunu ve **fiyatın hangi
- * değerlerle donduğunu** gösteriyor. ADR-0002 fiyatı ilan yayımlandığında
- * kilitliyor, yani bu üç sayı bir daha değişmiyor ve kullanıcının onları
- * yayımdan sonra da görebileceği bir yer olması gerekiyor.
+ * Gövde herkese açık ilan sayfasıyla ortak (`JobFacts`, `JobDetailBody`,
+ * is-koala/koala-web#166): tarih/saat, adres ve kesinliği, kontenjan,
+ * açıklama, görevler, aranan özellikler, galeri, kilitlenen fiyat ve yayın
+ * tarihi aynı bileşenlerden çıkıyor. Bu sayfa ona yalnız sahibin gördüğünü
+ * ekliyor — durum rozeti, başvuru sayısı, sunucunun sahibe kurduğu adres
+ * satırı — ve işveren eylemlerini: başvurular, galeri, kapatma ve iptal.
  *
- * Kapatma ve iptal eylemleri de burada: ikisi de ilanın kendi kaydına ait ve
- * hangisinin mümkün olduğunu ilanın durumu söylüyor.
+ * Fiyat dökümü ADR-0002 uyarınca yayımda kilitleniyor; kullanıcının onu
+ * yayımdan sonra da görebileceği yer burası.
  *
  * Burada `loading.tsx` yok: bu sayfa `notFound()` çağırıyor ve bir Suspense
  * sınırı HTTP durumunu 200'de kilitlerdi (`AGENTS.md`).
@@ -45,7 +47,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   // backend'e hiç sorulmaz (`server/address/gateway.ts` aynı kuralı yazıyor).
   if (!isUuid(id)) notFound();
 
-  let job: JobDetail;
+  let job: EmployerJobDetail;
   try {
     job = await fetchJobDetail(id);
   } catch (error) {
@@ -58,9 +60,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   }
 
   return (
-    <PagePanel>
+    <PagePanel className="employer-job-detail">
       <PageHeader
-        eyebrow="İlanım"
+        eyebrow={job.categoryName ?? "İlanım"}
         title={job.title}
         actions={
           <>
@@ -82,28 +84,19 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <StatusBadge tone={jobStatusTone(job.status)}>{jobStatusLabel(job.status)}</StatusBadge>
       </PageHeader>
 
-      {job.pricing === null ? (
-        <p>Bu ilanın fiyat dökümü okunamadı.</p>
-      ) : (
-        <div className="price-breakdown" role="group" aria-label="Kilitlenen fiyat">
-          <p className="price-line">
-            <span>Çalışan ücreti</span>
-            <strong>{formatMoney(job.pricing.workerPayout, job.pricing.currency)}</strong>
-          </p>
-          <p className="price-line">
-            <span>Koala hizmet bedeli</span>
-            <strong>{formatMoney(job.pricing.serviceFeeAmount, job.pricing.currency)}</strong>
-          </p>
-          <p className="price-line">
-            <span>İşveren toplamı</span>
-            <strong>{formatMoney(job.pricing.employerTotal, job.pricing.currency)}</strong>
-          </p>
-        </div>
-      )}
+      <JobFacts
+        job={job}
+        audience="employer"
+        address={job.displayAddress}
+        applicationCount={job.applicationCount}
+        className="employer-job-facts"
+      />
 
-      <p className="field-hint">
-        Bu fiyat ilan yayımlandığında kilitlendi ve değişmiyor.
-      </p>
+      <JobDetailBody job={job} className="employer-job-body" />
+
+      {job.pricing === null ? (
+        <p className="field-hint">Bu ilanın fiyat dökümü okunamadı.</p>
+      ) : null}
 
       {/*
         Kimlik `id`'den bağlanıyor, yanıttaki `job.id`'den değil: bu değer

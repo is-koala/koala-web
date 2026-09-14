@@ -11,7 +11,7 @@ import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { site } from "@/lib/site";
 import { notFoundStatus } from "@/server/contract";
 import { failureView } from "@/server/form";
-import { readJobDetail } from "@/server/jobs/public-jobs";
+import { readEmployerStats, readJobDetail } from "@/server/jobs/public-jobs";
 
 import { applyToJobAction } from "./actions";
 
@@ -111,6 +111,13 @@ export default async function Page({ params }: JobDetailPageProps) {
   if (job === null) notFound();
 
   const jsonLd = jobPostingJsonLd(job, canonicalUrl(job.id));
+  /*
+   * İşveren güven kartı ilanla aynı kademeden (oturumsuz, istek bağlamsız)
+   * okunuyor ki rota ISR'da kalsın; okunamazsa `null` ve sayfa kartsız
+   * çiziliyor (`readEmployerStats`). `creator.id` gelmeyen ilanda hiç
+   * sorulmuyor.
+   */
+  const employerStats = job.employerId === null ? null : await readEmployerStats(job.employerId);
 
   return (
     <>
@@ -126,7 +133,11 @@ export default async function Page({ params }: JobDetailPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replaceAll("<", "\\u003c") }}
         />
       )}
-      <JobDetailView job={job} applyAction={applyToJobAction.bind(null, jobId)} />
+      <JobDetailView
+        job={job}
+        applyAction={applyToJobAction.bind(null, jobId)}
+        employerStats={employerStats}
+      />
     </>
   );
 }

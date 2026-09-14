@@ -2,8 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
+import type { EmployerJobDetail } from "@/server/jobs/jobs";
 
 import { sessionExpiryRedirect } from "../../../../../../tests/support/control-flow";
+import { jobDetailFixture } from "../../../../../../tests/support/job-detail";
 
 import Page from "./page";
 
@@ -53,23 +55,64 @@ describe("yayımlanmış ilan sayfası", () => {
   });
 
   it("kilitlenen fiyatı yanıttaki değerlerle gösterir", async () => {
-    fetchJobDetail.mockResolvedValue({
-      id: jobId,
-      title: "Hafta sonu garson",
-      status: "OPEN",
-      salaryType: "DAILY",
-      startDateTime: "2026-10-10T09:00",
-      endDateTime: "2026-10-11T18:00",
-      pricing,
-    });
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
 
     render(await Page({ params: Promise.resolve({ id: jobId }) }));
 
     expect(screen.getByRole("heading", { name: "Hafta sonu garson" })).toBeVisible();
     expect(screen.getByText("Yayında — başvurulara açık")).toBeVisible();
-    expect(screen.getByText("1.500,50 ₺")).toBeVisible();
-    expect(screen.getByText("112,54 ₺")).toBeVisible();
-    expect(screen.getByText("1.613,04 ₺")).toBeVisible();
+    const breakdown = screen.getByLabelText("Ücret dökümü");
+    expect(breakdown).toHaveTextContent("1.500,50 ₺");
+    expect(breakdown).toHaveTextContent("112,54 ₺");
+    expect(breakdown).toHaveTextContent("1.613,04 ₺");
+  });
+
+  it("ilanın tam görünümünü tanıtım gövdesiyle çizer: tarih, adres, kontenjan, açıklama, yayın tarihi", async () => {
+    // `JobDetailDto`'nun 25 alanından üçü çiziliyordu (#166); gövde artık
+    // herkese açık ilan sayfasıyla ortak.
+    fetchJobDetail.mockResolvedValue(
+      jobDetail("OPEN", {
+        displayAddress: "Bağdat Caddesi No: 231, Caferağa, Kadıköy, İstanbul",
+        applicationCount: 6,
+      }),
+    );
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    const facts = screen.getByLabelText("İlan özeti");
+    expect(facts).toHaveTextContent("10 Ekim 2026, 09:00–18:00");
+    expect(facts).toHaveTextContent("AdresBağdat Caddesi No: 231, Caferağa, Kadıköy, İstanbul");
+    expect(facts).toHaveTextContent("Kontenjan1 / 4 kişi işe alındı");
+    expect(facts).toHaveTextContent("Başvuru6 başvuru");
+    expect(facts).toHaveTextContent("Yayın tarihi30 Ağu 2026");
+    // Sahibe özetteki "Kazanç" satırı yok: fiyat dökümde üç satır olarak duruyor.
+    expect(facts).not.toHaveTextContent("Kazanç");
+    expect(screen.getByText("Festival alanında misafirleri karşıla.")).toBeVisible();
+    expect(screen.getByText("Bilet kontrolü ve yönlendirme")).toBeVisible();
+    expect(screen.getByText("Kıyafet: Siyah kıyafet")).toBeVisible();
+    expect(screen.getByText("Yaş aralığı: 18–45")).toBeVisible();
+    expect(screen.getByText("Sigorta gerekiyor")).toBeVisible();
+    expect(screen.getByAltText("Sahne alanı")).toBeVisible();
+  });
+
+  it("adres satırı maskeli geldiğinde etiketi yaklaşık konuma düşürür ve il/ilçe yazar", async () => {
+    // Şirket ilanını açmamış bir yetkiliye backend `APPROXIMATE` veriyor;
+    // web etiketi bayraktan seçiyor, adresi olduğu gibi yazıyor.
+    fetchJobDetail.mockResolvedValue(
+      jobDetail("OPEN", { addressPrecision: "APPROXIMATE", displayAddress: "Caferağa, Kadıköy, İstanbul" }),
+    );
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByLabelText("İlan özeti")).toHaveTextContent("Yaklaşık konumCaferağa, Kadıköy, İstanbul");
+  });
+
+  it("başvuru sayısı yanıtta yoksa satırı hiç çizmez, sıfır uydurmaz", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN", { applicationCount: null }));
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByLabelText("İlan özeti")).not.toHaveTextContent("Başvuru");
   });
 
   it("kimliği UUID olmayan adresi backend'e hiç sormadan 404 yapar", async () => {
@@ -120,20 +163,12 @@ describe("yayımlanmış ilan sayfası", () => {
   });
 
   it("fiyat dökümü gelmezse uydurmaz", async () => {
-    fetchJobDetail.mockResolvedValue({
-      id: jobId,
-      title: "Hafta sonu garson",
-      status: "OPEN",
-      salaryType: "DAILY",
-      startDateTime: "2026-10-10T09:00",
-      endDateTime: "2026-10-11T18:00",
-      pricing: null,
-    });
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN", { pricing: null }));
 
     render(await Page({ params: Promise.resolve({ id: jobId }) }));
 
     expect(screen.getByText("Bu ilanın fiyat dökümü okunamadı.")).toBeVisible();
-    expect(screen.queryByRole("group", { name: "Kilitlenen fiyat" })).toBeNull();
+    expect(screen.queryByLabelText("Ücret dökümü")).toBeNull();
   });
 
   it("kapatma ve iptali ilanın güncel durumuyla birlikte yüzeye çıkarır", async () => {
@@ -188,15 +223,24 @@ describe("yayımlanmış ilan sayfası", () => {
   });
 });
 
-function jobDetail(status: string) {
+function jobDetail(
+  status: EmployerJobDetail["status"],
+  overrides: Partial<EmployerJobDetail> = {},
+): EmployerJobDetail {
   return {
-    id: jobId,
-    title: "Hafta sonu garson",
-    status,
-    salaryType: "DAILY",
-    startDateTime: "2026-10-10T09:00",
-    endDateTime: "2026-10-11T18:00",
-    pricing,
+    ...jobDetailFixture({
+      id: jobId,
+      title: "Hafta sonu garson",
+      status,
+      startsAt: "2026-10-10T09:00",
+      endsAt: "2026-10-10T18:00",
+      addressPrecision: "EXACT",
+      pricing,
+      images: [{ url: "https://cdn.example.com/1.jpg", caption: "Sahne alanı", cover: true }],
+    }),
     companyId: null,
+    displayAddress: null,
+    applicationCount: null,
+    ...overrides,
   };
 }

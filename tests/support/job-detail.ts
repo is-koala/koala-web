@@ -25,6 +25,7 @@ export function jobDetailFixture(overrides: Partial<JobDetail> = {}): JobDetail 
     companyName: null,
     companyLogoUrl: null,
     employerName: "Ayşe Yıldız",
+    employerId: "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
     type: "ONE_TIME",
     salaryType: "DAILY",
     startsAt: "2026-09-12T09:00:00",
