@@ -92,6 +92,11 @@ it("şirket adresi eksiğini companyBillingAddress kapısıyla ödeme öncesinde
 
   expect(screen.getByText("Şirketin fatura adresi kayıtlı değil")).toBeVisible();
   expect(screen.getByRole("button", { name: "Iyzico ile güvenli öde" })).toBeDisabled();
+  // Çare web'in şirket bölümü (is-koala/koala-web#172), uygulama aktarımı değil.
+  expect(screen.getByRole("link", { name: "Şirket adresini düzenle" })).toHaveAttribute(
+    "href",
+    "/isveren/sirket",
+  );
 });
 
 it("ownership bulunamazsa fiyat veya şirket ön kontrolünü başlatmadan notFound üretir", async () => {

@@ -7,7 +7,7 @@ import { AddressView } from "@/components/address-view";
 import { CompanyEditForm } from "@/components/company/company-edit-form";
 import { CompanyLogoForms } from "@/components/company/company-logo-forms";
 import { ErrorState, LoadingState } from "@/components/states";
-import { companyProfilePath } from "@/lib/app-routes";
+import { companyAddressPath, companyProfilePath } from "@/lib/app-routes";
 import { canManageCompany, companyTypeLabel, lockedCompanyFields } from "@/lib/company";
 import { companyMembership } from "@/lib/company-contacts";
 import { getCompany, type Company } from "@/server/company/company";
@@ -110,6 +110,24 @@ export async function EditPanel({ companyId }: { companyId: string }) {
         />
       </section>
 
+      <section className="app-panel" aria-labelledby="company-address-edit-title">
+        <div className="section-heading-row">
+          <div>
+            <p className="eyebrow">Adres</p>
+            <h2 id="company-address-edit-title">Şirket adresi</h2>
+          </div>
+          <Link className="text-link" href={companyAddressPath(companyId)}>
+            Adresi düzenle
+          </Link>
+        </div>
+        {/*
+          Adres kendi ekranında (is-koala/koala-web#172): arama/harita akışı
+          tek kullanımlık aday kanıtı taşıyor ve beş alanın formundaki bir
+          doğrulama hatası o kanıtı da yakardı.
+        */}
+        <AddressView address={company.address} />
+      </section>
+
       <LockedFields company={company} />
     </div>
   );
@@ -127,7 +145,6 @@ function LockedFields({ company }: { company: Company }) {
   const values: Record<string, string | null> = {
     taxNumber: company.taxNumber,
     type: companyTypeLabel(company.type),
-    address: null,
   };
 
   return (
@@ -144,11 +161,7 @@ function LockedFields({ company }: { company: Company }) {
           <div key={field.name}>
             <dt>{field.label}</dt>
             <dd>
-              {field.name === "address" ? (
-                <AddressView address={company.address} />
-              ) : (
-                values[field.name]
-              )}
+              {values[field.name]}
               <p className="field-hint">{field.reason}</p>
             </dd>
           </div>

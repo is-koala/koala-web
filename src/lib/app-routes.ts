@@ -159,6 +159,18 @@ export function editCompanyPath(companyId: string): string {
 }
 
 /**
+ * Şirket adresinin düzenleme ekranı; yalnız `ADMIN` kaydedebiliyor.
+ *
+ * Beş metin alanının formundan ayrı bir sayfa: adres bileşeni arama/harita
+ * akışı taşıyor ve tek kullanımlık aday kanıtı (`candidateToken`, 10 dakika)
+ * ile gidiyor. Metin alanlarındaki bir doğrulama hatası aynı formdaki adres
+ * kanıtını da yakardı (is-koala/koala-web#172).
+ */
+export function companyAddressPath(companyId: string): string {
+  return `${companyProfilePath(companyId)}/adres`;
+}
+
+/**
  * Şirket adına ilan açma formu.
  *
  * Şirket **adreste**, tıpkı `POST /companies/{companyId}/jobs` gibi: ilan hangi

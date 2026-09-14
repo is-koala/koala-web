@@ -1,11 +1,23 @@
 import { serviceAreaNotice } from "@/address/contract";
 import { identityChipPaUnavailableErrorCode, identityVerificationPath } from "@/identity/handoff";
-import { employerBillingAddressPath } from "@/lib/app-routes";
+import { companySectionPath, employerBillingAddressPath } from "@/lib/app-routes";
 
 import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
 import type { GateId } from "./gates";
 import { loginPath } from "./site";
 import { safeInternalPath } from "./urls";
+
+/**
+ * Web'in kendi kodu: `PATCH /companies/{id}` adresi sessizce düşürdü.
+ *
+ * Backend'den gelmiyor — 0.9.24 öncesi sunucu bilinmeyen `address` alanını
+ * düşürüp 200 dönüyor — ama form durumu ve ekran metni `errorCode` ile
+ * seçildiği için (`AGENTS.md`) bu durumun da bir kodu olmak zorunda. Burada
+ * duruyor ki `@/lib/company` bu dosyaya bağımlılık eklemesin: `errors.ts`
+ * ilan sayfasının istemci paketine giriyor ve bütçesi dolu
+ * (`docs/performance-accessibility-budget.md`).
+ */
+export const companyAddressNotAppliedErrorCode = "COMPANY_ADDRESS_UPDATE_NOT_APPLIED";
 
 export type ErrorAction = "login" | "home" | "retry" | "none";
 
@@ -98,6 +110,12 @@ const exactErrors: Record<string, ErrorPresentation> = {
     title: "Tarayıcı çip okuyamaz",
     message:
       "Tarayıcı kimlik belgesinin çipini okuyamaz. Dört kimlik fotoğrafını yükleyerek incelemeye gönderebilirsin.",
+    action: "none",
+  },
+  [companyAddressNotAppliedErrorCode]: {
+    title: "Şirket adresi kaydedilemedi",
+    message:
+      "Sunucu bu güncellemede adresi henüz kabul etmiyor; kayıtlı adres değişmedi. Biraz sonra yeniden dene, sorun sürerse destekle iletişime geç.",
     action: "none",
   },
   APPLICANT_ADDRESS_REQUIRED: {
@@ -589,12 +607,14 @@ export type GateNotice = {
 
 /**
  * Fatura adresi #28 ile `/isveren/adres` üzerinde; iş arayan adresi #133
- * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir.
+ * ile `/panel/adres` üzerinde. Şirket adresi şirket profilinden düzenlenir
+ * (#172): kapı metni şirket kimliğini bilmiyor, bu yüzden bağlantı bölümün
+ * girişine (`/isveren/sirket`) düşer ve tek şirketli kullanıcıyı giriş
+ * kendisi profile bırakır.
  *
  * Kimlik kapısı `/kimlik-dogrula`'ya düşer: tarayıcı çip PA üretemez; ekran
  * dört TCKK fotoğrafını alır (koala-backend#219).
  */
-const openAppPath = "/uygulamayi-ac";
 
 const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   identityVerification: {
@@ -648,11 +668,10 @@ const gateNotices: Readonly<Record<GateId, GateNotice>> = {
   companyBillingAddress: {
     title: "Şirketin fatura adresi kayıtlı değil",
     message:
-      "Şirket ilanlarında ödeme senin adresini değil şirketin adresini kullanıyor ve bu şirketin kayıtlı bir adresi yok. Şirket adresi şu an ne web'den ne uygulamadan değiştirilebiliyor; düzenleme yakında geliyor, o zamana kadar destekle iletişime geç.",
-    // Adres düzenleme henüz hiçbir istemcide yok (backend #288, web #172,
-    // mobil is-koala/koala#184). Web düzenleme gelince `href` oraya döner;
-    // o güne kadar bağlantı uygulamayı açar, orada en azından adres görünür.
-    remedy: { href: openAppPath, label: "Şirket adresini uygulamada gör" },
+      "Şirket ilanlarında ödeme senin adresini değil şirketin adresini kullanıyor ve bu şirketin kayıtlı bir adresi yok. Şirket yöneticisi adresi şirket profilindeki \"Şirket adresi\" bölümünden ekleyebilir.",
+    // Bölüm girişi tek şirketli kullanıcıyı profile, birden çok şirketlisi
+    // seçime bırakıyor; kapı metni şirket kimliğini taşımıyor.
+    remedy: { href: companySectionPath, label: "Şirket adresini düzenle" },
     errorCodes: ["JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER"],
   },
 };

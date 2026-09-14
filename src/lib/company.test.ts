@@ -12,6 +12,7 @@ import {
   editableCompanyFields,
   emptyCompanyDraft,
   lockedCompanyFields,
+  companyAddressApplied,
   type CompanyDraft,
 } from "./company";
 
@@ -207,14 +208,11 @@ describe("şirket bölümünün girişi", () => {
 });
 
 describe("kilitli alanlar", () => {
-  it("değiştirilemeyen üç alanı gerekçesiyle birlikte sayar", () => {
+  it("değiştirilemeyen iki alanı gerekçesiyle birlikte sayar", () => {
     // Ekran "neden düzenleyemiyorum" sorusunu cevapsız bırakmamalı; gerekçe
-    // alanın yanında duruyor ve tek yerden okunuyor.
-    expect(lockedCompanyFields.map((field) => field.name)).toEqual([
-      "taxNumber",
-      "type",
-      "address",
-    ]);
+    // alanın yanında duruyor ve tek yerden okunuyor. Adres listede değil:
+    // `PATCH /companies/{id}` 0.9.24'ten beri `address` taşıyor (#172).
+    expect(lockedCompanyFields.map((field) => field.name)).toEqual(["taxNumber", "type"]);
     for (const field of lockedCompanyFields) {
       expect(field.label.length).toBeGreaterThan(0);
       expect(field.reason.length).toBeGreaterThan(0);
@@ -226,5 +224,34 @@ describe("kilitli alanlar", () => {
     for (const field of lockedCompanyFields) {
       expect(editable.has(field.name), field.name).toBe(false);
     }
+  });
+});
+
+describe("adres yazmasının uygulandığı kararı", () => {
+  const sent = {
+    countryId: "c",
+    cityId: "i",
+    districtId: "d",
+    components: {},
+    position: { latitude: 41.0812345, longitude: 29.0087654, source: "USER_CONFIRMED_PIN" as const },
+  };
+
+  it("yanıttaki konum gönderilenle altı ondalıkta eşleşiyorsa uygulanmış sayar", () => {
+    expect(
+      companyAddressApplied(sent, { position: { latitude: 41.081235, longitude: 29.008765 } }),
+    ).toBe(true);
+  });
+
+  it("eski sunucunun eski konumu geri vermesini uygulanmadı sayar", () => {
+    // Spring varsayılanı bilinmeyen `address` alanını sessizce düşürüyor ve
+    // 200 ile eski adresi döndürüyor; 400 gelmiyor. Tek gösterge konum.
+    expect(
+      companyAddressApplied(sent, { position: { latitude: 41.0, longitude: 28.9 } }),
+    ).toBe(false);
+    expect(companyAddressApplied(sent, null)).toBe(false);
+  });
+
+  it("konum taşımayan yanıtta karar veremez ve uygulanmış sayar", () => {
+    expect(companyAddressApplied(sent, { position: null })).toBe(true);
   });
 });

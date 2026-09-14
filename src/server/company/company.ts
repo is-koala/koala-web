@@ -29,6 +29,7 @@ type CompanyAddressResponse = {
   components?: CanonicalAddress["components"] | null;
   displayAddress?: string | null;
   needsReview?: boolean;
+  position?: { latitude?: number | string | null; longitude?: number | string | null } | null;
 };
 
 /** `CompanyDto`. Yalnız ekranda görünen ve karar veren alanlar taşınıyor. */
@@ -114,7 +115,14 @@ export async function getCompany(companyId: string): Promise<Company> {
   return toCompany(await apiRequest<CompanyResponse | null>(companyPath(companyId)));
 }
 
-/** `PATCH /companies/{companyId}` — yalnız `ADMIN`; beş alan. */
+/**
+ * `PATCH /companies/{companyId}` — yalnız `ADMIN`.
+ *
+ * Beş metin alanı ve 0.9.24'ten beri isteğe bağlı `address`
+ * (is-koala/koala-backend#288). Backend yalnız gönderilen alanları
+ * uyguluyor; adres verildiğinde yeni bir adres kaydı açılıp şirkete
+ * bağlanıyor ve yanıttaki `address` güncel kaydı taşıyor.
+ */
 export async function updateCompany(
   companyId: string,
   body: CompanyUpdateBody,
