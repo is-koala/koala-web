@@ -17,6 +17,8 @@ function payout(overrides: Partial<WorkerPayout>): WorkerPayout {
     failureMessage: null,
     completedAt: "2026-09-05T11:00:00Z",
     createdAt: "2026-09-05T10:30:00Z",
+    jobTitle: "Etkinlik görevlisi",
+    employerName: "Koala Etkinlik",
     ...overrides,
   };
 }
@@ -92,5 +94,39 @@ describe("kazanç listesi", () => {
     render(<EarningsList payouts={[payout({ status: "PROCESSING" })]} />);
 
     expect(screen.getByText(/uyuşmazlık çözülene kadar bekler/)).toBeVisible();
+  });
+
+  it("satırda iş başlığını ve işvereni, oluşturulma ile tamamlanma anlarını ayrı yazar", () => {
+    render(<EarningsList payouts={[payout({})]} />);
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("Etkinlik görevlisi")).toBeVisible();
+    expect(within(row).getByText("Koala Etkinlik")).toBeVisible();
+    expect(within(row).getByText("Oluşturuldu")).toBeVisible();
+    expect(within(row).getByText("5 Eyl 2026 13:30")).toHaveAttribute("datetime", "2026-09-05T10:30:00Z");
+    expect(within(row).getByText("Tamamlandı")).toBeVisible();
+    expect(within(row).getByText("5 Eyl 2026 14:00")).toHaveAttribute("datetime", "2026-09-05T11:00:00Z");
+  });
+
+  it("iş adı eşlenemediyse ve aktarım bitmediyse o satırları çizmez, bağlantı kalır", () => {
+    render(<EarningsList payouts={[
+      payout({ status: "PENDING", jobTitle: null, employerName: null, completedAt: null }),
+    ]} />);
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).queryByText("Etkinlik görevlisi")).toBeNull();
+    expect(within(row).queryByText("Koala Etkinlik")).toBeNull();
+    expect(within(row).getByText("Oluşturuldu")).toBeVisible();
+    expect(within(row).queryByText("Tamamlandı")).toBeNull();
+    expect(within(row).getByRole("link", { name: "İşi görüntüle" })).toHaveAttribute(
+      "href",
+      `/panel/is/${assignmentId}`,
+    );
+  });
+
+  it("yalnız iş adı geldiyse işveren ayracı yazmaz", () => {
+    render(<EarningsList payouts={[payout({ employerName: null })]} />);
+
+    expect(screen.getByText("Etkinlik görevlisi").parentElement).toHaveTextContent(/^Etkinlik görevlisi$/);
   });
 });

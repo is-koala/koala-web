@@ -52,9 +52,30 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
                 {payoutStatusLabel[payout.status]}
               </StatusBadge>
             </div>
-            <time dateTime={payout.completedAt ?? payout.createdAt}>
-              {formatDateTime(payout.completedAt ?? payout.createdAt)}
-            </time>
+            {payout.jobTitle || payout.employerName ? (
+              <p className="earnings-item-job">
+                {payout.jobTitle ? <strong>{payout.jobTitle}</strong> : null}
+                {payout.jobTitle && payout.employerName ? " · " : null}
+                {payout.employerName ? <span>{payout.employerName}</span> : null}
+              </p>
+            ) : null}
+            {/*
+              İki an ayrı satır: kaydın açıldığı an ile paranın hesaba geçtiği
+              an aynı şey değil ve tek bir tarih hangisi olduğunu söylemiyordu.
+              Tamamlanmamış aktarımda ikinci satır yok.
+            */}
+            <dl className="earnings-item-dates">
+              <div>
+                <dt>Oluşturuldu</dt>
+                <dd><time dateTime={payout.createdAt}>{formatDateTime(payout.createdAt)}</time></dd>
+              </div>
+              {payout.completedAt ? (
+                <div>
+                  <dt>Tamamlandı</dt>
+                  <dd><time dateTime={payout.completedAt}>{formatDateTime(payout.completedAt)}</time></dd>
+                </div>
+              ) : null}
+            </dl>
             {payout.failureMessage || payout.status === "FAILED" ? (
               <div className="payout-failure">
                 <p>{payout.failureMessage ?? "Aktarım tamamlanamadı. Destekten yardım alabilirsin."}</p>

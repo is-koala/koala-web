@@ -40,6 +40,7 @@ function assignmentDto(status = "IN_PROGRESS") {
       cityName: "İstanbul",
       districtName: "Kadıköy",
       companyName: "Koala Etkinlik",
+      employerType: "COMPANY",
     },
     status,
     paymentStatus: "HELD_IN_ESCROW",
@@ -80,7 +81,7 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
     vi.unstubAllGlobals();
   });
 
-  it("atamayı kullanıcıya ait sayfalarda bulur; iş, adres, oturum ve iptal özetini dar modele toplar", async () => {
+  it("atamayı kullanıcıya ait sayfalarda bulur; iş, işveren, adres, oturum, ödeme ve iptal özetini dar modele toplar", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(200, envelope(page([], { totalPages: 2, last: false }))))
       .mockResolvedValueOnce(jsonResponse(200, envelope(page([assignmentDto()], { page: 1, first: false }))))
@@ -89,8 +90,32 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         description: "Misafirleri karşıla.",
         duties: "Yaka kartlarını dağıt.",
         dressCode: "Siyah gömlek",
+        employerType: "COMPANY",
+        creator: {
+          id: "7c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+          firstName: "Ayşe",
+          lastName: "Yıldız",
+          username: "ayse",
+          profilePictureUrl: "https://cdn.example.test/users/ayse.webp",
+        },
+        company: {
+          id: "8c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+          name: "Koala Etkinlik",
+          email: "info@koala.example",
+          phoneNumber: "+905550000000",
+          taxNumber: "1234567890",
+          logoUrl: "https://cdn.example.test/companies/koala.webp",
+          website: "https://koala.example",
+        },
         addressPrecision: "EXACT",
-        address: { displayAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4" },
+        address: {
+          displayAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4",
+          components: { additionalDirections: "  Arka kapıdan girin. ", floor: "3" },
+          position: { latitude: 40.98, longitude: 29.02 },
+        },
+        headcount: 4,
+        hiredCount: 1,
+        createdAt: "2026-08-30T07:15:00Z",
       })))
       .mockResolvedValueOnce(jsonResponse(200, envelope([
         {
@@ -101,6 +126,22 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
           checkInLatitude: 40.98,
           checkInLongitude: 29.02,
           minutes: null,
+        },
+      ])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([
+        {
+          id: "9b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+          status: "FAILED",
+          totalCharged: "1500.00",
+          completedAt: "2026-09-07T09:00:00Z",
+          createdAt: "2026-09-07T08:59:00Z",
+        },
+        {
+          id: "9b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6f",
+          status: "SUCCEEDED",
+          totalCharged: "1500.00",
+          completedAt: "2026-09-08T09:00:00Z",
+          createdAt: "2026-09-08T08:59:00Z",
         },
       ])))
       .mockResolvedValueOnce(jsonResponse(200, envelope({
@@ -131,14 +172,29 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         paymentStatus: "HELD_IN_ESCROW",
         workerPayout: "1250.00",
         currency: "TRY",
+        employerType: "COMPANY",
         assignedAt: "2026-09-06T10:00:00Z",
         completedAt: null,
+        appliedAt: null,
+        acceptedAt: null,
+        confirmedAt: null,
+        paymentSecuredAt: "2026-09-08T09:00:00Z",
         messaging: { available: true, reason: "AVAILABLE" },
+      },
+      employer: {
+        kind: "company",
+        name: "Koala Etkinlik",
+        imageUrl: "https://cdn.example.test/companies/koala.webp",
+        website: "https://koala.example",
       },
       description: "Misafirleri karşıla.",
       duties: "Yaka kartlarını dağıt.",
       dressCode: "Siyah gömlek",
       fullAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4",
+      additionalDirections: "Arka kapıdan girin.",
+      headcount: 4,
+      hiredCount: 1,
+      createdAt: "2026-08-30T07:15:00Z",
       sessions: [{
         id: "5b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
         checkInAt: "2026-09-12T09:04:00Z",
@@ -160,6 +216,7 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
       "https://api.example.test/users/me/assignments?asEmployer=false&page=1&size=100",
       `https://api.example.test/jobs/${jobId}`,
       `https://api.example.test/job-assignments/${assignmentId}/work-sessions`,
+      `https://api.example.test/job-assignments/${assignmentId}/payments`,
       `https://api.example.test/job-assignments/${assignmentId}/cancellation-preview`,
       `https://api.example.test/job-assignments/${assignmentId}/disputes`,
     ]);
@@ -167,6 +224,126 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
     expect(JSON.stringify(result?.resolution)).not.toMatch(
       /feeRate|feeAmount|refundAmount/,
     );
+    // İşverenin iletişim/vergi alanları, koordinat ve ödeme tutarları sınırı geçmez.
+    expect(JSON.stringify(result)).not.toMatch(
+      /info@koala|\+9055|1234567890|latitude|totalCharged|1500\.00|ayse\.webp|"floor"/,
+    );
+  });
+
+  it("bireysel ilanda ilanı açan kişiyi işveren kartı yapar; tarif yaklaşık adreste düşer; ödeme beklerken deneme listesi istenmez", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page([{
+        ...assignmentDto("CONFIRMED"),
+        paymentStatus: "PENDING_COLLECTION",
+        job: { ...assignmentDto().job, companyName: null, employerType: "INDIVIDUAL" },
+      }]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        id: jobId,
+        employerType: "INDIVIDUAL",
+        creator: { firstName: " Ayşe ", lastName: "Yıldız", profilePictureUrl: "javascript:alert(1)" },
+        company: null,
+        addressPrecision: "APPROXIMATE",
+        address: {
+          displayAddress: "Caferağa Mahallesi, Kadıköy",
+          components: { additionalDirections: "Arka kapıdan girin." },
+        },
+        headcount: null,
+        hiredCount: 0,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        feeRate: "0",
+        feeAmount: "0.00",
+        refundAmount: "1400.00",
+        noticeMinutes: 120,
+        cancellableNow: true,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkDetail(assignmentId);
+
+    expect(result?.employer).toEqual({
+      kind: "person",
+      name: "Ayşe Yıldız",
+      imageUrl: null,
+      website: null,
+    });
+    expect(result?.assignment.employerType).toBe("INDIVIDUAL");
+    expect(result?.assignment.paymentSecuredAt).toBeNull();
+    expect(result?.fullAddress).toBeNull();
+    expect(result?.additionalDirections).toBeNull();
+    expect(result?.headcount).toBeNull();
+    expect(result?.createdAt).toBeNull();
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/payments"))).toBe(false);
+  });
+
+  it("backend #282 alanlarını satırdan okur ve ödeme anı satırda gelince deneme listesine çıkmaz", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page([{
+        ...assignmentDto("CONFIRMED"),
+        job: { ...assignmentDto().job, companyName: null, employerType: null },
+        createdAt: "2026-09-06T10:00:01Z",
+        confirmedAt: "2026-09-06T12:00:00Z",
+        paymentSecuredAt: "2026-09-07T09:00:00Z",
+        application: {
+          id: "ab1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+          applicationDateTime: "2026-09-05T08:00:00Z",
+          answeredDateTime: "2026-09-06T09:59:00Z",
+        },
+        employer: { id: "7c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e", firstName: "Ayşe", lastName: "Yıldız" },
+        company: null,
+      }]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        id: jobId,
+        addressPrecision: "EXACT",
+        address: { displayAddress: "Moda Caddesi No: 12" },
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        feeRate: "0",
+        feeAmount: "0.00",
+        refundAmount: "1400.00",
+        noticeMinutes: 120,
+        cancellableNow: true,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkDetail(assignmentId);
+
+    expect(result?.assignment).toMatchObject({
+      employerType: "UNKNOWN",
+      appliedAt: "2026-09-05T08:00:00Z",
+      acceptedAt: "2026-09-06T09:59:00Z",
+      confirmedAt: "2026-09-06T12:00:00Z",
+      paymentSecuredAt: "2026-09-07T09:00:00Z",
+    });
+    // İlan yanıtı işvereni taşımıyorsa atama satırının `employer`'ı kartı kurar.
+    expect(result?.employer).toEqual({ kind: "person", name: "Ayşe Yıldız", imageUrl: null, website: null });
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/payments"))).toBe(false);
+  });
+
+  it("ödeme denemeleri okunamazsa yalnız o satır düşer, ayrıntı çizilir", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page([assignmentDto("COMPLETED")]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({ id: jobId, addressPrecision: "APPROXIMATE" })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(404, {
+        success: false,
+        errorCode: "ASSIGNMENT_NOT_FOUND",
+        errorCategory: "RESOURCE_NOT_FOUND",
+        message: "not found",
+        httpStatus: 404,
+        timeStamp: "2026-09-12T10:00:00Z",
+      }))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkDetail(assignmentId);
+
+    expect(result?.assignment.status).toBe("COMPLETED");
+    expect(result?.assignment.paymentSecuredAt).toBeNull();
   });
 
   it("yalnız boşluktan ibaret iş metinlerini ekrana boş dize olarak taşımaz", async () => {
@@ -184,6 +361,7 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         addressPrecision: "EXACT",
         address: { displayAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4" },
       })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
       .mockResolvedValueOnce(jsonResponse(200, envelope([])))
       .mockResolvedValueOnce(jsonResponse(200, envelope({
         feeRate: "0",
@@ -211,13 +389,14 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         address: null,
       })))
       .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
       .mockResolvedValueOnce(jsonResponse(200, envelope([])));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await readWorkDetail(assignmentId);
 
     expect(result?.fullAddress).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("cancellation-preview"))).toBe(false);
   });
 

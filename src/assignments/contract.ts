@@ -1,3 +1,5 @@
+import type { JobEmployerType } from "@/jobs/employer-jobs";
+
 export type AssignmentStatus =
   | "PENDING_CONFIRMATION"
   | "CONFIRMED"
@@ -36,6 +38,14 @@ export type WorkerAssignment = {
   paymentStatus: PaymentStatus;
   workerPayout: string;
   currency: string;
+  /**
+   * `job.employerType`; bireysel ilanda `companyName` boş kaldığı için kart
+   * işverenin kim olduğunu ancak bu rozetle söyleyebiliyor. Okunamayan değer
+   * `UNKNOWN` ve rozet çizilmiyor.
+   */
+  employerType: JobEmployerType;
+  /** `assignmentDateTime` — teklifin çalışana gönderildiği an; alan yoksa `null`. */
+  assignedAt: string | null;
 };
 
 export type WorkerAssignmentPage = {

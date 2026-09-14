@@ -5,14 +5,37 @@ import type { MessagingAvailability } from "@/messaging/contract";
 export type { CancellationPreview } from "@/assignments/resolution";
 
 export type WorkAssignment = WorkerAssignment & {
-  assignedAt: string | null;
   completedAt: string | null;
+  /**
+   * Çizelgenin başvuru → kabul → onay → ödeme adımları. Dördü de backend'in
+   * `MyAssignmentDto`'suna is-koala/koala-backend#282 ile giriyor; alan
+   * gelmediyse `null` ve satır **çizilmiyor** — uydurulmuş bir zaman, olmayan
+   * bir kaydı varmış gibi gösterirdi. `paymentSecuredAt` bugün de dolabiliyor:
+   * atamanın ödeme denemelerinden ilk başarılı olanın `completedAt`'i.
+   */
+  appliedAt: string | null;
+  acceptedAt: string | null;
+  confirmedAt: string | null;
+  paymentSecuredAt: string | null;
   /**
    * `messagingAvailable` + `messagingAvailableReason`; alan yoksa `null` ve
    * ekran mesaj düğmesini hiç çizmez (`MessagingGate`). Liste modeline
    * (`WorkerAssignment`) girmiyor: düğme yalnız ayrıntıda.
    */
   messaging: MessagingAvailability | null;
+};
+
+/**
+ * İşveren kartı. Şirket ilanında şirket adı/logo/web sitesi, bireysel ilanda
+ * ilanı açan kişinin adı ve fotoğrafı. Backend'in kullanıcı nesnesi bu sınırı
+ * geçmiyor: kimlik, e-posta, telefon burada yok.
+ */
+export type WorkEmployer = {
+  kind: "company" | "person";
+  name: string;
+  imageUrl: string | null;
+  /** Yalnız şirkette ve yalnız `safeExternalUrl` kapısından geçtiyse. */
+  website: string | null;
 };
 
 export type WorkSession = {
@@ -30,10 +53,18 @@ export type WorkDetail = {
   /** İlk sayaç metnini SSR ve hydration'da aynı tutan sunucu gözlem zamanı. */
   observedAt: number;
   assignment: WorkAssignment;
+  employer: WorkEmployer | null;
   description: string | null;
   duties: string | null;
   dressCode: string | null;
   fullAddress: string | null;
+  /** Adres tarifi; `fullAddress` ile aynı kesinlik kapısından geçer (EXACT). */
+  additionalDirections: string | null;
+  /** `null` sınırsız kontenjan; `hiredCount` kalan yerin üst sınırı (`openings`). */
+  headcount: number | null;
+  hiredCount: number;
+  /** İlanın yayımlanma anı. */
+  createdAt: string | null;
   sessions: readonly WorkSession[];
   resolution: WorkerAssignmentResolution;
 };

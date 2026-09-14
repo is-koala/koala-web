@@ -12,7 +12,14 @@ import {
   type WorkerApplicationPage,
 } from "@/applications/contract";
 import { ErrorState } from "@/components/states";
-import { EmptyStateCard, LinkTabs, StatusBadge, applicationStatusTone } from "@/components/ui";
+import {
+  EmptyStateCard,
+  LinkTabs,
+  StatusBadge,
+  applicationStatusTone,
+  jobStatusTone,
+} from "@/components/ui";
+import { employerTypeLabel } from "@/jobs/employer-jobs";
 import { formatDateTime, formatJobDate } from "@/lib/dates";
 import { safeImageUrl } from "@/lib/urls";
 
@@ -137,13 +144,26 @@ function ApplicationCard({
 }) {
   const titleId = `application-${application.id}`;
   const location = [application.districtName, application.cityName].filter(Boolean).join(", ");
+  const employerBadge = employerTypeLabel(application.employerType);
+  const jobClosed = jobClosedLabels[application.jobStatus];
   return (
     <article className="application-card" aria-labelledby={titleId}>
       <ApplicationCover application={application} />
       <div className="application-card-body">
-        <StatusBadge tone={applicationStatusTone(application.status)}>
-          {statusLabels[application.status]}
-        </StatusBadge>
+        <div className="application-badges">
+          <StatusBadge tone={applicationStatusTone(application.status)}>
+            {statusLabels[application.status]}
+          </StatusBadge>
+          {employerBadge ? <StatusBadge tone="neutral">{employerBadge}</StatusBadge> : null}
+          {/*
+            İlan kapandıysa bekleyen başvuru artık cevap almayacak; rozet bunu
+            kartın üstünde söylüyor. Açık ilanda rozet yok: "yayında" bilgisi
+            başvurunun kendi durumuna bir şey eklemiyor.
+          */}
+          {jobClosed ? (
+            <StatusBadge tone={jobStatusTone(application.jobStatus)}>{jobClosed}</StatusBadge>
+          ) : null}
+        </div>
         <div>
           <h2 id={titleId}>{application.title}</h2>
           {application.companyName ? <p className="application-company">{application.companyName}</p> : null}
@@ -153,6 +173,14 @@ function ApplicationCard({
           <div><dt>İş tarihi</dt><dd>{formatJobDate(application.startsAt)}</dd></div>
           {location ? <div><dt>Konum</dt><dd>{location}</dd></div> : null}
           <div><dt>Başvuru tarihi</dt><dd>{formatDateTime(application.appliedAt)}</dd></div>
+          {application.answeredAt ? (
+            <div>
+              <dt>Yanıt</dt>
+              <dd>
+                <time dateTime={application.answeredAt}>{formatDateTime(application.answeredAt)}</time>
+              </dd>
+            </div>
+          ) : null}
         </dl>
         {application.notes ? (
           <div className="application-note"><h3>Başvuru notun</h3><p>{application.notes}</p></div>
@@ -235,6 +263,12 @@ const filterOptions: ReadonlyArray<{ value: ApplicationFilter; label: string }> 
   { value: "REJECTED", label: "Reddedilenler" },
   { value: "WITHDRAWN", label: "Geri çekilenler" },
 ];
+
+/** Kapanmış ilanın kart rozeti; açık ya da okunamayan durumda rozet yok. */
+const jobClosedLabels: Readonly<Partial<Record<WorkerApplication["jobStatus"], string>>> = {
+  CLOSED: "İlan kapandı",
+  CANCELLED: "İlan iptal edildi",
+};
 
 const statusLabels: Record<ApplicationStatus, string> = {
   APPLIED: "Başvuru gönderildi",

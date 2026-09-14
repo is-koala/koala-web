@@ -3,10 +3,31 @@ import { formatDateTime } from "@/lib/dates";
 
 type TimelineEvent = { key: string; label: string; at: string | null };
 
+/**
+ * Çalışanın atama çizelgesi.
+ *
+ * Zamanı olmayan adım yalnız iki durumda çiziliyor: iptal kaydı okunamadıysa
+ * ("Atama iptal edildi") ve ret ("Atama reddedildi" — backend ret anını
+ * taşımıyor). Başvuru, kabul, onay ve ödeme satırları zamanları geldiğinde
+ * beliriyor; uydurulmuş bir zaman olmayan bir kaydı varmış gibi gösterirdi.
+ */
 export function WorkTimeline({ detail }: { detail: WorkDetail }) {
+  const { assignment, resolution } = detail;
   const events: TimelineEvent[] = [];
-  if (detail.assignment.assignedAt) {
-    events.push({ key: "assigned", label: "Atama oluşturuldu", at: detail.assignment.assignedAt });
+  if (assignment.appliedAt) {
+    events.push({ key: "applied", label: "Başvuru yapıldı", at: assignment.appliedAt });
+  }
+  if (assignment.acceptedAt) {
+    events.push({ key: "accepted", label: "Başvurun kabul edildi", at: assignment.acceptedAt });
+  }
+  if (assignment.assignedAt) {
+    events.push({ key: "assigned", label: "Atama oluşturuldu", at: assignment.assignedAt });
+  }
+  if (assignment.confirmedAt) {
+    events.push({ key: "confirmed", label: "Atamayı onayladın", at: assignment.confirmedAt });
+  }
+  if (assignment.paymentSecuredAt) {
+    events.push({ key: "payment-secured", label: "Ödeme emanete alındı", at: assignment.paymentSecuredAt });
   }
   for (const session of detail.sessions) {
     events.push({ key: `${session.id}-in`, label: "İşe giriş yapıldı", at: session.checkInAt });
@@ -14,11 +35,15 @@ export function WorkTimeline({ detail }: { detail: WorkDetail }) {
       events.push({ key: `${session.id}-out`, label: "İşten çıkış yapıldı", at: session.checkOutAt });
     }
   }
-  if (detail.assignment.completedAt) {
-    events.push({ key: "completed", label: "İş tamamlandı", at: detail.assignment.completedAt });
-  } else if (detail.assignment.status === "CANCELLED") {
-    events.push({ key: "cancelled", label: "Atama iptal edildi", at: null });
-  } else if (detail.assignment.status === "REJECTED") {
+  if (assignment.completedAt) {
+    events.push({ key: "completed", label: "İş tamamlandı", at: assignment.completedAt });
+  } else if (assignment.status === "CANCELLED") {
+    events.push({
+      key: "cancelled",
+      label: "Atama iptal edildi",
+      at: resolution.cancellation?.cancelledAt ?? null,
+    });
+  } else if (assignment.status === "REJECTED") {
     events.push({ key: "rejected", label: "Atama reddedildi", at: null });
   }
 

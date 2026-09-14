@@ -46,7 +46,22 @@ describe("çalışan ataması backend sözleşmesi", () => {
       paymentStatus: "HELD_IN_ESCROW",
       workerPayout: "1250.00",
       currency: "TRY",
+      employerType: "UNKNOWN",
+      assignedAt: null,
     });
+  });
+
+  it("işveren tipini ve teklif anını taşır; tanınmayan tip rozet uydurmaz", () => {
+    const result = projectWorkerAssignment(assignmentDto({
+      job: { ...assignmentDto().job, employerType: "INDIVIDUAL" },
+      assignmentDateTime: "2026-09-06T10:00:00Z",
+    }));
+
+    expect(result.employerType).toBe("INDIVIDUAL");
+    expect(result.assignedAt).toBe("2026-09-06T10:00:00Z");
+    expect(projectWorkerAssignment(assignmentDto({
+      job: { ...assignmentDto().job, employerType: "GOVERNMENT" },
+    })).employerType).toBe("UNKNOWN");
   });
 
   it("bilinmeyen durumları güvenli değere indirir", () => {

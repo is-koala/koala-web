@@ -19,7 +19,7 @@ import {
   type DistanceKm,
   type GeoPoint,
 } from "./distance";
-import { employerTypeValues, type JobEmployerType } from "./employer-jobs";
+import { employerTypeLabels, employerTypeValues, type JobEmployerType } from "./employer-jobs";
 import type { JobStatus } from "./lifecycle";
 
 /**
@@ -192,11 +192,9 @@ export const salaryTypeFilterLabels: Readonly<Record<JobSalaryTypeFilter, string
   DAILY: "Günlük ücret",
 };
 
-/** İşveren tipi; kartın `employerLabel` metinleriyle aynı sözcükler. */
-export const employerTypeFilterLabels: Readonly<Record<JobEmployerTypeFilter, string>> = {
-  INDIVIDUAL: "Bireysel ilan",
-  COMPANY: "Şirket ilanı",
-};
+/** İşveren tipi; kartın `employerLabel` metinleriyle aynı sözcükler (`employer-jobs.ts`). */
+export const employerTypeFilterLabels: Readonly<Record<JobEmployerTypeFilter, string>> =
+  employerTypeLabels;
 
 /**
  * Üç durumlu süzgeçlerin adres çubuğundaki karşılığı.

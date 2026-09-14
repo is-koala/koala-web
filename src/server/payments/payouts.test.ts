@@ -19,6 +19,22 @@ vi.mock("next/headers", async () => {
   };
 });
 
+function assignmentRow(id: string, title: string, companyName: string | null) {
+  return {
+    id,
+    job: {
+      id: "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
+      title,
+      companyName,
+      startDateTime: "2026-09-12T09:00:00",
+      endDateTime: "2026-09-12T18:00:00",
+    },
+    status: "COMPLETED",
+    paymentStatus: "RELEASED_TO_WORKER",
+    pricing: { currency: "TRY", workerPayout: "1000.10" },
+  };
+}
+
 describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
   beforeEach(() => {
     vi.stubEnv("API_URL", "https://api.example.test");
@@ -35,9 +51,9 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sunucunun sıralı listesini finansal alanları değiştirmeden taşır", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(200, envelope([
+  it("sunucunun sıralı listesini finansal alanları değiştirmeden taşır; iş adı atama listesinden eşlenir", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope([
         {
           id: "a1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
           jobAssignmentId: "b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
@@ -58,8 +74,25 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
           completedAt: null,
           createdAt: "2026-09-04T08:00:00Z",
         },
-      ])),
-    );
+      ])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        content: [assignmentRow("b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e", "Etkinlik görevlisi", "Koala Etkinlik")],
+        page: 0,
+        size: 100,
+        totalElements: 101,
+        totalPages: 2,
+        first: true,
+        last: false,
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        content: [assignmentRow("d1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e", "Depo sayımı", null)],
+        page: 1,
+        size: 100,
+        totalElements: 101,
+        totalPages: 2,
+        first: false,
+        last: true,
+      })));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await readWorkerPayouts();
@@ -74,6 +107,8 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
         failureMessage: "Banka aktarımı tamamlanamadı. Ödeme hesabını kontrol edip destekten yardım alabilirsin.",
         completedAt: null,
         createdAt: "2026-09-05T10:30:00Z",
+        jobTitle: "Etkinlik görevlisi",
+        employerName: "Koala Etkinlik",
       },
       {
         id: "c1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
@@ -84,17 +119,85 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
         failureMessage: null,
         completedAt: null,
         createdAt: "2026-09-04T08:00:00Z",
+        jobTitle: "Depo sayımı",
+        employerName: null,
       },
     ]);
     expect(JSON.stringify(result)).not.toContain("IBAN sahibi eşleşmedi");
-    expect(fetchMock.mock.calls[0][0]).toBe("https://api.example.test/users/me/payouts");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://api.example.test/users/me/payouts",
+      "https://api.example.test/users/me/assignments?asEmployer=false&page=0&size=100",
+      "https://api.example.test/users/me/assignments?asEmployer=false&page=1&size=100",
+    ]);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "GET", cache: "no-store" });
   });
 
-  it("boş backend verisini boş listeye çevirir", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(null))));
+  it("backend satıra iş adını yazıyorsa atama listesini hiç okumaz", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(200, envelope([{
+      id: "a1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+      jobAssignmentId: "b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+      amount: "1000.10",
+      currency: "TRY",
+      status: "COMPLETED",
+      completedAt: "2026-09-05T11:00:00Z",
+      createdAt: "2026-09-05T10:30:00Z",
+      jobTitle: " Etkinlik görevlisi ",
+      companyName: "Koala Etkinlik",
+    }])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkerPayouts();
+
+    expect(result[0]).toMatchObject({ jobTitle: "Etkinlik görevlisi", employerName: "Koala Etkinlik" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("atama listesi okunamazsa kazançları iş adı olmadan yine döndürür; eşleşmeyen satır null kalır", async () => {
+    const payoutRows = [
+      {
+        id: "a1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        jobAssignmentId: "b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        amount: "1000.10",
+        currency: "TRY",
+        status: "COMPLETED",
+        completedAt: "2026-09-05T11:00:00Z",
+        createdAt: "2026-09-05T10:30:00Z",
+      },
+    ];
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(payoutRows)))
+      .mockResolvedValueOnce(jsonResponse(503, {
+        success: false,
+        errorCode: "EXTERNAL_SERVICE",
+        errorCategory: "EXTERNAL_SERVICE",
+        message: "backend down",
+        httpStatus: 503,
+        timeStamp: "2026-09-12T10:00:00Z",
+      })));
+    const degraded = await readWorkerPayouts();
+    expect(degraded[0]).toMatchObject({ amount: "1000.10", jobTitle: null, employerName: null });
+
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(payoutRows)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        content: [assignmentRow("e1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e", "Başka iş", null)],
+        page: 0,
+        size: 100,
+        totalElements: 1,
+        totalPages: 1,
+        first: true,
+        last: true,
+      }))));
+    const unmatched = await readWorkerPayouts();
+    expect(unmatched[0]).toMatchObject({ jobTitle: null, employerName: null });
+  });
+
+  it("boş backend verisini boş listeye çevirir ve atama listesine çıkmaz", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope(null)));
+    vi.stubGlobal("fetch", fetchMock);
 
     await expect(readWorkerPayouts()).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("sayısal payout tutarını kesin para sözleşmesi diye kabul etmez", async () => {
