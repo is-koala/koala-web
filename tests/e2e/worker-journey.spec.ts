@@ -9,6 +9,7 @@ const baseURL = `http://localhost:${webPort}`;
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
+const completedAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f63";
 
 /**
  * İş arayanın web'deki kritik yolu (is-koala/koala-web#154): kayıtlı çalışan
@@ -97,13 +98,65 @@ test("iş ayrıntısı işvereni, ilan bilgilerini ve ödeme damgasını göster
   await expect(page.getByText("Teklif").first()).toBeVisible();
   await expect(page.locator("time[datetime='2026-09-01T09:00:00Z']").first()).toBeVisible();
 
-  // Kazançlar satırı işi adlandırır; ad atama listesinden eşlenir.
+  // Kazançlar satırı işi adlandırır; ad atama listesinden eşlenir. 0.9.25
+  // öncesi biçimdeki satırda hakediş ayrıntısı tireyle çizilir (#179).
   await page.goto("/panel/kazanclarim");
   const payoutRow = page.getByRole("listitem").filter({ hasText: "Aktarım bekliyor" });
   await expect(payoutRow).toContainText("Etkinlik görevlisi");
   await expect(payoutRow).toContainText("Koala Etkinlik");
-  await expect(payoutRow).toContainText("Oluşturuldu");
+  await expect(payoutRow).toContainText("Çıkışa alındı");
   await expect(payoutRow).not.toContainText("Tamamlandı");
+  await payoutRow.getByText("Hakediş ayrıntısı").click();
+  await expect(payoutRow.getByText("Banka hesabı", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText("—");
+  await expect(payoutRow).toContainText("sağlayıcısının onayı bekleniyor");
+
+  // 0.9.25 `PayoutDto`: maskeli IBAN, sağlayıcı referansı, çıkış ve mutabakat anları.
+  const settledRow = page.getByRole("listitem").filter({ hasText: "Ödendi" });
+  await settledRow.getByText("Hakediş ayrıntısı").click();
+  await expect(settledRow).toContainText("TR18***2315");
+  await expect(settledRow).toContainText("IYZ-7F3A9C");
+  await expect(settledRow).toContainText("tutar hesabında");
+  await expect(settledRow.locator("time[datetime='2026-09-04T09:00:00Z']")).toBeVisible();
+  await expect(settledRow.locator("time[datetime='2026-09-05T08:00:00Z']")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("9f1f0d24");
+});
+
+test("çalışan kazancını görür, komisyonu görmez; değerlendirme durumu sunucudan okunur", async ({
+  page,
+  request,
+}, testInfo) => {
+  // Backend 0.9.25 işçi görünümünde `pricing` ve `totalCharged` null gönderir
+  // (is-koala/koala-web#179); kazanç satırı yalnız `workerPayout`, işveren
+  // toplamı hiçbir yerde yok.
+  await page.goto(`/panel/is/${completedAssignmentId}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Etkinlik görevlisi" })).toBeVisible();
+  await expect(page.getByText("Kazanç", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText("₺1.250,00");
+  await expect(page.locator("body")).not.toContainText("1.500,00");
+  await expect(page.getByRole("heading", { name: "Atamanın fiyat özeti" })).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("Koala hizmet bedeli");
+
+  // Karşı taraf rozeti yalnız varlık; işverenin puanı ekranda değil.
+  await expect(page.getByTestId("counterparty-reviewed")).toHaveText("İşveren seni değerlendirdi");
+
+  // Değerlendirme: form → gönderim → sunucunun yeniden okuduğu satır formu kapatır.
+  await page.getByText("Değerlendirme bırak").click();
+  await page.getByLabel("Puan").selectOption("4");
+  await page.getByLabel("Yorum").fill("İyi bir işverendi.");
+  await page.getByRole("button", { name: "Değerlendirmeyi gönder" }).click();
+
+  await expect(page.getByRole("status").filter({ hasText: "Değerlendirmen kaydedildi." })).toBeVisible();
+  await expect(page.getByTestId("work-review-summary")).toContainText("Değerlendirmen: ★4 · İyi bir işverendi.");
+  await expect(page.getByText("Değerlendirme bırak")).toHaveCount(0);
+
+  const reviews = await request.get(`${backendURL}/__test__/reviews?key=${stateKeyFor(testInfo)}`);
+  expect(await reviews.json()).toMatchObject([
+    { assignmentId: completedAssignmentId, rating: 4, comment: "İyi bir işverendi.", anonymous: false },
+  ]);
+
+  // Yeniden açılan sayfada karar satırdan: özet yükleme anında, form yok.
+  await page.reload();
+  await expect(page.getByTestId("work-review-summary")).toContainText("Değerlendirmen: ★4");
+  await expect(page.getByText("Değerlendirme bırak")).toHaveCount(0);
 });
 
 test("panel bölümleri gerçek sayfalarla açılır; bilinmeyen adres 404 kalır", async ({ page }) => {

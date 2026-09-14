@@ -37,6 +37,12 @@ cümlesi ilan sayfasına gider**: `errors.ts`'e `@/lib/company` içe aktarması 
 web'e özgü bir hata kodu geri alınınca 255.735'e indi. `errors.ts`'e yeni cümle ya da içe
 aktarma eklerken önce bunu ölç; ilan ayrıntısına sığan pay artık bir uzun cümle kadar.
 
+2026-09-14 (is-koala/koala-web#179, 0.9.25 istemci: sunucudan değerlendirme durumu, işçide
+komisyon gizli, hakediş ayrıntısı) ölçümü: ana sayfa 247.836, ilan listesi 249.727, ilan
+ayrıntısı **255.738** bayt — sınıra 262 bayt kaldı. Yeni metinlerin tamamı çalışan/işveren
+kabuğuna özel modüllerde (`payments/payouts.ts`, `assignments/review.ts`, kabuk bileşenleri);
+`errors.ts`'e dokunulmadı, üç baytlık fark chunk adlarından.
+
 Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
 kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;
 Raspberry Pi koşucunun daha düşük `benchmarkIndex` değeri için CI tavanı 12 saniyedir. Her
