@@ -23,6 +23,7 @@
 .mk-text-link:hover { color: var(--primary-hover); text-decoration: underline; }
 .mk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-top: 28px; }
 .mk-section-foot { margin: clamp(24px, 3vw, 36px) 0 0; }
+.mk-page-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .mk-footnote { margin: 16px 0 0; font-size: var(--size-13); color: var(--text-subtle); }
 .mk-footnote .mk-text-link { font-size: inherit; }
 

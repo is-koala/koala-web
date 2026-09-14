@@ -48,11 +48,16 @@ export function MarketingPage({
             ))}
           </ul>
         )}
-        <p className="mk-section-foot">
+        <p className="mk-section-foot mk-page-actions">
           <Link className="button button-primary" href={content.action.href}>
             {content.action.label}
             <Icon name="arrowRight" />
           </Link>
+          {content.secondaryActions?.map((action) => (
+            <Link key={action.href} className="button button-secondary" href={action.href}>
+              {action.label}
+            </Link>
+          ))}
         </p>
       </Section>
     </article>
