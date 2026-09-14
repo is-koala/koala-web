@@ -457,7 +457,7 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .assignment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .assignment-card { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 20px; border: 1px solid var(--border-soft); border-radius: var(--r-secondary); background: var(--surface); }
 .assignment-card-pending { border-color: var(--biz-amber); }
-.assignment-card h3 { margin-bottom: 4px; font-size: var(--size-18); letter-spacing: -.01em; }
+.assignment-card h2, .assignment-card h3 { margin-bottom: 4px; font-size: var(--size-18); letter-spacing: -.01em; }
 .assignment-company { margin: 0; color: var(--muted); font-size: .9rem; }
 .assignment-role { margin: 6px 0 0; font-size: var(--size-13); font-weight: var(--w-medium); color: var(--text-muted); }
 .assignment-card-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }

@@ -41,7 +41,8 @@ a.app-nav-link[aria-current="page"] svg { color: var(--koala-green-ink); }
 .app-panel h1, .ui-page-header h1 { font-size: clamp(26px, 3.4vw, 34px); line-height: 1.15; letter-spacing: -.02em; margin-bottom: 8px; }
 .app-panel .lede { font-size: var(--size-15); line-height: 1.6; margin-bottom: 20px; }
 .app-panel .state-card { background: var(--surface-sunken); margin-top: 22px; }
-.app-panel > .ui-empty { margin-top: 22px; }
+.app-panel > .ui-empty { margin-top: 0; }
+.app-panel > .ui-empty:first-child { margin-top: 0; }
 .app-panel .eyebrow { margin-bottom: 8px; }
 
 /* ─── Kabuk kökü: karşılama ve özet ────────────────────────────────────── */
@@ -106,14 +107,13 @@ a.app-nav-link[aria-current="page"] svg { color: var(--koala-green-ink); }
   .app-bar-user-name { display: none; }
   .app-bar-logout span { display: none; }
   .app-bar-logout { padding: 0 10px; }
-  .app-bar .message-badge-link span:not(.message-badge) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .app-bar .message-badge-link .message-badge-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .app-bar .message-badge-link { padding: 0 10px; }
   .dashboard-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
   .applicant-compare { grid-template-columns: 1fr; }
 }
-@media (max-width: 400px) { .dashboard-stats { grid-template-columns: 1fr; } }
 
 /* Çalışan kabuğunun karşılama kartı: düz beyaz, gradyan yok. */
-.shell-welcome-plain { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
+.shell-welcome-plain { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; overflow: hidden; }
 .shell-welcome-plain .shell-welcome-copy .lede { margin-bottom: 0; }
 .shell-welcome-plain .shell-welcome-mascot { margin-block: -8px -36px; }

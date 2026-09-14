@@ -32,7 +32,7 @@ import {
 import { AssignmentDialog } from "@/components/assignment-dialog";
 import { MessagingGate } from "@/components/messaging/messaging-gate";
 import { ErrorState } from "@/components/states";
-import { EmptyStateCard, StatusBadge, applicationStatusTone } from "@/components/ui";
+import { EmptyStateCard, Field, StatusBadge, applicationStatusTone, fieldDescribedBy } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { errorPresentation } from "@/lib/errors";
@@ -498,8 +498,11 @@ function ApplicantDecision({
           <input type="hidden" name="applicationId" value={applicant.id} />
           <input type="hidden" name="jobId" value={jobId} />
           <input type="hidden" name="decision" value="REJECTED" />
-          <div className="field">
-            <label htmlFor={reasonId}>Red gerekçesi</label>
+          <Field
+            id={reasonId}
+            label="Red gerekçesi"
+            hint="Aday bu açıklamayı başvuru ekranında okuyacak. Red kararı da geri alınamıyor."
+          >
             <textarea
               id={reasonId}
               name="rejectionReason"
@@ -507,11 +510,9 @@ function ApplicantDecision({
               rows={3}
               maxLength={rejectionReasonMaxLength}
               disabled={!gate.canReject}
+              aria-describedby={fieldDescribedBy(reasonId, { hint: true })}
             />
-            <p className="field-hint">
-              Aday bu açıklamayı başvuru ekranında okuyacak. Red kararı da geri alınamıyor.
-            </p>
-          </div>
+          </Field>
           <button
             className="button button-danger button-small"
             disabled={!gate.canReject || pending}
