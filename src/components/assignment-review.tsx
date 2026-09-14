@@ -14,15 +14,23 @@ import {
   type ReviewAction,
   type ReviewRating,
 } from "@/assignments/review";
+import { StatusBadge } from "@/components/ui";
+import { formatDateTime } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 
 /**
  * İşverenin tamamlanan atamada işçiyi değerlendirdiği bölüm.
  *
- * Üç hâli var ve üçü de aynı bölümde: form, yeni yazılan değerlendirme
- * ("Değerlendirmeniz: ★4 · yorum") ve "zaten değerlendirdiniz". Çizilip
- * çizilmeyeceğine çağıran karar veriyor (`canReviewAssignment`); bileşen
- * atama durumunu bilmiyor.
+ * Dört hâli var ve dördü de aynı bölümde: form, satırdan gelen mevcut
+ * değerlendirme (`existing`, backend 0.9.25 `myReview` — yükleme anında
+ * form hiç çizilmez), yeni yazılan değerlendirme ("Değerlendirmeniz: ★4 ·
+ * yorum") ve 409'dan gelen "zaten değerlendirdiniz" (içeriği bilinmeyen
+ * yarış yedeği). Bölümün çizilip çizilmeyeceğine çağıran karar veriyor
+ * (`COMPLETED`); bileşen atama durumunu bilmiyor.
+ *
+ * `counterpartyReviewed` yalnız bir rozet: işçinin puanı ve yorumu buraya
+ * gelmiyor, "işçi sizi değerlendirdi" bilgisi yetiyor. Alan yoksa (eski
+ * sunucu) rozet de yok.
  *
  * Yıldızlar bir radyo grubu: beş `input[type=radio]` görsel olarak yıldız
  * etiketinin arkasında duruyor ama sekmeyle gezilebiliyor, ok tuşlarıyla
@@ -41,9 +49,13 @@ import { errorPresentation } from "@/lib/errors";
 export function AssignmentReviewSection({
   workerName,
   action,
+  existing = null,
+  counterpartyReviewed = null,
 }: {
   workerName: string;
   action: ReviewAction;
+  existing?: AssignmentReview | null;
+  counterpartyReviewed?: boolean | null;
 }) {
   const [state, dispatch, pending] = useActionState(action, idleReviewActionState);
   const [selected, setSelected] = useState<ReviewRating | null>(null);
@@ -60,10 +72,17 @@ export function AssignmentReviewSection({
 
   return (
     <section className="work-detail-section assignment-review" aria-labelledby="assignment-review-title">
-      <h2 id="assignment-review-title">İşçiyi değerlendir</h2>
+      <div className="assignment-card-topline">
+        <h2 id="assignment-review-title">İşçiyi değerlendir</h2>
+        {counterpartyReviewed ? (
+          <StatusBadge tone="info" data-testid="counterparty-reviewed">İşçi sizi değerlendirdi</StatusBadge>
+        ) : null}
+      </div>
 
       {state.status === "done" ? (
-        <ReviewSummary review={state.review} />
+        <ReviewSummary review={state.review} live />
+      ) : existing ? (
+        <ReviewSummary review={existing} />
       ) : state.status === "reviewed" ? (
         <p role="status" className="work-location-notice" data-testid="assignment-review-existing">
           Bu atamayı daha önce değerlendirdiniz. Her atama için tek değerlendirme bırakılabilir.
@@ -143,11 +162,22 @@ export function AssignmentReviewSection({
   );
 }
 
-function ReviewSummary({ review }: { review: AssignmentReview }) {
+/**
+ * `live` yalnız az önce gönderilen değerlendirmede: ekran okuyucuya sonucu
+ * duyurur. Sayfayla gelen mevcut değerlendirme duyuru değil, içerik.
+ */
+function ReviewSummary({ review, live = false }: { review: AssignmentReview; live?: boolean }) {
   return (
-    <p role="status" className="assignment-review-summary" data-testid="assignment-review-summary">
+    <p
+      role={live ? "status" : undefined}
+      className="assignment-review-summary"
+      data-testid="assignment-review-summary"
+    >
       <span aria-hidden="true" className="assignment-review-stars">{ratingStars(review.rating)}</span>
       <span>{reviewSummary(review)}</span>
+      {review.createdAt ? (
+        <time dateTime={review.createdAt}>{formatDateTime(review.createdAt)}</time>
+      ) : null}
     </p>
   );
 }

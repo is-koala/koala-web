@@ -11,11 +11,18 @@ import {
   canCancelAssignment,
   showsCancellationPreview,
 } from "@/assignments/resolution";
-import { canReviewAssignment, reviewCommentMaxLength } from "@/assignments/review";
+import {
+  canReviewAssignment,
+  ratingStars,
+  reviewCommentMaxLength,
+  reviewSummary,
+  type AssignmentReview,
+} from "@/assignments/review";
 import {
   DisputeEvidenceFields,
   selectedDisputeEvidence,
 } from "@/components/dispute-evidence-fields";
+import { formatDateTime } from "@/lib/dates";
 
 import { canOpenDispute, formatNotice } from "./presenters";
 
@@ -37,10 +44,13 @@ export function WorkSecondaryActions({
     assignmentStatus: detail.assignment.status,
     resolution: detail.resolution,
   });
-  const canReview = canReviewAssignment(detail.assignment.status);
+  // Değerlendirme kararı sunucudan (#179): satır `myReview` taşıyorsa form
+  // yerine özet; 409 `REVIEW_ALREADY_REVIEWED` yalnız yarış yedeği.
+  const myReview = detail.assignment.myReview;
+  const canReview = canReviewAssignment(detail.assignment.status, myReview);
   const showDispute = canOpenDispute(detail);
   const activeDispute = detail.resolution.disputes.find((dispute) => dispute.status !== "RESOLVED");
-  if (!showsCancellation && !showDispute && !canReview && !activeDispute) return null;
+  if (!showsCancellation && !showDispute && !canReview && !myReview && !activeDispute) return null;
 
   return (
     <section className="work-detail-section work-secondary-actions" aria-labelledby="other-actions-heading">
@@ -95,6 +105,8 @@ export function WorkSecondaryActions({
         <EvidenceUploadForm disputeId={activeDispute.id} pending={pending} onCommand={onCommand} />
       ) : null}
 
+      {myReview ? <WorkerReviewSummary review={myReview} /> : null}
+
       {canReview ? (
         <details>
           <summary>Değerlendirme bırak</summary>
@@ -117,6 +129,24 @@ export function WorkSecondaryActions({
         </details>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * İşçinin daha önce bıraktığı değerlendirme. Form bu hâlde hiç çizilmiyor;
+ * `role="status"` yok, çünkü bu bir duyuru değil sayfayla gelen içerik —
+ * gönderim sonrası duyuruyu ekranın üst şeridi ("Değerlendirmen kaydedildi.")
+ * yapıyor.
+ */
+function WorkerReviewSummary({ review }: { review: AssignmentReview }) {
+  return (
+    <p className="assignment-review-summary" data-testid="work-review-summary">
+      <span aria-hidden="true" className="assignment-review-stars">{ratingStars(review.rating)}</span>
+      <span>{reviewSummary(review, "informal")}</span>
+      {review.createdAt ? (
+        <time dateTime={review.createdAt}>{formatDateTime(review.createdAt)}</time>
+      ) : null}
+    </p>
   );
 }
 

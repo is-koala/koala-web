@@ -36,7 +36,7 @@ const assignment: EmployerAssignment = {
   startsAt: "2026-09-12T09:00:00", endsAt: "2026-09-12T18:00:00",
   status: "CONFIRMED", paymentStatus: "PENDING_COLLECTION", pricing,
   assignedAt: null, confirmedAt: null, paymentSecuredAt: null, cancelledAt: null,
-  completedAt: null, workHours: 0, messaging: null,
+  completedAt: null, workHours: 0, messaging: null, myReview: null, counterpartyReviewed: null,
 };
 const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",

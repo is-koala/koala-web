@@ -45,6 +45,8 @@ const detail = {
     confirmedAt: null,
     paymentSecuredAt: null,
     messaging: null,
+    myReview: null,
+    counterpartyReviewed: null,
   },
   employer: null,
   description: null,

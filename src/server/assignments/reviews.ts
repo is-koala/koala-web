@@ -18,10 +18,11 @@ import { apiRequest } from "@/server/session/session";
 /** Backend'in 409'u: bu yazar bu atamayı zaten değerlendirmiş (`ReviewMessages.ALREADY_REVIEWED`). */
 export const alreadyReviewedErrorCode = "REVIEW_ALREADY_REVIEWED";
 
-/** `ReviewDto`'nun ekranda okunan parçası; kimlik, yazar ve an çizilmiyor. */
+/** `ReviewDto`'nun ekranda okunan parçası; kimlik ve yazar çizilmiyor. */
 type ReviewDto = {
   rating?: number | null;
   comment?: string | null;
+  createdAt?: string | null;
 };
 
 export async function createAssignmentReview(
@@ -41,6 +42,7 @@ export async function createAssignmentReview(
   return {
     rating: typeof created?.rating === "number" ? created.rating : rating,
     comment: clean(created?.comment) ?? clean(comment),
+    createdAt: clean(created?.createdAt),
   };
 }
 

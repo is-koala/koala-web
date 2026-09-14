@@ -17,10 +17,31 @@ export const reviewRatings = [1, 2, 3, 4, 5] as const;
 
 export type ReviewRating = (typeof reviewRatings)[number];
 
-/** Yazarın kendi bıraktığı değerlendirme; ekranda "Değerlendirmeniz" olarak çizilir. */
+/**
+ * Yazarın kendi bıraktığı değerlendirme; ekranda "Değerlendirmeniz" olarak çizilir.
+ *
+ * İki kaynağı var: atama satırının `myReview`'u (backend 0.9.25,
+ * `MyReviewDto`) ve formun POST yanıtı. `createdAt` eski sunucuda ve boş
+ * zarfta `null`; ekran o satırı çizmez, an uydurmaz.
+ */
 export type AssignmentReview = {
   readonly rating: number;
   readonly comment: string | null;
+  readonly createdAt: string | null;
+};
+
+/**
+ * Atama satırının değerlendirme durumu — iki kabuk da aynı iki alanı okur.
+ *
+ * `myReview` görüntüleyenin kendi değerlendirmesi; doluysa form yükleme
+ * anında hiç çizilmez, 409 `REVIEW_ALREADY_REVIEWED` yolu yalnız yarış için
+ * yedek kalır. `counterpartyReviewed` yalnız varlık bilgisi: karşı tarafın
+ * puanı ve yorumu bu sınırı geçmez, rozet "değerlendirdi" der, o kadar. Eski
+ * sunucuda alanlar yok → `null`; ekran ne formu kapatır ne rozet çizer.
+ */
+export type AssignmentReviewState = {
+  readonly myReview: AssignmentReview | null;
+  readonly counterpartyReviewed: boolean | null;
 };
 
 /**
@@ -45,9 +66,16 @@ export type ReviewAction = (
   formData: FormData,
 ) => Promise<ReviewActionState>;
 
-/** Backend `ReviewManager.leaveReview`: yalnız `COMPLETED` atama değerlendirilir. */
-export function canReviewAssignment(status: AssignmentStatus): boolean {
-  return status === "COMPLETED";
+/**
+ * Backend `ReviewManager.leaveReview`: yalnız `COMPLETED` atama değerlendirilir
+ * ve yazar başına tek kayıt vardır. Satır zaten `myReview` taşıyorsa form
+ * açılmaz; 409 beklemek yerine karar sunucudan okunur.
+ */
+export function canReviewAssignment(
+  status: AssignmentStatus,
+  myReview: AssignmentReview | null = null,
+): boolean {
+  return status === "COMPLETED" && myReview === null;
 }
 
 /** Form alanından gelen puanı 1–5 tam sayıya indirger; başka her şey `null`. */
@@ -64,8 +92,16 @@ export function ratingStars(rating: number): string {
   return "★".repeat(filled) + "☆".repeat(reviewRatings.length - filled);
 }
 
-/** "Değerlendirmeniz: ★4 · Dakikti" — yorum yoksa yalnız puan. */
-export function reviewSummary(review: AssignmentReview): string {
-  const head = `Değerlendirmeniz: ★${review.rating}`;
+/**
+ * "Değerlendirmeniz: ★4 · Dakikti" — yorum yoksa yalnız puan.
+ *
+ * İşveren kabuğu "siz", çalışan paneli "sen" diyor; ekranın geri kalanıyla
+ * aynı tonda kalsın diye hitap çağıranın seçimi.
+ */
+export function reviewSummary(
+  review: Pick<AssignmentReview, "rating" | "comment">,
+  address: "formal" | "informal" = "formal",
+): string {
+  const head = `${address === "formal" ? "Değerlendirmeniz" : "Değerlendirmen"}: ★${review.rating}`;
   return review.comment ? `${head} · ${review.comment}` : head;
 }

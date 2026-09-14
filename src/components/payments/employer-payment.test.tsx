@@ -43,6 +43,8 @@ const assignment: EmployerAssignment = {
   completedAt: null,
   workHours: 0,
   messaging: null,
+  myReview: null,
+  counterpartyReviewed: null,
 };
 
 describe("işveren ödeme sunumu", () => {

@@ -180,6 +180,8 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         confirmedAt: null,
         paymentSecuredAt: "2026-09-08T09:00:00Z",
         messaging: { available: true, reason: "AVAILABLE" },
+        myReview: null,
+        counterpartyReviewed: null,
       },
       employer: {
         kind: "company",
@@ -322,6 +324,51 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
     // İlan yanıtı işvereni taşımıyorsa atama satırının `employer`'ı kartı kurar.
     expect(result?.employer).toEqual({ kind: "person", name: "Ayşe Yıldız", imageUrl: null, website: null });
     expect(fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/payments"))).toBe(false);
+  });
+
+  it("0.9.25 satırını okur: fiyat dökümü null iken kazanç workerPayout'tan, değerlendirme durumu satırdan (#179)", async () => {
+    // İşçi görünümünde `pricing` ve `totalCharged` null (backend #294);
+    // `myReview` yazarın değerlendirmesi, `counterpartyReviewed` yalnız
+    // varlık (backend #293). Tamamlanmış atamada iptal önizlemesi istenmez.
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page([{
+        ...assignmentDto("COMPLETED"),
+        paymentStatus: "RELEASED_TO_WORKER",
+        actualCompletionDateTime: "2026-09-12T18:05:00Z",
+        workerPayout: 1250,
+        totalCharged: null,
+        pricing: null,
+        myReview: {
+          id: "e1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+          rating: 4,
+          comment: "Dakikti",
+          createdAt: "2026-09-13T10:00:00Z",
+        },
+        counterpartyReviewed: true,
+        payout: { id: "f1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e", status: "COMPLETED", completedAt: "2026-09-13T09:00:00Z" },
+      }]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({ id: jobId, addressPrecision: "APPROXIMATE" })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([{
+        id: "9b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6f",
+        status: "SUCCEEDED",
+        completedAt: "2026-09-08T09:00:00Z",
+        createdAt: "2026-09-08T08:59:00Z",
+      }])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkDetail(assignmentId);
+
+    expect(result?.assignment).toMatchObject({
+      status: "COMPLETED",
+      workerPayout: "1250",
+      currency: "TRY",
+      myReview: { rating: 4, comment: "Dakikti", createdAt: "2026-09-13T10:00:00Z" },
+      counterpartyReviewed: true,
+    });
+    // Değerlendirme kimliği ve fiyat dökümünün öbür alanları sınırı geçmez.
+    expect(JSON.stringify(result)).not.toMatch(/e1f0d24c|totalCharged|serviceFee|employerTotal/);
   });
 
   it("ödeme denemeleri okunamazsa yalnız o satır düşer, ayrıntı çizilir", async () => {

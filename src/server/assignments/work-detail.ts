@@ -17,6 +17,7 @@ import { ApiError } from "@/server/api/errors";
 import { apiRequest } from "@/server/session/session";
 import {
   personName,
+  projectReviewState,
   projectWorkerAssignment,
   type AssignmentDto,
   type AssignmentPageDto,
@@ -113,6 +114,7 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
       confirmedAt: clean(assignment.confirmedAt),
       paymentSecuredAt,
       messaging: messagingAvailabilityFrom(assignment),
+      ...projectReviewState(assignment),
     },
     employer: toWorkEmployer(employerType, job, assignment),
     description: clean(job.description),

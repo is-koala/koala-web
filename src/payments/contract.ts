@@ -1,10 +1,11 @@
 import type { AssignmentStatus, PaymentStatus } from "@/assignments/contract";
+import type { AssignmentReviewState } from "@/assignments/review";
 import type { PricingBreakdown } from "@/lib/job-posting";
 import type { MessagingAvailability } from "@/messaging/contract";
 
 export type EmployerType = "INDIVIDUAL" | "COMPANY" | "UNKNOWN";
 
-export type EmployerAssignment = {
+export type EmployerAssignment = AssignmentReviewState & {
   readonly id: string;
   readonly jobId: string;
   readonly title: string;
