@@ -107,12 +107,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 }
 
 /**
- * Başvuru listesi, havuz üyeliği ve ilanın atamaları.
+ * Başvuru listesi, havuz üyeliği ve kabul edilmiş adayların atamaları.
  *
  * Üçü birlikte okunuyor çünkü kart üzerindeki "havuzda mı" rozeti ve mesaj
  * kapısı onlarsız çizilemez; ayrı ayrı beklemek ekranı iki kez sıçratırdı.
- * Atamalar mesaj kapısının tek kaynağı: başvuru listesi
- * `messagingAvailable` taşımıyor (#157).
+ * Atamalar başvuru listesinden **sonra** okunuyor: hangi yolun açık olduğuna
+ * (`assignmentId` satırda mı) ve kaç kabul olduğuna liste karar veriyor
+ * (`readApplicantAssignments`). Atamalar mesaj kapısının tek kaynağı:
+ * başvuru listesi `messagingAvailable` taşımıyor (#157).
  */
 export async function JobApplicantsPanel({
   jobId,
@@ -125,12 +127,12 @@ export async function JobApplicantsPanel({
   /** İşe alınmış sayısı; kabul kapısının okuduğu kümenin alt sınırı. */
   hiredCount: number;
 }) {
-  const loaded = await Promise.all([
-    readJobApplicants(jobId),
-    readTalentPoolMembership(),
-    readApplicantAssignments(jobId),
-  ])
-    .then(([applicants, inTalentPool, assignments]) => ({ applicants, inTalentPool, assignments }))
+  const loaded = await Promise.all([readJobApplicants(jobId), readTalentPoolMembership()])
+    .then(async ([applicants, inTalentPool]) => ({
+      applicants,
+      inTalentPool,
+      assignments: await readApplicantAssignments(jobId, applicants),
+    }))
     .catch((error: unknown) => {
       unstable_rethrow(error);
       return { failure: failureView(error) };

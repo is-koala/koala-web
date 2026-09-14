@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import type { ApplicationStatus } from "@/applications/contract";
 import type {
   ApplicantAssignment,
@@ -15,10 +17,12 @@ import type {
   TalentPoolEntry,
   TalentPoolPage,
 } from "@/applications/employer-review";
+import { isUuid } from "@/lib/identifiers";
 import { emptyBackendPage } from "@/lib/pagination";
-import { messagingAvailabilityFrom } from "@/messaging/contract";
+import { messagingAvailabilityFrom, type MessagingAvailability } from "@/messaging/contract";
 import { clean, known, type PageDto } from "@/server/api/dto";
-import { backendPaths } from "@/server/contract";
+import { ApiError } from "@/server/api/errors";
+import { backendPaths, notFoundStatus } from "@/server/contract";
 import { readAllEmployerAssignments } from "@/server/payments/payments";
 import { apiRequest } from "@/server/session/session";
 
@@ -39,11 +43,19 @@ type SafeUserDto = {
   profilePictureUrl?: string | null;
 };
 
-/** `JobApplicantDto`. `jobTitle` adayın mesleği, ilanın başlığı değil. */
+/**
+ * `JobApplicantDto`. `jobTitle` adayın mesleği, ilanın başlığı değil.
+ *
+ * `answeredDateTime`, `rejectionReason` ve `assignmentId`
+ * is-koala/koala-backend#282 ile geliyor; isteğe bağlı yazıldı.
+ */
 type JobApplicantDto = {
   id?: string | null;
   status?: string | null;
   applicationDateTime?: string | null;
+  answeredDateTime?: string | null;
+  rejectionReason?: string | null;
+  assignmentId?: string | null;
   notes?: string | null;
   applicant?: SafeUserDto | null;
   cvUrl?: string | null;
@@ -239,19 +251,48 @@ export async function removeFromTalentPool(workerId: string): Promise<void> {
 }
 
 /**
- * Bu ilanın atamaları, işçi kimliğine göre.
+ * Kabul edilmiş adayların atamaları, işçi kimliğine göre.
  *
- * `GET /users/me/assignments?asEmployer=true` ilana göre süzülemiyor;
- * işverenin bütün atamaları sayfalanıp ilan kimliğiyle eleniyor (aynı
- * sınırla: `readAllEmployerAssignments` en çok 100 sayfa okuyor). Aynı işçi
- * için birden çok atama varsa — iptal edilip yeniden kabul edilen aday — en
- * son kurulan atama kazanıyor: eski atamanın `CLOSED` kararı yeni atamanın
- * kapısını anlatmıyor. Sıralama ucun varsayılanına bırakılmıyor
- * (`sort` belgede boş), `assignmentDateTime` karşılaştırılıyor.
+ * İki yol var ve hangisinin açık olduğunu başvuru satırı söylüyor:
+ *
+ * 1. **Doğrudan** — kabul edilmiş her başvuru `assignmentId` taşıyorsa
+ *    (is-koala/koala-backend#282) her atama `GET /job-assignments/{id}` ile
+ *    tek tek okunuyor; uç tarafı denetliyor ve `messagingAvailable` kararını
+ *    satırda taşıyor. Kabul edilmiş aday yoksa hiç tur atılmıyor.
+ * 2. **Tarama** — alan gelmiyorsa (#282 öncesi) işverenin bütün atamaları
+ *    sayfalanıp ilan kimliğiyle eleniyor: `GET /users/me/assignments?asEmployer=true`
+ *    ilana göre süzülemiyor (aynı sınırla: `readAllEmployerAssignments` en
+ *    çok 100 sayfa). Aynı işçi için birden çok atama varsa — iptal edilip
+ *    yeniden kabul edilen aday — en son kurulan kazanıyor: eski atamanın
+ *    `CLOSED` kararı yeni atamanın kapısını anlatmıyor. Sıralama ucun
+ *    varsayılanına bırakılmıyor (`sort` belgede boş), `assignmentDateTime`
+ *    karşılaştırılıyor.
+ *
+ * Ayrım "hepsi" üzerinden: kabul edilmiş adaylardan biri bile kimliksizse
+ * tarama yolu; yarım bir doğrudan okuma o adayın mesaj kapısını sessizce
+ * kapatırdı.
  */
 export async function readApplicantAssignments(
   jobId: string,
+  applicants: readonly JobApplicant[],
 ): Promise<ReadonlyMap<string, ApplicantAssignment>> {
+  const accepted = applicants.filter((applicant) => applicant.status === "ACCEPTED");
+  if (accepted.length === 0) return new Map();
+
+  if (accepted.every((applicant) => applicant.assignmentId !== null)) {
+    const rows = await Promise.all(
+      accepted.map((applicant) => readAssignmentRow(applicant.assignmentId as string)),
+    );
+    return new Map(
+      rows.flatMap((row, index) => {
+        const workerId = accepted[index].applicant.id;
+        return row === null || !workerId
+          ? []
+          : [[workerId, { workerId, assignmentId: row.id, messaging: row.messaging }] as const];
+      }),
+    );
+  }
+
   const { assignments } = await readAllEmployerAssignments();
   const latest = new Map<string, { assignedAt: number; entry: ApplicantAssignment }>();
   for (const assignment of assignments) {
@@ -269,6 +310,33 @@ export async function readApplicantAssignments(
     });
   }
   return new Map([...latest].map(([workerId, { entry }]) => [workerId, entry]));
+}
+
+/**
+ * `GET /job-assignments/{id}` — yalnız mesaj kapısı için okunan dar satır.
+ *
+ * Taraf olmayan çağırana 404 dönüyor; bu ekranda 404 "atama artık yok" demek
+ * ve kartın mesaj düğmesi çizilmiyor, sayfa düşmüyor. Öbür hatalar çağırana
+ * çıkıyor.
+ */
+async function readAssignmentRow(
+  assignmentId: string,
+): Promise<{ id: string; messaging: MessagingAvailability | null } | null> {
+  try {
+    const dto = await apiRequest<{
+      id?: string | null;
+      messagingAvailable?: boolean | null;
+      messagingAvailableReason?: string | null;
+    } | null>(`${backendPaths.jobAssignments}/${encodeURIComponent(assignmentId)}`, {
+      cache: "no-store",
+    });
+    if (dto === null) return null;
+    return { id: dto.id ?? assignmentId, messaging: messagingAvailabilityFrom(dto) };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError && error.status === notFoundStatus) return null;
+    throw error;
+  }
 }
 
 /**
@@ -348,12 +416,17 @@ export async function respondToApplication(input: {
 }
 
 function toJobApplicant(dto: JobApplicantDto): JobApplicant {
+  const assignmentId = clean(dto.assignmentId);
   return {
     id: dto.id ?? "",
     status: applicationStatuses.has(dto.status as ApplicationStatus)
       ? (dto.status as ApplicationStatus)
       : "UNKNOWN",
     appliedAt: dto.applicationDateTime ?? "",
+    answeredAt: clean(dto.answeredDateTime),
+    rejectionReason: clean(dto.rejectionReason),
+    // Kimlik yola giriyor (`GET /job-assignments/{id}`); UUID değilse yok sayılır.
+    assignmentId: assignmentId !== null && isUuid(assignmentId) ? assignmentId : null,
     notes: clean(dto.notes),
     cvUrl: clean(dto.cvUrl),
     occupation: clean(dto.jobTitle),

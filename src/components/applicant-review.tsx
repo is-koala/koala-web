@@ -35,7 +35,9 @@ import { AssignmentDialog } from "@/components/assignment-dialog";
 import { MessagingGate } from "@/components/messaging/messaging-gate";
 import { ErrorState } from "@/components/states";
 import { EmptyStateCard, Field, StatusBadge, applicationStatusTone, fieldDescribedBy } from "@/components/ui";
-import { formatDateTime } from "@/lib/dates";
+import { applicantDossierPath } from "@/lib/app-routes";
+import { formatDateTime, isFormattableDate } from "@/lib/dates";
+import { isUuid } from "@/lib/identifiers";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { errorPresentation } from "@/lib/errors";
 
@@ -330,7 +332,21 @@ function ApplicantCard({
         </StatusBadge>
         <div className="applicant-identity">
           <ApplicantAvatar applicant={applicant} />
-          <h2 id={titleId}>{applicant.applicant.fullName || "Adı paylaşılmadı"}</h2>
+          {/*
+            Ad aday dosyası sayfasına bağlı: kartın altındaki panel aynı
+            dosyayı bir eylemle çiziyor, sayfa ise paylaşılabilir ve atamanın
+            işçi kartıyla aynı adrese gidiyor (#166). Kimlik UUID değilse
+            bağlantı yok.
+          */}
+          <h2 id={titleId}>
+            {isUuid(workerId) ? (
+              <Link className="applicant-name-link" href={applicantDossierPath(workerId)}>
+                {applicant.applicant.fullName || "Adı paylaşılmadı"}
+              </Link>
+            ) : (
+              applicant.applicant.fullName || "Adı paylaşılmadı"
+            )}
+          </h2>
         </div>
         <ApplicantCompareStrip dossier={dossier} />
         <dl className="application-facts">
@@ -338,7 +354,24 @@ function ApplicantCard({
             <div><dt>Mesleği</dt><dd>{applicant.occupation}</dd></div>
           ) : null}
           <div><dt>Başvuru tarihi</dt><dd>{formatDateTime(applicant.appliedAt)}</dd></div>
+          {/*
+            Yanıt zamanı `answeredDateTime` (#282); gelene kadar satır yok.
+            Etiket karara göre: kabulde "Kabul tarihi", redde "Red tarihi".
+          */}
+          {applicant.answeredAt && isFormattableDate(applicant.answeredAt) ? (
+            <div>
+              <dt>{applicant.status === "REJECTED" ? "Red tarihi" : "Yanıt tarihi"}</dt>
+              <dd><time dateTime={applicant.answeredAt}>{formatDateTime(applicant.answeredAt)}</time></dd>
+            </div>
+          ) : null}
         </dl>
+
+        {applicant.status === "REJECTED" && applicant.rejectionReason ? (
+          <div className="application-note applicant-rejection">
+            <h3>Red gerekçesi</h3>
+            <p>{applicant.rejectionReason}</p>
+          </div>
+        ) : null}
 
         {applicant.notes ? (
           <div className="application-note">
@@ -401,7 +434,7 @@ function ApplicantCard({
         <ApplicantDecision
           jobId={jobId}
           applicant={applicant}
-          knownAssignmentId={assignment?.assignmentId ?? null}
+          knownAssignmentId={applicant.assignmentId ?? assignment?.assignmentId ?? null}
           headcount={headcount}
           decidedNow={decidedNow}
           failure={decisionFailure}
@@ -441,7 +474,7 @@ function ApplicantDecision({
 }: {
   jobId: string;
   applicant: JobApplicant;
-  /** Atama listesinden eşleşen kimlik; yoksa bağlantı listeye düşer. */
+  /** Başvuru satırından (#282) ya da atama listesinden eşleşen kimlik; yoksa bağlantı listeye düşer. */
   knownAssignmentId: string | null;
   headcount: AcceptanceHeadcount;
   decidedNow: ApplicationDecisionOutcome | null;

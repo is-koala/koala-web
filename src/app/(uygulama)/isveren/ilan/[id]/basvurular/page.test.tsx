@@ -153,7 +153,7 @@ describe("ilanın başvuru listesi sayfası", () => {
 
     render(await JobApplicantsPanel({ jobId, headcount: 2, hiredCount: 1 }));
 
-    expect(readApplicantAssignments).toHaveBeenCalledWith(jobId);
+    expect(readApplicantAssignments).toHaveBeenCalledWith(jobId, applicants);
     expect(applicantReview).toHaveBeenCalledTimes(1);
     expect(applicantReview.mock.calls[0][0]).toMatchObject({
       jobId,

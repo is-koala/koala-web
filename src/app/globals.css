@@ -691,6 +691,10 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .talent-pool-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .talent-pool-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 18px; border: 1px solid var(--border-soft); border-radius: var(--r-16); background: var(--surface); }
 .talent-pool-entry time { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; }
+.talent-pool-entry-copy { flex: 1 1 220px; min-width: 0; }
+/* Aday adı bağlantısı: başlık rengini korur, bağlantı olduğunu alt çizgi söyler. */
+.applicant-name-link { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.applicant-name-link:hover, .applicant-name-link:focus-visible { text-decoration-color: currentColor; }
 .talent-pool-note { margin: 9px 0 0; font-size: .88rem; }
 .work-detail { display: flex; flex-direction: column; gap: 22px; }
 .work-detail > .form-warning, .work-location-notice { margin: 0; }

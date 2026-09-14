@@ -43,6 +43,32 @@ describe("yetenek havuzu listesi", () => {
     expect(within(row).getByRole("button", { name: "Havuzdan çıkar" })).toBeVisible();
   });
 
+  it("adayı fotoğrafıyla ve aday dosyası bağlantısıyla listeler; fotoğraf yoksa baş harf", () => {
+    // Havuz bir ilana bağlı değil; kartın altına dosya çizen başvuru ekranı
+    // burada yok, dosya sayfası o boşluğu kapatıyor (#166).
+    render(
+      <TalentPoolList
+        pool={pool({
+          content: [
+            entry({ profilePictureUrl: "https://cdn.example.test/a.jpg" }),
+            entry({ id: "entry-2", workerId: "not-a-uuid", fullName: "Bora" }),
+          ],
+        })}
+        action={vi.fn(idle)}
+      />,
+    );
+
+    const [first, second] = within(screen.getByRole("list", { name: "Yetenek havuzu" })).getAllByRole("listitem");
+    expect(first.querySelector("img")).toHaveAttribute("src", "https://cdn.example.test/a.jpg");
+    expect(within(first).getByRole("link", { name: "Aday Bir" })).toHaveAttribute(
+      "href",
+      "/isveren/aday/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+    );
+    expect(second.querySelector("img")).toBeNull();
+    expect(second).toHaveTextContent("B");
+    expect(within(second).queryByRole("link", { name: "Bora" })).toBeNull();
+  });
+
   it("tarihi sunucunun TZ'sinden bağımsız İstanbul saatiyle yazar", () => {
     // Bileşen `"use client"` taşıyor ama ilk HTML'i Next.js sunucuda çiziyor
     // ve üretimde sunucu kapsayıcıda `TZ=UTC` ile koşuyor. Saatsiz biçimde

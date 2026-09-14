@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { JobApplicant } from "@/applications/employer-review";
+
 import {
   cookieStore,
   envelope,
@@ -77,6 +79,9 @@ describe("işveren başvuru inceleme backend modülü", () => {
         id: applicationId,
         status: "APPLIED",
         appliedAt: "2026-09-01T09:00:00Z",
+        answeredAt: null,
+        rejectionReason: null,
+        assignmentId: null,
         notes: "Hafta sonu da çalışabilirim.",
         cvUrl: "https://cdn.example.test/cv.pdf",
         occupation: "Barista",
@@ -481,11 +486,11 @@ describe("işveren başvuru inceleme backend modülü", () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
   });
 
-  it("ilanın atamalarını işverenin atama listesinden işçi kimliğiyle eşler", async () => {
-    // `JobApplicantDto` atama taşımıyor ve atama listesi ilana göre
-    // süzülemiyor: bütün liste okunup ilan kimliğiyle eleniyor (#157). Aynı
-    // işçinin iki atamasında en son kurulan kazanıyor — eski atamanın kapalı
-    // sohbeti yeni atamanın kapısını anlatmıyor.
+  it("ilanın atamalarını, satır assignmentId taşımıyorsa işverenin atama listesinden işçi kimliğiyle eşler", async () => {
+    // #282 öncesi: `JobApplicantDto` atama taşımıyor ve atama listesi ilana
+    // göre süzülemiyor: bütün liste okunup ilan kimliğiyle eleniyor (#157).
+    // Aynı işçinin iki atamasında en son kurulan kazanıyor — eski atamanın
+    // kapalı sohbeti yeni atamanın kapısını anlatmıyor.
     const otherJobId = "44444444-4444-4444-8444-444444444444";
     const secondWorkerId = "55555555-5555-4555-8555-555555555555";
     const row = (overrides: Record<string, unknown>) => ({
@@ -530,8 +535,12 @@ describe("işveren başvuru inceleme backend modülü", () => {
     })));
     vi.stubGlobal("fetch", fetchMock);
 
-    const assignments = await readApplicantAssignments(jobId);
+    const assignments = await readApplicantAssignments(jobId, [
+      acceptedApplicant("a1", workerId, null),
+      acceptedApplicant("a2", secondWorkerId, "aaaaaaaa-aaaa-4aaa-8aaa-000000000004"),
+    ]);
 
+    // Kabul edilmişlerden biri kimliksiz: yarım doğrudan okuma yerine tarama.
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://api.example.test/users/me/assignments?asEmployer=true&page=0&size=100",
     );
@@ -548,4 +557,105 @@ describe("işveren başvuru inceleme backend modülü", () => {
       },
     ]);
   });
+
+  it("kabul edilmiş aday yoksa atama ucuna hiç çıkmaz", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const assignments = await readApplicantAssignments(jobId, [
+      { ...acceptedApplicant("a1", workerId, null), status: "APPLIED" },
+    ]);
+
+    expect(assignments.size).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("her kabul edilmiş aday assignmentId taşıyorsa atamaları tek tek okur, listeyi taramaz", async () => {
+    // #282 sonrası yol: `GET /job-assignments/{id}` tarafı denetliyor ve
+    // mesaj kapısını satırda taşıyor. 404 "atama artık yok" demek; kart
+    // mesaj düğmesi çizmez, sayfa düşmez.
+    const firstAssignmentId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001";
+    const goneAssignmentId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000009";
+    const secondWorkerId = "55555555-5555-4555-8555-555555555555";
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith(`/job-assignments/${firstAssignmentId}`)) {
+        return Promise.resolve(jsonResponse(200, envelope({
+          id: firstAssignmentId,
+          messagingAvailable: false,
+          messagingAvailableReason: "PAYMENT_REQUIRED",
+        })));
+      }
+      if (url.endsWith(`/job-assignments/${goneAssignmentId}`)) {
+        return Promise.resolve(jsonResponse(404, {
+          success: false,
+          errorCode: "JOB_ASSIGNMENT_NOT_FOUND",
+          errorCategory: "RESOURCE_NOT_FOUND",
+          message: "",
+        }));
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const assignments = await readApplicantAssignments(jobId, [
+      acceptedApplicant("a1", workerId, firstAssignmentId),
+      acceptedApplicant("a2", secondWorkerId, goneAssignmentId),
+      { ...acceptedApplicant("a3", "66666666-6666-4666-8666-666666666666", null), status: "REJECTED" },
+    ]);
+
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual(
+      expect.arrayContaining([
+        `https://api.example.test/job-assignments/${firstAssignmentId}`,
+        `https://api.example.test/job-assignments/${goneAssignmentId}`,
+      ]),
+    );
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/users/me/assignments"))).toBe(false);
+    expect([...assignments.values()]).toEqual([
+      {
+        workerId,
+        assignmentId: firstAssignmentId,
+        messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+      },
+    ]);
+  });
+
+  it("başvuru satırındaki yanıt zamanını, red gerekçesini ve atama kimliğini taşır; UUID olmayan kimliği düşürür", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope([
+        {
+          id: applicationId,
+          status: "REJECTED",
+          applicationDateTime: "2026-09-01T09:00:00Z",
+          answeredDateTime: "2026-09-02T10:00:00Z",
+          rejectionReason: "  Deneyim şartı karşılanmıyor.  ",
+          assignmentId: "not-a-uuid",
+          applicant: { id: workerId, firstName: "Ayşe", lastName: "Yılmaz" },
+        },
+      ])),
+    ));
+
+    const [applicant] = await readJobApplicants(jobId);
+
+    expect(applicant).toMatchObject({
+      answeredAt: "2026-09-02T10:00:00Z",
+      rejectionReason: "Deneyim şartı karşılanmıyor.",
+      assignmentId: null,
+    });
+  });
 });
+
+function acceptedApplicant(id: string, applicantId: string, assignmentId: string | null): JobApplicant {
+  return {
+    id,
+    status: "ACCEPTED",
+    appliedAt: "2026-09-01T09:00:00Z",
+    answeredAt: null,
+    rejectionReason: null,
+    assignmentId,
+    notes: null,
+    cvUrl: null,
+    occupation: null,
+    applicant: { id: applicantId, fullName: "Aday", profilePictureUrl: null },
+  };
+}

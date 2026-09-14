@@ -31,6 +31,16 @@ export type JobApplicant = {
   readonly id: string;
   readonly status: ApplicationStatus;
   readonly appliedAt: string;
+  /**
+   * `answeredDateTime`, `rejectionReason`, `assignmentId` — üçü de
+   * is-koala/koala-backend#282 ile `JobApplicantDto`'ya geliyor; gelene
+   * kadar `null` ve kart o satırı çizmiyor. `assignmentId` geldiğinde kabul
+   * edilmiş adayın ataması doğrudan okunuyor ve işverenin bütün atamalarını
+   * tarayan yol kapanıyor (`readApplicantAssignments`).
+   */
+  readonly answeredAt: string | null;
+  readonly rejectionReason: string | null;
+  readonly assignmentId: string | null;
   readonly notes: string | null;
   readonly cvUrl: string | null;
   readonly occupation: string | null;
