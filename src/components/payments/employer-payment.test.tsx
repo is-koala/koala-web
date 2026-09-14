@@ -20,6 +20,8 @@ const assignment: EmployerAssignment = {
   employerType: "INDIVIDUAL",
   workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
   workerName: "Ayşe Yılmaz",
+  workerPictureUrl: null,
+  companyName: null,
   cityName: "İstanbul",
   districtName: "Kadıköy",
   startsAt: "2026-09-12T09:00:00",
@@ -35,6 +37,9 @@ const assignment: EmployerAssignment = {
     employerTotal: "1613.04",
   },
   assignedAt: null,
+  confirmedAt: null,
+  paymentSecuredAt: null,
+  cancelledAt: null,
   completedAt: null,
   workHours: 0,
   messaging: null,
@@ -49,7 +54,8 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.getByText("1.613,04 ₺")).toBeVisible();
     expect(screen.getByText("İşveren toplamı")).toBeVisible();
     expect(screen.queryByText("Ödeyeceğin toplam")).toBeNull();
-    expect(screen.getByText("0.075")).toBeVisible();
+    // Oran yüzde olarak okunuyor; "0.075" kullanıcıya bir oran söylemez.
+    expect(screen.getByText("%7,5")).toBeVisible();
     expect(screen.getByText("2026-09-v1")).toBeVisible();
   });
 
@@ -108,7 +114,7 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Henüz ödeme denemesi yok");
 
     rerender(<PaymentHistory attempts={[{
-      id: "attempt-1",
+      id: "8e1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f71",
       status: "UNKNOWN",
       currency: "TRY",
       workerPayout: "1500.50",
@@ -127,6 +133,11 @@ describe("işveren ödeme sunumu", () => {
     expect(screen.getByText("1.500,50 ₺")).toBeVisible();
     expect(screen.getByText("112,54 ₺")).toBeVisible();
     expect(screen.getByText("1.613,04 ₺")).toBeVisible();
+    // Kısa referans (UUID'nin ilk sekizi) ve oran: destek yazışmasında
+    // denemeyi adlandırmanın ve hizmet bedelini anlamanın yolu (#166).
+    expect(screen.getByText("8e1f0d24")).toHaveAttribute("title", "8e1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f71");
+    expect(screen.getByText("Hizmet bedeli oranı")).toBeVisible();
+    expect(screen.getByText("%7,5")).toBeVisible();
   });
 
   it("atama dönüş bildirimini backend'in kesin durumuna göre ayırır", () => {

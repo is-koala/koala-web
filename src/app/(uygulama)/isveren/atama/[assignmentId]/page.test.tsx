@@ -6,7 +6,7 @@ import type { Viewer } from "@/server/session/viewer";
 
 const enterShell = vi.hoisted(() => vi.fn());
 const readEmployerAssignment = vi.hoisted(() => vi.fn());
-const readPaymentResolutionForAssignment = vi.hoisted(() => vi.fn());
+const readPaymentTimelineForAssignment = vi.hoisted(() => vi.fn());
 const readEmployerPaymentRequirements = vi.hoisted(() => vi.fn());
 const readAssignmentResolution = vi.hoisted(() => vi.fn());
 const readAssignmentWorkSessions = vi.hoisted(() => vi.fn());
@@ -17,7 +17,7 @@ const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/payments/payments", () => ({
   readEmployerAssignment,
-  readPaymentResolutionForAssignment,
+  readPaymentTimelineForAssignment,
 }));
 vi.mock("@/server/payments/preflight", () => ({ readEmployerPaymentRequirements }));
 vi.mock("@/server/assignments/resolution", () => ({
@@ -44,6 +44,8 @@ const assignment: EmployerAssignment = {
   employerType: "INDIVIDUAL",
   workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
   workerName: "Ayşe Yılmaz",
+  workerPictureUrl: null,
+  companyName: "Koala Etkinlik",
   cityName: "İstanbul",
   districtName: "Kadıköy",
   startsAt: "2026-09-12T09:00:00",
@@ -52,6 +54,9 @@ const assignment: EmployerAssignment = {
   paymentStatus: "FAILED",
   pricing: null,
   assignedAt: "2026-09-01T09:00:00Z",
+  confirmedAt: null,
+  paymentSecuredAt: null,
+  cancelledAt: null,
   completedAt: null,
   workHours: 0,
   messaging: null,
@@ -73,7 +78,7 @@ describe("işveren atama ayrıntısı", () => {
     readEmployerPaymentRequirements.mockResolvedValue({
       advisories: ["individualBillingAddress"], blocked: ["identityNumber"],
     });
-    readPaymentResolutionForAssignment.mockResolvedValue("failed");
+    readPaymentTimelineForAssignment.mockResolvedValue({ resolution: "failed", securedAt: null });
     readAssignmentWorkSessions.mockResolvedValue([]);
     readAssignmentResolution.mockResolvedValue({
       cancellationPreview: null,
@@ -103,7 +108,7 @@ describe("işveren atama ayrıntısı", () => {
     await expect(EmployerAssignmentPage({
       params: Promise.resolve({ assignmentId }), searchParams: Promise.resolve({}),
     })).rejects.toThrow("NEXT_NOT_FOUND");
-    expect(readPaymentResolutionForAssignment).not.toHaveBeenCalled();
+    expect(readPaymentTimelineForAssignment).not.toHaveBeenCalled();
   });
 
   it("bozuk kimlikte ownership backend'ine çıkmadan notFound üretir", async () => {
@@ -130,7 +135,7 @@ describe("işveren atama ayrıntısı", () => {
   });
 
   it("REFUNDED atamada sağlayıcı sonucu kesinleşmiş gibi sıradaki adım yazmaz", async () => {
-    readPaymentResolutionForAssignment.mockResolvedValue("pending");
+    readPaymentTimelineForAssignment.mockResolvedValue({ resolution: "pending", securedAt: null });
 
     render(await EmployerAssignmentContent({
       assignment: { ...assignment, paymentStatus: "REFUNDED" },
@@ -211,5 +216,77 @@ describe("işveren atama ayrıntısı", () => {
 
     expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeDisabled();
     expect(screen.getByText(/İşçi atamayı onaylamadan/)).toBeVisible();
+  });
+
+  it("işçi kartını fotoğraf, ad ve aday dosyası bağlantısıyla çizer; şirket adını başlığa yazar", async () => {
+    render(await EmployerAssignmentContent({
+      assignment: { ...assignment, workerPictureUrl: "https://cdn.example.test/ayse.jpg" },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    const card = screen.getByTestId("assignment-worker");
+    expect(card).toHaveTextContent("Ayşe Yılmaz");
+    expect(card.querySelector("img")).toHaveAttribute("src", "https://cdn.example.test/ayse.jpg");
+    expect(screen.getByRole("link", { name: "Aday dosyasını aç" })).toHaveAttribute(
+      "href",
+      `/isveren/aday/${assignment.workerId}`,
+    );
+    expect(screen.getByText("Koala Etkinlik")).toBeVisible();
+  });
+
+  it("çizelgeye ödemenin emanete alındığı anı, onay anını ve çalışılan saati yazar", async () => {
+    readPaymentTimelineForAssignment.mockResolvedValue({
+      resolution: "held",
+      securedAt: "2026-09-02T14:30:00Z",
+    });
+
+    render(await EmployerAssignmentContent({
+      assignment: {
+        ...assignment,
+        status: "IN_PROGRESS",
+        paymentStatus: "HELD_IN_ESCROW",
+        confirmedAt: "2026-09-01T10:15:00Z",
+        workHours: 6,
+      },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    const timeline = screen.getByRole("list", { name: "Atama zaman çizelgesi" });
+    expect(timeline).toHaveTextContent("İşçi atamayı onayladı1 Eyl 2026 13:15");
+    expect(timeline).toHaveTextContent("Ödeme emanete alındı2 Eyl 2026 17:30");
+    expect(screen.getByText("6 saat")).toBeVisible();
+  });
+
+  it("iptal edilen atamada iptal anını iptal kaydından çizelgeye taşır", async () => {
+    // Satır `cancellation` taşımıyor (#282 öncesi); uyuşmazlık paneli için
+    // zaten okunan iptal kaydı zamanı veriyor.
+    readAssignmentResolution.mockResolvedValue({
+      cancellationPreview: null,
+      cancellation: {
+        id: "c1",
+        cancelledByParty: "EMPLOYER",
+        reason: "Etkinlik ertelendi",
+        noticeMinutes: 1_440,
+        feeRate: "0.00",
+        feeAmount: "0.00",
+        refundAmount: "1500.00",
+        cancelledAt: "2026-09-03T08:00:00Z",
+        refundStatus: "COMPLETED",
+        refundCompletedAt: "2026-09-04T08:00:00Z",
+      },
+      disputes: [],
+    });
+
+    render(await EmployerAssignmentContent({
+      assignment: { ...assignment, status: "CANCELLED", paymentStatus: "REFUNDED" },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(screen.getByRole("list", { name: "Atama zaman çizelgesi" })).toHaveTextContent(
+      "Atama iptal edildi3 Eyl 2026 11:00",
+    );
   });
 });

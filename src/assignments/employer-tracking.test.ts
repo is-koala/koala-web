@@ -71,23 +71,60 @@ describe("sıradaki adım", () => {
 });
 
 describe("atama zaman çizelgesi", () => {
-  it("dört aşamayı sırayla taşır ve nereye gelindiğini işaretler", () => {
+  it("beş aşamayı sırayla taşır ve nereye gelindiğini işaretler", () => {
     const timeline = employerAssignmentTimeline({
       status: "IN_PROGRESS",
+      paymentStatus: "HELD_IN_ESCROW",
       assignedAt: "2026-09-01T09:00:00Z",
+      paymentSecuredAt: "2026-09-01T12:00:00Z",
       completedAt: null,
+      confirmedAt: null,
+      cancelledAt: null,
       sessions: [{ id: "s1", checkInAt: "2026-09-02T08:00:00Z", checkOutAt: null, minutes: null }],
     });
 
     expect(timeline.map((event) => event.key)).toEqual([
       "offered",
       "confirmed",
+      "payment-secured",
       "started",
       "completed",
     ]);
-    expect(timeline.map((event) => event.reached)).toEqual([true, true, true, false]);
+    expect(timeline.map((event) => event.reached)).toEqual([true, true, true, true, false]);
     expect(timeline[0].at).toBe("2026-09-01T09:00:00Z");
-    expect(timeline[2].at).toBe("2026-09-02T08:00:00Z");
+    expect(timeline[2].at).toBe("2026-09-01T12:00:00Z");
+    expect(timeline[3].at).toBe("2026-09-02T08:00:00Z");
+  });
+
+  it("onay ve emanet zamanlarını yalnız backend verdiğinde yazar", () => {
+    // `confirmedAt` #282 ile geliyor; gelene kadar adım zamansız ama
+    // ulaşılmış. Uydurulmuş bir zaman olmayan bir kaydı varmış gibi gösterirdi.
+    const without = employerAssignmentTimeline({
+      status: "CONFIRMED",
+      paymentStatus: "PENDING_COLLECTION",
+      assignedAt: "2026-09-01T09:00:00Z",
+      completedAt: null,
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
+      sessions: [],
+    });
+    expect(without.find((event) => event.key === "confirmed")).toMatchObject({ at: null, reached: true });
+    expect(without.find((event) => event.key === "payment-secured")).toMatchObject({ at: null, reached: false });
+
+    const withStamps = employerAssignmentTimeline({
+      status: "CONFIRMED",
+      paymentStatus: "HELD_IN_ESCROW",
+      assignedAt: "2026-09-01T09:00:00Z",
+      confirmedAt: "2026-09-01T10:00:00Z",
+      paymentSecuredAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      sessions: [],
+    });
+    expect(withStamps.find((event) => event.key === "confirmed")?.at).toBe("2026-09-01T10:00:00Z");
+    // Para alındı ama zamanı okunamadı: adım ulaşılmış, zamansız.
+    expect(withStamps.find((event) => event.key === "payment-secured")).toMatchObject({ at: null, reached: true });
   });
 
   it("tamamlanmış atamada bitiş zamanını taşır", () => {
@@ -95,6 +132,10 @@ describe("atama zaman çizelgesi", () => {
       status: "COMPLETED",
       assignedAt: "2026-09-01T09:00:00Z",
       completedAt: "2026-09-03T18:00:00Z",
+      paymentStatus: "RELEASED_TO_WORKER",
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       sessions: [],
     });
 
@@ -109,21 +150,69 @@ describe("atama zaman çizelgesi", () => {
       status: "REJECTED",
       assignedAt: "2026-09-01T09:00:00Z",
       completedAt: null,
+      paymentStatus: "PENDING_COLLECTION",
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
       sessions: [],
     });
 
     expect(timeline.map((event) => event.key)).toEqual(["offered", "rejected"]);
   });
 
-  it("iptal edilen atamada iptali son adım yapar", () => {
+  it("iptal edilen atamada iptali son adım yapar ve iptal kaydının zamanını taşır", () => {
     const timeline = employerAssignmentTimeline({
       status: "CANCELLED",
+      paymentStatus: "REFUNDED",
       assignedAt: "2026-09-01T09:00:00Z",
+      paymentSecuredAt: "2026-09-01T12:00:00Z",
+      cancelledAt: "2026-09-02T13:00:00Z",
       completedAt: null,
+      confirmedAt: null,
       sessions: [{ id: "s1", checkInAt: "2026-09-02T08:00:00Z", checkOutAt: "2026-09-02T12:00:00Z", minutes: 240 }],
     });
 
+    expect(timeline.map((event) => event.key)).toEqual([
+      "offered",
+      "confirmed",
+      "payment-secured",
+      "started",
+      "cancelled",
+    ]);
+    expect(timeline.at(-1)).toMatchObject({ at: "2026-09-02T13:00:00Z", reached: true });
+  });
+
+  it("ödeme alınmadan iptal edilen atamada emanet adımını beklemede bırakmaz", () => {
+    const timeline = employerAssignmentTimeline({
+      status: "CANCELLED",
+      paymentStatus: "PENDING_COLLECTION",
+      assignedAt: "2026-09-01T09:00:00Z",
+      completedAt: null,
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
+      sessions: [],
+    });
+
     expect(timeline.map((event) => event.key)).toEqual(["offered", "confirmed", "started", "cancelled"]);
-    expect(timeline.at(-1)?.reached).toBe(true);
+  });
+
+  it("emanet adımını atama durumundan çıkarmaz; yalnız ödeme kanıtıyla işaretler", () => {
+    // Çizelge ödeme kaydını anlatıyor, sunucunun "emanetsiz tamamlama olmaz"
+    // kuralını değil: ödeme durumu okunamamış tamamlanmış atamada adım
+    // beklemede kalır, uydurulmaz.
+    const timeline = employerAssignmentTimeline({
+      status: "COMPLETED",
+      paymentStatus: "UNKNOWN",
+      assignedAt: "2026-09-01T09:00:00Z",
+      confirmedAt: null,
+      paymentSecuredAt: null,
+      cancelledAt: null,
+      completedAt: "2026-09-03T18:00:00Z",
+      sessions: [],
+    });
+
+    expect(timeline.find((event) => event.key === "payment-secured")).toMatchObject({ reached: false, at: null });
+    expect(timeline.at(-1)).toMatchObject({ key: "completed", reached: true });
   });
 });

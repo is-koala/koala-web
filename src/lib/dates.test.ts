@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 
-import { formatDate, formatDateTime, formatJobDate, isFormattableDate, monthName } from "./dates";
+import {
+  formatDate,
+  formatDateTime,
+  formatJobDate,
+  formatMonthYear,
+  isFormattableDate,
+  monthName,
+} from "./dates";
 
 /** Sunucunun kendi saat dilimini taklit eden testler bunu kirletiyor. */
 const originalTimeZone = process.env.TZ;
@@ -58,6 +65,13 @@ describe("an biçimlendirme", () => {
 
   it("saatsiz biçim aynı günü yazar", () => {
     expect(formatDate(instant)).toBe("6 Eyl 2026");
+  });
+
+  it("ay-yıl biçimi günü hiç yazmaz ve bozuk değeri olduğu gibi verir", () => {
+    // Üyelik tarihi güne inmiyor; gün yazmak güven kartında yersiz bir
+    // kesinlik olurdu.
+    expect(formatMonthYear(instant)).toBe("Eylül 2026");
+    expect(formatMonthYear("bozuk")).toBe("bozuk");
   });
 
   it("saatsiz biçim de saat dilimini sabitler", async () => {

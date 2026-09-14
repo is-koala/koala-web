@@ -799,6 +799,9 @@ function applicant(id: string, status: JobApplicant["status"]): JobApplicant {
     id,
     status,
     appliedAt: "2026-09-01T09:00:00Z",
+    answeredAt: null,
+    rejectionReason: null,
+    assignmentId: null,
     notes: null,
     cvUrl: null,
     occupation: null,
@@ -924,5 +927,74 @@ describe("aday kartının mesaj düğmesi (#157)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Mesajlaşma, işveren ödemeyi tamamladığında açılır.",
     );
+  });
+});
+
+describe("aday kartının başvuru satırından gelen alanları (#166)", () => {
+  const workerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+  const assignmentId = "7e3d1f69-3a1b-4c2f-8d4e-8b9c0d1e2f3a";
+
+  it("yanıt zamanını ve red gerekçesini yalnız geldiklerinde yazar", () => {
+    // `answeredDateTime` ve `rejectionReason` #282 ile geliyor; alan yoksa
+    // satır yok — boş bir "Red tarihi" hücresi uydurulmuyor.
+    const { unmount } = render(
+      <ApplicantReview
+        jobId={jobId}
+        applicants={[{
+          ...applicant("a", "REJECTED"),
+          answeredAt: "2026-09-02T10:00:00Z",
+          rejectionReason: "Deneyim şartı karşılanmıyor.",
+        }]}
+        inTalentPool={[]}
+        assignments={[]}
+        headcount={null}
+        hiredCount={0}
+        dossierAction={idleAction}
+        talentPoolAction={idleAction}
+        conversationAction={idleAction}
+        decisionAction={idleAction}
+      />,
+    );
+
+    expect(screen.getByText("Red tarihi")).toBeVisible();
+    expect(screen.getByText("2 Eyl 2026 13:00")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Red gerekçesi" })).toBeVisible();
+    expect(screen.getByText("Deneyim şartı karşılanmıyor.")).toBeVisible();
+    unmount();
+
+    renderReview({ applicants: [applicant("a", "REJECTED")] });
+    expect(screen.queryByText("Red tarihi")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Red gerekçesi" })).toBeNull();
+  });
+
+  it("kabul edilmiş kartta atama bağlantısını başvuru satırındaki kimlikten kurar", () => {
+    // Satır `assignmentId` taşıyorsa (#282) atama listesi taranmadan da
+    // doğrudan atamaya gidiliyor.
+    renderReview({ applicants: [{ ...applicant("a", "ACCEPTED"), assignmentId, answeredAt: "2026-09-02T10:00:00Z" }] });
+
+    expect(screen.getByRole("link", { name: "Atamayı aç" })).toHaveAttribute(
+      "href",
+      `/isveren/atama/${assignmentId}`,
+    );
+    expect(screen.getByText("Yanıt tarihi")).toBeVisible();
+  });
+
+  it("adayın adını aday dosyası sayfasına bağlar; kimlik UUID değilse düz yazar", () => {
+    renderReview({
+      applicants: [
+        {
+          ...applicant("a", "APPLIED"),
+          applicant: { id: workerId, fullName: "Ayşe Yılmaz", profilePictureUrl: null },
+        },
+        applicant("b", "APPLIED"),
+      ],
+    });
+
+    expect(screen.getByRole("link", { name: "Ayşe Yılmaz" })).toHaveAttribute(
+      "href",
+      `/isveren/aday/${workerId}`,
+    );
+    expect(screen.queryByRole("link", { name: "Aday b" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Aday b" })).toBeVisible();
   });
 });

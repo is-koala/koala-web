@@ -13,6 +13,10 @@ export type EmployerAssignment = {
   /** `MyAssignmentDto.worker.id`; işverenin konuşma açarken göndermek zorunda olduğu kimlik. */
   readonly workerId: string;
   readonly workerName: string;
+  /** `SafeUserDto.profilePictureUrl`, `safeImageUrl` kapısından; yoksa baş harf. */
+  readonly workerPictureUrl: string | null;
+  /** `job.companyName`; bireysel ilanda `null`. Liste satırı ilanın kime ait olduğunu buradan yazıyor. */
+  readonly companyName: string | null;
   readonly cityName: string | null;
   readonly districtName: string | null;
   readonly startsAt: string;
@@ -22,6 +26,17 @@ export type EmployerAssignment = {
   readonly pricing: PricingBreakdown | null;
   /** `MyAssignmentDto.assignmentDateTime`; zaman çizelgesinin ilk adımı. */
   readonly assignedAt: string | null;
+  /**
+   * İşçinin onay anı, ödemenin emanete alındığı an ve iptal anı.
+   *
+   * Üçü de is-koala/koala-backend#282 ile satıra geliyor (`confirmedAt`,
+   * `paymentSecuredAt`, `cancellation.cancelledAt`); gelene kadar `null` ve
+   * çizelge adımı zamansız çiziliyor. Ödeme anı için ayrıntı sayfası ödeme
+   * denemelerinden de türetebiliyor (`paymentSecuredAt`, `server/payments`).
+   */
+  readonly confirmedAt: string | null;
+  readonly paymentSecuredAt: string | null;
+  readonly cancelledAt: string | null;
   /** `MyAssignmentDto.actualCompletionDateTime`; yalnız tamamlanmışta dolu. */
   readonly completedAt: string | null;
   /**

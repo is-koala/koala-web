@@ -13,6 +13,8 @@ const base: EmployerAssignment = {
   employerType: "INDIVIDUAL",
   workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
   workerName: "Ayşe Yılmaz",
+  workerPictureUrl: null,
+  companyName: null,
   cityName: "İstanbul",
   districtName: "Kadıköy",
   startsAt: "2026-09-12T09:00:00",
@@ -28,6 +30,9 @@ const base: EmployerAssignment = {
     employerTotal: "9007199254740994.00",
   },
   assignedAt: null,
+  confirmedAt: null,
+  paymentSecuredAt: null,
+  cancelledAt: null,
   completedAt: null,
   workHours: 0,
   messaging: null,
@@ -66,4 +71,27 @@ it("REFUNDED filtresini tamamlanmış iade değil devam eden süreç olarak adla
   expect(screen.getByRole("link", { name: "İade sürecinde" })).toBeVisible();
   expect(screen.queryByRole("link", { name: "İade edilen" })).toBeNull();
   expect(screen.getByText("İade sürecinde", { selector: ".payment-status" })).toBeVisible();
+});
+
+it("satırda çalışma zamanını, şirket adını ve gelen ödeme tarihini yazar", () => {
+  // `paymentSecuredAt` is-koala/koala-backend#282 ile geliyor; yoksa satır
+  // yalnız çalışma zamanını yazıyor, tarih uydurmuyor.
+  const { rerender } = render(<EmployerPaymentsOverview assignments={[
+    {
+      ...base,
+      companyName: "Koala Etkinlik",
+      assignedAt: "2026-09-01T09:00:00Z",
+      paymentSecuredAt: "2026-09-02T14:30:00Z",
+    },
+  ]} filter="all" totalsComplete />);
+
+  expect(screen.getByText("Koala Etkinlik · Ayşe Yılmaz")).toBeVisible();
+  expect(screen.getByText("12 Eylül 2026, 09:00–18:00")).toBeVisible();
+  expect(screen.getByText("1 Eyl 2026 12:00")).toBeVisible();
+  expect(screen.getByText("2 Eyl 2026 17:30")).toBeVisible();
+
+  rerender(<EmployerPaymentsOverview assignments={[base]} filter="all" totalsComplete />);
+  expect(screen.getByText("Ayşe Yılmaz")).toBeVisible();
+  expect(screen.queryByText(/Atama:/)).toBeNull();
+  expect(screen.queryByText(/Ödeme:/)).toBeNull();
 });

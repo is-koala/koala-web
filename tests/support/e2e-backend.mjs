@@ -12,6 +12,7 @@ const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const unpaidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f61";
 const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
 const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+const jobCreatorId = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
 const assignmentPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/(payments|disputes|work-sessions|cancellation-preview)$/;
 const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
@@ -54,6 +55,18 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && url.pathname === `/jobs/${openJobId}`) {
     return backendSuccess(response, openJob());
+  }
+  if (request.method === "GET" && url.pathname === `/users/${jobCreatorId}/employer-stats`) {
+    // İlan sayfasının işveren güven kartı (is-koala/koala-web#166); uç herkese
+    // açık ve değerler türetiliyor. `averageRating` BigDecimal → dize.
+    return backendSuccess(response, {
+      userId: jobCreatorId,
+      jobsPosted: 12,
+      completedJobs: 9,
+      averageRating: "4.6",
+      reviewCount: 7,
+      memberSince: "2025-03-14T10:00:00Z",
+    });
   }
   if (request.method === "GET" && url.pathname === "/jobs") {
     if (url.searchParams.get("query") === "__backend_failure__") {
@@ -107,6 +120,48 @@ const server = createServer(async (request, response) => {
       address: { id: "address-placeholder" },
       companies: [],
     });
+  }
+  // Atamanın işçisinin aday dosyası (is-koala/koala-web#166): profil, puan
+  // özeti, değerlendirmeler ve rozetler dört ayrı uçtan okunuyor.
+  if (request.method === "GET" && url.pathname === `/users/${assignmentWorkerId}`) {
+    return backendSuccess(response, {
+      id: assignmentWorkerId,
+      firstName: "Ayşe",
+      lastName: "Yılmaz",
+      username: "ayse",
+      profilePictureUrl: null,
+      jobTitle: "Garson",
+      about: "Beş yıldır etkinliklerde çalışıyorum.",
+      cityName: "İstanbul",
+      districtName: "Kadıköy",
+      cvUrl: null,
+    });
+  }
+  if (request.method === "GET" && url.pathname === `/users/${assignmentWorkerId}/rating-summary`) {
+    return backendSuccess(response, { reviewCount: 3, averageRating: "4.7" });
+  }
+  if (request.method === "GET" && url.pathname === `/users/${assignmentWorkerId}/reviews`) {
+    return backendSuccess(response, {
+      content: [
+        {
+          id: "review-1",
+          author: { id: userId, firstName: "E2E", lastName: "Kullanıcı" },
+          rating: 5,
+          comment: "Dakik ve güler yüzlü.",
+          anonymous: false,
+          createdAt: "2026-08-01T10:00:00Z",
+        },
+      ],
+      page: 0,
+      size: 5,
+      totalElements: 1,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }
+  if (request.method === "GET" && url.pathname === `/users/${assignmentWorkerId}/badges`) {
+    return backendSuccess(response, [{ code: "PUNCTUAL", name: "Dakik", tier: "GOLD" }]);
   }
   if (request.method === "GET" && url.pathname === "/users/me/bank-accounts") {
     return backendSuccess(response, []);
@@ -222,6 +277,19 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, {
       content,
       page: Number(url.searchParams.get("page") ?? 0),
+      size: Number(url.searchParams.get("size") ?? 20),
+      totalElements: 2,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }
+  if (request.method === "GET" && url.pathname === `/jobs/${openJobId}/assignments`) {
+    // Backend 0.9.23: ilanın atamaları sahibe sayfalı; aday kartının mesaj
+    // kapısı buradan okunur (is-koala/koala-web#166).
+    return backendSuccess(response, {
+      content: assignments(),
+      page: 0,
       size: Number(url.searchParams.get("size") ?? 20),
       totalElements: 2,
       totalPages: 1,
@@ -427,7 +495,7 @@ function openJob() {
     category: { id: "category-1", name: "Etkinlik", code: "EVENT" },
     employerType: "COMPANY",
     company: { name: "Koala Etkinlik", logoUrl: null, website: "https://koala.example" },
-    creator: { firstName: "Ayşe", lastName: "Yıldız" },
+    creator: { id: jobCreatorId, firstName: "Ayşe", lastName: "Yıldız" },
     type: "ONE_TIME",
     salaryType: "DAILY",
     startDateTime: "2026-09-20T09:00:00",

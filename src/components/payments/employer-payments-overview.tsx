@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { formatAssignmentDate } from "@/components/assignment-presenters";
 import { EmptyStateCard, LinkTabs } from "@/components/ui";
+import { formatDateTime, isFormattableDate } from "@/lib/dates";
 import { formatMoney, sumMoney } from "@/lib/money";
 import type { EmployerAssignment } from "@/payments/contract";
 
@@ -69,7 +71,34 @@ export function EmployerPaymentsOverview({
             <article key={assignment.id} className="payment-overview-card">
               <div>
                 <h2>{assignment.title}</h2>
-                <p>{assignment.workerName || "İşçi bilgisi bekleniyor"}</p>
+                <p>
+                  {[assignment.companyName, assignment.workerName || "İşçi bilgisi bekleniyor"]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="payment-overview-dates">
+                  <span>{formatAssignmentDate(assignment.startsAt, assignment.endsAt)}</span>
+                  {assignment.assignedAt && isFormattableDate(assignment.assignedAt) ? (
+                    <span>
+                      {"Atama: "}
+                      <time dateTime={assignment.assignedAt}>{formatDateTime(assignment.assignedAt)}</time>
+                    </span>
+                  ) : null}
+                  {/*
+                    Ödeme tarihi `paymentSecuredAt`: satıra is-koala/koala-backend#282
+                    ile geliyor; gelene kadar yok ve satır yalnız çalışma
+                    zamanını yazıyor. Deneme listesinden türetmek her satır
+                    için ayrı bir tur demekti; ayrıntı sayfası onu yapıyor.
+                  */}
+                  {assignment.paymentSecuredAt && isFormattableDate(assignment.paymentSecuredAt) ? (
+                    <span>
+                      {"Ödeme: "}
+                      <time dateTime={assignment.paymentSecuredAt}>
+                        {formatDateTime(assignment.paymentSecuredAt)}
+                      </time>
+                    </span>
+                  ) : null}
+                </p>
               </div>
               <PaymentStatusBadge status={assignment.paymentStatus} />
               <strong>

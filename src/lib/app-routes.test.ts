@@ -9,6 +9,7 @@ import {
   companyGalleryPath,
   jobApplicantsPath,
   jobGalleryPath,
+  applicantDossierPath,
   newCompanyJobPath,
   newCompanyPath,
   newIndividualJobPath,
@@ -208,6 +209,14 @@ describe("kabuk rota kaydı", () => {
       "/isveren/ilan/4d0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f99/galeri",
     );
     expect(jobGalleryPath("a b/../hesap")).toBe("/isveren/ilan/a%20b%2F..%2Fhesap/galeri");
+  });
+
+  it("aday dosyasını kabuk altında, kimliği kaçırarak adresler ve bölüm saymaz", () => {
+    expect(applicantDossierPath("6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f")).toBe(
+      "/isveren/aday/6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
+    );
+    expect(applicantDossierPath("a b/../hesap")).toBe("/isveren/aday/a%20b%2F..%2Fhesap");
+    expect(sectionAt("employer", ["aday", "x"])).toBeUndefined();
   });
 
   it("şirket galerisini şirket kimliğiyle kurar", () => {

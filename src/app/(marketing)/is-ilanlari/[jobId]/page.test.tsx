@@ -2,13 +2,16 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/server/api/errors";
-import { readJobDetail } from "@/server/jobs/public-jobs";
+import { readEmployerStats, readJobDetail } from "@/server/jobs/public-jobs";
 
 import { jobDetailFixture, jobDetailId } from "../../../../../tests/support/job-detail";
 
 import Page, { generateMetadata } from "./page";
 
-vi.mock("@/server/jobs/public-jobs", () => ({ readJobDetail: vi.fn() }));
+vi.mock("@/server/jobs/public-jobs", () => ({
+  readJobDetail: vi.fn(),
+  readEmployerStats: vi.fn(),
+}));
 vi.mock("./actions", () => ({ applyToJobAction: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
@@ -35,6 +38,8 @@ function apiFailure(status: number, errorCode: string): ApiError {
 describe("ilan ayrıntısı sayfası", () => {
   beforeEach(() => {
     vi.mocked(readJobDetail).mockReset();
+    vi.mocked(readEmployerStats).mockReset();
+    vi.mocked(readEmployerStats).mockResolvedValue(null);
     stubSiteEnvironment();
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -46,6 +51,38 @@ describe("ilan ayrıntısı sayfası", () => {
 
     expect(screen.getByRole("heading", { name: job.title })).toBeVisible();
     expect(readJobDetail).toHaveBeenCalledWith(jobId);
+  });
+
+  it("işveren güven kartını ilanı açan kişinin istatistiğiyle çizer", async () => {
+    vi.mocked(readJobDetail).mockResolvedValue(job);
+    vi.mocked(readEmployerStats).mockResolvedValue({
+      jobsPosted: 12,
+      completedJobs: 9,
+      averageRating: "4.6",
+      reviewCount: 7,
+      memberSince: "2025-03-14T10:00:00Z",
+    });
+
+    render(await Page({ params: params() }));
+
+    expect(readEmployerStats).toHaveBeenCalledWith(job.employerId);
+    const card = screen.getByLabelText("İşveren güven kartı");
+    expect(card).toHaveTextContent("Açtığı ilan12");
+    expect(card).toHaveTextContent("Tamamlanan iş9");
+    expect(card).toHaveTextContent("4.6 / 5 · 7 değerlendirme");
+    expect(card).toHaveTextContent("Mart 2025");
+    expect(screen.getByText("Yayın tarihi")).toBeVisible();
+  });
+
+  it("istatistik okunamazsa ilanı kartsız çizer; ilanı açan kimliği yoksa hiç sormaz", async () => {
+    // Kart ikincil: bir istatistik satırı yüzünden ilan 500'e düşmez.
+    vi.mocked(readJobDetail).mockResolvedValue(jobDetailFixture({ employerId: null }));
+
+    render(await Page({ params: params() }));
+
+    expect(readEmployerStats).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("İşveren güven kartı")).toBeNull();
+    expect(screen.getByRole("heading", { name: job.title })).toBeVisible();
   });
 
   it("boş GET yanıtını 404'e çevirir", async () => {
@@ -102,6 +139,8 @@ describe("ilan ayrıntısı sayfası", () => {
 describe("ilan ayrıntısı yapısal verisi", () => {
   beforeEach(() => {
     vi.mocked(readJobDetail).mockReset();
+    vi.mocked(readEmployerStats).mockReset();
+    vi.mocked(readEmployerStats).mockResolvedValue(null);
     stubSiteEnvironment();
   });
   afterEach(() => vi.unstubAllEnvs());

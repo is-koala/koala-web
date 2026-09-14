@@ -23,6 +23,8 @@ function assignment(overrides: Partial<EmployerAssignment> = {}): EmployerAssign
     employerType: "INDIVIDUAL",
     workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
     workerName: "Ayşe Yılmaz",
+    workerPictureUrl: null,
+    companyName: null,
     cityName: "İstanbul",
     districtName: "Kadıköy",
     startsAt: "2026-09-12T09:00:00",
@@ -31,6 +33,9 @@ function assignment(overrides: Partial<EmployerAssignment> = {}): EmployerAssign
     paymentStatus: "HELD_IN_ESCROW",
     pricing: null,
     assignedAt: null,
+    confirmedAt: null,
+    paymentSecuredAt: null,
+    cancelledAt: null,
     completedAt: null,
     workHours: 0,
     messaging: null,
@@ -61,6 +66,24 @@ describe("işveren atama listesi", () => {
       "href",
       "/isveren/atama/3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
     );
+  });
+
+  it("şirket adını ve atama tarihini satırda gösterir; ikisi de yoksa satırı açmaz", () => {
+    // İki şirketin yetkilisi aynı listede iki şirketin atamasını görüyor;
+    // `assignmentDateTime` teklifin ne zaman gittiğini söylüyor (#166).
+    const { rerender } = render(
+      <EmployerAssignmentList
+        assignments={page([assignment({ companyName: "Koala Etkinlik", assignedAt: "2026-09-01T09:00:00Z" })])}
+      />,
+    );
+
+    expect(screen.getByText("Koala Etkinlik")).toBeVisible();
+    expect(screen.getByText("Atama tarihi")).toBeVisible();
+    expect(screen.getByText("1 Eyl 2026 12:00")).toBeVisible();
+
+    rerender(<EmployerAssignmentList assignments={page([assignment()])} />);
+    expect(screen.queryByText("Koala Etkinlik")).toBeNull();
+    expect(screen.queryByText("Atama tarihi")).toBeNull();
   });
 
   it("onay bekleyenle onaylanmışı sıradaki adımlarıyla ayırt eder", () => {

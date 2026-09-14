@@ -39,3 +39,28 @@ test("süresi dolmuş OPEN ilan noindex taşır, yapısal veri ve başvuru göst
     "/is-ilanlari",
   );
 });
+
+test("yayındaki ilan yayın tarihini ve işveren güven kartını script'siz HTML'de taşır", async ({
+  page,
+}) => {
+  /*
+   * Kart sunucuda çiziliyor (is-koala/koala-web#166): `GET /users/{id}/employer-stats`
+   * ilanla aynı oturumsuz kademeden okunuyor ve içerik ilk HTML'de. İddia
+   * DOM'a bakıyor; hidrasyon sonrası gelen bir kart bu sayfada zaten
+   * indekslenmezdi.
+   */
+  const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+  await page.goto(`/is-ilanlari/${openJobId}`);
+
+  const facts = page.locator('dl[aria-label="İlan özeti"]');
+  await expect(facts).toContainText("Yayın tarihi");
+  await expect(facts).toContainText("30 Ağu 2026");
+
+  const trust = page.locator('dl[aria-label="İşveren güven kartı"]');
+  await expect(trust).toContainText("Açtığı ilan");
+  await expect(trust).toContainText("12");
+  await expect(trust).toContainText("Tamamlanan iş");
+  await expect(trust).toContainText("9");
+  await expect(trust).toContainText("4.6 / 5 · 7 değerlendirme");
+  await expect(trust).toContainText("Mart 2025");
+});

@@ -168,6 +168,16 @@ export function jobPath(jobId: string): string {
 }
 
 /**
+ * `GET /users/{userId}/employer-stats` — herkese açık işveren istatistiği.
+ *
+ * Kimlik ilan yanıtındaki `creator.id`'den geliyor, tarayıcıdan değil; yine
+ * de yola konmadan kaçırılıyor, `jobPath` ile aynı gerekçeyle.
+ */
+export function employerStatsPath(userId: string): string {
+  return `/users/${encodeURIComponent(userId)}/employer-stats`;
+}
+
+/**
  * Manifest version'ına bağlı değişmez sitemap shard'ı.
  *
  * Çağıran bu değerleri route sınırında UUID ve signed 32-bit integer olarak

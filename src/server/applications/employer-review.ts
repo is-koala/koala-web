@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import type { ApplicationStatus } from "@/applications/contract";
 import type {
   ApplicantAssignment,
@@ -15,11 +17,14 @@ import type {
   TalentPoolEntry,
   TalentPoolPage,
 } from "@/applications/employer-review";
+import { isUuid } from "@/lib/identifiers";
 import { emptyBackendPage } from "@/lib/pagination";
 import { messagingAvailabilityFrom } from "@/messaging/contract";
+import type { EmployerAssignment } from "@/payments/contract";
 import { clean, known, type PageDto } from "@/server/api/dto";
+import { ApiError } from "@/server/api/errors";
 import { backendPaths } from "@/server/contract";
-import { readAllEmployerAssignments } from "@/server/payments/payments";
+import { readAllEmployerAssignments, readAllJobAssignments } from "@/server/payments/payments";
 import { apiRequest } from "@/server/session/session";
 
 /**
@@ -39,11 +44,19 @@ type SafeUserDto = {
   profilePictureUrl?: string | null;
 };
 
-/** `JobApplicantDto`. `jobTitle` adayın mesleği, ilanın başlığı değil. */
+/**
+ * `JobApplicantDto`. `jobTitle` adayın mesleği, ilanın başlığı değil.
+ *
+ * `answeredDateTime`, `rejectionReason` ve `assignmentId`
+ * is-koala/koala-backend#282 ile geliyor; isteğe bağlı yazıldı.
+ */
 type JobApplicantDto = {
   id?: string | null;
   status?: string | null;
   applicationDateTime?: string | null;
+  answeredDateTime?: string | null;
+  rejectionReason?: string | null;
+  assignmentId?: string | null;
   notes?: string | null;
   applicant?: SafeUserDto | null;
   cvUrl?: string | null;
@@ -239,20 +252,26 @@ export async function removeFromTalentPool(workerId: string): Promise<void> {
 }
 
 /**
- * Bu ilanın atamaları, işçi kimliğine göre.
+ * İlanın atamaları, işçi kimliğine göre — kartın mesaj kapısının kaynağı.
  *
- * `GET /users/me/assignments?asEmployer=true` ilana göre süzülemiyor;
- * işverenin bütün atamaları sayfalanıp ilan kimliğiyle eleniyor (aynı
- * sınırla: `readAllEmployerAssignments` en çok 100 sayfa okuyor). Aynı işçi
- * için birden çok atama varsa — iptal edilip yeniden kabul edilen aday — en
- * son kurulan atama kazanıyor: eski atamanın `CLOSED` kararı yeni atamanın
- * kapısını anlatmıyor. Sıralama ucun varsayılanına bırakılmıyor
- * (`sort` belgede boş), `assignmentDateTime` karşılaştırılıyor.
+ * Tek çağrı: `GET /jobs/{jobId}/assignments` (backend 0.9.23; sahibe ya da
+ * şirket yetkilisine, sayfalı, `MyAssignmentDto`). Yalnız eski bir sunucu bu
+ * yolu tanımadığında (`ENDPOINT_NOT_FOUND`) işverenin bütün atamaları
+ * sayfalanıp ilan kimliğiyle eleniyor; başka bir hata çağırana çıkıyor.
+ * Kabul edilmiş aday yoksa hiç tur atılmıyor — atama yalnız kabulle kurulur.
+ *
+ * Aynı işçi için birden çok atama varsa — iptal edilip yeniden kabul edilen
+ * aday — en son kurulan kazanıyor: eski atamanın `CLOSED` kararı yeni
+ * atamanın kapısını anlatmıyor. Sıralama ucun varsayılanına bırakılmıyor,
+ * `assignmentDateTime` karşılaştırılıyor.
  */
 export async function readApplicantAssignments(
   jobId: string,
+  applicants: readonly JobApplicant[],
 ): Promise<ReadonlyMap<string, ApplicantAssignment>> {
-  const { assignments } = await readAllEmployerAssignments();
+  if (!applicants.some((applicant) => applicant.status === "ACCEPTED")) return new Map();
+
+  const assignments = await readJobAssignmentsOrScan(jobId);
   const latest = new Map<string, { assignedAt: number; entry: ApplicantAssignment }>();
   for (const assignment of assignments) {
     if (assignment.jobId !== jobId || !assignment.workerId || !assignment.id) continue;
@@ -270,6 +289,22 @@ export async function readApplicantAssignments(
   }
   return new Map([...latest].map(([workerId, { entry }]) => [workerId, entry]));
 }
+
+/** İlan ucunu dener; yalnız ucu tanımayan sunucuda eski taramaya düşer. */
+async function readJobAssignmentsOrScan(jobId: string): Promise<readonly EmployerAssignment[]> {
+  try {
+    return await readAllJobAssignments(jobId);
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError && error.errorCode === endpointNotFound) {
+      return (await readAllEmployerAssignments()).assignments;
+    }
+    throw error;
+  }
+}
+
+/** `ErrorCategory.ENDPOINT_NOT_FOUND`; kod verilmediğinde `ErrorResult` kategoriyi koda kopyalar. */
+const endpointNotFound = "ENDPOINT_NOT_FOUND";
 
 /**
  * `POST /jobs/{jobId}/conversation?workerId=` — var olan konuşmayı da aynı
@@ -348,12 +383,17 @@ export async function respondToApplication(input: {
 }
 
 function toJobApplicant(dto: JobApplicantDto): JobApplicant {
+  const assignmentId = clean(dto.assignmentId);
   return {
     id: dto.id ?? "",
     status: applicationStatuses.has(dto.status as ApplicationStatus)
       ? (dto.status as ApplicationStatus)
       : "UNKNOWN",
     appliedAt: dto.applicationDateTime ?? "",
+    answeredAt: clean(dto.answeredDateTime),
+    rejectionReason: clean(dto.rejectionReason),
+    // Kimlik yola giriyor (`GET /job-assignments/{id}`); UUID değilse yok sayılır.
+    assignmentId: assignmentId !== null && isUuid(assignmentId) ? assignmentId : null,
     notes: clean(dto.notes),
     cvUrl: clean(dto.cvUrl),
     occupation: clean(dto.jobTitle),

@@ -6,7 +6,7 @@ import type {
   JobCategory,
   PricingBreakdown,
 } from "@/lib/job-posting";
-import { jobPageSize, type JobApplicationReceipt } from "@/jobs/contract";
+import { jobPageSize, type JobApplicationReceipt, type JobDetail } from "@/jobs/contract";
 import type { EmployerJob, EmployerJobPage, JobSort } from "@/jobs/employer-jobs";
 import { jobStatuses } from "@/jobs/lifecycle";
 import { isUuid } from "@/lib/identifiers";
@@ -21,6 +21,7 @@ import {
 } from "@/server/api/dto";
 import { companyPath } from "@/server/company/company";
 import { backendPaths, jobPath } from "@/server/contract";
+import { toJobDetail, type JobDetailDto } from "@/server/jobs/job-detail-dto";
 import { apiRequest } from "@/server/session/session";
 
 /**
@@ -62,25 +63,25 @@ export type JobTemplate = {
   experienceRequired: boolean | null;
 };
 
-/** `JobDetailDto`'nun yayım onayında okunan parçası. */
-export type JobDetail = {
-  id: string;
-  title: string;
-  status: string;
-  salaryType: string;
-  startDateTime: string;
-  endDateTime: string;
-  pricing: PricingBreakdown | null;
-  /** İkisinin de okunma kuralı `openings` içinde (`@/server/api/dto`). */
-  headcount: number | null;
-  hiredCount: number;
-  /**
-   * Şirket ilanında `JobCompanyDto.id`; bireysel ilanda `null`.
-   *
-   * Galeri "şirket galerimden seç" yolunu buradan açıyor. Ad yoksa bölüm
-   * çizilmez — isim yetmez, `GET /companies/{companyId}/images` kimlik ister.
-   */
-  companyId: string | null;
+/**
+ * İşverenin kendi ilanı: herkese açık modelin üstüne sahibin gördüğü üç alan.
+ *
+ * - `companyId`: şirket ilanında `JobCompanyDto.id`; galeri "şirket
+ *   galerimden seç" yolunu buradan açıyor. Ad yoksa bölüm çizilmez — isim
+ *   yetmez, `GET /companies/{companyId}/images` kimlik ister.
+ * - `displayAddress`: backend'in bakan kişiye göre kurduğu adres satırı.
+ *   Sahibe `EXACT` gelir (`JobAddressVisibility.precision`: `owner`), şirket
+ *   ilanını açmamış bir yetkiliye ise maskelenmiş "mahalle, ilçe, il". Karar
+ *   sunucunun; web yalnız geleni yazıyor ve `addressPrecision` etiketiyle
+ *   birlikte gösteriyor. Herkese açık modelde bu alan **yok** (ADR-0003) ve
+ *   oraya taşınmıyor: oturumsuz uç aynı satırı anonim ziyaretçiye de veriyor.
+ * - `applicationCount`: `JobDetailDto`'ya is-koala/koala-backend#282 ile
+ *   geliyor; gelene kadar `null` ve satır çizilmiyor.
+ */
+export type EmployerJobDetail = JobDetail & {
+  readonly companyId: string | null;
+  readonly displayAddress: string | null;
+  readonly applicationCount: number | null;
 };
 
 /** `GET /reference/job-categories`. Oturum istemiyor ama BFF yine tek kapıdan geçer. */
@@ -172,20 +173,33 @@ export async function readMyJobs({
   };
 }
 
-/** Yanıtta kontenjan alanları eksik gelebiliyor; ikisi de burada karara bağlanır. */
-type JobDetailResponse = Omit<JobDetail, "headcount" | "hiredCount" | "companyId"> & {
-  headcount?: number | null;
-  hiredCount?: number | null;
-  company?: { id?: string | null } | null;
+/** `JobDetailDto`'nun sahibe açılan üç ek alanı; gerisi ortak çeviricinin tipi. */
+type EmployerJobDetailDto = JobDetailDto & {
+  company?: { id?: string | null; name?: string | null; logoUrl?: string | null } | null;
+  address?: {
+    cityName?: string | null;
+    districtName?: string | null;
+    displayAddress?: string | null;
+  } | null;
+  applicationCount?: number | null;
 };
 
-export async function fetchJobDetail(jobId: string): Promise<JobDetail> {
-  const dto = await apiRequest<JobDetailResponse>(jobPath(jobId));
+/**
+ * `GET /jobs/{jobId}` — oturumlu; sahibe adres kesinliğini backend seçiyor.
+ *
+ * Ortak çevirici (`toJobDetail`) adres satırını bilerek okumuyor; burada
+ * yanıttan ayrıca okunuyor çünkü bu uç oturum taşıyor ve sunucu satırı bakan
+ * kişiye göre zaten maskeliyor. `applicationCount` yalnız sayı geldiğinde
+ * taşınıyor: eksik alanı sıfır saymak "hiç başvuru yok" yazardı.
+ */
+export async function fetchJobDetail(jobId: string): Promise<EmployerJobDetail> {
+  const dto = await apiRequest<EmployerJobDetailDto>(jobPath(jobId));
   const companyId = dto.company?.id;
   return {
-    ...dto,
-    ...openings(dto),
+    ...toJobDetail(dto),
     companyId: typeof companyId === "string" && isUuid(companyId) ? companyId : null,
+    displayAddress: clean(dto.address?.displayAddress),
+    applicationCount: typeof dto.applicationCount === "number" ? dto.applicationCount : null,
   };
 }
 

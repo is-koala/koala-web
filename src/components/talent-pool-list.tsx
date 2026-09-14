@@ -8,6 +8,8 @@ import {
   type TalentPoolPage,
   type TalentPoolRemovalAction,
 } from "@/applications/employer-review";
+import { ApplicantNameLink } from "@/components/applicant-name-link";
+import { Avatar } from "@/components/ui";
 import { formatDate, isFormattableDate } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 import { talentPoolPath } from "@/lib/app-routes";
@@ -40,8 +42,16 @@ export function TalentPoolList({
       <ul className="talent-pool-entries" aria-label="Yetenek havuzu">
         {pool.content.map((entry) => (
           <li key={entry.id} className="talent-pool-entry">
-            <div>
-              <strong>{entry.fullName || "Adı paylaşılmadı"}</strong>
+            <Avatar name={entry.fullName || "?"} src={entry.profilePictureUrl} size="md" />
+            <div className="talent-pool-entry-copy">
+              {/*
+                Ad aday dosyasına bağlı: havuz bir ilana bağlı değil, yani
+                kartın altına dosya çizen başvuru ekranı burada yok; dosya
+                sayfası (#166) o boşluğu kapatıyor. Kimlik UUID değilse düz ad.
+              */}
+              <strong>
+                <ApplicantNameLink workerId={entry.workerId} name={entry.fullName || "Adı paylaşılmadı"} />
+              </strong>
               {/*
                 `dateTime` makineye ayrıştırılabilir bir tarih söz veriyor ve
                 `createdAt` yanıtta eksikse boş dizeye düşüyor; o sözü

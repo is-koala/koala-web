@@ -66,6 +66,14 @@ export type JobDetail = {
   readonly companyName: string | null;
   readonly companyLogoUrl: string | null;
   readonly employerName: string | null;
+  /**
+   * `creator.id` — işveren güven kartının (`EmployerStats`) anahtarı.
+   *
+   * Ekrana çıkmıyor; sayfa onunla `GET /users/{id}/employer-stats` okuyor.
+   * Kimliği taşımak bir sızıntı değil: uç `permitAll` ve ilan yanıtı
+   * `creator`'ı zaten herkese veriyor.
+   */
+  readonly employerId: string | null;
   readonly type: JobTypeValue;
   readonly salaryType: SalaryType;
   readonly startsAt: string;
@@ -117,4 +125,20 @@ export type JobDetail = {
 /** Başarılı 201 zarfından bu akışın kullandığı tek alan. */
 export type JobApplicationReceipt = {
   readonly id: string;
+};
+
+/**
+ * `EmployerStatsDto` — ilan sayfasındaki işveren güven kartı.
+ *
+ * `averageRating` dize: backend `BigDecimal` gönderiyor ve değerlendirme yoksa
+ * `0` dönüyor (`UsersController.employerStats`); kart `reviewCount` sıfırken
+ * puanı hiç yazmıyor ki "0,0 puan" kötü bir işveren gibi okunmasın.
+ */
+export type EmployerStats = {
+  readonly jobsPosted: number;
+  readonly completedJobs: number;
+  readonly averageRating: string | null;
+  readonly reviewCount: number;
+  /** `Instant`; kart yalnız ay ve yılı yazıyor. */
+  readonly memberSince: string | null;
 };

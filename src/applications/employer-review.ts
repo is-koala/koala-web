@@ -31,6 +31,16 @@ export type JobApplicant = {
   readonly id: string;
   readonly status: ApplicationStatus;
   readonly appliedAt: string;
+  /**
+   * `answeredDateTime`, `rejectionReason`, `assignmentId` — üçü de
+   * is-koala/koala-backend#282 ile `JobApplicantDto`'ya geliyor; gelene
+   * kadar `null` ve kart o satırı çizmiyor. `assignmentId` geldiğinde kabul
+   * edilmiş adayın ataması doğrudan okunuyor ve işverenin bütün atamalarını
+   * tarayan yol kapanıyor (`readApplicantAssignments`).
+   */
+  readonly answeredAt: string | null;
+  readonly rejectionReason: string | null;
+  readonly assignmentId: string | null;
   readonly notes: string | null;
   readonly cvUrl: string | null;
   readonly occupation: string | null;
@@ -514,3 +524,44 @@ export const applicantStatusLabel: Readonly<Record<ApplicationStatus, string>> =
   WITHDRAWN: "Aday başvurusunu geri çekti",
   UNKNOWN: "Durum güncelleniyor",
 };
+
+/**
+ * Rozet seviyesinin Türkçesi.
+ *
+ * `NONE` ve `UNKNOWN` boş: ilki seviyesi olmayan bir rozet ailesi
+ * (`BadgeTier.NONE`), ikincisi backend'in tanımadığımız bir seviye
+ * göndermesi. İkisinde de rozet adı tek başına doğru; uydurulmuş bir seviye
+ * yazmak yanlış olurdu. Aday kartı ve aday dosyası sayfası aynı sözlüğü
+ * okur.
+ */
+export const badgeTierLabel: Readonly<Record<BadgeTier, string>> = {
+  BRONZE: "Bronz",
+  SILVER: "Gümüş",
+  GOLD: "Altın",
+  NONE: "",
+  UNKNOWN: "",
+};
+
+/** "3 rozet · 1 altın" — en yüksek seviye sayısıyla birlikte. */
+export function badgeSummary(badges: readonly ApplicantBadge[]): string {
+  const count = `${badges.length} rozet`;
+  for (const tier of ["GOLD", "SILVER", "BRONZE"] as const) {
+    const tierCount = badges.filter((badge) => badge.tier === tier).length;
+    if (tierCount > 0) return `${count} · ${tierCount} ${badgeTierLabel[tier].toLocaleLowerCase("tr-TR")}`;
+  }
+  return count;
+}
+
+/**
+ * "4.6 / 5 · 7 değerlendirme"; değerlendirme yoksa `null` ve ekran kendi boş
+ * cümlesini yazar. Yapısal tip: aday puan özeti (`ApplicantRatingSummary`) ve
+ * işveren istatistiği (`EmployerStats`) aynı iki alanı taşıyor ve backend
+ * ikisinde de değerlendirmesi olmayan kullanıcıya `0` gönderiyor — "0,0 puan"
+ * yazmamak için kural tek yerde.
+ */
+export function ratingSummaryLabel(
+  summary: { readonly reviewCount: number; readonly averageRating: string | null } | null,
+): string | null {
+  if (summary === null || summary.reviewCount <= 0 || summary.averageRating === null) return null;
+  return `${summary.averageRating} / 5 · ${summary.reviewCount} değerlendirme`;
+}

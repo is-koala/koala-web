@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { PaymentStatus } from "@/assignments/contract";
 import { GateAdvisories, GateBlocks } from "@/components/employer-gate";
+import { formatRate } from "@/components/work-detail/presenters";
 import { formatDateTime, isFormattableDate } from "@/lib/dates";
 import type { PricingBreakdown } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
@@ -34,7 +35,7 @@ export function PaymentBreakdown({ pricing }: { pricing: PricingBreakdown }) {
       </div>
       <div>
         <dt>Hizmet bedeli oranı</dt>
-        <dd>{pricing.serviceFeeRate}</dd>
+        <dd>{formatRate(pricing.serviceFeeRate)}</dd>
       </div>
       <div className="payment-breakdown-total">
         <dt>İşveren toplamı</dt>
@@ -156,6 +157,17 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
             </StatusBadge>
           </div>
           <dl className="payment-attempt-facts">
+            {/*
+              Kısa referans: destek yazışmasında denemeyi adlandırmanın yolu.
+              UUID'nin ilk sekiz karakteri; tamamı ekranda okunmuyor, ama
+              `title` ile duruyor ki kopyalanabilsin.
+            */}
+            {attemptReference(attempt.id) ? (
+              <div>
+                <dt>Referans</dt>
+                <dd><code title={attempt.id}>{attemptReference(attempt.id)}</code></dd>
+              </div>
+            ) : null}
             <div>
               <dt>Çalışan ücreti</dt>
               <dd>{formatMoney(attempt.workerPayout, attempt.currency)}</dd>
@@ -164,6 +176,12 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
               <dt>Hizmet bedeli</dt>
               <dd>{formatMoney(attempt.serviceFeeAmount, attempt.currency)}</dd>
             </div>
+            {attempt.serviceFeeRate ? (
+              <div>
+                <dt>Hizmet bedeli oranı</dt>
+                <dd>{formatRate(attempt.serviceFeeRate)}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Toplam</dt>
               <dd>{formatMoney(attempt.employerTotal, attempt.currency)}</dd>
@@ -227,6 +245,12 @@ function paymentDisabledReason(assignment: EmployerAssignment): string {
     return "Bu atama için iade süreci başlatıldı.";
   }
   return "Ödeme durumu doğrulanmadan yeni bir ödeme başlatılamaz.";
+}
+
+/** UUID'nin ilk sekiz karakteri; kimliği olmayan denemede `null`. */
+function attemptReference(id: string): string | null {
+  const trimmed = id.trim();
+  return trimmed ? trimmed.slice(0, 8) : null;
 }
 
 /**
