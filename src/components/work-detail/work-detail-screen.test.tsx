@@ -7,8 +7,12 @@ import type {
   WorkDetailAction,
 } from "@/assignments/work-detail";
 import type { LocationCapture } from "@/assignments/geolocation";
+import type { ConversationAction } from "@/messaging/contract";
 
 import { WorkDetailScreen } from "./work-detail-screen";
+
+/** Konuşma açma bu dosyanın konusu değil; kapı `messaging: null` ile kapalı. */
+const conversationAction = vi.fn<ConversationAction>();
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 
@@ -32,6 +36,7 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
       currency: "TRY",
       assignedAt: "2026-09-06T10:00:00Z",
       completedAt: null,
+      messaging: null,
     },
     description: "Misafirleri karşıla.",
     duties: "Yaka kartlarını dağıt.",
@@ -64,9 +69,73 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
   beforeEach(() => vi.setSystemTime(new Date("2026-09-12T10:00:00Z")));
   afterEach(() => vi.useRealTimers());
 
+  it("mesaj düğmesini yalnız kapı açıkken çizer; ödeme beklerken çalışana ödeme yolu sunmaz", async () => {
+    // Kapı sunucudan (`messagingAvailable`, #157). Çalışan ödemeyi kendi
+    // tamamlayamaz: açıklama var, "Ödemeyi tamamla" yok. Alan yoksa bölüm
+    // başlığıyla birlikte hiç yok.
+    const user = userEvent.setup();
+    const cases = [
+      { messaging: { available: true, reason: "AVAILABLE" }, button: true, heading: true },
+      { messaging: { available: false, reason: "PAYMENT_REQUIRED" }, button: false, heading: true },
+      { messaging: { available: false, reason: "CLOSED" }, button: false, heading: true },
+      { messaging: null, button: false, heading: false },
+    ] as const;
+
+    for (const testCase of cases) {
+      const openConversation = vi.fn<ConversationAction>().mockResolvedValue({ status: "idle" });
+      const detail = workDetail({
+        assignment: { ...workDetail().assignment, messaging: testCase.messaging },
+      });
+      const { unmount } = render(
+        <WorkDetailScreen
+          conversationAction={openConversation}
+          initialDetail={detail}
+          action={vi.fn<WorkDetailAction>()}
+          locate={located}
+        />,
+      );
+
+      expect(screen.queryByRole("heading", { name: "Mesajlaşma" }) !== null).toBe(testCase.heading);
+      expect(screen.queryByRole("link", { name: "Ödemeyi tamamla" })).toBeNull();
+      const button = screen.queryByRole("button", { name: "Mesaj gönder" });
+      expect(button !== null).toBe(testCase.button);
+      if (button) {
+        await user.click(button);
+        expect(openConversation).toHaveBeenCalledTimes(1);
+      }
+      if (testCase.messaging?.reason === "PAYMENT_REQUIRED") {
+        expect(screen.getByText(/işveren ödemeyi tamamladığında açılır/)).toBeVisible();
+      }
+      unmount();
+    }
+  });
+
+  it("konuşma açma reddini kataloğ metniyle gösterir", async () => {
+    const user = userEvent.setup();
+    const openConversation = vi.fn<ConversationAction>().mockResolvedValue({
+      status: "error",
+      errorCode: "MESSAGING_WINDOW_CLOSED",
+      httpStatus: 409,
+    });
+    render(
+      <WorkDetailScreen
+        conversationAction={openConversation}
+        initialDetail={workDetail({
+          assignment: { ...workDetail().assignment, messaging: { available: true, reason: "AVAILABLE" } },
+        })}
+        action={vi.fn<WorkDetailAction>()}
+        locate={located}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Mesaj gönder" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Bu atamanın mesajlaşma penceresi kapandı/);
+  });
+
   it("sunucu ayrıntısını, kesin adresi, zaman çizelgesini ve toplam süreyi gösterir", () => {
     const action = vi.fn<WorkDetailAction>();
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={located} />);
 
     expect(screen.getByRole("heading", { name: "Etkinlik görevlisi" })).toBeVisible();
     expect(screen.getByText("Caferağa Mahallesi, Moda Caddesi No: 12/4")).toBeVisible();
@@ -94,7 +163,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
         minutes: null,
       }],
     });
-    render(<WorkDetailScreen initialDetail={open} action={vi.fn()} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={open} action={vi.fn()} locate={located} />);
 
     expect(screen.queryByRole("button", { name: "İşe giriş yap" })).toBeNull();
     expect(screen.getByRole("button", { name: "İşten çıkış yap" })).toBeVisible();
@@ -117,7 +186,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     });
 
     render(
-      <WorkDetailScreen initialDetail={open} action={vi.fn()} locate={located} />,
+      <WorkDetailScreen conversationAction={conversationAction} initialDetail={open} action={vi.fn()} locate={located} />,
     );
 
     expect(screen.getByRole("timer")).toHaveTextContent("01:00:00");
@@ -140,7 +209,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       reason: "denied",
       point: null,
     }));
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={locate} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={locate} />);
 
     await user.click(screen.getByRole("button", { name: "İşe giriş yap" }));
 
@@ -169,7 +238,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       reason: "insecure",
       point: null,
     }));
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={locate} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={locate} />);
 
     await user.click(screen.getByRole("button", { name: "İşe giriş yap" }));
 
@@ -202,7 +271,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
         httpStatus: 404,
         detail: workDetail(),
       });
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={located} />);
 
     await user.click(screen.getByRole("button", { name: "İşe giriş yap" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -236,7 +305,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       }],
     });
     const action = vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: closed });
-    render(<WorkDetailScreen initialDetail={open} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={open} action={action} locate={located} />);
 
     await user.click(screen.getByRole("button", { name: "İşten çıkış yap" }));
 
@@ -254,7 +323,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
   it("odak ve görünürlük dönüşlerinde sunucuyu yeniler; kaybolan tam adresi tutmaz", async () => {
     const withoutAddress = workDetail({ fullAddress: null });
     const action = vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: withoutAddress });
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={located} />);
 
     fireEvent.focus(window);
     expect(await screen.findByText("Adres işin güncel durumunda paylaşılmıyor.")).toBeVisible();
@@ -283,7 +352,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       }],
     });
     const action = vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: refreshed });
-    render(<WorkDetailScreen initialDetail={initial} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={initial} action={action} locate={located} />);
 
     fireEvent.focus(window);
 
@@ -297,7 +366,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       httpStatus: 404,
       detail: null,
     });
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={located} />);
 
     fireEvent.focus(window);
 
@@ -310,7 +379,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     const user = userEvent.setup();
     const action = vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: workDetail() });
     const { rerender } = render(
-      <WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />,
+      <WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={located} />,
     );
 
     expect(screen.getByText("Çalışmadan çekilme")).toBeVisible();
@@ -346,7 +415,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
         disputes: [],
       },
     });
-    rerender(<WorkDetailScreen key="completed" initialDetail={completed} action={action} locate={located} />);
+    rerender(<WorkDetailScreen conversationAction={conversationAction} key="completed" initialDetail={completed} action={action} locate={located} />);
     expect(screen.queryByText("Çalışmadan çekilme")).toBeNull();
     expect(screen.queryByText("Uyuşmazlık aç")).toBeNull();
     expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
@@ -358,6 +427,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       assignment: { ...workDetail().assignment, paymentStatus: "PENDING_COLLECTION" },
     });
     render(<WorkDetailScreen
+      conversationAction={conversationAction}
       initialDetail={unpaid}
       action={vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: unpaid })}
       locate={located}
@@ -379,7 +449,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
         message: "Uyuşmazlık açıldı. 0 kanıt yüklendi, 1 kanıt yüklenemedi.",
       },
     });
-    render(<WorkDetailScreen initialDetail={workDetail()} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={action} locate={located} />);
 
     await user.click(screen.getByText("Uyuşmazlık aç"));
     await user.type(screen.getByLabelText("Uyuşmazlık nedeni"), "Çalışma süresi yanlış");
@@ -412,7 +482,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       },
     });
 
-    render(<WorkDetailScreen initialDetail={closed} action={vi.fn()} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={closed} action={vi.fn()} locate={located} />);
 
     await user.click(screen.getByText("Çalışmadan çekilme"));
 
@@ -431,7 +501,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     // Kapalılık gerekçesi yalnız kapalıyken duruyor; her zaman çizilseydi
     // düğmenin açık olduğu ekranda da "çekilemezsin" yazardı.
     const user = userEvent.setup();
-    render(<WorkDetailScreen initialDetail={workDetail()} action={vi.fn()} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={vi.fn()} locate={located} />);
 
     await user.click(screen.getByText("Çalışmadan çekilme"));
 
@@ -457,7 +527,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       },
     });
 
-    render(<WorkDetailScreen initialDetail={activeDispute} action={vi.fn()} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={activeDispute} action={vi.fn()} locate={located} />);
 
     expect(screen.queryByRole("button", { name: "Uyuşmazlığı gönder" })).toBeNull();
     expect(screen.getByRole("button", { name: "Kanıtları yükle" })).toBeVisible();
@@ -489,7 +559,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
       status: "done",
       detail: activeDispute,
     });
-    render(<WorkDetailScreen initialDetail={activeDispute} action={action} locate={located} />);
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={activeDispute} action={action} locate={located} />);
     const input = screen.getByLabelText<HTMLInputElement>("Yeni kanıt dosyaları");
     const file = new File(["png"], "vardiya.png", { type: "image/png" });
 

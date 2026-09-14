@@ -5,6 +5,7 @@ import { useActionState, useMemo, useState } from "react";
 
 import {
   acceptanceHeadcount,
+  applicantMessaging,
   applicantPage,
   applicantsInFilter,
   applicationDecisionGate,
@@ -14,6 +15,7 @@ import {
   idleTalentPoolState,
   rejectionReasonMaxLength,
   type AcceptanceHeadcount,
+  type ApplicantAssignment,
   type ApplicantBadge,
   type ApplicantDossier,
   type ApplicantDossierAction,
@@ -27,6 +29,7 @@ import {
   type TalentPoolAction,
 } from "@/applications/employer-review";
 import { AssignmentDialog } from "@/components/assignment-dialog";
+import { MessagingGate } from "@/components/messaging/messaging-gate";
 import { ErrorState } from "@/components/states";
 import { formatDateTime } from "@/lib/dates";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
@@ -46,6 +49,7 @@ export function ApplicantReview({
   jobId,
   applicants,
   inTalentPool,
+  assignments,
   headcount,
   hiredCount,
   dossierAction,
@@ -57,6 +61,8 @@ export function ApplicantReview({
   applicants: readonly JobApplicant[];
   /** Sunucudan gelen ilk üyelik kümesi; eylem sonrası yerine yenisi geçer. */
   inTalentPool: readonly string[];
+  /** İlanın atamaları, işçi başına bir; mesaj kapısının kaynağı (#157). */
+  assignments: readonly ApplicantAssignment[];
   /** İlanın kaç kişilik olduğu; `null` ise sınırsız ve kapatılacak kapı yok. */
   headcount: number | null;
   /** `JobDetailDto.hiredCount`; kabul kapısının okuduğu kümenin **alt sınırı**. */
@@ -105,6 +111,10 @@ export function ApplicantReview({
   const pooled = useMemo(
     () => new Set(poolState.status === "idle" ? inTalentPool : (poolState.workerIds ?? inTalentPool)),
     [inTalentPool, poolState],
+  );
+  const assignmentsByWorker = useMemo(
+    () => new Map(assignments.map((assignment) => [assignment.workerId, assignment])),
+    [assignments],
   );
   /*
     Kimliği listede olmayan bir karar reddi.
@@ -166,6 +176,7 @@ export function ApplicantReview({
               jobId={jobId}
               applicant={applicant}
               inPool={pooled.has(applicant.applicant.id)}
+              assignment={assignmentsByWorker.get(applicant.applicant.id) ?? null}
               headcount={headcountGate}
               decidedNow={decided.get(applicant.id) ?? null}
               decisionFailure={
@@ -271,6 +282,7 @@ function ApplicantCard({
   jobId,
   applicant,
   inPool,
+  assignment,
   headcount,
   decidedNow,
   decisionFailure,
@@ -286,6 +298,8 @@ function ApplicantCard({
   jobId: string;
   applicant: JobApplicant;
   inPool: boolean;
+  /** Adayın bu ilandaki ataması; mesaj kapısı ve atama yolu buradan (#157). */
+  assignment: ApplicantAssignment | null;
   headcount: AcceptanceHeadcount;
   /** Bu oturumda verilmiş karar; sunucu listesi henüz tazelenmemiş olabilir. */
   decidedNow: ApplicationDecisionOutcome | null;
@@ -302,6 +316,7 @@ function ApplicantCard({
   const titleId = `applicant-${applicant.id}`;
   const workerId = applicant.applicant.id;
   const cvUrl = safeExternalUrl(applicant.cvUrl);
+  const messaging = applicantMessaging({ decidedNow, assignment });
 
   return (
     <article className="application-card applicant-card" aria-labelledby={titleId}>
@@ -354,18 +369,34 @@ function ApplicantCard({
             </button>
           </form>
 
-          <form action={submitConversation}>
-            <input type="hidden" name="jobId" value={jobId} />
-            <input type="hidden" name="workerId" value={workerId} />
-            <button className="button button-secondary button-small" disabled={pending.conversation}>
-              Mesaj gönder
-            </button>
-          </form>
+          {/*
+            Mesaj düğmesi yalnız atamanın ödemesi emanete düştüğünde
+            (`messagingAvailable`, #157). Karar bekleyen adayın ataması yok,
+            yani kapı da yok: backend `POST /jobs/{jobId}/conversation`'ı
+            ödeme öncesi 403 ile kapatıyor ve düğmeyi çizmek kullanıcıyı o
+            redde yollamak olurdu.
+          */}
+          {messaging ? (
+            <MessagingGate
+              availability={messaging.messaging}
+              party="employer"
+              assignmentId={messaging.assignmentId}
+            >
+              <form action={submitConversation}>
+                <input type="hidden" name="jobId" value={jobId} />
+                <input type="hidden" name="workerId" value={workerId} />
+                <button className="button button-secondary button-small" disabled={pending.conversation}>
+                  Mesaj gönder
+                </button>
+              </form>
+            </MessagingGate>
+          ) : null}
         </div>
 
         <ApplicantDecision
           jobId={jobId}
           applicant={applicant}
+          knownAssignmentId={assignment?.assignmentId ?? null}
           headcount={headcount}
           decidedNow={decidedNow}
           failure={decisionFailure}
@@ -395,6 +426,7 @@ function ApplicantCard({
 function ApplicantDecision({
   jobId,
   applicant,
+  knownAssignmentId,
   headcount,
   decidedNow,
   failure,
@@ -404,6 +436,8 @@ function ApplicantDecision({
 }: {
   jobId: string;
   applicant: JobApplicant;
+  /** Atama listesinden eşleşen kimlik; yoksa bağlantı listeye düşer. */
+  knownAssignmentId: string | null;
   headcount: AcceptanceHeadcount;
   decidedNow: ApplicationDecisionOutcome | null;
   failure: { errorCode: string; httpStatus: number } | null;
@@ -417,7 +451,7 @@ function ApplicantDecision({
     decidedNow,
   });
   const reasonId = `applicant-rejection-${applicant.id}`;
-  const assignment = assignmentHref(applicant, decidedNow);
+  const assignment = assignmentHref(applicant, decidedNow, knownAssignmentId);
   // Karar tümüyle kapalıyken sebep tek: iki eylemin altına iki kez yazmak
   // aynı cümleyi tekrarlardı.
   const closedReason = gate.closedReason ?? gate.acceptClosedReason;
@@ -504,16 +538,18 @@ const employerAssignmentsPath = "/isveren/atamalar";
  *
  * İki kabul hâli var ve **ikisinde de** bağlantı çiziliyor. Bu oturumda
  * kabul edilen kartta atama kimliği elde ve doğrudan atamaya gidiliyor; daha
- * önce kabul edilmiş bir kartta kimlik hiç yok — `JobApplicantDto` atama
- * taşımıyor, getirecek ikinci bir uç da yok — o yüzden atama listesine
- * düşülüyor. Bağlantıyı yalnız ilk hâlde çizmek, kararın ardından sayfa bir
- * kez yenilendiğinde geçiş yolunu ekrandan tümüyle silerdi.
+ * önce kabul edilmiş bir kartta kimlik `JobApplicantDto`'da yok, ama mesaj
+ * kapısı için okunan atama listesi (#157) onu çoğu zaman biliyor ve o zaman
+ * da doğrudan atamaya gidiliyor. Eşleşme yoksa atama listesine düşülüyor.
+ * Bağlantıyı yalnız ilk hâlde çizmek, kararın ardından sayfa bir kez
+ * yenilendiğinde geçiş yolunu ekrandan tümüyle silerdi.
  *
  * Okunamayan karar bağlantı çizdirmiyor: atama kurulup kurulmadığı belli değil.
  */
 function assignmentHref(
   applicant: JobApplicant,
   decidedNow: ApplicationDecisionOutcome | null,
+  knownAssignmentId: string | null,
 ): string | null {
   if (decidedNow !== null) {
     if (decidedNow.decision !== "ACCEPTED") return null;
@@ -521,7 +557,10 @@ function assignmentHref(
       ? `/isveren/atama/${encodeURIComponent(decidedNow.assignmentId)}`
       : employerAssignmentsPath;
   }
-  return applicant.status === "ACCEPTED" ? employerAssignmentsPath : null;
+  if (applicant.status !== "ACCEPTED") return null;
+  return knownAssignmentId
+    ? `/isveren/atama/${encodeURIComponent(knownAssignmentId)}`
+    : employerAssignmentsPath;
 }
 
 /**
@@ -706,9 +745,11 @@ function talentPoolErrorMessage(errorCode: string, httpStatus: number): string {
 /**
  * Konuşma açma reddi.
  *
- * Üçü de `errorCode` ile ayrışıyor ve üçünde de kullanıcının yapacağı iş
- * farklı: ilki geçici değil kalıcı bir kural, ikincisi karşı tarafın kararı,
- * üçüncüsü zaman aşımı.
+ * İkisi burada `errorCode` ile ayrışıyor: ilki geçici değil kalıcı bir
+ * kural, ikincisi karşı tarafın kararı. Ödeme (`MESSAGING_PAYMENT_REQUIRED`)
+ * ve pencere (`MESSAGING_WINDOW_CLOSED`) reddi `src/lib/errors.ts`
+ * kataloğundan geliyor — kapı bunları önden `MessagingGate` ile aynı cümleyle
+ * gösteriyor ve metnin üçüncü bir kopyası olmamalı.
  */
 function conversationErrorMessage(errorCode: string, httpStatus: number): string {
   if (errorCode === "MESSAGING_NO_RELATIONSHIP_WITH_JOB") {
@@ -716,9 +757,6 @@ function conversationErrorMessage(errorCode: string, httpStatus: number): string
   }
   if (errorCode === "MESSAGING_BLOCKED") {
     return "Bu adayla mesajlaşma kapalı.";
-  }
-  if (errorCode === "MESSAGING_WINDOW_CLOSED") {
-    return "Bu ilanın mesajlaşma süresi doldu.";
   }
   return errorPresentation(errorCode, httpStatus).message;
 }

@@ -140,6 +140,11 @@ a.app-nav-link:hover { background: var(--paper); color: var(--brand-accent); }
 .gate-block { display: flex; flex-direction: column; gap: 14px; background: #fff0ed; border: 1px solid #ffc8bd; border-left: 5px solid var(--brand-primary); }
 .gate-action { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
 .gate-action .button[disabled] { opacity: .55; cursor: not-allowed; box-shadow: none; }
+.messaging-gate { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; width: 100%; }
+.assignment-messaging { display: grid; gap: 12px; margin-top: 28px; }
+.assignment-messaging h2 { margin: 0; font-size: 1.1rem; }
+.assignment-messaging form { margin: 0; }
+.messaging-gate p { margin: 0; font-size: .9rem; }
 .gate-reason h2 { font-size: 1.05rem; letter-spacing: -.02em; margin-bottom: 6px; }
 .gate-reason p { margin-bottom: 8px; font-size: .92rem; color: var(--muted); }
 .gate-reason .text-link { font-weight: 750; font-size: .9rem; }

@@ -18,6 +18,7 @@ const assignment: EmployerAssignment = {
   title: "Etkinlik görevlisi",
   position: "Karşılama",
   employerType: "INDIVIDUAL",
+  workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
   workerName: "Ayşe Yılmaz",
   cityName: "İstanbul",
   districtName: "Kadıköy",
@@ -36,6 +37,7 @@ const assignment: EmployerAssignment = {
   assignedAt: null,
   completedAt: null,
   workHours: 0,
+  messaging: null,
 };
 
 describe("işveren ödeme sunumu", () => {

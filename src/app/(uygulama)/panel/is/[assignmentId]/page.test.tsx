@@ -39,6 +39,7 @@ const detail = {
     currency: "TRY",
     assignedAt: "2026-09-06T10:00:00Z",
     completedAt: null,
+    messaging: null,
   },
   description: null,
   duties: null,

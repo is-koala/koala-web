@@ -187,7 +187,7 @@ export function ConversationList({
                     {shortDate(conversation.lastMessageAt)}
                   </time> : null}
                 </span>
-                <span className="conversation-job">{conversation.jobTitle ?? "Doğrudan konuşma"}</span>
+                <span className="conversation-job">{conversationSubtitle(conversation)}</span>
                 <span className="conversation-preview">
                   {conversation.lastMessageBody ?? "Henüz mesaj yok"}
                 </span>
@@ -209,6 +209,22 @@ export function ConversationList({
       ) : null}
     </section>
   );
+}
+
+/**
+ * Başlığın altındaki satır.
+ *
+ * İkili konuşmada başlık karşı tarafın adı, alt satır ilan. Grupta başlık
+ * zaten ilanın adı (`toConversation`), alt satır katılımcıları sayıyor ve
+ * adlarını yazıyor: şirket ilanında yetkililer de burada görünür, işveren
+ * kimlerle yazıştığını satırdan okur.
+ */
+export function conversationSubtitle(conversation: ConversationSummary): string {
+  if (conversation.kind !== "GROUP") return conversation.jobTitle ?? "Doğrudan konuşma";
+  const count = `Grup sohbeti · ${conversation.participantCount} katılımcı`;
+  return conversation.participantNames.length === 0
+    ? count
+    : `${count}: ${conversation.participantNames.join(", ")}`;
 }
 
 function Avatar({ name, online }: { name: string; online: boolean | null }) {

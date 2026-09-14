@@ -9,6 +9,7 @@ import { jobHeadcount } from "@/jobs/headcount";
 import { publishedJobPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import {
+  readApplicantAssignments,
   readJobApplicants,
   readTalentPoolMembership,
 } from "@/server/applications/employer-review";
@@ -105,10 +106,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 }
 
 /**
- * Başvuru listesi ve havuz üyeliği.
+ * Başvuru listesi, havuz üyeliği ve ilanın atamaları.
  *
- * İkisi birlikte okunuyor çünkü kart üzerindeki "havuzda mı" rozeti onlarsız
- * çizilemez; ayrı ayrı beklemek ekranı iki kez sıçratırdı.
+ * Üçü birlikte okunuyor çünkü kart üzerindeki "havuzda mı" rozeti ve mesaj
+ * kapısı onlarsız çizilemez; ayrı ayrı beklemek ekranı iki kez sıçratırdı.
+ * Atamalar mesaj kapısının tek kaynağı: başvuru listesi
+ * `messagingAvailable` taşımıyor (#157).
  */
 export async function JobApplicantsPanel({
   jobId,
@@ -121,8 +124,12 @@ export async function JobApplicantsPanel({
   /** İşe alınmış sayısı; kabul kapısının okuduğu kümenin alt sınırı. */
   hiredCount: number;
 }) {
-  const loaded = await Promise.all([readJobApplicants(jobId), readTalentPoolMembership()])
-    .then(([applicants, inTalentPool]) => ({ applicants, inTalentPool }))
+  const loaded = await Promise.all([
+    readJobApplicants(jobId),
+    readTalentPoolMembership(),
+    readApplicantAssignments(jobId),
+  ])
+    .then(([applicants, inTalentPool, assignments]) => ({ applicants, inTalentPool, assignments }))
     .catch((error: unknown) => {
       unstable_rethrow(error);
       return { failure: failureView(error) };
@@ -137,6 +144,7 @@ export async function JobApplicantsPanel({
       jobId={jobId}
       applicants={loaded.applicants}
       inTalentPool={[...loaded.inTalentPool]}
+      assignments={[...loaded.assignments.values()]}
       headcount={headcount}
       hiredCount={hiredCount}
       dossierAction={applicantDossierAction}

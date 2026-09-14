@@ -1,5 +1,6 @@
 import type { AssignmentStatus, PaymentStatus } from "@/assignments/contract";
 import type { PricingBreakdown } from "@/lib/job-posting";
+import type { MessagingAvailability } from "@/messaging/contract";
 
 export type EmployerType = "INDIVIDUAL" | "COMPANY" | "UNKNOWN";
 
@@ -9,6 +10,8 @@ export type EmployerAssignment = {
   readonly title: string;
   readonly position: string | null;
   readonly employerType: EmployerType;
+  /** `MyAssignmentDto.worker.id`; işverenin konuşma açarken göndermek zorunda olduğu kimlik. */
+  readonly workerId: string;
   readonly workerName: string;
   readonly cityName: string | null;
   readonly districtName: string | null;
@@ -29,6 +32,11 @@ export type EmployerAssignment = {
    * satırda taşıyor.
    */
   readonly workHours: number;
+  /**
+   * `messagingAvailable` + `messagingAvailableReason`; alan yoksa `null` ve
+   * ekran mesaj bağlantısını hiç çizmez (`MessagingGate`).
+   */
+  readonly messaging: MessagingAvailability | null;
 };
 
 export type EmployerAssignmentPage = {

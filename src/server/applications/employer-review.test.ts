@@ -9,6 +9,7 @@ import {
 
 import {
   openApplicantConversation,
+  readApplicantAssignments,
   readApplicantDossier,
   readJobApplicants,
   readTalentPool,
@@ -332,14 +333,25 @@ describe("işveren başvuru inceleme backend modülü", () => {
       jsonResponse(200, envelope({
         id: applicationId,
         status: "ACCEPTED",
-        assignment: { id: assignmentId, status: "PENDING_CONFIRMATION" },
+        assignment: {
+          id: assignmentId,
+          status: "PENDING_CONFIRMATION",
+          messagingAvailable: false,
+          messagingAvailableReason: "PAYMENT_REQUIRED",
+        },
       })),
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    // Kabul anında mesaj kapısı hep ödemeye kapalı (#157): kart, sunucu
+    // listesi tazelenene kadar bu karardan ödeme yolunu çizer.
     await expect(
       respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
-    ).resolves.toEqual({ decision: "ACCEPTED", assignmentId });
+    ).resolves.toEqual({
+      decision: "ACCEPTED",
+      assignmentId,
+      messaging: { available: false, reason: "PAYMENT_REQUIRED" },
+    });
 
     expect(fetchMock.mock.calls[0][0]).toBe(
       `https://api.example.test/job-applications/${applicationId}/respond`,
@@ -381,7 +393,7 @@ describe("işveren başvuru inceleme backend modülü", () => {
         decision: "REJECTED",
         rejectionReason: "  Deneyim aradığımız alanda değil.  ",
       }),
-    ).resolves.toEqual({ decision: "REJECTED", assignmentId: null });
+    ).resolves.toEqual({ decision: "REJECTED", assignmentId: null, messaging: null });
 
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
       body: JSON.stringify({
@@ -428,7 +440,7 @@ describe("işveren başvuru inceleme backend modülü", () => {
 
       await expect(
         respondToApplication({ applicationId, decision: "ACCEPTED", rejectionReason: "" }),
-      ).resolves.toEqual({ decision: "UNKNOWN", assignmentId: null });
+      ).resolves.toEqual({ decision: "UNKNOWN", assignmentId: null, messaging: null });
     }
   });
 
@@ -467,5 +479,73 @@ describe("işveren başvuru inceleme backend modülü", () => {
       `https://api.example.test/jobs/${jobId}/conversation?workerId=${workerId}`,
     );
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST" });
+  });
+
+  it("ilanın atamalarını işverenin atama listesinden işçi kimliğiyle eşler", async () => {
+    // `JobApplicantDto` atama taşımıyor ve atama listesi ilana göre
+    // süzülemiyor: bütün liste okunup ilan kimliğiyle eleniyor (#157). Aynı
+    // işçinin iki atamasında en son kurulan kazanıyor — eski atamanın kapalı
+    // sohbeti yeni atamanın kapısını anlatmıyor.
+    const otherJobId = "44444444-4444-4444-8444-444444444444";
+    const secondWorkerId = "55555555-5555-4555-8555-555555555555";
+    const row = (overrides: Record<string, unknown>) => ({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001",
+      job: { id: jobId, title: "Barista", startDateTime: "2026-09-12T09:00:00", endDateTime: "2026-09-12T18:00:00" },
+      worker: { id: workerId, firstName: "Ayşe", lastName: "Yılmaz" },
+      status: "CONFIRMED",
+      paymentStatus: "HELD_IN_ESCROW",
+      assignmentDateTime: "2026-09-01T09:00:00Z",
+      messagingAvailable: true,
+      messagingAvailableReason: "AVAILABLE",
+      ...overrides,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      content: [
+        row({}),
+        row({
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000002",
+          status: "CANCELLED",
+          paymentStatus: "REFUNDED",
+          assignmentDateTime: "2026-08-20T09:00:00Z",
+          messagingAvailable: false,
+          messagingAvailableReason: "CLOSED",
+        }),
+        row({
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000003",
+          job: { id: otherJobId, title: "Garson", startDateTime: "2026-09-12T09:00:00", endDateTime: "2026-09-12T18:00:00" },
+        }),
+        row({
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000004",
+          worker: { id: secondWorkerId, firstName: "Mehmet", lastName: "Kaya" },
+          messagingAvailable: undefined,
+          messagingAvailableReason: undefined,
+        }),
+      ],
+      page: 0,
+      size: 100,
+      totalElements: 4,
+      totalPages: 1,
+      first: true,
+      last: true,
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const assignments = await readApplicantAssignments(jobId);
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.example.test/users/me/assignments?asEmployer=true&page=0&size=100",
+    );
+    expect([...assignments.values()]).toEqual([
+      {
+        workerId,
+        assignmentId: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001",
+        messaging: { available: true, reason: "AVAILABLE" },
+      },
+      {
+        workerId: secondWorkerId,
+        assignmentId: "aaaaaaaa-aaaa-4aaa-8aaa-000000000004",
+        messaging: null,
+      },
+    ]);
   });
 });

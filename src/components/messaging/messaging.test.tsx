@@ -8,6 +8,7 @@ import type {
   MessagingMutationResult,
   Page,
 } from "@/messaging/contract";
+import { errorPresentation } from "@/lib/errors";
 import type {
   RealtimeClient,
   RealtimeConnectionState,
@@ -707,6 +708,82 @@ describe("mesajlaşma arayüzü", () => {
     expect(screen.queryByRole("button", { name: "Engeli kaldır" })).toBeNull();
   });
 
+  it("ödeme ve pencere reddini kataloğ metniyle gösterir, öteki redleri geçici sayar", async () => {
+    // İki kod `errorCode` ile ayrışıyor ve yeniden denemek işe yaramaz;
+    // metin `src/lib/errors.ts` ile aynı (#157). Bilinmeyen red genel cümleyi
+    // korur: "tekrar deneyebilirsin".
+    const cases = [
+      ["MESSAGING_PAYMENT_REQUIRED", 403, errorPresentation("MESSAGING_PAYMENT_REQUIRED", 403).message],
+      ["MESSAGING_WINDOW_CLOSED", 409, errorPresentation("MESSAGING_WINDOW_CLOSED", 409).message],
+      ["SOMETHING_ELSE", 500, "Mesaj gönderilemedi. Tekrar deneyebilirsin."],
+    ] as const;
+
+    for (const [errorCode, status, expected] of cases) {
+      const { unmount } = render(
+        <ConversationThread
+          conversationId={conversationId}
+          initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+          initialMessages={messagePage([])}
+          viewerId={viewerId}
+          basePath="/panel/mesajlar"
+          realtimeClient={new FakeRealtime()}
+          confirmConversation={vi.fn().mockResolvedValue(true)}
+          confirmPresence={vi.fn().mockResolvedValue(true)}
+          sendMessage={vi.fn().mockResolvedValue({ ok: false, errorCode, status, blocked: false })}
+          markRead={vi.fn().mockResolvedValue(true)}
+        />,
+      );
+
+      fireEvent.change(screen.getByRole("textbox", { name: "Mesaj" }), {
+        target: { value: "Merhaba" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Gönder" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(expected);
+      // Ödeme reddi engel değil: composer açık kalır, kullanıcı sayfada
+      // kilitlenmez.
+      expect(screen.getByRole("textbox", { name: "Mesaj" })).toBeEnabled();
+      unmount();
+    }
+  });
+
+  it("grup sohbetini ilan başlığı ve katılımcılarıyla listeler", async () => {
+    // Grup ilan başına kuruluyor (ödeme emanete düşünce) ve şirket
+    // yetkilileri de katılımcı: satır kiminle yazışıldığını adlarla söyler,
+    // avatar ve presence tek bir karşı tarafa bağlı olmadığı için kapalı.
+    const realtime = new FakeRealtime();
+    const group: ConversationSummary = {
+      ...conversationPage().content[0]!,
+      id: "44444444-4444-4444-8444-444444444444",
+      jobTitle: "Depo sayımı",
+      kind: "GROUP",
+      displayName: "Depo sayımı",
+      participantCount: 4,
+      participantNames: ["Ayşe Yıldız", "Mehmet Kaya", "Zeynep Demir"],
+      counterpartId: null,
+      profilePictureUrl: null,
+      online: null,
+    };
+    render(
+      <ConversationList
+        initialPage={{ ...conversationPage(), content: [group] }}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={realtime}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    const row = screen.getByRole("link", { name: /Depo sayımı/ });
+    expect(row).toHaveAttribute("href", `/isveren/mesajlar/${group.id}?conversationPage=0`);
+    expect(within(row).getByText("Depo sayımı", { selector: "strong" })).toBeVisible();
+    expect(within(row).getByText(
+      "Grup sohbeti · 4 katılımcı: Ayşe Yıldız, Mehmet Kaya, Zeynep Demir",
+    )).toBeVisible();
+    await waitFor(() => expect(realtime.personalListeners).toHaveLength(1));
+    expect(realtime.followedPresence).toEqual([]);
+  });
+
   it("erişilebilir onaydan sonra karşı tarafı engeller ve composer'ı anında kapatır", async () => {
     const user = userEvent.setup();
     const blockUser = vi.fn().mockResolvedValue({ ok: true });
@@ -1174,7 +1251,10 @@ function conversationPage(): Page<ConversationSummary> {
       id: conversationId,
       jobId: null,
       jobTitle: "Akşam vardiyası",
+      kind: "DIRECT",
       displayName: "Ece Yılmaz",
+      participantCount: 2,
+      participantNames: ["Ece Yılmaz"],
       profilePictureUrl: null,
       counterpartId: otherId,
       lastMessageAt: "2026-09-06T10:00:00Z",

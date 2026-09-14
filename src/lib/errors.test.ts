@@ -108,6 +108,25 @@ describe("API hata sunumu", () => {
     });
   });
 
+  it("mesajlaşmanın ödeme kapısını yetki reddi gibi değil, işverenin adımıyla anlatır", () => {
+    // 403 ama `forbidden` ailesi değil: "Bu işlem için yetkin yok" yanlış bir
+    // sebep söylerdi. Cümle backend kataloğununki (is-koala/koala-backend#257)
+    // ve `MessagingGate` aynı cümleyi önden gösteriyor.
+    expect(errorPresentation("MESSAGING_PAYMENT_REQUIRED", 403)).toEqual({
+      title: "Mesajlaşma henüz açılmadı",
+      message: "Mesajlaşma, işveren ödemeyi tamamladığında açılır.",
+      action: "none",
+    });
+  });
+
+  it("kapanmış mesajlaşma penceresini yeniden deneme önermeden anlatır", () => {
+    const presentation = errorPresentation("MESSAGING_WINDOW_CLOSED", 409);
+
+    expect(presentation.title).toBe("Sohbet kapandı");
+    expect(presentation.message).toMatch(/yedi gün/);
+    expect(presentation.action).toBe("none");
+  });
+
   it("ödeme reddini backend mesajına ihtiyaç duymadan kullanıcı eylemine çevirir", () => {
     expect(errorPresentation("JOB_ASSIGNMENT_ADDRESS_NOT_PROVIDED_FOR_EMPLOYER", 400)).toEqual({
       title: "Fatura adresi eksik",

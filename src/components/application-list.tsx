@@ -162,10 +162,21 @@ function ApplicationCard({
         {application.status === "REJECTED" && application.rejectionReason ? (
           <div className="application-rejection"><h3>Ret gerekçesi</h3><p>{application.rejectionReason}</p></div>
         ) : null}
+        {/*
+          Mesaj bağlantısı burada yok, bilerek: `MyApplicationDto` yalnız
+          atama kimliği taşıyor, `messagingAvailable` kararını taşımıyor ve
+          karar olmadan düğme çizilmiyor (#157). Kapı iş ayrıntısında; bağlantı
+          bu yüzden listeye değil doğrudan o atamaya gidiyor.
+        */}
         {application.status === "ACCEPTED" && application.assignmentId ? (
           <div className="application-assignment">
             <span>Atama: <code>{application.assignmentId}</code></span>
-            <Link className="button button-primary button-small" href="/panel/islerim">Atamayı gör</Link>
+            <Link
+              className="button button-primary button-small"
+              href={`/panel/is/${encodeURIComponent(application.assignmentId)}`}
+            >
+              Atamayı gör
+            </Link>
           </div>
         ) : null}
         {application.status === "APPLIED" ? (

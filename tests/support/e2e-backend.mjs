@@ -9,6 +9,10 @@ const accountDeletionId = "bb58c5e0-e43b-4673-ae62-3525d4f7ec75";
 const userId = "2592914e-b7f0-4b5f-a5d4-5c632daf2d96";
 const expiredOpenJobId = "f62dc02c-70df-4e85-b1df-17b799ba17c1";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+const unpaidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f61";
+const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
+const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
+const assignmentPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/(payments|disputes|work-sessions|cancellation-preview)$/;
 const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
@@ -113,6 +117,34 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, []);
   }
   if (request.method === "GET" && url.pathname === "/users/me/sessions") {
+    return backendSuccess(response, []);
+  }
+  if (request.method === "GET" && url.pathname === "/users/me/assignments") {
+    // Aynı iki atama iki kabuğa da servis edilir: `asEmployer=true` işveren
+    // ayrıntısını, `asEmployer=false` çalışan iş ayrıntısını besler. Mesaj
+    // kapısı `messagingAvailable` ile satırdan okunur (is-koala/koala-web#157).
+    const content = Number(url.searchParams.get("page") ?? 0) === 0 ? assignments() : [];
+    return backendSuccess(response, {
+      content,
+      page: Number(url.searchParams.get("page") ?? 0),
+      size: Number(url.searchParams.get("size") ?? 20),
+      totalElements: 2,
+      totalPages: 1,
+      first: true,
+      last: true,
+    });
+  }
+  const assignmentMatch = assignmentPathPattern.exec(url.pathname);
+  if (request.method === "GET" && assignmentMatch) {
+    if (assignmentMatch[2] === "cancellation-preview") {
+      return backendSuccess(response, {
+        feeRate: "0.00",
+        feeAmount: "0.00",
+        refundAmount: "1500.00",
+        noticeMinutes: 4_320,
+        cancellableNow: true,
+      });
+    }
     return backendSuccess(response, []);
   }
   if (request.method === "GET" && url.pathname === "/conversations") {
@@ -306,6 +338,54 @@ function openJob() {
     status: "OPEN",
     acceptingApplications: true,
   };
+}
+
+/**
+ * Ödemesi bekleyen ve emanete alınmış birer atama. `messagingAvailable`
+ * kararı backend'den geldiği gibi taşınır; web onu `paymentStatus`tan
+ * türetmez, o yüzden iki satırın ikisi de kararı açıkça yazıyor.
+ */
+function assignments() {
+  const job = openJob();
+  const base = {
+    job: {
+      id: job.id,
+      title: job.title,
+      position: "Karşılama",
+      category: job.category,
+      employerType: "INDIVIDUAL",
+      startDateTime: job.startDateTime,
+      endDateTime: job.endDateTime,
+      cityName: job.address.cityName,
+      districtName: job.address.districtName,
+      companyName: null,
+    },
+    worker: { id: assignmentWorkerId, firstName: "Ayşe", lastName: "Yılmaz" },
+    assignmentDateTime: "2026-09-01T09:00:00Z",
+    actualCompletionDateTime: null,
+    workHours: 0,
+    workerPayout: "1250.00",
+    totalCharged: "1500.00",
+    pricing: job.pricing,
+  };
+  return [
+    {
+      ...base,
+      id: unpaidAssignmentId,
+      status: "PENDING_CONFIRMATION",
+      paymentStatus: "PENDING_COLLECTION",
+      messagingAvailable: false,
+      messagingAvailableReason: "PAYMENT_REQUIRED",
+    },
+    {
+      ...base,
+      id: paidAssignmentId,
+      status: "CONFIRMED",
+      paymentStatus: "HELD_IN_ESCROW",
+      messagingAvailable: true,
+      messagingAvailableReason: "AVAILABLE",
+    },
+  ];
 }
 
 function openJobSummary() {

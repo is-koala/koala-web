@@ -30,6 +30,8 @@ export type AssignmentDto = {
     workerPayout?: string | number | null;
     currency?: string | null;
   } | null;
+  messagingAvailable?: boolean | null;
+  messagingAvailableReason?: string | null;
 };
 
 /** Backend'in sayfalı atama zarfı; liste ve sahiplik araması bunu paylaşır. */

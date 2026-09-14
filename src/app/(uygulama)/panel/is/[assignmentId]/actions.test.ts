@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkDetail } from "@/assignments/work-detail";
 import { ApiError } from "@/server/api/errors";
 
-import { workDetailAction } from "./actions";
+import { workConversationAction, workDetailAction } from "./actions";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
@@ -14,8 +14,10 @@ const createAssignmentDispute = vi.hoisted(() => vi.fn());
 const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
 const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const createAssignmentReview = vi.hoisted(() => vi.fn());
+const openWorkerConversation = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
+vi.mock("@/server/messaging/messaging", () => ({ openWorkerConversation }));
 vi.mock("@/server/assignments/work-detail", () => ({
   readWorkDetail,
   checkpoint,
@@ -45,6 +47,7 @@ const detail = {
     currency: "TRY",
     assignedAt: "2026-09-06T10:00:00Z",
     completedAt: null,
+    messaging: null,
   },
   description: null,
   duties: null,
@@ -257,5 +260,48 @@ describe("iş ayrıntısı action sözleşmesi", () => {
     expect(readWorkDetail).not.toHaveBeenCalled();
     expect(checkpoint).not.toHaveBeenCalled();
     expect(cancelAssignment).not.toHaveBeenCalled();
+  });
+});
+
+describe("iş ayrıntısından konuşma açma action'ı", () => {
+  const jobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireSessionForCurrentPath.mockResolvedValue({});
+  });
+
+  it("konuşma kimliği gelince çalışan mesaj kabuğuna yönlendirir", async () => {
+    // `redirect` istisnayla çalışıyor ve bu istisna `try` dışında atılmalı;
+    // yönlendirme bir backend hatası gibi yakalansaydı kullanıcı sayfada kalırdı.
+    openWorkerConversation.mockResolvedValue("55555555-5555-4555-8555-555555555555");
+
+    await expect(workConversationAction(jobId, { status: "idle" }, new FormData()))
+      .rejects.toMatchObject({
+        digest: expect.stringContaining(";/panel/mesajlar/55555555-5555-4555-8555-555555555555;"),
+      });
+    expect(openWorkerConversation).toHaveBeenCalledWith(jobId);
+  });
+
+  it("ödeme ve pencere reddini kodla ekrana bırakır, yönlendirmez", async () => {
+    // Kapı (`messagingAvailable`) düğmeyi önden kapatıyor; buraya karar
+    // bayatladığında düşülür ve metin kataloğdan `errorCode` ile seçilir.
+    for (const [status, errorCode] of [
+      [403, "MESSAGING_PAYMENT_REQUIRED"],
+      [409, "MESSAGING_WINDOW_CLOSED"],
+    ] as const) {
+      openWorkerConversation.mockRejectedValueOnce(
+        new ApiError({ status, errorCode, errorCategory: "ACCESS_DENIED", message: "" }),
+      );
+
+      await expect(workConversationAction(jobId, { status: "idle" }, new FormData()))
+        .resolves.toEqual({ status: "error", errorCode, httpStatus: status });
+    }
+  });
+
+  it("UUID olmayan ilan kimliğiyle backend'e çıkmaz", async () => {
+    await expect(workConversationAction("../x", { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 });
+    expect(openWorkerConversation).not.toHaveBeenCalled();
   });
 });

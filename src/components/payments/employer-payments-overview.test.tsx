@@ -11,6 +11,7 @@ const base: EmployerAssignment = {
   title: "Etkinlik görevlisi",
   position: null,
   employerType: "INDIVIDUAL",
+  workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
   workerName: "Ayşe Yılmaz",
   cityName: "İstanbul",
   districtName: "Kadıköy",
@@ -29,6 +30,7 @@ const base: EmployerAssignment = {
   assignedAt: null,
   completedAt: null,
   workHours: 0,
+  messaging: null,
 };
 
 it("backend toplamlarını kuruş kaybetmeden ödeme ve emanet özetinde toplar", () => {

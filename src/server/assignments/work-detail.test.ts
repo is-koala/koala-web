@@ -46,6 +46,8 @@ function assignmentDto(status = "IN_PROGRESS") {
     assignmentDateTime: "2026-09-06T10:00:00Z",
     actualCompletionDateTime: null,
     pricing: { currency: "TRY", workerPayout: "1250.00" },
+    messagingAvailable: true,
+    messagingAvailableReason: "AVAILABLE",
   };
 }
 
@@ -131,6 +133,7 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         currency: "TRY",
         assignedAt: "2026-09-06T10:00:00Z",
         completedAt: null,
+        messaging: { available: true, reason: "AVAILABLE" },
       },
       description: "Misafirleri karşıla.",
       duties: "Yaka kartlarını dağıt.",

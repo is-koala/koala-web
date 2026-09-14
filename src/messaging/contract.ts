@@ -1,3 +1,5 @@
+import { idleActionState, type ActionFailure, type ActionFor } from "@/lib/form-state";
+
 export type Message = {
   id: string;
   senderId: string;
@@ -6,11 +8,23 @@ export type Message = {
   readAt: string | null;
 };
 
+export type ConversationKind = "DIRECT" | "GROUP";
+
 export type ConversationSummary = {
   id: string;
   jobId: string | null;
   jobTitle: string | null;
+  /**
+   * `ConversationDto.kind`. Grup, ödeme emanete düştüğünde ilan başına kurulur
+   * ve işveren tarafı — ilan sahibi ya da şirket yetkilileri — ile ödemesi
+   * alınmış çalışanları toplar. Liste satırı grubu ilan başlığıyla çizer.
+   */
+  kind: ConversationKind;
   displayName: string;
+  /** Grupta katılımcı sayısı; ikili konuşmada 2. */
+  participantCount: number;
+  /** Görüntüleyen dışındaki katılımcıların adları; adı boş olan atlanır. */
+  participantNames: readonly string[];
   profilePictureUrl: string | null;
   counterpartId: string | null;
   lastMessageAt: string | null;
@@ -22,6 +36,57 @@ export type ConversationSummary = {
   /** Bu özetin server tarafından doğrulandığı 100 kayıtlık liste sayfası. */
   sourcePage?: number;
 };
+
+/**
+ * Atama yanıtlarındaki mesajlaşma kapısı.
+ *
+ * Kaynak `messagingAvailable` + `messagingAvailableReason`
+ * (is-koala/koala-backend#257): ödeme emanete düşmeden ikili sohbet açılmıyor
+ * ve `POST /jobs/{jobId}/conversation` 403 `MESSAGING_PAYMENT_REQUIRED`
+ * döndürüyor. Ekran bu yüzden düğmeyi yanıttaki karara göre çiziyor; kuralı
+ * `paymentStatus`tan yeniden türetmiyor — kapanış penceresi (iş bitiminden 7
+ * gün) ve iptal/iade dalları yalnız sunucuda okunuyor.
+ */
+export type MessagingAvailabilityReason = "PAYMENT_REQUIRED" | "CLOSED" | "AVAILABLE";
+
+export type MessagingAvailability = {
+  readonly available: boolean;
+  readonly reason: MessagingAvailabilityReason;
+};
+
+/**
+ * Yanıttaki iki alanı tek karara indirir; alan yoksa `null`.
+ *
+ * `null` "kapalı" değil "bilinmiyor" demek: eski bir önbellek ya da alanı
+ * henüz taşımayan bir uç bu duruma düşer ve ekran mesaj bağlantısını **hiç**
+ * çizmez. `false` ile tanınmayan bir neden de aynı yere düşüyor — nedeni
+ * okunamayan bir kapıyı "ödeme gerekli" diye anlatmak yanlış yola gönderirdi.
+ */
+export function messagingAvailabilityFrom(dto: {
+  messagingAvailable?: boolean | null;
+  messagingAvailableReason?: string | null;
+}): MessagingAvailability | null {
+  if (dto.messagingAvailable === true) return { available: true, reason: "AVAILABLE" };
+  if (dto.messagingAvailable !== false) return null;
+  const reason = dto.messagingAvailableReason;
+  if (reason === "PAYMENT_REQUIRED" || reason === "CLOSED") return { available: false, reason };
+  return null;
+}
+
+/**
+ * Konuşma açma eyleminin durumu.
+ *
+ * Başarı burada bir dal değil: sunucu eylemi konuşma kimliğini alır almaz
+ * mesaj kabuğuna yönlendiriyor (`redirect`), geriye yalnız red kalıyor.
+ * İşverenin aday kartı ile çalışanın iş ayrıntısı aynı üçlüyü paylaşıyor.
+ */
+export type ConversationState =
+  | { readonly status: "idle" }
+  | ({ readonly status: "error" } & ActionFailure);
+
+export const idleConversationState: ConversationState = idleActionState;
+
+export type ConversationAction = ActionFor<ConversationState>;
 
 export const conversationListPageSize = 100;
 export const maxConversationSourcePage = 10_000;

@@ -42,6 +42,7 @@ const assignment: EmployerAssignment = {
   title: "Etkinlik görevlisi",
   position: "Karşılama",
   employerType: "INDIVIDUAL",
+  workerId: "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f",
   workerName: "Ayşe Yılmaz",
   cityName: "İstanbul",
   districtName: "Kadıköy",
@@ -53,6 +54,7 @@ const assignment: EmployerAssignment = {
   assignedAt: "2026-09-01T09:00:00Z",
   completedAt: null,
   workHours: 0,
+  messaging: null,
 };
 const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",
@@ -169,6 +171,35 @@ describe("işveren atama ayrıntısı", () => {
 
     expect(screen.getByRole("button", { name: "İşi tamamlandı işaretle" })).toBeDisabled();
     expect(screen.getByText(/Ödeme emanete alınmadan/)).toBeVisible();
+  });
+
+  it("mesaj düğmesini yalnız kapı açıkken çizer; ödeme beklerken ödeme yoluna gönderir", async () => {
+    // Kapı sunucudan (`messagingAvailable`, #157); ekran `paymentStatus`tan
+    // yeniden türetmiyor. Alan yoksa bölüm başlığıyla birlikte hiç yok.
+    const cases = [
+      { messaging: { available: true, reason: "AVAILABLE" }, button: true, payLink: false, heading: true },
+      { messaging: { available: false, reason: "PAYMENT_REQUIRED" }, button: false, payLink: true, heading: true },
+      { messaging: { available: false, reason: "CLOSED" }, button: false, payLink: false, heading: true },
+      { messaging: null, button: false, payLink: false, heading: false },
+    ] as const;
+
+    for (const testCase of cases) {
+      const { unmount } = render(await EmployerAssignmentContent({
+        assignment: { ...assignment, paymentStatus: "HELD_IN_ESCROW", messaging: testCase.messaging },
+        viewer,
+        searchParams: Promise.resolve({}),
+      }));
+
+      expect(screen.queryByRole("heading", { name: "Mesajlaşma" }) !== null).toBe(testCase.heading);
+      expect(screen.queryByRole("button", { name: "Mesaj gönder" }) !== null).toBe(testCase.button);
+      const payLink = screen.queryByRole("link", { name: "Ödemeyi tamamla" });
+      expect(payLink !== null).toBe(testCase.payLink);
+      if (payLink) expect(payLink).toHaveAttribute("href", `/isveren/atama/${assignmentId}/odeme`);
+      if (testCase.messaging?.reason === "CLOSED") {
+        expect(screen.getByText(/^Sohbet kapandı\./)).toBeVisible();
+      }
+      unmount();
+    }
   });
 
   it("işçi onaylamadan tamamlamayı kapatır", async () => {

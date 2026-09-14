@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ApplicationStatus } from "@/applications/contract";
 import type {
+  ApplicantAssignment,
   ApplicantBadge,
   ApplicantDossier,
   ApplicantProfile,
@@ -15,8 +16,10 @@ import type {
   TalentPoolPage,
 } from "@/applications/employer-review";
 import { emptyBackendPage } from "@/lib/pagination";
+import { messagingAvailabilityFrom } from "@/messaging/contract";
 import { clean, known, type PageDto } from "@/server/api/dto";
 import { backendPaths } from "@/server/contract";
+import { readAllEmployerAssignments } from "@/server/payments/payments";
 import { apiRequest } from "@/server/session/session";
 
 /**
@@ -76,11 +79,15 @@ type BadgeDto = {
   tier?: string | null;
 };
 
-/** `JobApplicationDetailDto`; `assignment` yalnız kabul yanıtında dolu. */
+/** `JobApplicationDetailDto`; `assignment` (`ShortJobAssignmentDto`) yalnız kabul yanıtında dolu. */
 type ApplicationDecisionDto = {
   id?: string | null;
   status?: string | null;
-  assignment?: { id?: string | null } | null;
+  assignment?: {
+    id?: string | null;
+    messagingAvailable?: boolean | null;
+    messagingAvailableReason?: string | null;
+  } | null;
 };
 
 type TalentPoolEntryDto = {
@@ -232,6 +239,39 @@ export async function removeFromTalentPool(workerId: string): Promise<void> {
 }
 
 /**
+ * Bu ilanın atamaları, işçi kimliğine göre.
+ *
+ * `GET /users/me/assignments?asEmployer=true` ilana göre süzülemiyor;
+ * işverenin bütün atamaları sayfalanıp ilan kimliğiyle eleniyor (aynı
+ * sınırla: `readAllEmployerAssignments` en çok 100 sayfa okuyor). Aynı işçi
+ * için birden çok atama varsa — iptal edilip yeniden kabul edilen aday — en
+ * son kurulan atama kazanıyor: eski atamanın `CLOSED` kararı yeni atamanın
+ * kapısını anlatmıyor. Sıralama ucun varsayılanına bırakılmıyor
+ * (`sort` belgede boş), `assignmentDateTime` karşılaştırılıyor.
+ */
+export async function readApplicantAssignments(
+  jobId: string,
+): Promise<ReadonlyMap<string, ApplicantAssignment>> {
+  const { assignments } = await readAllEmployerAssignments();
+  const latest = new Map<string, { assignedAt: number; entry: ApplicantAssignment }>();
+  for (const assignment of assignments) {
+    if (assignment.jobId !== jobId || !assignment.workerId || !assignment.id) continue;
+    const assignedAt = Date.parse(assignment.assignedAt ?? "") || 0;
+    const current = latest.get(assignment.workerId);
+    if (current && current.assignedAt >= assignedAt) continue;
+    latest.set(assignment.workerId, {
+      assignedAt,
+      entry: {
+        workerId: assignment.workerId,
+        assignmentId: assignment.id,
+        messaging: assignment.messaging,
+      },
+    });
+  }
+  return new Map([...latest].map(([workerId, { entry }]) => [workerId, entry]));
+}
+
+/**
  * `POST /jobs/{jobId}/conversation?workerId=` — var olan konuşmayı da aynı
  * yanıtla döndürüyor, yani ikinci çağrı yeni kayıt açmıyor.
  *
@@ -303,6 +343,7 @@ export async function respondToApplication(input: {
   return {
     decision: status === "ACCEPTED" || status === "REJECTED" ? status : "UNKNOWN",
     assignmentId: clean(detail?.assignment?.id),
+    messaging: detail?.assignment ? messagingAvailabilityFrom(detail.assignment) : null,
   };
 }
 
