@@ -64,6 +64,8 @@ const assignment: EmployerAssignment = {
   completedAt: null,
   workHours: 0,
   messaging: null,
+  myReview: null,
+  counterpartyReviewed: null,
 };
 const viewer: Viewer = {
   id: "viewer-1", firstName: "Ali", lastName: "Yılmaz", displayName: "Ali Yılmaz",
@@ -251,6 +253,27 @@ describe("işveren atama ayrıntısı", () => {
     expect(screen.getByRole("radio", { name: "5 yıldız" })).toBeVisible();
     expect(screen.getByLabelText("Yorum (isteğe bağlı)")).toHaveAttribute("maxlength", "2000");
     expect(screen.getByRole("button", { name: "Değerlendirmeyi gönder" })).toBeEnabled();
+  });
+
+  it("satır işverenin değerlendirmesini taşıyorsa yükleme anında özet çizilir, form yok; işçinin değerlendirmesi rozet (#179)", async () => {
+    render(await EmployerAssignmentContent({
+      assignment: {
+        ...assignment,
+        status: "COMPLETED",
+        paymentStatus: "RELEASED_TO_WORKER",
+        completedAt: "2026-09-12T18:05:00Z",
+        myReview: { rating: 4, comment: "Dakik ve güler yüzlü.", createdAt: "2026-09-13T10:00:00Z" },
+        counterpartyReviewed: true,
+      },
+      viewer,
+      searchParams: Promise.resolve({}),
+    }));
+
+    expect(screen.getByRole("heading", { name: "İşçiyi değerlendir" })).toBeVisible();
+    expect(screen.getByTestId("assignment-review-summary")).toHaveTextContent("Değerlendirmeniz: ★4 · Dakik ve güler yüzlü.");
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Değerlendirmeyi gönder" })).toBeNull();
+    expect(screen.getByTestId("counterparty-reviewed")).toHaveTextContent("İşçi sizi değerlendirdi");
   });
 
   it("işçi kartını fotoğraf, ad ve aday dosyası bağlantısıyla çizer; şirket adını başlığa yazar", async () => {

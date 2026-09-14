@@ -1,10 +1,11 @@
 import type { WorkerAssignment } from "@/assignments/contract";
 import type { WorkerAssignmentResolution } from "@/assignments/resolution";
+import type { AssignmentReviewState } from "@/assignments/review";
 import type { MessagingAvailability } from "@/messaging/contract";
 
 export type { CancellationPreview } from "@/assignments/resolution";
 
-export type WorkAssignment = WorkerAssignment & {
+export type WorkAssignment = WorkerAssignment & AssignmentReviewState & {
   completedAt: string | null;
   /**
    * Çizelgenin başvuru → kabul → onay → ödeme adımları. Dördü de backend'in

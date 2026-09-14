@@ -41,6 +41,7 @@ describe("işçiyi değerlendirme bölümü", () => {
       review: {
         rating: Number(form.get("rating")),
         comment: String(form.get("comment")),
+        createdAt: null,
       },
     }));
     render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} />);
@@ -63,7 +64,7 @@ describe("işçiyi değerlendirme bölümü", () => {
     const user = userEvent.setup();
     const action = vi.fn(async (): Promise<ReviewActionState> => ({
       status: "done",
-      review: { rating: 5, comment: null },
+      review: { rating: 5, comment: null, createdAt: null },
     }));
     render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} />);
 
@@ -109,7 +110,7 @@ describe("işçiyi değerlendirme bölümü", () => {
     const user = userEvent.setup();
     const action = vi.fn()
       .mockResolvedValueOnce({ status: "error", errorCode: "SOMETHING_NEW", httpStatus: 500 } satisfies ReviewActionState)
-      .mockResolvedValueOnce({ status: "done", review: { rating: 4, comment: "Dakikti" } } satisfies ReviewActionState);
+      .mockResolvedValueOnce({ status: "done", review: { rating: 4, comment: "Dakikti", createdAt: null } } satisfies ReviewActionState);
     render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} />);
 
     await user.click(screen.getByRole("radio", { name: "4 yıldız" }));
@@ -146,5 +147,53 @@ describe("işçiyi değerlendirme bölümü", () => {
     await user.click(screen.getByRole("button", { name: "Değerlendirmeyi gönder" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("İşlemi şu anda tamamlayamadık.");
+  });
+
+  it("satır yazarın değerlendirmesini taşıyorsa yükleme anında form yerine özeti çizer (#179)", () => {
+    const action = vi.fn();
+    render(<AssignmentReviewSection
+      workerName="Ayşe Yılmaz"
+      action={action}
+      existing={{ rating: 4, comment: "Dakikti", createdAt: "2026-09-13T10:00:00Z" }}
+    />);
+
+    const summary = screen.getByTestId("assignment-review-summary");
+    expect(summary).toHaveTextContent("Değerlendirmeniz: ★4 · Dakikti");
+    expect(summary.querySelector("time")).toHaveAttribute("datetime", "2026-09-13T10:00:00Z");
+    // Sayfayla gelen içerik duyuru değil; canlı bölge yalnız az önce gönderilende.
+    expect(summary).not.toHaveAttribute("role");
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Değerlendirmeyi gönder" })).toBeNull();
+    expect(screen.queryByTestId("assignment-review-existing")).toBeNull();
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("eski sunucunun boş satırında (existing null) form açılır; createdAt yoksa zaman çizilmez", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async (): Promise<ReviewActionState> => ({
+      status: "done",
+      review: { rating: 5, comment: null, createdAt: null },
+    }));
+    render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={action} existing={null} counterpartyReviewed={null} />);
+
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    expect(screen.queryByTestId("counterparty-reviewed")).toBeNull();
+
+    await user.click(screen.getByRole("radio", { name: "5 yıldız" }));
+    await user.click(screen.getByRole("button", { name: "Değerlendirmeyi gönder" }));
+
+    const summary = await screen.findByTestId("assignment-review-summary");
+    expect(summary).toHaveAttribute("role", "status");
+    expect(summary.querySelector("time")).toBeNull();
+  });
+
+  it("karşı taraf değerlendirdiyse yalnız rozet çizer; içerik yok", () => {
+    render(<AssignmentReviewSection workerName="Ayşe Yılmaz" action={vi.fn()} counterpartyReviewed />);
+
+    expect(screen.getByTestId("counterparty-reviewed")).toHaveTextContent("İşçi sizi değerlendirdi");
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+
+    render(<AssignmentReviewSection workerName="Ali Kaya" action={vi.fn()} counterpartyReviewed={false} />);
+    expect(screen.getAllByTestId("counterparty-reviewed")).toHaveLength(1);
   });
 });

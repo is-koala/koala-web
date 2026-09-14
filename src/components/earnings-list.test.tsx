@@ -19,6 +19,10 @@ function payout(overrides: Partial<WorkerPayout>): WorkerPayout {
     createdAt: "2026-09-05T10:30:00Z",
     jobTitle: "Etkinlik görevlisi",
     employerName: "Koala Etkinlik",
+    maskedIban: "TR18***2315",
+    providerReference: "IYZ-7F3A9C",
+    releasedAt: "2026-09-05T10:30:00Z",
+    settledAt: "2026-09-05T11:00:00Z",
     ...overrides,
   };
 }
@@ -96,27 +100,97 @@ describe("kazanç listesi", () => {
     expect(screen.getByText(/uyuşmazlık çözülene kadar bekler/)).toBeVisible();
   });
 
-  it("satırda iş başlığını ve işvereni, oluşturulma ile tamamlanma anlarını ayrı yazar", () => {
-    render(<EarningsList payouts={[payout({})]} />);
+  it("satırda iş başlığını ve işvereni, çıkış ile mutabakat anlarını ayrı yazar", () => {
+    render(<EarningsList payouts={[payout({
+      releasedAt: "2026-09-05T10:30:00Z",
+      settledAt: "2026-09-06T08:00:00Z",
+      completedAt: "2026-09-06T08:00:00Z",
+    })]} />);
 
     const row = screen.getByRole("listitem");
     expect(within(row).getByText("Etkinlik görevlisi")).toBeVisible();
     expect(within(row).getByText("Koala Etkinlik")).toBeVisible();
-    expect(within(row).getByText("Oluşturuldu")).toBeVisible();
+    expect(within(row).getByText("Çıkışa alındı")).toBeVisible();
     expect(within(row).getByText("5 Eyl 2026 13:30")).toHaveAttribute("datetime", "2026-09-05T10:30:00Z");
     expect(within(row).getByText("Tamamlandı")).toBeVisible();
-    expect(within(row).getByText("5 Eyl 2026 14:00")).toHaveAttribute("datetime", "2026-09-05T11:00:00Z");
+    expect(within(row).getByText("6 Eyl 2026 11:00")).toHaveAttribute("datetime", "2026-09-06T08:00:00Z");
+  });
+
+  it("hakediş ayrıntısında maskeli IBAN'ı, sağlayıcı referansını ve durumun açıklamasını yazar", () => {
+    render(<EarningsList payouts={[payout({ status: "PROCESSING" })]} />);
+
+    const detail = screen.getByTestId("payout-detail");
+    expect(within(detail).getByText("Hakediş ayrıntısı")).toBeVisible();
+    expect(within(detail).getByText("Banka hesabı").nextElementSibling).toHaveTextContent("TR18***2315");
+    expect(within(detail).getByText("Sağlayıcı referansı").nextElementSibling).toHaveTextContent("IYZ-7F3A9C");
+    expect(within(detail).getByText("Durum").nextElementSibling).toHaveTextContent(
+      "Sağlayıcı çıkışı onayladı; banka transferi yolda.",
+    );
+  });
+
+  it("hesap silinmişse ya da sağlayıcı henüz referans vermediyse tire yazar, boş bırakmaz", () => {
+    render(<EarningsList payouts={[payout({ status: "PENDING", maskedIban: null, providerReference: null })]} />);
+
+    const detail = screen.getByTestId("payout-detail");
+    expect(within(detail).getByText("Banka hesabı").nextElementSibling).toHaveTextContent("—");
+    expect(within(detail).getByText("Sağlayıcı referansı").nextElementSibling).toHaveTextContent("—");
+    expect(within(detail).getByText("Durum").nextElementSibling).toHaveTextContent(/sağlayıcısının onayı bekleniyor/);
+  });
+
+  it("eski sunucu ayrıntı alanlarını göndermiyorsa anlar createdAt/completedAt'ten okunur, ayrıntı tireyle çizilir", () => {
+    render(<EarningsList payouts={[payout({
+      maskedIban: null,
+      providerReference: null,
+      releasedAt: null,
+      settledAt: null,
+    })]} />);
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("Çıkışa alındı").nextElementSibling?.firstElementChild).toHaveAttribute(
+      "datetime",
+      "2026-09-05T10:30:00Z",
+    );
+    expect(within(row).getByText("Tamamlandı").nextElementSibling?.firstElementChild).toHaveAttribute(
+      "datetime",
+      "2026-09-05T11:00:00Z",
+    );
+    expect(within(row).getByText("Banka hesabı").nextElementSibling).toHaveTextContent("—");
+    expect(within(row).getByText("Durum").nextElementSibling).toHaveTextContent(/banka ekstresiyle doğrulandı/);
+  });
+
+  it("her durumun sözlük açıklaması backend metnine sadık; başarısızlığın nedeni yalnız neden bloğunda", () => {
+    render(<EarningsList payouts={[
+      payout({ id: "1", status: "PENDING" }),
+      payout({ id: "2", status: "PROCESSING" }),
+      payout({ id: "3", status: "COMPLETED" }),
+      payout({ id: "4", status: "FAILED", failureMessage: "Banka aktarımı tamamlanamadı. Ödeme hesabını kontrol edip destekten yardım alabilirsin." }),
+      payout({ id: "5", status: "FAILED", failureMessage: null }),
+      payout({ id: "6", status: "UNKNOWN" }),
+    ]} />);
+
+    const descriptions = screen.getAllByText("Durum").map((term) => term.nextElementSibling?.textContent);
+    expect(descriptions).toEqual([
+      "Kazancın emanetten çıkışa alındı; ödeme sağlayıcısının onayı bekleniyor.",
+      "Sağlayıcı çıkışı onayladı; banka transferi yolda.",
+      "Transfer banka ekstresiyle doğrulandı.",
+      "Çıkış başarısız; ayrıntı için destekle iletişime geç.",
+      "Çıkış başarısız; ayrıntı için destekle iletişime geç.",
+      "Durum güncelleniyor; biraz sonra yeniden kontrol edebilirsin.",
+    ]);
+    expect(screen.getAllByText(/Banka aktarımı tamamlanamadı/)).toHaveLength(1);
+    // Backend'in söylemediği bir "tutar nerede" iddiası yok.
+    expect(document.body.textContent).not.toMatch(/Koala'da tutuluyor|tutar hesabında/);
   });
 
   it("iş adı eşlenemediyse ve aktarım bitmediyse o satırları çizmez, bağlantı kalır", () => {
     render(<EarningsList payouts={[
-      payout({ status: "PENDING", jobTitle: null, employerName: null, completedAt: null }),
+      payout({ status: "PENDING", jobTitle: null, employerName: null, completedAt: null, settledAt: null }),
     ]} />);
 
     const row = screen.getByRole("listitem");
     expect(within(row).queryByText("Etkinlik görevlisi")).toBeNull();
     expect(within(row).queryByText("Koala Etkinlik")).toBeNull();
-    expect(within(row).getByText("Oluşturuldu")).toBeVisible();
+    expect(within(row).getByText("Çıkışa alındı")).toBeVisible();
     expect(within(row).queryByText("Tamamlandı")).toBeNull();
     expect(within(row).getByRole("link", { name: "İşi görüntüle" })).toHaveAttribute(
       "href",

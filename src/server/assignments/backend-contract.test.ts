@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  projectReviewState,
   projectWorkerAssignment,
   type AssignmentDto,
 } from "./backend-contract";
@@ -62,6 +63,68 @@ describe("çalışan ataması backend sözleşmesi", () => {
     expect(projectWorkerAssignment(assignmentDto({
       job: { ...assignmentDto().job, employerType: "GOVERNMENT" },
     })).employerType).toBe("UNKNOWN");
+  });
+
+  it("işçi görünümünde pricing null ise kazancı workerPayout'tan, para birimini yedekten okur (backend 0.9.25)", () => {
+    // Backend #294: işçiye `pricing` ve `totalCharged` null gelir; tek fiyat
+    // alanı `workerPayout` ve o bir sayı. Para birimi satırda yok, `TRY`
+    // yedeği (`PricingManager.CURRENCY`) kazancı birimsiz bırakmaz.
+    const result = projectWorkerAssignment(assignmentDto({
+      workerPayout: 1250,
+      pricing: null,
+      ...({ totalCharged: null } as Partial<AssignmentDto>),
+    }));
+
+    expect(result.workerPayout).toBe("1250");
+    expect(result.currency).toBe("TRY");
+  });
+
+  it("kazanç yoksa para birimi de uydurulmaz", () => {
+    const result = projectWorkerAssignment(assignmentDto({ workerPayout: null, pricing: null }));
+
+    expect(result.workerPayout).toBe("");
+    expect(result.currency).toBe("");
+  });
+
+  it("eski sunucu işçiye fiyat dökümünü gönderse bile hizmet bedeli ve işveren toplamı sınırı geçmez", () => {
+    // 0.9.25 öncesi backend işçi satırına da tam `PricingBreakdownDto` ve
+    // `totalCharged` yazıyordu. Projeksiyon o alanları hiç okumaz; çalışan
+    // yüzeyi hangi sunucuyla konuşursa konuşsun komisyon satırı çizemez.
+    const legacy = assignmentDto({
+      pricing: {
+        workerPayout: "1250.00",
+        currency: "TRY",
+        ...({ serviceFeeRate: "0.20", serviceFeeAmount: "250.00", employerTotal: "1500.00" } as object),
+      },
+      ...({ totalCharged: "1500.00" } as Partial<AssignmentDto>),
+    });
+
+    const serialized = JSON.stringify(projectWorkerAssignment(legacy));
+
+    expect(serialized).toContain("1250.00");
+    expect(serialized).not.toMatch(/serviceFee|employerTotal|totalCharged|commission|1500\.00|(?<!\d)250\.00|0\.20/);
+  });
+
+  it("değerlendirme durumunu satırdan okur; eski sunucuda ikisi de null kalır", () => {
+    expect(projectReviewState({
+      myReview: { id: "r-1", rating: 4, comment: "  Dakikti ", createdAt: "2026-09-14T10:00:00Z" },
+      counterpartyReviewed: true,
+    })).toEqual({
+      myReview: { rating: 4, comment: "Dakikti", createdAt: "2026-09-14T10:00:00Z" },
+      counterpartyReviewed: true,
+    });
+    expect(projectReviewState({ myReview: null, counterpartyReviewed: false })).toEqual({
+      myReview: null,
+      counterpartyReviewed: false,
+    });
+    // Alan hiç yok (0.9.25 öncesi): form kapanmaz, rozet çizilmez.
+    expect(projectReviewState({})).toEqual({ myReview: null, counterpartyReviewed: null });
+    // Puansız nesne değerlendirme değildir; kimlik sınırı geçmez.
+    const projected = projectReviewState({ myReview: { id: "r-2", comment: "x" } });
+    expect(projected.myReview).toBeNull();
+    expect(JSON.stringify(projectReviewState({
+      myReview: { id: "r-1", rating: 5, comment: null, createdAt: null },
+    }))).not.toContain("r-1");
   });
 
   it("bilinmeyen durumları güvenli değere indirir", () => {

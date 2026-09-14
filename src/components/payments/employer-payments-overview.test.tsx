@@ -36,6 +36,8 @@ const base: EmployerAssignment = {
   completedAt: null,
   workHours: 0,
   messaging: null,
+  myReview: null,
+  counterpartyReviewed: null,
 };
 
 it("backend toplamlarını kuruş kaybetmeden ödeme ve emanet özetinde toplar", () => {

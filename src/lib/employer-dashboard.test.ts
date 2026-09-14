@@ -66,6 +66,8 @@ function assignment(overrides: Partial<EmployerAssignment>): EmployerAssignment 
     completedAt: null,
     workHours: 8,
     messaging: null,
+    myReview: null,
+    counterpartyReviewed: null,
     ...overrides,
   } as EmployerAssignment;
 }

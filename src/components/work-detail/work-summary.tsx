@@ -29,6 +29,13 @@ export function WorkSummary({ detail }: { detail: WorkDetail }) {
           {paymentStatusLabel[assignment.paymentStatus]}
         </StatusBadge>
         {employerBadge ? <StatusBadge tone="neutral">{employerBadge}</StatusBadge> : null}
+        {/*
+          Yalnız varlık bilgisi (#179): işverenin puanı ve yorumu bu sınırı
+          geçmiyor. Alan eski sunucuda yok (`null`) → rozet yok.
+        */}
+        {assignment.counterpartyReviewed ? (
+          <StatusBadge tone="info" data-testid="counterparty-reviewed">İşveren seni değerlendirdi</StatusBadge>
+        ) : null}
       </div>
       <div>
         <p className="eyebrow">Çalışma ayrıntısı</p>

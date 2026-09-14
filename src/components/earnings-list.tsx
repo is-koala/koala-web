@@ -2,16 +2,12 @@ import Link from "next/link";
 
 import { formatDateTime } from "@/lib/dates";
 import { formatMoney, sumMoney } from "@/lib/money";
-import type { PayoutStatus, WorkerPayout } from "@/payments/payouts";
+import {
+  payoutStatusDescription,
+  payoutStatusLabel,
+  type WorkerPayout,
+} from "@/payments/payouts";
 import { StatusBadge, payoutStatusTone } from "@/components/ui";
-
-const payoutStatusLabel: Readonly<Record<PayoutStatus, string>> = {
-  PENDING: "Aktarım bekliyor",
-  PROCESSING: "Aktarılıyor",
-  COMPLETED: "Ödendi",
-  FAILED: "Aktarılamadı",
-  UNKNOWN: "Durum güncelleniyor",
-};
 
 export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) {
   const completedTotals = totalsFor(payouts, (payout) => payout.status === "COMPLETED");
@@ -60,22 +56,18 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
               </p>
             ) : null}
             {/*
-              İki an ayrı satır: kaydın açıldığı an ile paranın hesaba geçtiği
+              İki an ayrı satır: emanetten çıkış anı ile paranın hesaba geçtiği
               an aynı şey değil ve tek bir tarih hangisi olduğunu söylemiyordu.
-              Tamamlanmamış aktarımda ikinci satır yok.
+              Backend 0.9.25 ikisini `releasedAt`/`settledAt` diye adlandırıyor
+              (`createdAt`/`completedAt` ile aynı değer); eski sunucuda ad yok,
+              değer var — ikincisine düşülüyor. Tamamlanmamış aktarımda ikinci
+              satır yok.
             */}
             <dl className="earnings-item-dates">
-              <div>
-                <dt>Oluşturuldu</dt>
-                <dd><time dateTime={payout.createdAt}>{formatDateTime(payout.createdAt)}</time></dd>
-              </div>
-              {payout.completedAt ? (
-                <div>
-                  <dt>Tamamlandı</dt>
-                  <dd><time dateTime={payout.completedAt}>{formatDateTime(payout.completedAt)}</time></dd>
-                </div>
-              ) : null}
+              <PayoutMoment term="Çıkışa alındı" at={payout.releasedAt ?? payout.createdAt} />
+              <PayoutMoment term="Tamamlandı" at={payout.settledAt ?? payout.completedAt} />
             </dl>
+            <PayoutDetail payout={payout} />
             {payout.failureMessage || payout.status === "FAILED" ? (
               <div className="payout-failure">
                 <p>{payout.failureMessage ?? "Aktarım tamamlanamadı. Destekten yardım alabilirsin."}</p>
@@ -91,6 +83,50 @@ export function EarningsList({ payouts }: { payouts: readonly WorkerPayout[] }) 
     </>
   );
 }
+
+function PayoutMoment({ term, at }: { term: string; at: string | null }) {
+  if (!at) return null;
+  return (
+    <div>
+      <dt>{term}</dt>
+      <dd><time dateTime={at}>{formatDateTime(at)}</time></dd>
+    </div>
+  );
+}
+
+/**
+ * Satır ayrıntısı: paranın gittiği hesap, sağlayıcının referansı ve durumun
+ * ne demek olduğu. Hesap kaydı silinmişse ya da sunucu alanı hiç
+ * göndermiyorsa "—": boş bırakmak "hesap yok" ile "bilgi yok"u aynı gösterir,
+ * tire ikisini de "burada gösterilemiyor" diye okutur ve tam IBAN zaten
+ * hiçbir yanıtta gelmiyor. Başarısız çıkışta sağlayıcının nedeni burada
+ * yinelenmiyor: güvenli biçimi (`failureMessage`) ve destek bağlantısı
+ * hemen üstteki `payout-failure` bloğunda, durum satırı sözlük cümlesini
+ * söyler.
+ */
+function PayoutDetail({ payout }: { payout: WorkerPayout }) {
+  return (
+    <details className="earnings-item-detail" data-testid="payout-detail">
+      <summary>Hakediş ayrıntısı</summary>
+      <dl className="earnings-item-dates">
+        <div>
+          <dt>Banka hesabı</dt>
+          <dd>{payout.maskedIban ?? missingDetail}</dd>
+        </div>
+        <div>
+          <dt>Sağlayıcı referansı</dt>
+          <dd>{payout.providerReference ?? missingDetail}</dd>
+        </div>
+        <div>
+          <dt>Durum</dt>
+          <dd>{payoutStatusDescription[payout.status]}</dd>
+        </div>
+      </dl>
+    </details>
+  );
+}
+
+const missingDetail = "—";
 
 function MoneyTotal({
   testId,

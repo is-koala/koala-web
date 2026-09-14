@@ -25,11 +25,12 @@ import { messagingAvailabilityFrom } from "@/messaging/contract";
 import { safeImageUrl } from "@/lib/urls";
 import { ApiError } from "@/server/api/errors";
 import { clean, known } from "@/server/api/dto";
+import { projectReviewState, type ReviewStateDto } from "@/server/assignments/backend-contract";
 import { getCompany } from "@/server/company/company";
 import { backendPaths, jobPath } from "@/server/contract";
 import { apiRequest } from "@/server/session/session";
 
-type EmployerAssignmentDto = {
+type EmployerAssignmentDto = ReviewStateDto & {
   id?: string | null;
   job?: {
     id?: string | null;
@@ -380,6 +381,7 @@ function projectEmployerAssignment(dto: EmployerAssignmentDto): EmployerAssignme
     completedAt: dto.actualCompletionDateTime ?? null,
     workHours: dto.workHours ?? 0,
     messaging: messagingAvailabilityFrom(dto),
+    ...projectReviewState(dto),
   };
 }
 

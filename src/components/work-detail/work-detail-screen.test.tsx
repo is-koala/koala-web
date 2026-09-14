@@ -42,6 +42,8 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
       confirmedAt: null,
       paymentSecuredAt: null,
       messaging: null,
+      myReview: null,
+      counterpartyReviewed: null,
     },
     employer: {
       kind: "company",
@@ -720,5 +722,82 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={withoutRecord} action={vi.fn()} locate={located} />);
     const bareRow = screen.getByText("Atama iptal edildi").closest("li")!;
     expect(bareRow.querySelector("time")).toBeNull();
+  });
+
+  it("tamamlanan atamada değerlendirme gönderilince sunucunun yeniden okuduğu satır formu kapatır, özet yazılır (#179)", async () => {
+    const user = userEvent.setup();
+    const completed = workDetail({
+      assignment: {
+        ...workDetail().assignment,
+        status: "COMPLETED",
+        paymentStatus: "RELEASED_TO_WORKER",
+        completedAt: "2026-09-12T18:02:00Z",
+      },
+      resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
+    });
+    const reviewed = workDetail({
+      ...completed,
+      assignment: {
+        ...completed.assignment,
+        myReview: { rating: 4, comment: "İyi bir işverendi", createdAt: "2026-09-13T10:00:00Z" },
+      },
+    });
+    const action = vi.fn<WorkDetailAction>().mockResolvedValue({ status: "done", detail: reviewed });
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={completed} action={action} locate={located} />);
+
+    expect(screen.queryByTestId("assignment-review-summary")).toBeNull();
+    await user.click(screen.getByText("Değerlendirme bırak"));
+    await user.selectOptions(screen.getByLabelText("Puan"), "4");
+    await user.type(screen.getByLabelText("Yorum"), "İyi bir işverendi");
+    await user.click(screen.getByRole("button", { name: "Değerlendirmeyi gönder" }));
+
+    expect(action).toHaveBeenCalledWith({ type: "review", rating: 4, comment: "İyi bir işverendi" });
+    expect(await screen.findByRole("status")).toHaveTextContent("Değerlendirmen kaydedildi.");
+    const summary = screen.getByTestId("assignment-review-summary");
+    expect(summary).toHaveTextContent("Değerlendirmen: ★4 · İyi bir işverendi");
+    expect(summary.querySelector("time")).toHaveAttribute("datetime", "2026-09-13T10:00:00Z");
+    expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Değerlendirmeyi gönder" })).toBeNull();
+  });
+
+  it("satır yükleme anında değerlendirme taşıyorsa form hiç çizilmez; karşı taraf rozeti içerik taşımaz", () => {
+    const reviewed = workDetail({
+      assignment: {
+        ...workDetail().assignment,
+        status: "COMPLETED",
+        paymentStatus: "RELEASED_TO_WORKER",
+        completedAt: "2026-09-12T18:02:00Z",
+        myReview: { rating: 5, comment: null, createdAt: null },
+        counterpartyReviewed: true,
+      },
+      resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
+    });
+    const { unmount } = render(
+      <WorkDetailScreen conversationAction={conversationAction} initialDetail={reviewed} action={vi.fn()} locate={located} />,
+    );
+
+    expect(screen.getByTestId("assignment-review-summary")).toHaveTextContent(/Değerlendirmen: ★5$/);
+    expect(screen.getByTestId("assignment-review-summary").querySelector("time")).toBeNull();
+    expect(screen.queryByText("Değerlendirme bırak")).toBeNull();
+    expect(screen.getByTestId("counterparty-reviewed")).toHaveTextContent("İşveren seni değerlendirdi");
+    unmount();
+
+    // Eski sunucu: iki alan da null → form açık, rozet yok.
+    const legacy = workDetail({
+      assignment: { ...reviewed.assignment, myReview: null, counterpartyReviewed: null },
+      resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
+    });
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={legacy} action={vi.fn()} locate={located} />);
+    expect(screen.getByText("Değerlendirme bırak")).toBeVisible();
+    expect(screen.queryByTestId("assignment-review-summary")).toBeNull();
+    expect(screen.queryByTestId("counterparty-reviewed")).toBeNull();
+  });
+
+  it("kazanç satırı yalnız işçi payını yazar; hizmet bedeli ve işveren toplamı çalışan ekranında hiçbir koşulda yok", () => {
+    render(<WorkDetailScreen conversationAction={conversationAction} initialDetail={workDetail()} action={vi.fn()} locate={located} />);
+
+    expect(screen.getByText("Kazanç").nextElementSibling).toHaveTextContent("₺1.250,00");
+    expect(screen.queryByText(/Hizmet bedeli|İşveren toplamı|Komisyon|Toplam tutar/)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/1\.500,00|250,00 ₺/);
   });
 });

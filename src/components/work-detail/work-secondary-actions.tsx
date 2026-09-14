@@ -16,6 +16,7 @@ import {
   DisputeEvidenceFields,
   selectedDisputeEvidence,
 } from "@/components/dispute-evidence-fields";
+import { ReviewSummary } from "@/components/review-summary";
 
 import { canOpenDispute, formatNotice } from "./presenters";
 
@@ -37,10 +38,13 @@ export function WorkSecondaryActions({
     assignmentStatus: detail.assignment.status,
     resolution: detail.resolution,
   });
-  const canReview = canReviewAssignment(detail.assignment.status);
+  // Değerlendirme kararı sunucudan (#179): satır `myReview` taşıyorsa form
+  // yerine özet; 409 `REVIEW_ALREADY_REVIEWED` yalnız yarış yedeği.
+  const myReview = detail.assignment.myReview;
+  const canReview = canReviewAssignment(detail.assignment.status, myReview);
   const showDispute = canOpenDispute(detail);
   const activeDispute = detail.resolution.disputes.find((dispute) => dispute.status !== "RESOLVED");
-  if (!showsCancellation && !showDispute && !canReview && !activeDispute) return null;
+  if (!showsCancellation && !showDispute && !canReview && !myReview && !activeDispute) return null;
 
   return (
     <section className="work-detail-section work-secondary-actions" aria-labelledby="other-actions-heading">
@@ -94,6 +98,12 @@ export function WorkSecondaryActions({
       {activeDispute ? (
         <EvidenceUploadForm disputeId={activeDispute.id} pending={pending} onCommand={onCommand} />
       ) : null}
+
+      {/*
+        Sayfayla gelen içerik, duyuru değil (`live` yok): gönderim sonrası
+        duyuruyu ekranın üst şeridi ("Değerlendirmen kaydedildi.") yapıyor.
+      */}
+      {myReview ? <ReviewSummary review={myReview} address="informal" /> : null}
 
       {canReview ? (
         <details>

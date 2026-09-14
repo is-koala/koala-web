@@ -156,6 +156,28 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     expect(result.content[1]).toMatchObject({ workerId: "", messaging: null });
   });
 
+  it("işverenin değerlendirme durumunu satırdan taşır; eski sunucuda null kalır (#179)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      jsonResponse(200, envelope(assignmentPage([
+        {
+          ...backendAssignment,
+          myReview: { id: "e1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e", rating: 5, comment: null, createdAt: "2026-09-13T10:00:00Z" },
+          counterpartyReviewed: false,
+        },
+        { ...backendAssignment, id: "7e3d1f69-3a1b-4c2f-8d4e-8b9c0d1e2f3a" },
+      ]))),
+    ));
+
+    const result = await readEmployerAssignments();
+
+    expect(result.content[0]).toMatchObject({
+      myReview: { rating: 5, comment: null, createdAt: "2026-09-13T10:00:00Z" },
+      counterpartyReviewed: false,
+    });
+    expect(result.content[1]).toMatchObject({ myReview: null, counterpartyReviewed: null });
+    expect(JSON.stringify(result)).not.toContain("e1f0d24c");
+  });
+
   it("takip alanları gelmediğinde sıfır ve boş değere iner", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       jsonResponse(200, envelope(assignmentPage([backendAssignment]))),

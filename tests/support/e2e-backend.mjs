@@ -245,8 +245,10 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, []);
   }
   if (request.method === "GET" && url.pathname === "/users/me/payouts") {
-    // Tek ödeme çıkışı; satır iş adını taşımıyor, web onu atama listesinden
-    // `jobAssignmentId` ile eşler (is-koala/koala-web#165).
+    // İki ödeme çıkışı. İlki 0.9.25 öncesi biçim: iş adı yok, web onu atama
+    // listesinden `jobAssignmentId` ile eşler (is-koala/koala-web#165), ayrıntı
+    // alanları yok → ekran tire çizer. İkincisi 0.9.25 `PayoutDto`: maskeli
+    // IBAN, sağlayıcı referansı, çıkış/mutabakat anları (is-koala/koala-web#179).
     return backendSuccess(response, [
       {
         id: "7e1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f70",
@@ -257,6 +259,23 @@ const server = createServer(async (request, response) => {
         failureReason: null,
         completedAt: null,
         createdAt: "2026-09-10T09:00:00Z",
+      },
+      {
+        id: "7e1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f72",
+        jobAssignmentId: completedAssignmentId,
+        jobTitle: "Etkinlik görevlisi",
+        companyName: "Koala Etkinlik",
+        maskedIban: "TR18***2315",
+        bankAccountId: "9f1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f73",
+        providerReference: "IYZ-7F3A9C",
+        amount: "1250.00",
+        currency: "TRY",
+        status: "COMPLETED",
+        failureReason: null,
+        releasedAt: "2026-09-04T09:00:00Z",
+        settledAt: "2026-09-05T08:00:00Z",
+        completedAt: "2026-09-05T08:00:00Z",
+        createdAt: "2026-09-04T09:00:00Z",
       },
     ]);
   }
@@ -342,10 +361,17 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, []);
   }
   if (request.method === "GET" && url.pathname === "/users/me/assignments") {
-    // Aynı iki atama iki kabuğa da servis edilir: `asEmployer=true` işveren
+    // Aynı atamalar iki kabuğa da servis edilir: `asEmployer=true` işveren
     // ayrıntısını, `asEmployer=false` çalışan iş ayrıntısını besler. Mesaj
     // kapısı `messagingAvailable` ile satırdan okunur (is-koala/koala-web#157).
-    const content = Number(url.searchParams.get("page") ?? 0) === 0 ? assignments() : [];
+    // Backend 0.9.25 (is-koala/koala-web#179): işçi görünümünde `pricing` ve
+    // `totalCharged` null, tek fiyat alanı sayısal `workerPayout`; `myReview`
+    // bu test anahtarının yazdığı değerlendirme, `counterpartyReviewed` yalnız
+    // varlık bilgisi.
+    const asEmployer = url.searchParams.get("asEmployer") === "true";
+    const content = Number(url.searchParams.get("page") ?? 0) === 0
+      ? assignments().map((assignment) => viewerAssignment(assignment, asEmployer, state))
+      : [];
     return backendSuccess(response, {
       content,
       page: Number(url.searchParams.get("page") ?? 0),
@@ -720,6 +746,32 @@ function assignments() {
       messagingAvailableReason: "CLOSED",
     },
   ];
+}
+
+/**
+ * Atama satırının görüntüleyene göre biçimi (backend 0.9.25). Gerçek backend
+ * kararı satırın işçisi kim diye verir (görüntüleyen `worker.id` ise
+ * `pricing`/`totalCharged` null); bu sahtede tek kullanıcı (`userId`) iki
+ * kabuğu da sürüyor ve fikstür işçisi (`assignmentWorkerId`) o değil, yani
+ * "görüntüleyen işçi mi" sorusu istekten çıkarılamıyor. Backend'in kendi
+ * görünüm anahtarı `asEmployer` kullanılıyor: `asEmployer=false` zaten
+ * "görüntüleyenin işçi olduğu satırlar" demek. `workerPayout` her iki tarafta
+ * da sayı. Değerlendirme: bu anahtarın yazdığı kayıt `myReview` olur;
+ * `counterpartyReviewed` tamamlanmış atamada işçiye "işveren seni
+ * değerlendirdi" der, işverene henüz demez.
+ */
+function viewerAssignment(assignment, asEmployer, state) {
+  const mine = state.reviews.find((review) => review.assignmentId === assignment.id) ?? null;
+  return {
+    ...assignment,
+    workerPayout: Number(assignment.workerPayout),
+    totalCharged: asEmployer ? assignment.totalCharged : null,
+    pricing: asEmployer ? assignment.pricing : null,
+    myReview: mine
+      ? { id: mine.id, rating: mine.rating, comment: mine.comment, createdAt: mine.createdAt }
+      : null,
+    counterpartyReviewed: !asEmployer && assignment.id === completedAssignmentId,
+  };
 }
 
 function openJobSummary() {

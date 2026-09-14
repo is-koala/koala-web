@@ -73,9 +73,9 @@ test("atama çizelgesi ödeme damgasını taşır, işçi kartı aday dosyasına
  * İşçiyi değerlendirme (is-koala/koala-web#173). Form yalnız tamamlanmış
  * atamada; yıldızlar klavyeyle seçilebilen bir radyo grubu; gönderim sahte
  * backend'e `POST /job-assignments/{id}/reviews` olarak düşer ve başarı
- * sonrası form kapanıp "Değerlendirmeniz: ★4 · yorum" yazılır. Aynı atamaya
- * ikinci gönderim 409 `REVIEW_ALREADY_REVIEWED` ile "zaten değerlendirdiniz"
- * durumuna varır.
+ * sonrası form kapanıp "Değerlendirmeniz: ★4 · yorum" yazılır. Yeniden
+ * açılan sayfada karar satırın `myReview`'undan (backend 0.9.25, #179):
+ * özet yükleme anında, form yok.
  */
 test("tamamlanmamış atamada değerlendirme formu yok", async ({ page }) => {
   await page.goto(`/isveren/atama/${paidAssignmentId}`);
@@ -83,7 +83,7 @@ test("tamamlanmamış atamada değerlendirme formu yok", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "İşçiyi değerlendir" })).toHaveCount(0);
 });
 
-test("tamamlanan atamada işçi yıldızla değerlendirilir, ikinci deneme 409'a düşer", async ({ page, request }, testInfo) => {
+test("tamamlanan atamada işçi yıldızla değerlendirilir; yeniden açılan sayfa özeti satırdan çizer", async ({ page, request }, testInfo) => {
   await page.goto(`/isveren/atama/${completedAssignmentId}`);
   await expect(page.getByRole("heading", { name: "İşçiyi değerlendir" })).toBeVisible();
 
@@ -103,13 +103,18 @@ test("tamamlanan atamada işçi yıldızla değerlendirilir, ikinci deneme 409'a
     { assignmentId: completedAssignmentId, rating: 4, comment: "Dakik ve güler yüzlü.", anonymous: false },
   ]);
 
-  // Atama satırı yazarın değerlendirmesini taşımıyor; yeniden açılan sayfada
-  // form geri gelir ve backend'in 409'u formu "zaten değerlendirdiniz"e çevirir.
+  // Backend 0.9.25 satıra `myReview` yazıyor (is-koala/koala-web#179):
+  // yeniden açılan sayfada özet yükleme anında çizilir, form hiç gelmez.
+  // 409 `REVIEW_ALREADY_REVIEWED` yolu yarış yedeği olarak bileşen testinde.
   await page.reload();
-  await page.getByRole("group", { name: "Puan" }).getByRole("radio", { name: "5 yıldız" }).check();
-  await page.getByRole("button", { name: "Değerlendirmeyi gönder" }).click();
-  await expect(page.getByTestId("assignment-review-existing")).toContainText("Bu atamayı daha önce değerlendirdiniz.");
+  await expect(page.getByTestId("assignment-review-summary")).toContainText("Değerlendirmeniz: ★4 · Dakik ve güler yüzlü.");
+  await expect(page.getByRole("group", { name: "Puan" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Değerlendirmeyi gönder" })).toHaveCount(0);
+  // İşçi henüz değerlendirmedi: rozet yok.
+  await expect(page.getByTestId("counterparty-reviewed")).toHaveCount(0);
+  // İşveren fiyat dökümünü görmeye devam eder; işçi görünümünde bu bölüm yok.
+  await expect(page.getByRole("heading", { name: "Atamanın fiyat özeti" })).toBeVisible();
+  await expect(page.locator(".payment-breakdown")).toContainText("1.500,00 ₺");
 });
 
 function stateKeyFor(testInfo: TestInfo): string {
