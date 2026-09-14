@@ -1,19 +1,8 @@
-import Image from "next/image";
 import type { ReactNode } from "react";
 
-import mascotEmployer from "../../../public/brand/maskot-isveren.webp";
-import mascotWorker from "../../../public/brand/maskot-calisan.webp";
+import { MascotImage, type Mascot } from "./mascot";
 
-export type Mascot = "employer" | "worker";
-
-const mascots = {
-  employer: mascotEmployer,
-  worker: mascotWorker,
-} as const;
-
-/* Görsel 600×900; oran elle: Vitest statik içe aktarımı düz yol olarak
-   çözüyor ve `width`/`height` alanları orada yok. */
-const mascotRatio = 600 / 900;
+export type { Mascot } from "./mascot";
 
 /**
  * Boş durum kartı: maskot, başlık, tek cümle ve varsa çıkış eylemi.
@@ -38,7 +27,6 @@ export function EmptyStateCard({
   children?: ReactNode;
   className?: string;
 }) {
-  const height = 132;
   return (
     <div
       role={role === "none" ? undefined : role}
@@ -46,16 +34,7 @@ export function EmptyStateCard({
         .filter(Boolean)
         .join(" ")}
     >
-      {mascot ? (
-        <Image
-          className="ui-empty-mascot"
-          src={mascots[mascot]}
-          alt=""
-          height={height}
-          width={Math.round(height * mascotRatio)}
-          sizes="96px"
-        />
-      ) : null}
+      {mascot ? <MascotImage className="ui-empty-mascot" mascot={mascot} height={132} /> : null}
       <div className="ui-empty-copy">
         <h2>{title}</h2>
         {message ? <p>{message}</p> : null}

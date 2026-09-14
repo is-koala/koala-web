@@ -1,17 +1,14 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell, SectionNotOpen } from "@/components/app-shell";
 import { GateBlocks } from "@/components/employer-gate";
 import { UnreadMessagesBadge } from "@/components/messaging/unread-messages-badge";
-import { Card } from "@/components/ui";
+import { Card, MascotImage } from "@/components/ui";
 import { appShells, publicJobsPath, sectionAt, type AppShellId } from "@/lib/app-routes";
 import { enterSection, enterShellGates } from "@/server/session/gates";
 import { enterShell } from "@/server/session/viewer";
 
-import mascotEmployer from "../../../public/brand/maskot-isveren.webp";
-import mascotWorker from "../../../public/brand/maskot-calisan.webp";
 import { EmployerDashboard } from "./isveren/dashboard";
 
 /**
@@ -107,7 +104,6 @@ export async function ShellHome({ shell }: { shell: AppShellId }) {
 function ShellWelcome({ shell, name }: { shell: AppShellId; name: string | null }) {
   const definition = appShells[shell];
   const employer = shell === "employer";
-  const mascot = employer ? mascotEmployer : mascotWorker;
 
   return (
     <section
@@ -120,7 +116,7 @@ function ShellWelcome({ shell, name }: { shell: AppShellId; name: string | null 
         <p className="lede">{definition.description}</p>
       </div>
       <div className="shell-welcome-mascot" aria-hidden="true">
-        <Image src={mascot} alt="" height={150} width={100} sizes="100px" priority />
+        <MascotImage mascot={employer ? "employer" : "worker"} height={150} />
       </div>
     </section>
   );

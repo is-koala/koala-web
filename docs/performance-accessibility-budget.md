@@ -15,6 +15,13 @@ bir laboratuvar regresyon kapısıdır. Ana sayfa, ilan listesi ve sabit test il
 | CLS | ≤ 0,1 | ≤ 0,1 | 0 |
 | Lighthouse performans puanı | ≥ 0,90 | ≥ 0,70 | 0,75–0,77 |
 
+2026-09-14 (is-koala/koala-web#156, kabuk yeniden tasarımı) ölçümü: betik aktarımı ana sayfa
+247.648, ilan listesi 249.447, ilan ayrıntısı **255.559** bayt — sınıra 441 bayt kaldı. Aynı
+işte `next/image`'ın `EmptyState` üzerinden istemci grafiğine girmesi ayrıntı sayfasını 263.638
+bayta çıkarmıştı; boş durum maskotu bu yüzden düz `<img>` ve önceden küçültülmüş dosya
+(`src/components/ui/mascot.tsx`). İstemci bileşenlerinden okunan ortak modüllere (`states.tsx`,
+`form-controls.tsx`) yeni bağımlılık eklerken bu sayıyı yeniden ölç.
+
 Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
 kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;
 Raspberry Pi koşucunun daha düşük `benchmarkIndex` değeri için CI tavanı 12 saniyedir. Her

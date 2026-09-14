@@ -6,7 +6,8 @@
  * buradan alır; token'lar `globals.css`'te, sınıf kuralları `app-shell.css`'te.
  */
 export { Card, PagePanel, type CardTone } from "./card";
-export { EmptyStateCard, type Mascot } from "./empty-state";
+export { EmptyStateCard } from "./empty-state";
+export { MascotImage, type Mascot } from "./mascot";
 export { Field, FieldGroup, fieldDescribedBy, fieldErrorId, fieldHintId } from "./field";
 export { Icon, type IconName } from "./icon";
 export { Avatar, FactList, ListRow, ListRows, type Fact } from "./list-row";
