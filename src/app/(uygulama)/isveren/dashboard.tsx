@@ -115,7 +115,7 @@ export function SummaryGrid({ summary }: { summary: EmployerSummary }) {
       <div role="listitem">
         <StatCard
           label="Açık ilan"
-          value={summary.openJobs}
+          value={countLabel(summary.openJobs, summary.partial.jobs)}
           icon="briefcase"
           accent="green"
           href={employerJobsPath}
@@ -125,17 +125,21 @@ export function SummaryGrid({ summary }: { summary: EmployerSummary }) {
       <div role="listitem">
         <StatCard
           label="Bekleyen başvuru"
-          value={summary.openApplications}
+          value={countLabel(summary.openApplications, summary.partial.jobs)}
           icon="users"
           accent="purple"
           href={employerJobsPath}
-          hint="açık ilanlarda, işe alınmamış"
+          hint={
+            summary.partial.jobs
+              ? "ilk sayfadaki açık ilanlarda, işe alınmamış"
+              : "açık ilanlarda, işe alınmamış"
+          }
         />
       </div>
       <div role="listitem">
         <StatCard
           label="Aktif atama"
-          value={summary.activeAssignments}
+          value={countLabel(summary.activeAssignments, summary.partial.assignments)}
           icon="calendar"
           accent="blue"
           href={employerAssignmentsPath}
@@ -145,15 +149,28 @@ export function SummaryGrid({ summary }: { summary: EmployerSummary }) {
       <div role="listitem">
         <StatCard
           label="Bekleyen ödeme"
-          value={summary.pendingPayments}
+          value={countLabel(summary.pendingPayments, summary.partial.assignments)}
           icon="wallet"
           accent="amber"
           href={employerPaymentsPath}
-          hint="şimdi ödenebilecek atamalar"
+          hint={
+            summary.partial.assignments
+              ? "ilk 100 atamada şimdi ödenebilecekler"
+              : "şimdi ödenebilecek atamalar"
+          }
         />
       </div>
     </div>
   );
+}
+
+/**
+ * Sayı ile eksikliği birlikte yazar: liste tek sayfaya sığmadıysa "5+" —
+ * sayı bir alt sınır ve kullanıcı bunu kartın kendisinden okumalı, yalnız
+ * alt yazıdan değil.
+ */
+function countLabel(count: number, partial: boolean): string {
+  return partial ? `${count}+` : String(count);
 }
 
 function SummarySkeleton() {
@@ -169,7 +186,8 @@ function SummarySkeleton() {
 
 /**
  * Hızlı eylemler. "Şablonla ilan aç" ayrı bir sayfa değil: bireysel ilan
- * formunun ilk adımı şablon seçici (`JobForm`), bağlantı oraya iner.
+ * formunun ilk adımı şablon seçici (`JobForm`, `SelectField name="jobTemplateId"`,
+ * kimliği adından geliyor) ve bağlantı parçayla doğrudan o alana iner.
  */
 function QuickActions({
   companies,
@@ -191,7 +209,7 @@ function QuickActions({
         </Link>
       </li>
       <li>
-        <Link className="quick-action" href={newIndividualJobPath}>
+        <Link className="quick-action" href={`${newIndividualJobPath}#jobTemplateId`}>
           <span className="quick-action-icon">
             <Icon name="template" size={20} />
           </span>

@@ -64,7 +64,7 @@ describe("tasarım sistemi bileşen seti", () => {
       />,
     );
     const nav = screen.getByRole("navigation", { name: "Sıralama" });
-    expect(within(nav).getByRole("link", { name: "Önce en yeni3" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Önce en yeni 3" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getByRole("link", { name: "Başlığa göre" })).not.toHaveAttribute("aria-current");
   });
 

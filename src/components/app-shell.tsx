@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/states";
 import { Avatar, Icon, type IconName } from "@/components/ui";
 import type { AppSection, AppShell as AppShellDefinition } from "@/lib/app-routes";
 import type { GateId } from "@/lib/gates";
+import { safeImageUrl } from "@/lib/urls";
 import type { ViewerContext } from "@/server/session/viewer";
 
 import "./app-shell.css";
@@ -53,13 +54,14 @@ export function AppShell({ shell, context, advisories, children, headerActions }
             {viewer === null ? null : headerActions}
             {viewer === null ? null : (
               <span className="app-bar-user">
-                <Avatar name={viewer.displayName} src={viewer.profilePictureUrl} size="sm" />
+                <Avatar name={viewer.displayName} src={safeImageUrl(viewer.profilePictureUrl)} size="sm" />
                 <span className="app-bar-user-name">{viewer.displayName}</span>
               </span>
             )}
-            <Link className="app-bar-logout" href="/cikis">
+            {/* Dar ekranda metin gizleniyor; ad `aria-label` ile kalıyor. */}
+            <Link className="app-bar-logout" href="/cikis" aria-label="Çıkış">
               <Icon name="logout" size={18} />
-              <span>Çıkış</span>
+              <span aria-hidden="true">Çıkış</span>
             </Link>
           </div>
         </div>

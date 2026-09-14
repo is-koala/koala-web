@@ -42,7 +42,13 @@ export function LinkTabs({
           aria-current={item.current ? "page" : undefined}
         >
           {item.label}
-          {item.count === undefined ? null : <span className="ui-tab-count">{item.count}</span>}
+          {item.count === undefined ? null : (
+            <>
+              {/* Boşluk erişilebilir adı ayırır: "Bekleyenler 3", "Bekleyenler3" değil. */}
+              {" "}
+              <span className="ui-tab-count">{item.count}</span>
+            </>
+          )}
         </Link>
       ))}
     </nav>
