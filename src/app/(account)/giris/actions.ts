@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import type { FormState } from "@/lib/form-state";
 import { signIn } from "@/server/auth/login";
@@ -29,6 +29,9 @@ export async function loginAction(_state: FormState, formData: FormData): Promis
       password: textField(formData, "password"),
     });
   } catch (error) {
+    // `signIn` anonim çağırıyor ve yönlendirmiyor; ama modül artık profil
+    // okuyucusunu içe aktarıyor ve kural her catch sınırı için aynı.
+    unstable_rethrow(error);
     return failureState(error);
   }
 

@@ -12,9 +12,13 @@ const viewerShell = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/auth/login", () => ({ signIn }));
 vi.mock("@/server/session/viewer", () => ({ viewerShell }));
-vi.mock("next/navigation", async () => ({
-  redirect: (await import("../../../../tests/support/navigation")).throwingRedirect(),
-}));
+vi.mock("next/navigation", async () => {
+  const navigation = await import("../../../../tests/support/navigation");
+  return {
+    redirect: navigation.throwingRedirect(),
+    unstable_rethrow: navigation.rethrowTestNavigationError,
+  };
+});
 
 function submission(fields: Record<string, string>) {
   const formData = new FormData();
