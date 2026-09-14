@@ -63,5 +63,5 @@ describe("konuşma durum makinesi", () => {
 });
 
 function message(id: string, senderId: string, body: string): Message {
-  return { id, senderId, body, sentAt: "2026-09-06T11:01:00Z", readAt: null };
+  return { id, senderId, senderName: null, body, sentAt: "2026-09-06T11:01:00Z", readAt: null };
 }

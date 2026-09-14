@@ -15,6 +15,10 @@ export function messageFromRealtime(value: unknown): Message | null {
   return {
     id: message.id,
     senderId: message.senderId,
+    // Eski sunucu alanı hiç yazmıyor; yokluk ile `null` aynı şey.
+    senderName: typeof message.senderName === "string" && message.senderName.trim() !== ""
+      ? message.senderName
+      : null,
     body: message.body,
     sentAt: message.sentAt,
     readAt: message.readAt,
