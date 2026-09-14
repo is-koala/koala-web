@@ -90,7 +90,7 @@ it("şirket adresi eksiğini companyBillingAddress kapısıyla ödeme öncesinde
   });
   render(await CheckoutContent({ assignment: { ...assignment, employerType: "COMPANY" }, viewer }));
 
-  expect(screen.getByText("Şirketin fatura adresi eksik")).toBeVisible();
+  expect(screen.getByText("Şirketin fatura adresi kayıtlı değil")).toBeVisible();
   expect(screen.getByRole("button", { name: "Iyzico ile güvenli öde" })).toBeDisabled();
 });
 

@@ -43,6 +43,11 @@ yaptığını değil.
 - Adres seçimi backend'in sağlayıcıdan bağımsız ağ geçidi üzerinden yapılır;
   Google anahtarı istemciye **hiç** girmez. Harita için ayrı, HTTP referrer
   kısıtlı bir Maps JavaScript anahtarı gerekir.
+- Bir alanı, o alanın **sahibi** uçtan oku: şirket adresi
+  `GET /companies/{id}`'den, ilanın `company` özetinden değil. İç içe özet
+  DTO'lar (`JobCompanyDto` gibi) sonradan alan düşürebiliyor ve `?.` zinciri
+  bunu sessizce "yok" diye okur; ödeme sayfası böyle her şirket ilanında
+  "adres eksik" dedi (is-koala/koala-web#171, is-koala/koala-backend#159).
 
 ## Yapı
 

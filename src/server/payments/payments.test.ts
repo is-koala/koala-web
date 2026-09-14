@@ -9,6 +9,7 @@ import {
   requestHeaders,
 } from "../../../tests/support/session-cookies";
 
+import { ApiError } from "@/server/api/errors";
 import {
   createPaymentSession,
   readAllEmployerAssignments,
@@ -405,19 +406,98 @@ describe("işveren ödeme BFF sözleşmesi", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("şirket ödeme kapısı için ilan şirketinin kimlik ve adres varlığını okur", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({
-      company: { id: "company-1", address: { id: "address-1" } },
-    })));
-    vi.stubGlobal("fetch", fetchMock);
+  describe("şirket ödeme kapısı", () => {
+    const companyAddress = {
+      countryName: "Türkiye",
+      cityName: "İstanbul",
+      districtName: "Kadıköy",
+      displayAddress: "Caferağa Mah., Kadıköy/İstanbul",
+    };
 
-    await expect(readEmployerPaymentCompany(backendAssignment.job.id)).resolves.toEqual({
-      companyId: "company-1",
-      hasAddress: true,
+    it("kimliği ilandan, adresi şirketin kendi ucundan okur", async () => {
+      // `GET /jobs/{id}` yanıtındaki `company` özet DTO ve adres taşımıyor
+      // (is-koala/koala-backend#159); adres oradan okunursa her şirket ilanı
+      // "adres eksik" görünür (is-koala/koala-web#171). Bu vaka onu pinler.
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(200, envelope({
+          company: { id: "company-1", name: "Koala A.Ş." },
+        })))
+        .mockResolvedValueOnce(jsonResponse(200, envelope({
+          id: "company-1",
+          name: "Koala A.Ş.",
+          address: companyAddress,
+        })));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(readEmployerPaymentCompany(backendAssignment.job.id)).resolves.toEqual({
+        companyId: "company-1",
+        hasAddress: true,
+      });
+      expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+        `https://api.example.test/jobs/${backendAssignment.job.id}`,
+        "https://api.example.test/companies/company-1",
+      ]);
     });
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      `https://api.example.test/jobs/${backendAssignment.job.id}`,
-    );
+
+    it("şirketin adresi null ise eksik sayar", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(200, envelope({ company: { id: "company-1" } })))
+        .mockResolvedValueOnce(jsonResponse(200, envelope({ id: "company-1", address: null })));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(readEmployerPaymentCompany(backendAssignment.job.id)).resolves.toEqual({
+        companyId: "company-1",
+        hasAddress: false,
+      });
+    });
+
+    it.each([403, 404])("şirket %s dönerse adresi bilinmiyor sayar", async (status) => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(200, envelope({ company: { id: "company-1" } })))
+        .mockResolvedValueOnce(jsonResponse(status, {
+          success: false,
+          data: null,
+          message: "denied",
+          errorCode: status === 403 ? "ACCESS_DENIED" : "COMPANY_NOT_FOUND",
+          errorCategory: "AUTHORIZATION",
+          httpStatus: status,
+          timeStamp: "2026-09-14T09:00:00",
+        }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(readEmployerPaymentCompany(backendAssignment.job.id)).resolves.toEqual({
+        companyId: "company-1",
+        hasAddress: null,
+      });
+    });
+
+    it("şirket ucu 5xx dönerse hatayı yutmaz", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(200, envelope({ company: { id: "company-1" } })))
+        .mockResolvedValueOnce(jsonResponse(503, {
+          success: false,
+          data: null,
+          message: "unavailable",
+          errorCode: "SERVICE_UNAVAILABLE",
+          errorCategory: "INTERNAL",
+          httpStatus: 503,
+          timeStamp: "2026-09-14T09:00:00",
+        }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(readEmployerPaymentCompany(backendAssignment.job.id)).rejects.toBeInstanceOf(ApiError);
+    });
+
+    it("ilanda şirket kimliği yoksa şirket ucuna çıkmaz", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, envelope({ company: null })));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(readEmployerPaymentCompany(backendAssignment.job.id)).resolves.toEqual({
+        companyId: "",
+        hasAddress: null,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it.each([
