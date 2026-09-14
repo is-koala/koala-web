@@ -7,6 +7,7 @@ import {
   acceptanceHeadcount,
   applicantMessaging,
   applicantPage,
+  applicantStatusLabel,
   applicantsInFilter,
   applicationDecisionGate,
   idleApplicantDossierState,
@@ -322,7 +323,7 @@ function ApplicantCard({
     <article className="application-card applicant-card" aria-labelledby={titleId}>
       <div className="application-card-body">
         <span className={`application-status application-status-${applicant.status.toLowerCase()}`}>
-          {decisionLabel[applicant.status]}
+          {applicantStatusLabel[applicant.status]}
         </span>
         <div className="applicant-identity">
           <ApplicantAvatar applicant={applicant} />
@@ -822,11 +823,3 @@ const filterOptions: ReadonlyArray<{ value: ApplicantFilter; label: string }> = 
   { value: "WITHDRAWN", label: "Geri çekilenler" },
 ];
 
-/** Karar metinleri işverenin bakış açısıyla yazılı; iş arayanınkiyle aynı değil. */
-const decisionLabel: Readonly<Record<JobApplicant["status"], string>> = {
-  APPLIED: "Karar bekliyor",
-  ACCEPTED: "Kabul edildi",
-  REJECTED: "Reddedildi",
-  WITHDRAWN: "Aday başvurusunu geri çekti",
-  UNKNOWN: "Durum güncelleniyor",
-};
