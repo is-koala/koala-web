@@ -21,6 +21,11 @@ type PayoutDto = {
   /** is-koala/koala-backend#282 ile geliyor; yoksa atama listesinden eşleniyor. */
   jobTitle?: string | null;
   companyName?: string | null;
+  /** Backend 0.9.25 (is-koala/koala-backend#294); eski sunucuda yok. `bankAccountId` okunmuyor. */
+  maskedIban?: string | null;
+  providerReference?: string | null;
+  releasedAt?: string | null;
+  settledAt?: string | null;
 };
 
 type PayoutJob = { jobTitle: string | null; employerName: string | null };
@@ -105,6 +110,10 @@ function projectPayout(dto: PayoutDto): WorkerPayout {
     createdAt: dto.createdAt,
     jobTitle: clean(dto.jobTitle),
     employerName: clean(dto.companyName),
+    maskedIban: clean(dto.maskedIban),
+    providerReference: clean(dto.providerReference),
+    releasedAt: clean(dto.releasedAt),
+    settledAt: clean(dto.settledAt),
   };
 }
 

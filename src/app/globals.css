@@ -509,6 +509,8 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .earnings-item-dates { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
 .earnings-item-dates dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
 .earnings-item-dates dd { margin: 2px 0 0; }
+.earnings-item-detail summary { cursor: pointer; color: var(--koala-green-ink); font-size: var(--size-14); font-weight: var(--w-semibold); }
+.earnings-item-detail[open] summary { margin-bottom: 10px; }
 .payout-failure { padding: 12px 14px; border-radius: var(--r-12); background: var(--danger-wash); }
 .payout-failure p { margin: 0 0 6px; }
 .account-settings { display: flex; flex-direction: column; gap: 22px; }

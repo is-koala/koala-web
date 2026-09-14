@@ -109,6 +109,10 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
         createdAt: "2026-09-05T10:30:00Z",
         jobTitle: "Etkinlik görevlisi",
         employerName: "Koala Etkinlik",
+        maskedIban: null,
+        providerReference: null,
+        releasedAt: null,
+        settledAt: null,
       },
       {
         id: "c1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
@@ -121,6 +125,10 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
         createdAt: "2026-09-04T08:00:00Z",
         jobTitle: "Depo sayımı",
         employerName: null,
+        maskedIban: null,
+        providerReference: null,
+        releasedAt: null,
+        settledAt: null,
       },
     ]);
     expect(JSON.stringify(result)).not.toContain("IBAN sahibi eşleşmedi");
@@ -190,6 +198,63 @@ describe("işçi ödeme çıkışları BFF sözleşmesi", () => {
       }))));
     const unmatched = await readWorkerPayouts();
     expect(unmatched[0]).toMatchObject({ jobTitle: null, employerName: null });
+  });
+
+  it("0.9.25 hakediş ayrıntısını taşır: maskeli IBAN, sağlayıcı referansı, çıkış ve mutabakat anları; hesap kimliği sınırı geçmez", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(200, envelope([
+      {
+        id: "a1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        jobAssignmentId: "b1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        jobTitle: "Etkinlik görevlisi",
+        companyName: null,
+        maskedIban: " TR18***2315 ",
+        bankAccountId: "c9f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        providerReference: "IYZ-7F3A9C",
+        amount: "1000.10",
+        currency: "TRY",
+        status: "COMPLETED",
+        failureReason: null,
+        releasedAt: "2026-09-05T10:30:00Z",
+        settledAt: "2026-09-06T08:00:00Z",
+        completedAt: "2026-09-06T08:00:00Z",
+        createdAt: "2026-09-05T10:30:00Z",
+      },
+      {
+        // Hesap sonradan silinmiş, sağlayıcı henüz onaylamamış: ikisi de null.
+        id: "c1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        jobAssignmentId: "d1f0d24c-4c2f-4f6c-8a9e-5d3c1b0a7f6e",
+        jobTitle: "Depo sayımı",
+        companyName: "Koala Lojistik",
+        maskedIban: null,
+        bankAccountId: null,
+        providerReference: null,
+        amount: "250.00",
+        currency: "TRY",
+        status: "PENDING",
+        releasedAt: "2026-09-07T10:30:00Z",
+        settledAt: null,
+        completedAt: null,
+        createdAt: "2026-09-07T10:30:00Z",
+      },
+    ])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkerPayouts();
+
+    expect(result[0]).toMatchObject({
+      maskedIban: "TR18***2315",
+      providerReference: "IYZ-7F3A9C",
+      releasedAt: "2026-09-05T10:30:00Z",
+      settledAt: "2026-09-06T08:00:00Z",
+    });
+    expect(result[1]).toMatchObject({
+      maskedIban: null,
+      providerReference: null,
+      releasedAt: "2026-09-07T10:30:00Z",
+      settledAt: null,
+    });
+    expect(JSON.stringify(result)).not.toContain("c9f0d24c");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("boş backend verisini boş listeye çevirir ve atama listesine çıkmaz", async () => {
