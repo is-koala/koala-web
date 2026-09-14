@@ -26,12 +26,17 @@ const markRatio = 461 / 320;
 /**
  * Kategori şeridi. Kayan bant dekoratif ve içerik iki kez çizilir ki döngü
  * kesintisiz olsun; ikinci kopya ekran okuyucudan gizli. Hareket
- * `prefers-reduced-motion` altında durur (globals.css).
+ * `prefers-reduced-motion` altında durur (marketing.css). Baştaki sabit
+ * "Örnek ücretler" rozeti hero kartı ve örnek kartlardaki işaretin aynısı:
+ * şeritteki ₺ değerleri de gerçek ilan değil.
  */
 export function CategoryTicker() {
   const items = homeContent.ticker;
   return (
     <div className="mk-ticker" aria-label="Kategoriler ve örnek günlük ücretler">
+      <div className="mk-ticker-lead">
+        <SampleBadge label={homeContent.tickerLabel} />
+      </div>
       <div className="mk-ticker-track">
         {[0, 1].map((copy) => (
           <ul key={copy} className="mk-ticker-list" aria-hidden={copy === 1 ? true : undefined}>

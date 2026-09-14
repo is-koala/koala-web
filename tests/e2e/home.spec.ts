@@ -37,9 +37,13 @@ test("ana sayfa v2 bölümlerini mockup sırasıyla çizer", async ({ page }) =>
   expect(positions.every((position) => position >= 0)).toBe(true);
   expect([...positions].sort((left, right) => left - right)).toEqual(positions);
 
-  await expect(page.locator(".mk-ticker")).toBeVisible();
+  const ticker = page.locator(".mk-ticker");
+  await expect(ticker).toBeVisible();
+  // Şeritteki ₺ değerleri de örnek; işaret şeridin kendi içinde durmalı.
+  await expect(ticker.getByText("Örnek ücretler", { exact: true })).toBeVisible();
   await expect(page.locator(".mk-stats")).toBeVisible();
-  await expect(page.getByText("Örnek", { exact: true }).first()).toBeAttached();
+  await expect(page.locator(".mk-map-card").getByText("Örnek", { exact: true })).toBeAttached();
+  await expect(page.locator(".mk-job-grid").getByText("Örnek", { exact: true })).toHaveCount(5);
 });
 
 test("çağrılar gerçek rotalara ve sayfa içi çıpalara gider", async ({ page }) => {

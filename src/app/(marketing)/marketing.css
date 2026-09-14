@@ -82,7 +82,9 @@
 .mk-map-job-foot .button { margin-left: auto; }
 
 /* ─── Kategori şeridi ─────────────────────────────────────────────────── */
-.mk-ticker { background: var(--surface-sunken); border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); overflow: hidden; }
+.mk-ticker { position: relative; display: flex; align-items: center; background: var(--surface-sunken); border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); overflow: hidden; }
+.mk-ticker-lead { position: relative; z-index: 1; flex: none; display: flex; align-items: center; padding: 0 14px 0 var(--gutter); background: var(--surface-sunken); box-shadow: 12px 0 12px var(--surface-sunken); }
+.mk-ticker-lead .mk-sample { background: var(--surface); border: 1px solid var(--divider); }
 .mk-ticker-track { display: flex; width: max-content; gap: 10px; padding: 18px 0; animation: mk-marquee 46s linear infinite; }
 .mk-ticker-list { display: flex; gap: 10px; margin: 0; padding: 0 5px; list-style: none; }
 .mk-ticker-item { display: flex; align-items: center; gap: 10px; padding: 9px 18px 9px 12px; border-radius: var(--r-primary); background: var(--surface); border: 1px solid var(--divider); font-size: var(--size-15); white-space: nowrap; }

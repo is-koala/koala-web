@@ -121,6 +121,7 @@ export const homeContent = {
     },
   },
   /** Kategori şeridi; ücretler örnek ve şerit dekoratif. */
+  tickerLabel: "Örnek ücretler",
   ticker: [
     { category: "WAITER", price: "₺1500" },
     { category: "BARISTA", price: "₺1200" },
