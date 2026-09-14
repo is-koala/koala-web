@@ -330,6 +330,7 @@ function ApplicantCard({
           <ApplicantAvatar applicant={applicant} />
           <h2 id={titleId}>{applicant.applicant.fullName || "Adı paylaşılmadı"}</h2>
         </div>
+        <ApplicantCompareStrip dossier={dossier} />
         <dl className="application-facts">
           {applicant.occupation ? (
             <div><dt>Mesleği</dt><dd>{applicant.occupation}</dd></div>
@@ -645,6 +646,62 @@ function ApplicantAvatar({ applicant }: { applicant: JobApplicant }) {
       style={{ backgroundImage: `url(${JSON.stringify(url)})` }}
     />
   );
+}
+
+/**
+ * Karşılaştırma şeridi: her kartta aynı üç hücre, aynı sırada.
+ *
+ * Adayları yan yana okumak için hücreler sabit — puan, rozet, konum — ve
+ * özet inmemişken boş değil "incele" yazıyor: hücreyi gizlemek kartları
+ * farklı boyda bırakır ve kıyaslamayı bozardı. Üçü de bugünkü alanlardan
+ * geliyor (`ApplicantDossier`): mesafe backend'de yok, en yakın ölçü il/ilçe;
+ * müsaitlik başvuru ya da profil yanıtında taşınmıyor ve uydurulmuyor.
+ */
+function ApplicantCompareStrip({ dossier }: { dossier: ApplicantDossier | null }) {
+  const rating = dossier?.ratingSummary ?? null;
+  const badges = dossier?.badges ?? null;
+  const location = dossier
+    ? [dossier.profile.districtName, dossier.profile.cityName].filter(Boolean).join(", ")
+    : null;
+
+  return (
+    <dl className="applicant-compare" aria-label="Karşılaştırma">
+      <div>
+        <dt>Puan</dt>
+        {rating && rating.reviewCount > 0 ? (
+          <dd className="ui-rating">{`${rating.averageRating} · ${rating.reviewCount} değerlendirme`}</dd>
+        ) : (
+          <dd className="is-empty">{dossier ? "Henüz yok" : "İncele"}</dd>
+        )}
+      </div>
+      <div>
+        <dt>Rozet</dt>
+        {badges && badges.length > 0 ? (
+          <dd>{badgeSummary(badges)}</dd>
+        ) : (
+          <dd className="is-empty">{dossier ? "Henüz yok" : "İncele"}</dd>
+        )}
+      </div>
+      <div>
+        <dt>Konum</dt>
+        {location ? (
+          <dd>{location}</dd>
+        ) : (
+          <dd className="is-empty">{dossier ? "Paylaşılmadı" : "İncele"}</dd>
+        )}
+      </div>
+    </dl>
+  );
+}
+
+/** "3 rozet · 1 altın" — en yüksek seviye sayısıyla birlikte. */
+function badgeSummary(badges: readonly ApplicantBadge[]): string {
+  const count = `${badges.length} rozet`;
+  for (const tier of ["GOLD", "SILVER", "BRONZE"] as const) {
+    const tierCount = badges.filter((badge) => badge.tier === tier).length;
+    if (tierCount > 0) return `${count} · ${tierCount} ${badgeTierLabel[tier].toLocaleLowerCase("tr-TR")}`;
+  }
+  return count;
 }
 
 function ApplicantDossierPanel({ dossier }: { dossier: ApplicantDossier }) {

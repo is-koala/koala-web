@@ -196,6 +196,22 @@ describe("işveren aday inceleme listesi", () => {
     expect(within(badges).getAllByRole("listitem")).toHaveLength(2);
   });
 
+  it("karşılaştırma şeridi özet inmeden üç hücreyi 'İncele' ile, indikten sonra puan, rozet ve konumla doldurur", async () => {
+    // Kartlar yan yana okunuyor (#156): hücreler her kartta aynı ve özet
+    // yokken gizlenmiyor, aksi hâlde kartlar farklı boyda kalırdı.
+    const user = userEvent.setup();
+    renderReview({ dossierAction: vi.fn(dossierActionFor(dossier())) });
+
+    const strip = screen.getByLabelText("Karşılaştırma");
+    expect(within(strip).getAllByText("İncele")).toHaveLength(3);
+
+    await user.click(screen.getByRole("button", { name: "Adayı incele" }));
+
+    expect(await within(strip).findByText("4.75 · 12 değerlendirme")).toBeVisible();
+    expect(within(strip).getByText("2 rozet · 1 altın")).toBeVisible();
+    expect(within(strip).getByText("Kadıköy, İstanbul")).toBeVisible();
+  });
+
   it("rozeti olmayan adayda listeyi sessizce yutmaz", async () => {
     const user = userEvent.setup();
     renderReview({ dossierAction: vi.fn(dossierActionFor(dossier({ badges: [] }))) });
