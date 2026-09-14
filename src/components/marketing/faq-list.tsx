@@ -1,4 +1,4 @@
-import { Icon } from "./icon";
+import { Icon } from "@/components/ui/icon";
 
 /**
  * SSS akordeonu. `details`/`summary` betiksiz çalışır ve klavyeyle açılır;

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { errorPresentation, errorRecoveryAction } from "@/lib/errors";
 
 import { ErrorRetryAction } from "./error-retry-action";
+import { EmptyStateCard, type Mascot } from "./ui/empty-state";
 
 const emptyCopy = {
   jobs: ["Henüz ilan yok", "Yeni ilanlar yayımlandığında burada görünecek."],
@@ -82,6 +83,29 @@ export function LoadingState({ label = "Yükleniyor" }: { label?: string }) {
   );
 }
 
+/**
+ * Boş durumun maskotu.
+ *
+ * Tasarım sistemi kişiliği maskota veriyor: işverenin boş listesi
+ * `koala_business`, iş arayanınki `koala_worker`. Haritada olmayan türler
+ * (öneri listesi, fiyat kutusu) küçük yardımcı kutular; maskot orada yer
+ * kaplardı ve bilerek yok.
+ */
+const emptyMascot: Partial<Record<keyof typeof emptyCopy, Mascot>> = {
+  jobs: "worker",
+  jobSearch: "worker",
+  jobPageOutOfRange: "worker",
+  applications: "worker",
+  messages: "worker",
+  assignments: "worker",
+  payouts: "worker",
+  employerJobs: "employer",
+  employerAssignments: "employer",
+  companyContacts: "employer",
+  companyInvitations: "employer",
+  gallery: "employer",
+};
+
 export function EmptyState({
   kind,
   children,
@@ -92,11 +116,9 @@ export function EmptyState({
 }) {
   const [title, message] = emptyCopy[kind];
   return (
-    <div role="status" className="state-card">
-      <h2>{title}</h2>
-      <p>{message}</p>
+    <EmptyStateCard title={title} message={message} mascot={emptyMascot[kind]}>
       {children}
-    </div>
+    </EmptyStateCard>
   );
 }
 

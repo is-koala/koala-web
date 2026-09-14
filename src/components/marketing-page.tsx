@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import type { MarketingPage as MarketingPageContent } from "@/content/marketing";
 
-import { Icon } from "./marketing/icon";
+import { Icon } from "@/components/ui/icon";
 import { Section, SectionHeading } from "./marketing/section";
 
 /**

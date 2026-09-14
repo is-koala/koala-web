@@ -7,7 +7,7 @@ import mapImage from "../../../public/brand/map-istanbul.webp";
 import profilePhoto from "../../../public/brand/profil-ornek.png";
 import wordmarkGreen from "../../../public/brand/wordmark-green.png";
 import { CategoryPin } from "./category-pin";
-import { Icon, type IconName } from "./icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 /**
  * Çalışan uygulamasının beş ekranı, HTML/CSS ile yeniden çizilmiş.
