@@ -1,4 +1,4 @@
-import type { Message } from "./contract";
+import { normalizeSenderName, type Message } from "./contract";
 
 export function messageFromRealtime(value: unknown): Message | null {
   if (typeof value !== "object" || value === null) return null;
@@ -15,6 +15,7 @@ export function messageFromRealtime(value: unknown): Message | null {
   return {
     id: message.id,
     senderId: message.senderId,
+    senderName: normalizeSenderName(message.senderName),
     body: message.body,
     sentAt: message.sentAt,
     readAt: message.readAt,

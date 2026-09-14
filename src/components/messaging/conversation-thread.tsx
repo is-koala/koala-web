@@ -24,7 +24,11 @@ import {
   sendMessageAction,
   unblockConversationUserAction,
 } from "@/app/(uygulama)/messaging-actions";
+import { Avatar, ListRow, ListRows } from "@/components/ui/list-row";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type {
+  ConversationParticipant,
+  ConversationSummary,
   LoadConversationSummaryResult,
   LoadMessagesResult,
   Message,
@@ -37,6 +41,15 @@ import type {
 } from "@/messaging/contract";
 import { reportReasonLabels, reportReasons } from "@/messaging/contract";
 import { errorPresentation } from "@/lib/errors";
+import { jobApplicantsPath } from "@/lib/app-routes";
+import {
+  applyReadEvent,
+  knowsParticipant,
+  mergeParticipants,
+  participantRoleLabels,
+  seenBy,
+  senderPresentation,
+} from "@/messaging/participants";
 import { messageFromRealtime } from "@/messaging/realtime";
 import {
   appendMessage,
@@ -116,6 +129,12 @@ export function ConversationThread({
   reportMessage = reportMessageAction,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
+  // Katılımcılar özetten ayrı duruyor: STOMP READ olayı yalnız bir okuma
+  // damgasını değiştiriyor ve özetin kendisini yeniden okumaya değmez.
+  const [participants, setParticipants] = useState<readonly ConversationParticipant[]>(
+    initialSummary.ok ? initialSummary.conversation.participants : [],
+  );
+  const [participantsOpen, setParticipantsOpen] = useState(false);
   const [thread, setThread] = useState(() => initialThreadState(initialMessages.content));
   const [body, setBody] = useState("");
   const [blockState, setBlockState] = useState<"open" | "viewer" | "unknown">(
@@ -143,6 +162,14 @@ export function ConversationThread({
   const historyRef = useRef<HTMLDivElement>(null);
   const safetyTriggerRef = useRef<HTMLButtonElement | null>(null);
   const reportTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const participantsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const participantsRef = useRef(participants);
+  const participantsRefreshing = useRef(false);
+  // Listede olmayan okuyucuların damgaları; özet gelince üstüne işlenir ki
+  // tazeleme yoldayken gelen READ kaybolmasın.
+  const pendingReads = useRef(new Map<string, string>());
+  const lastConnectionPhase = useRef<RealtimeConnectionState["phase"] | null>(null);
+  const hasBeenLive = useRef(false);
   const initialScrollPositioned = useRef(false);
   const lastScrollTop = useRef(0);
   const pendingScrollAnchor = useRef<{ height: number; top: number } | null>(null);
@@ -152,10 +179,18 @@ export function ConversationThread({
   const summaryPermanentlyUnavailable = !summary.ok && summary.status === 0;
   const blocked = blockState !== "open";
   const permanentlyBlocked = blocked || summaryBlocked;
-  const dialogOpen = safetyDialog !== null || reportDialog !== null;
+  const dialogOpen = safetyDialog !== null || reportDialog !== null || participantsOpen;
+  const isGroup = conversation?.kind === "GROUP";
+  // Grupta "görüldü" katılımcı damgalarından; ikili sohbette mesajın kendi
+  // `readAt`i. Sunucu damgayı taşımıyorsa grupta hiç yazılmaz.
+  const seenMode: SeenMode = !isGroup ? "direct" : conversation.readReceipts ? "group" : "hidden";
   const composerLocked = permanentlyBlocked || conversation === null || conversation.closed
     || (safetyPending && safetyDialog === "block");
   const sendUnavailable = composerLocked || !body.trim();
+
+  useEffect(() => {
+    participantsRef.current = participants;
+  }, [participants]);
 
   useLayoutEffect(() => {
     const history = historyRef.current;
@@ -175,7 +210,39 @@ export function ConversationThread({
     const controller = new AbortController();
     const release = retainRealtimeClient(client);
     const disposers: Array<() => void> = [];
-    const removeState = client.onStateChange(setConnection);
+    const removeState = client.onStateChange((state) => {
+      setConnection(state);
+      // Kopukken kaçan READ olayları geri gelmez; bağlantı canlıdan düşüp
+      // yeniden kurulunca damgalar özetten bir kez tazelenir. İlk kuruluş
+      // ve aynı durumun tekrar bildirilmesi tazeleme değil.
+      const previous = lastConnectionPhase.current;
+      lastConnectionPhase.current = state.phase;
+      if (state.phase !== "live") return;
+      if (hasBeenLive.current && previous !== "live") void refreshParticipants();
+      hasBeenLive.current = true;
+    });
+    // Özet sayfadan çıkarılıyor (`getConversation`); tek konuşma ucu yok.
+    // Tazeleme tek seferlik ve tekil: aynı anda ikinci istek açılmaz.
+    async function refreshParticipants() {
+      if (participantsRefreshing.current) return;
+      participantsRefreshing.current = true;
+      try {
+        const result = await loadSummary(conversationId, conversationPage);
+        if (!result.ok || controller.signal.aborted) return;
+        setParticipants((current) => {
+          let next = mergeParticipants(current, result.conversation.participants);
+          pendingReads.current.forEach((lastReadAt, userId) => {
+            next = applyReadEvent(next, userId, lastReadAt);
+            if (knowsParticipant(next, userId)) pendingReads.current.delete(userId);
+          });
+          return next;
+        });
+      } catch {
+        // Tazeleme yardımcı; başarısızlığı bir sonraki olay ya da yenileme kapatır.
+      } finally {
+        participantsRefreshing.current = false;
+      }
+    }
     const receive = (event: RealtimeEvent) => {
       if (event.conversationId !== conversationId) return;
       if (event.type === "MESSAGE") {
@@ -186,8 +253,25 @@ export function ConversationThread({
           void markRead(conversationId);
         }
       }
-      if (event.type === "READ" && event.userId !== viewerId) {
-        setThread((current) => markMessagesRead(current, viewerId, event.at));
+      if (event.type === "READ" && event.userId !== null) {
+        const readerId = event.userId;
+        const lastReadAt = event.lastReadAt ?? event.at;
+        setParticipants((current) => applyReadEvent(current, readerId, lastReadAt));
+        // Listede olmayan okuyucu sayfa açıldıktan sonra katılmış demektir;
+        // olay damgayı taşısa da kişiyi taşımaz, özet yeniden okunur. Özet
+        // hiç okunamadıysa liste boştur ve yolu hata kartındaki "Tekrar dene"
+        // açar; her READ'de yeniden denemek o kartı gereksiz kılmaz.
+        const known = participantsRef.current;
+        if (known.length > 0 && !knowsParticipant(known, readerId)) {
+          const pending = pendingReads.current.get(readerId);
+          if (pending === undefined || Date.parse(lastReadAt) > Date.parse(pending)) {
+            pendingReads.current.set(readerId, lastReadAt);
+          }
+          void refreshParticipants();
+        }
+        if (readerId !== viewerId) {
+          setThread((current) => markMessagesRead(current, viewerId, event.at));
+        }
       }
       if (event.type === "TYPING" && event.userId !== viewerId) {
         setTyping(true);
@@ -235,7 +319,17 @@ export function ConversationThread({
       removeState();
       release();
     };
-  }, [client, confirmConversation, confirmPresence, conversation?.counterpartId, conversationId, markRead, viewerId]);
+  }, [
+    client,
+    confirmConversation,
+    confirmPresence,
+    conversation?.counterpartId,
+    conversationId,
+    conversationPage,
+    loadSummary,
+    markRead,
+    viewerId,
+  ]);
 
   async function submitBody(rawBody: string) {
     const trimmed = rawBody.trim();
@@ -308,7 +402,10 @@ export function ConversationThread({
     try {
       const result = await loadSummary(conversationId, conversationPage);
       setSummary(result);
-      if (result.ok) setOnline(result.conversation.online);
+      if (result.ok) {
+        setOnline(result.conversation.online);
+        setParticipants(result.conversation.participants);
+      }
     } catch {
       // Server Action'a ulaşamamak önceki hata durumunu geçersiz kılmaz;
       // kullanıcı aynı güvenli, kilitli durumdan yeniden deneyebilir.
@@ -378,7 +475,24 @@ export function ConversationThread({
                   ? conversationSubtitle(conversation)
                   : (conversation.jobTitle ?? "Mesajlaşma")}
             </p>
-            <h1 id="thread-heading">{conversation?.displayName ?? "Konuşma"}</h1>
+            <h1 id="thread-heading">
+              {conversation === null ? "Konuşma" : (
+                <button
+                  className="thread-title-button"
+                  type="button"
+                  title="Katılımcıları göster"
+                  aria-haspopup="dialog"
+                  aria-expanded={participantsOpen}
+                  onClick={(event) => {
+                    participantsTriggerRef.current = event.currentTarget;
+                    setParticipantsOpen(true);
+                  }}
+                >
+                  {conversation.displayName}
+                  <span className="thread-title-chevron" aria-hidden="true" />
+                </button>
+              )}
+            </h1>
             {/* Presence tek bir karşı tarafa bağlı; grupta yazacak bir kişi yok. */}
             {conversation && conversation.kind !== "GROUP" ? (
               <p className="thread-presence">{online === true ? "Çevrimiçi" : "Çevrimdışı"}</p>
@@ -404,6 +518,23 @@ export function ConversationThread({
           </div>
         </div>
       </header>
+
+      {participantsOpen && conversation !== null ? (
+        <AccessibleDialog
+          labelledBy="participants-dialog-title"
+          dismissDisabled={false}
+          returnFocus={participantsTriggerRef}
+          onDismiss={() => setParticipantsOpen(false)}
+        >
+          <ParticipantsPanel
+            conversation={conversation}
+            participants={participants}
+            viewerId={viewerId}
+            basePath={basePath}
+            onClose={() => setParticipantsOpen(false)}
+          />
+        </AccessibleDialog>
+      ) : null}
 
       {safetyDialog === "block" || safetyDialog === "unblock" ? (
         <AccessibleDialog
@@ -534,6 +665,9 @@ export function ConversationThread({
           <MessageGroups
             messages={thread.messages}
             viewerId={viewerId}
+            participants={participants}
+            showSender={isGroup}
+            seenMode={seenMode}
             canRetry={!permanentlyBlocked}
             report={(messageId, trigger) => {
               reportTriggerRef.current = trigger;
@@ -707,15 +841,23 @@ function focusableElements(container: HTMLElement | null): HTMLElement[] {
   )];
 }
 
+type SeenMode = "direct" | "group" | "hidden";
+
 function MessageGroups({
   messages,
   viewerId,
+  participants,
+  showSender,
+  seenMode,
   canRetry,
   report,
   retry,
 }: {
   messages: readonly ThreadMessage[];
   viewerId: string;
+  participants: readonly ConversationParticipant[];
+  showSender: boolean;
+  seenMode: SeenMode;
   canRetry: boolean;
   report: (messageId: string, trigger: HTMLButtonElement) => void;
   retry: (message: ThreadMessage) => void;
@@ -726,10 +868,20 @@ function MessageGroups({
     const showDay = day !== previousDay;
     previousDay = day;
     const mine = message.senderId === viewerId;
+    const sender = showSender ? senderPresentation(message, participants, viewerId) : null;
+    const seen = mine && message.delivery === "sent" && seenMode === "group"
+      ? seenBy(message, participants, viewerId)
+      : null;
     return (
       <div key={message.id} className="message-entry">
         {showDay ? <div className="date-separator"><span>{longDate(message.sentAt)}</span></div> : null}
         <article className={`message-bubble ${mine ? "message-mine" : "message-theirs"}`}>
+          {sender ? (
+            <p className={`message-sender${sender.left ? " message-sender-left" : ""}`}>
+              {sender.name}
+              {sender.left ? <span className="message-sender-badge">Ayrıldı</span> : null}
+            </p>
+          ) : null}
           <p>{message.body}</p>
           <footer>
             <time dateTime={message.sentAt}>{messageTime(message.sentAt)}</time>
@@ -738,7 +890,10 @@ function MessageGroups({
               <button type="button" onClick={() => retry(message)}>Tekrar dene</button>
             ) : null}
             {message.delivery === "failed" && !canRetry ? <span>Gönderilemedi</span> : null}
-            {mine && message.delivery === "sent" ? <span>{message.readAt ? "Okundu" : "Gönderildi"}</span> : null}
+            {mine && message.delivery === "sent" && seenMode === "direct" ? (
+              <span>{message.readAt ? "Okundu" : "Gönderildi"}</span>
+            ) : null}
+            {seen !== null && seen.length === 0 ? <span>Gönderildi</span> : null}
             {!mine && message.delivery === "sent" ? (
               <button
                 type="button"
@@ -749,10 +904,140 @@ function MessageGroups({
               </button>
             ) : null}
           </footer>
+          {seen !== null && seen.length > 0 ? (
+            <details className="message-seen">
+              <summary>{seen.length} kişi gördü</summary>
+              <ul>
+                {seen.map((participant) => (
+                  <li key={participant.id}>
+                    {participant.name}
+                    {participant.lastReadAt ? (
+                      <time dateTime={participant.lastReadAt}>{shortDateTime(participant.lastReadAt)}</time>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </article>
       </div>
     );
   });
+}
+
+/**
+ * Katılımcılar paneli.
+ *
+ * Ayrılanlar listenin sonunda ve gri; adı eski mesajların gönderen satırında
+ * hâlâ çözülüyor, o yüzden listeden düşmüyorlar. Rol ve katılma tarihi eski
+ * sunucuda yok (is-koala/koala-backend#281 öncesi) ve o zaman satır yalnız adı
+ * yazar — "bilinmiyor" ile "yok" ayrı şeyler, uydurulmaz.
+ */
+function ParticipantsPanel({
+  conversation,
+  participants,
+  viewerId,
+  basePath,
+  onClose,
+}: {
+  conversation: ConversationSummary;
+  participants: readonly ConversationParticipant[];
+  viewerId: string;
+  basePath: string;
+  onClose: () => void;
+}) {
+  const ordered = [
+    ...participants.filter((participant) => !participant.left),
+    ...participants.filter((participant) => participant.left),
+  ];
+  return (
+    <section className="assignment-dialog participants-dialog">
+      <h2 id="participants-dialog-title">Katılımcılar</h2>
+      <p className="participants-dialog-subtitle">
+        {conversation.kind === "GROUP"
+          ? (conversation.jobTitle ?? conversation.displayName)
+          : conversationSubtitle(conversation)}
+      </p>
+      {conversation.closed ? (
+        <p role="note" className="participants-closed-note">
+          Bu konuşma kapandı; liste son hâliyle gösteriliyor ve yeni mesaj gönderilemiyor.
+        </p>
+      ) : null}
+      {ordered.length === 0 ? (
+        <p className="muted">Katılımcı bilgisi okunamadı.</p>
+      ) : (
+        <ListRows aria-label="Katılımcılar">
+          {ordered.map((participant) => {
+            const profileHref = participantProfileHref(participant, viewerId, basePath, conversation.jobId);
+            const self = participant.id === viewerId;
+            return (
+              <ListRow
+                key={participant.id}
+                className={participant.left ? "participant-row participant-row-left" : "participant-row"}
+                leading={<Avatar name={participant.name} src={participant.profilePictureUrl} size="sm" />}
+                title={
+                  <>
+                    {participant.name}
+                    {self ? <span className="participant-self"> (sen)</span> : null}
+                  </>
+                }
+                meta={
+                  <>
+                    {participant.role ? <span>{participantRoleLabels[participant.role]}</span> : null}
+                    {participant.joinedAt ? (
+                      <span>
+                        Katıldı: <time dateTime={participant.joinedAt}>{longDate(participant.joinedAt)}</time>
+                      </span>
+                    ) : null}
+                  </>
+                }
+                trailing={
+                  <>
+                    {participant.left ? <StatusBadge tone="neutral">Ayrıldı</StatusBadge> : null}
+                    {profileHref ? (
+                      <Link className="text-link" href={profileHref.href}>{profileHref.label}</Link>
+                    ) : null}
+                  </>
+                }
+              />
+            );
+          })}
+        </ListRows>
+      )}
+      <div className="assignment-dialog-actions">
+        <button className="button button-secondary button-small" type="button" onClick={onClose}>
+          Kapat
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Katılımcı satırının profil bağlantısı.
+ *
+ * Web'de başka bir kullanıcının profil sayfası yok; bağlantı ancak var olan
+ * bir adrese gider. Çalışan kendi profilini `/panel/profil`de görüyor;
+ * işveren, ilanın çalışanını aday dosyasının durduğu başvurular sayfasında.
+ * Kalan her satır bağlantısız kalır — olmayan bir sayfaya götürmektense.
+ * Ayrılan da bağlantısız: sohbetin dışına çıkmış kişi listede yalnız eski
+ * mesajlarının adı çözülsün diye duruyor.
+ */
+function participantProfileHref(
+  participant: ConversationParticipant,
+  viewerId: string,
+  basePath: string,
+  jobId: string | null,
+): { href: string; label: string } | null {
+  if (participant.left) return null;
+  const employerShell = basePath.startsWith("/isveren");
+  if (participant.id === viewerId) {
+    return employerShell ? null : { href: "/panel/profil", label: "Profilim" };
+  }
+  if (employerShell && participant.role === "WORKER" && jobId) {
+    return { href: jobApplicantsPath(jobId), label: "Aday dosyası" };
+  }
+  return null;
 }
 
 function longDate(value: string) {
@@ -766,6 +1051,16 @@ function longDate(value: string) {
 
 function messageTime(value: string) {
   return new Intl.DateTimeFormat("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Istanbul",
+  }).format(new Date(value));
+}
+
+function shortDateTime(value: string) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "numeric",
+    month: "short",
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Europe/Istanbul",

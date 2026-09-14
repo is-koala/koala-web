@@ -41,6 +41,7 @@ export function startPendingMessage(
   const pending: ThreadMessage = {
     id: `pending:${input.clientId}`,
     senderId: input.senderId,
+    senderName: null,
     body: input.body,
     sentAt: input.sentAt,
     readAt: null,

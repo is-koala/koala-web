@@ -5,6 +5,12 @@ export type RealtimeEvent = {
   message: unknown;
   online: boolean | null;
   at: string;
+  /**
+   * Yalnız `READ`: okuyanın (`userId`) yeni `lastReadAt` damgası
+   * (is-koala/koala-backend#281). Eski sunucu alanı hiç yazmıyor; o zaman
+   * `undefined` kalır ve istemci olayın `at` zamanına düşer.
+   */
+  lastReadAt?: string | null;
   error: { destination: string; errorCode: string; message: string } | null;
 };
 
@@ -31,6 +37,13 @@ export function realtimeEventOf(body: string): RealtimeEvent | null {
   }
   if (!(candidate.userId === null || typeof candidate.userId === "string")) return null;
   if (!(candidate.online === null || typeof candidate.online === "boolean")) return null;
+  if (!(
+    candidate.lastReadAt === undefined
+    || candidate.lastReadAt === null
+    || typeof candidate.lastReadAt === "string"
+  )) {
+    return null;
+  }
   if (!(candidate.error === null || isRealtimeError(candidate.error))) return null;
   return candidate as RealtimeEvent;
 }

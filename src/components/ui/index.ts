@@ -1,9 +1,11 @@
 /**
  * Koala tasarım sisteminin uygulama kabuğu bileşenleri (is-koala/koala-web#156).
  *
- * Hepsi sunucu bileşeni: durum okumaz, çerez açmaz, `use client` taşımaz.
- * Kabuk altındaki sayfalar başlığı, kartı, rozeti, sekmeyi ve boş durumu
- * buradan alır; token'lar `globals.css`'te, sınıf kuralları `app-shell.css`'te.
+ * Hepsi durumsuz sunum bileşeni: durum okumaz, çerez açmaz, `use client`
+ * taşımaz; bu yüzden sunucu sayfaları da istemci parçaları da (mesaj dizisi
+ * `list-row`/`status-badge`, üst bar `icon`) aynı dosyalardan alır. Kabuk
+ * altındaki sayfalar başlığı, kartı, rozeti, sekmeyi ve boş durumu buradan
+ * alır; token'lar `globals.css`'te, sınıf kuralları `app-shell.css`'te.
  */
 export { Card, PagePanel, type CardTone } from "./card";
 export { EmptyStateCard } from "./empty-state";

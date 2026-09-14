@@ -3,12 +3,52 @@ import { idleActionState, type ActionFailure, type ActionFor } from "@/lib/form-
 export type Message = {
   id: string;
   senderId: string;
+  /**
+   * `MessageDto.senderName` (is-koala/koala-backend#281). Eski sunucuda yok;
+   * grup balonu o zaman adı `participants` eşlemesinden çözer.
+   */
+  senderName: string | null;
   body: string;
   sentAt: string;
   readAt: string | null;
 };
 
 export type ConversationKind = "DIRECT" | "GROUP";
+
+/**
+ * `senderName`in tek normalizasyonu; iki giriş noktası (REST eşlemesi ve
+ * STOMP çözücü) bunu çağırır, tüketiciler değeri olduğu gibi okur. Boş ya da
+ * yalnız boşluk olan ad alanın yokluğuyla aynı şey: `null`.
+ */
+export function normalizeSenderName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
+ * `ConversationParticipantDto.role`. İşveren tarafı ilan sahibi ya da şirket
+ * yetkilisi; çalışan ödemesi emanete alınmış kişi. Eski sunucuda alan yok,
+ * `null` "bilinmiyor" demek ve panel rolü o satırda hiç yazmaz.
+ */
+export type ConversationParticipantRole = "EMPLOYER" | "COMPANY_CONTACT" | "WORKER";
+
+export type ConversationParticipant = {
+  /** Kullanıcı kimliği; `Message.senderId` ile eşleşir. */
+  id: string;
+  name: string;
+  profilePictureUrl: string | null;
+  role: ConversationParticipantRole | null;
+  joinedAt: string | null;
+  /**
+   * `POST /conversations/{id}/read` ile en son okuduğu an. "Görüldü"
+   * `lastReadAt >= sentAt` ile hesaplanır; hiç okumadıysa ya da sunucu alanı
+   * taşımıyorsa `null`.
+   */
+  lastReadAt: string | null;
+  /** Sohbetten ayrıldı; eski mesajlarının adı çözülsün diye listede kalır. */
+  left: boolean;
+};
 
 export type ConversationSummary = {
   id: string;
@@ -25,6 +65,17 @@ export type ConversationSummary = {
   participantCount: number;
   /** Görüntüleyen dışındaki katılımcıların adları; adı boş olan atlanır. */
   participantNames: readonly string[];
+  /**
+   * Görüntüleyen dahil, ayrılanlar da içinde tüm katılımcılar. Grup
+   * balonundaki gönderen adı, katılımcılar paneli ve "görüldü" buradan.
+   */
+  participants: readonly ConversationParticipant[];
+  /**
+   * Sunucu `participants[].lastReadAt` taşıyor mu. Alan yoksa grupta
+   * "görüldü" hiç çizilmez: eski bir sunucuda herkesi "görmedi" saymak
+   * yanlış bilgi olurdu.
+   */
+  readReceipts: boolean;
   profilePictureUrl: string | null;
   counterpartId: string | null;
   lastMessageAt: string | null;

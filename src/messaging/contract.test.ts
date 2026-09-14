@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { messagingAvailabilityFrom } from "./contract";
+import { messagingAvailabilityFrom, normalizeSenderName } from "./contract";
 
 describe("mesajlaşma kapısının atama yanıtından okunması", () => {
   it("üç nedeni sunucunun yazdığı gibi taşır", () => {
@@ -38,5 +38,15 @@ describe("mesajlaşma kapısının atama yanıtından okunması", () => {
       messagingAvailableReason: "SOMETHING_NEW",
     })).toBeNull();
     expect(messagingAvailabilityFrom({ messagingAvailable: false })).toBeNull();
+  });
+});
+
+describe("normalizeSenderName", () => {
+  it("boş, boşluk ve dize olmayan değeri null'a indirir; adı kırpar", () => {
+    expect(normalizeSenderName(undefined)).toBeNull();
+    expect(normalizeSenderName(null)).toBeNull();
+    expect(normalizeSenderName("   ")).toBeNull();
+    expect(normalizeSenderName(42)).toBeNull();
+    expect(normalizeSenderName("  Ece Yılmaz ")).toBe("Ece Yılmaz");
   });
 });

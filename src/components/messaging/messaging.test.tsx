@@ -9,6 +9,7 @@ import type {
   Page,
 } from "@/messaging/contract";
 import { errorPresentation } from "@/lib/errors";
+import { participant } from "../../../tests/support/messaging";
 import type {
   RealtimeClient,
   RealtimeConnectionState,
@@ -1195,18 +1196,424 @@ describe("mesajlaşma arayüzü", () => {
   });
 });
 
+describe("grup sohbeti (is-koala/koala-web#167)", () => {
+  const thirdId = "55555555-5555-4555-8555-555555555555";
+  const leftId = "66666666-6666-4666-8666-666666666666";
+  const groupId = "44444444-4444-4444-8444-444444444444";
+
+  function groupConversation(overrides: Partial<ConversationSummary> = {}): ConversationSummary {
+    return {
+      ...conversationPage().content[0]!,
+      id: groupId,
+      jobId: "77777777-7777-4777-8777-777777777777",
+      jobTitle: "Depo sayımı",
+      kind: "GROUP",
+      displayName: "Depo sayımı",
+      participantCount: 3,
+      participantNames: ["Ece Yılmaz", "Mehmet Kaya"],
+      participants: [
+        participant(viewerId, "Deniz Ak", { role: "EMPLOYER", joinedAt: "2026-09-01T09:00:00Z" }),
+        participant(otherId, "Ece Yılmaz", {
+          role: "WORKER",
+          joinedAt: "2026-09-02T09:00:00Z",
+          lastReadAt: "2026-09-06T11:30:00Z",
+        }),
+        participant(thirdId, "Mehmet Kaya", {
+          role: "COMPANY_CONTACT",
+          joinedAt: "2026-09-01T09:00:00Z",
+          lastReadAt: "2026-09-06T10:00:00Z",
+        }),
+        participant(leftId, "Zeynep Demir", {
+          role: "WORKER",
+          joinedAt: "2026-09-01T09:00:00Z",
+          lastReadAt: "2026-09-06T09:00:00Z",
+          left: true,
+        }),
+      ],
+      readReceipts: true,
+      counterpartId: null,
+      profilePictureUrl: null,
+      online: null,
+      ...overrides,
+    };
+  }
+
+  function renderGroup(
+    conversation: ConversationSummary,
+    messages: Message[],
+    realtime = new FakeRealtime(),
+    basePath = "/isveren/mesajlar",
+  ) {
+    return render(
+      <ConversationThread
+        conversationId={groupId}
+        initialSummary={{ ok: true, conversation }}
+        initialMessages={messagePage(messages)}
+        viewerId={viewerId}
+        basePath={basePath}
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+  }
+
+  it("grup balonunda gönderen adını yazar; kendi mesajında yazmaz, ayrılanı işaretler", () => {
+    renderGroup(groupConversation(), [
+      message("Sunucu adıyla", otherId, { id: "m1", senderName: "Ece Y.", sentAt: "2026-09-06T10:00:00Z" }),
+      message("Eşlemeyle", thirdId, { id: "m2", sentAt: "2026-09-06T10:01:00Z" }),
+      message("Ayrılandan", leftId, { id: "m3", sentAt: "2026-09-06T10:02:00Z" }),
+      message("Listede olmayandan", "unknown-user", { id: "m4", sentAt: "2026-09-06T10:03:00Z" }),
+      message("Benden", viewerId, { id: "m5", sentAt: "2026-09-06T10:04:00Z" }),
+    ]);
+
+    const bubbleOf = (body: string) => screen.getByText(body).closest("article")!;
+    expect(within(bubbleOf("Sunucu adıyla")).getByText("Ece Y.")).toBeVisible();
+    expect(within(bubbleOf("Eşlemeyle")).getByText("Mehmet Kaya")).toBeVisible();
+    const left = within(bubbleOf("Ayrılandan"));
+    expect(left.getByText("Zeynep Demir")).toBeVisible();
+    expect(left.getByText("Ayrıldı")).toBeVisible();
+    const unknown = within(bubbleOf("Listede olmayandan"));
+    expect(unknown.getByText("Ayrılan katılımcı")).toBeVisible();
+    expect(unknown.getByText("Ayrıldı")).toBeVisible();
+    expect(bubbleOf("Benden").querySelector(".message-sender")).toBeNull();
+    expect(within(bubbleOf("Benden")).queryByText("Deniz Ak")).toBeNull();
+  });
+
+  it("ikili sohbette gönderen adı yazmaz ve okundu davranışı korunur", () => {
+    const realtime = new FakeRealtime();
+    render(
+      <ConversationThread
+        conversationId={conversationId}
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+        initialMessages={messagePage([
+          message("Ondan", otherId, { id: "d1", senderName: "Ece Yılmaz", sentAt: "2026-09-06T10:00:00Z" }),
+          message("Benden", viewerId, { id: "d2", sentAt: "2026-09-06T10:01:00Z" }),
+        ])}
+        viewerId={viewerId}
+        basePath="/panel/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        confirmPresence={vi.fn().mockResolvedValue(true)}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    expect(document.querySelector(".message-sender")).toBeNull();
+    const mine = screen.getByText("Benden").closest("article")!;
+    expect(within(mine).getByText("Gönderildi")).toBeVisible();
+    expect(within(mine).queryByText(/kişi gördü/)).toBeNull();
+
+    act(() => realtime.emitPersonal({
+      type: "READ",
+      conversationId,
+      userId: otherId,
+      message: null,
+      online: null,
+      at: "2026-09-06T10:05:00Z",
+      lastReadAt: "2026-09-06T10:05:00Z",
+      error: null,
+    }));
+
+    expect(within(mine).getByText("Okundu")).toBeVisible();
+  });
+
+  it("grupta kendi mesajının altında görenleri sayar, listeler ve READ olayıyla canlı günceller", async () => {
+    const user = userEvent.setup();
+    const realtime = new FakeRealtime();
+    renderGroup(groupConversation(), [
+      message("Herkes gördü mü?", viewerId, { id: "g1", sentAt: "2026-09-06T09:30:00Z" }),
+      message("Yeni mesaj", viewerId, { id: "g2", sentAt: "2026-09-06T11:00:00Z" }),
+      message("En yeni", viewerId, { id: "g3", sentAt: "2026-09-06T12:00:00Z" }),
+    ], realtime);
+
+    // 09:30: Ece (11:30), Mehmet (10:00) ve ayrılmadan önce okuyan Zeynep (09:00 → hayır).
+    const oldest = screen.getByText("Herkes gördü mü?").closest("article")!;
+    expect(within(oldest).getByText("2 kişi gördü")).toBeVisible();
+    await user.click(within(oldest).getByText("2 kişi gördü"));
+    const seenList = within(oldest).getByRole("list");
+    expect(within(seenList).getByText("Ece Yılmaz")).toBeVisible();
+    expect(within(seenList).getByText("Mehmet Kaya")).toBeVisible();
+    expect(within(seenList).queryByText("Deniz Ak")).toBeNull();
+
+    const middle = screen.getByText("Yeni mesaj").closest("article")!;
+    expect(within(middle).getByText("1 kişi gördü")).toBeVisible();
+    const newest = screen.getByText("En yeni").closest("article")!;
+    expect(within(newest).getByText("Gönderildi")).toBeVisible();
+    expect(within(newest).queryByText("Okundu")).toBeNull();
+
+    // Mehmet 12:30'da okudu: üç mesajı da görmüş olur; kendi READ'im sayıya girmez.
+    act(() => realtime.emitPersonal({
+      type: "READ",
+      conversationId: groupId,
+      userId: thirdId,
+      message: null,
+      online: null,
+      at: "2026-09-06T12:30:01Z",
+      lastReadAt: "2026-09-06T12:30:00Z",
+      error: null,
+    }));
+    act(() => realtime.emitPersonal({
+      type: "READ",
+      conversationId: groupId,
+      userId: viewerId,
+      message: null,
+      online: null,
+      at: "2026-09-06T12:31:00Z",
+      lastReadAt: "2026-09-06T12:31:00Z",
+      error: null,
+    }));
+
+    expect(within(newest).getByText("1 kişi gördü")).toBeVisible();
+    expect(within(middle).getByText("2 kişi gördü")).toBeVisible();
+    expect(within(newest).queryByText("Gönderildi")).toBeNull();
+  });
+
+  it("listede olmayan okuyucunun READ olayında özeti bir kez tazeler ve sayıyı artırır", async () => {
+    // Sayfa açıldıktan sonra katılan biri READ gönderiyor: olay damgayı
+    // taşıyor ama kişiyi taşımıyor. Özet yeniden okunur; yoldayken gelen
+    // damga (12:20) özettekinden (12:10) ileri olduğu için korunur.
+    const newcomerId = "77777777-7777-4777-8777-777777777777";
+    const realtime = new FakeRealtime();
+    const refreshed = groupConversation({
+      participants: [
+        ...groupConversation().participants,
+        participant(newcomerId, "Ali Can", { role: "WORKER", lastReadAt: "2026-09-06T12:10:00Z" }),
+      ],
+    });
+    const loadSummary = vi.fn().mockResolvedValue({ ok: true, conversation: refreshed });
+    render(
+      <ConversationThread
+        conversationId={groupId}
+        initialSummary={{ ok: true, conversation: groupConversation() }}
+        initialMessages={messagePage([
+          message("Yeni gelen görecek mi?", viewerId, { id: "g1", sentAt: "2026-09-06T12:00:00Z" }),
+        ])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        loadSummary={loadSummary}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+    const bubble = screen.getByText("Yeni gelen görecek mi?").closest("article")!;
+    expect(within(bubble).getByText("Gönderildi")).toBeVisible();
+
+    const readBy = (userId: string, lastReadAt: string) => act(() => realtime.emitPersonal({
+      type: "READ", conversationId: groupId, userId, message: null, online: null,
+      at: lastReadAt, lastReadAt, error: null,
+    }));
+    readBy(newcomerId, "2026-09-06T12:20:00Z");
+    readBy(newcomerId, "2026-09-06T12:21:00Z");
+
+    await waitFor(() => expect(within(bubble).getByText("1 kişi gördü")).toBeVisible());
+    expect(loadSummary).toHaveBeenCalledTimes(1);
+    expect(loadSummary).toHaveBeenCalledWith(groupId, 0);
+    fireEvent.click(within(bubble).getByText("1 kişi gördü"));
+    expect(within(bubble).getByRole("listitem")).toHaveTextContent("Ali Can");
+    expect(within(bubble).getByRole("listitem")).toHaveTextContent("6 Eyl 15:21");
+  });
+
+  it("bağlantı kopup yeniden kurulunca damgaları özetten tazeler; ilk kuruluşta tazelemez", async () => {
+    const realtime = new FakeRealtime();
+    realtime.state = { phase: "connecting", mode: "rest" };
+    const loadSummary = vi.fn().mockResolvedValue({
+      ok: true,
+      conversation: groupConversation({
+        participants: groupConversation().participants.map((item) =>
+          item.id === thirdId ? { ...item, lastReadAt: "2026-09-06T12:30:00Z" } : item,
+        ),
+      }),
+    });
+    render(
+      <ConversationThread
+        conversationId={groupId}
+        initialSummary={{ ok: true, conversation: groupConversation() }}
+        initialMessages={messagePage([
+          message("Kopukken okundu", viewerId, { id: "g1", sentAt: "2026-09-06T12:00:00Z" }),
+        ])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        loadSummary={loadSummary}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+    const bubble = screen.getByText("Kopukken okundu").closest("article")!;
+
+    act(() => realtime.emitState({ phase: "live", mode: "realtime" }));
+    expect(loadSummary).not.toHaveBeenCalled();
+    act(() => realtime.emitState({ phase: "reconnecting", mode: "rest", retryInMs: 1_000 }));
+    act(() => realtime.emitState({ phase: "live", mode: "realtime" }));
+
+    await waitFor(() => expect(within(bubble).getByText("1 kişi gördü")).toBeVisible());
+    expect(loadSummary).toHaveBeenCalledTimes(1);
+  });
+
+  it("eski sunucu READ olayında damga yoksa olayın zamanına düşer", () => {
+    const realtime = new FakeRealtime();
+    renderGroup(groupConversation(), [
+      message("Damgasız", viewerId, { id: "g1", sentAt: "2026-09-06T12:00:00Z" }),
+    ], realtime);
+    const bubble = screen.getByText("Damgasız").closest("article")!;
+    expect(within(bubble).getByText("Gönderildi")).toBeVisible();
+
+    act(() => realtime.emitPersonal({
+      type: "READ",
+      conversationId: groupId,
+      userId: otherId,
+      message: null,
+      online: null,
+      at: "2026-09-06T12:05:00Z",
+      error: null,
+    }));
+
+    expect(within(bubble).getByText("1 kişi gördü")).toBeVisible();
+  });
+
+  it("sunucu lastReadAt taşımıyorsa grupta görüldü bilgisini hiç çizmez", () => {
+    renderGroup(groupConversation({
+      readReceipts: false,
+      participants: groupConversation().participants.map((item) => ({ ...item, lastReadAt: null })),
+    }), [
+      message("Eski sunucu", viewerId, { id: "g1", sentAt: "2026-09-06T12:00:00Z" }),
+    ]);
+
+    const bubble = screen.getByText("Eski sunucu").closest("article")!;
+    expect(within(bubble).queryByText(/kişi gördü/)).toBeNull();
+    expect(within(bubble).queryByText("Gönderildi")).toBeNull();
+    expect(within(bubble).queryByText("Okundu")).toBeNull();
+  });
+
+  it("başlık katılımcılar panelini açar: rol, katılma tarihi, ayrılan gri, aday dosyası bağlantısı", async () => {
+    const user = userEvent.setup();
+    renderGroup(groupConversation(), []);
+
+    const trigger = within(screen.getByRole("heading", { level: 1 })).getByRole("button", { name: "Depo sayımı" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    await user.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "Katılımcılar" });
+    expect(dialog).toBeVisible();
+    expect(within(dialog).queryByRole("note")).toBeNull();
+    const rows = within(within(dialog).getByRole("list", { name: "Katılımcılar" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(4);
+
+    expect(rows[0]).toHaveTextContent("Deniz Ak");
+    expect(rows[0]).toHaveTextContent("(sen)");
+    expect(rows[0]).toHaveTextContent("İşveren");
+    expect(rows[0]).toHaveTextContent("Katıldı: 1 Eylül 2026");
+    // İşveren kabuğunda kendi satırının gideceği bir profil sayfası yok.
+    expect(within(rows[0]!).queryByRole("link")).toBeNull();
+
+    expect(rows[1]).toHaveTextContent("Ece Yılmaz");
+    expect(rows[1]).toHaveTextContent("Çalışan");
+    expect(rows[1]).toHaveTextContent("Katıldı: 2 Eylül 2026");
+    expect(within(rows[1]!).getByRole("link", { name: "Aday dosyası" }))
+      .toHaveAttribute("href", "/isveren/ilan/77777777-7777-4777-8777-777777777777/basvurular");
+
+    expect(rows[2]).toHaveTextContent("Mehmet Kaya");
+    expect(rows[2]).toHaveTextContent("Şirket yetkilisi");
+    expect(within(rows[2]!).queryByRole("link")).toBeNull();
+
+    // Ayrılan listenin sonunda, gri ve rozetli.
+    expect(rows[3]).toHaveTextContent("Zeynep Demir");
+    expect(rows[3]).toHaveClass("participant-row-left");
+    expect(within(rows[3]!).getByText("Ayrıldı")).toBeVisible();
+    expect(within(rows[3]!).queryByRole("link")).toBeNull();
+  });
+
+  it("çalışan kabuğunda kendi satırı profiline bağlanır ve kapalı sohbet notu görünür", async () => {
+    const user = userEvent.setup();
+    renderGroup(groupConversation({ closed: true }), [], new FakeRealtime(), "/panel/mesajlar");
+
+    await user.click(screen.getByRole("button", { name: "Depo sayımı" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Katılımcılar" });
+    expect(within(dialog).getByRole("note")).toHaveTextContent("Bu konuşma kapandı");
+    const rows = within(dialog).getAllByRole("listitem");
+    expect(within(rows[0]!).getByRole("link", { name: "Profilim" })).toHaveAttribute("href", "/panel/profil");
+    expect(within(rows[1]!).queryByRole("link")).toBeNull();
+  });
+
+  it("eski sunucuda rol ve katılma tarihi yoksa satır yalnız adı yazar", async () => {
+    const user = userEvent.setup();
+    renderGroup(groupConversation({
+      readReceipts: false,
+      participants: [
+        participant(viewerId, "Deniz Ak", { joinedAt: null }),
+        participant(otherId, "Ece Yılmaz", { joinedAt: null }),
+      ],
+    }), []);
+
+    await user.click(screen.getByRole("button", { name: "Depo sayımı" }));
+
+    const rows = within(screen.getByRole("dialog", { name: "Katılımcılar" })).getAllByRole("listitem");
+    expect(rows[1]).toHaveTextContent("Ece Yılmaz");
+    expect(rows[1]).not.toHaveTextContent("Katıldı");
+    expect(rows[1]).not.toHaveTextContent(/İşveren|Çalışan|Şirket yetkilisi/);
+  });
+
+  it("katılımcılar paneli klavyeyle açılır, odağı çevreler ve Escape ile tetikleyiciye döner", async () => {
+    const user = userEvent.setup();
+    renderGroup(groupConversation(), []);
+
+    const trigger = screen.getByRole("button", { name: "Depo sayımı" });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+    const dialog = screen.getByRole("dialog", { name: "Katılımcılar" });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(within(dialog).getByRole("link", { name: "Aday dosyası" })).toHaveFocus();
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Kapat" })).toHaveFocus();
+    await user.tab();
+    expect(within(dialog).getByRole("link", { name: "Aday dosyası" })).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Mesaj" }).closest("form")).toHaveAttribute("inert");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("ikili sohbette de başlık iki katılımcıyı listeler", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConversationThreadForSummary
+        initialSummary={{ ok: true, conversation: conversationPage().content[0]! }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ece Yılmaz" }));
+
+    const rows = within(screen.getByRole("dialog", { name: "Katılımcılar" })).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Deniz Ak");
+    expect(rows[1]).toHaveTextContent("Ece Yılmaz");
+  });
+});
+
 class FakeRealtime implements RealtimeClient {
   personalListeners: RealtimeEventListener[] = [];
   activeConversationListeners: RealtimeEventListener[] = [];
   followedConversations: string[] = [];
   followedPresence: string[] = [];
   state: RealtimeConnectionState = { phase: "live", mode: "realtime" };
+  stateListeners: Array<(state: RealtimeConnectionState) => void> = [];
   start = vi.fn();
   stop = vi.fn();
   getState = () => this.state;
   onStateChange(listener: (state: RealtimeConnectionState) => void) {
+    this.stateListeners.push(listener);
     listener(this.state);
-    return () => undefined;
+    return () => { this.stateListeners = this.stateListeners.filter((item) => item !== listener); };
+  }
+  emitState(state: RealtimeConnectionState) {
+    this.state = state;
+    this.stateListeners.forEach((listener) => listener(state));
   }
   listenToMessages(listener: RealtimeEventListener) {
     this.personalListeners.push(listener);
@@ -1255,6 +1662,11 @@ function conversationPage(): Page<ConversationSummary> {
       displayName: "Ece Yılmaz",
       participantCount: 2,
       participantNames: ["Ece Yılmaz"],
+      participants: [
+        participant(viewerId, "Deniz Ak", { role: "EMPLOYER" }),
+        participant(otherId, "Ece Yılmaz", { role: "WORKER" }),
+      ],
+      readReceipts: true,
       profilePictureUrl: null,
       counterpartId: otherId,
       lastMessageAt: "2026-09-06T10:00:00Z",
@@ -1274,13 +1686,15 @@ function messagePage(content: Message[]): Page<Message> {
   return { content, page: 0, totalPages: 1, totalElements: content.length, last: true };
 }
 
-function message(body: string, senderId: string): Message {
+function message(body: string, senderId: string, overrides: Partial<Message> = {}): Message {
   return {
     id: "44444444-4444-4444-8444-444444444444",
     senderId,
+    senderName: null,
     body,
     sentAt: "2026-09-06T11:00:00Z",
     readAt: null,
+    ...overrides,
   };
 }
 

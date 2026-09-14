@@ -3,12 +3,18 @@ import "server-only";
 import { unstable_rethrow } from "next/navigation";
 
 import type {
+  ConversationParticipant,
+  ConversationParticipantRole,
   ConversationSummary,
   Message,
   Page,
   ReportReason,
 } from "@/messaging/contract";
-import { conversationListPageSize, isConversationSourcePage } from "@/messaging/contract";
+import {
+  conversationListPageSize,
+  isConversationSourcePage,
+  normalizeSenderName,
+} from "@/messaging/contract";
 import { apiRequest } from "@/server/session/session";
 
 type BackendUser = {
@@ -19,6 +25,20 @@ type BackendUser = {
   profilePictureUrl?: string | null;
 };
 
+/**
+ * `ConversationParticipantDto` (is-koala/koala-backend#281). Dört alan eski
+ * sunucuda yok — o zaman `participants` düz `SafeUserDto` listesi — bu yüzden
+ * hepsi isteğe bağlı okunuyor ve yokluk `null`/`false`a düşüyor.
+ */
+type BackendParticipant = BackendUser & {
+  role?: string | null;
+  joinedAt?: string | null;
+  lastReadAt?: string | null;
+  left?: boolean | null;
+};
+
+type BackendMessage = Message & { senderName?: string | null };
+
 type BackendConversation = {
   id?: string | null;
   jobId?: string | null;
@@ -26,7 +46,7 @@ type BackendConversation = {
   kind?: string | null;
   employer?: BackendUser | null;
   worker?: BackendUser | null;
-  participants?: readonly BackendUser[] | null;
+  participants?: readonly BackendParticipant[] | null;
   lastMessageAt?: string | null;
   lastMessageBody?: string | null;
   unreadCount?: number | null;
@@ -89,7 +109,7 @@ export async function getConversationMessages(
   page = 0,
   size = 30,
 ): Promise<Page<Message>> {
-  const response = await apiRequest<BackendPage<Message>>(
+  const response = await apiRequest<BackendPage<BackendMessage>>(
     `/conversations/${encodeURIComponent(conversationId)}/messages?${new URLSearchParams({
       page: String(page),
       size: String(size),
@@ -139,7 +159,7 @@ export async function openWorkerConversation(jobId: string): Promise<string> {
 }
 
 export function sendConversationMessage(conversationId: string, body: string): Promise<Message> {
-  return apiRequest<Message>(
+  return apiRequest<BackendMessage>(
     `/conversations/${encodeURIComponent(conversationId)}/messages`,
     { method: "POST", body: { body } },
   ).then(toMessage);
@@ -244,15 +264,21 @@ async function getPresenceSafely(userIds: readonly string[]) {
  * (backend onları katılımcı yazıyor), yani `participants` görüntüleyeni de
  * içeriyor ve ad listesi onu düşüyor. `kind` eski bir yanıtta yoksa ikiden
  * fazla katılımcı yine grup sayılıyor: ikili konuşmanın üçüncü kişisi olmaz.
+ *
+ * Ayrılanlar (`left=true`, is-koala/koala-backend#281) sayıya ve ad listesine
+ * girmiyor — satır kimlerle yazışıldığını söylüyor — ama `participants`
+ * içinde kalıyor ki eski mesajlarının gönderen adı çözülsün.
  */
 function toConversation(value: BackendConversation, viewerId: string): ConversationSummary {
-  const participants = value.participants ?? [value.employer, value.worker].filter(isUser);
-  const others = participants.filter((participant) => participant.id !== viewerId);
+  const rawParticipants = value.participants ?? [value.employer, value.worker].filter(isUser);
+  const participants = rawParticipants.filter(hasId).map(toParticipant);
+  const active = participants.filter((participant) => !participant.left);
+  const others = active.filter((participant) => participant.id !== viewerId);
   const counterpart = others[0] ?? null;
-  const isGroup = value.kind === "GROUP" || participants.length > 2;
+  const isGroup = value.kind === "GROUP" || rawParticipants.length > 2;
   const displayName = isGroup
     ? (value.jobTitle?.trim() || "İlan grubu")
-    : userName(counterpart);
+    : (counterpart?.name ?? "");
 
   return {
     id: value.id ?? "",
@@ -260,8 +286,10 @@ function toConversation(value: BackendConversation, viewerId: string): Conversat
     jobTitle: value.jobTitle ?? null,
     kind: isGroup ? "GROUP" : "DIRECT",
     displayName: displayName || "Konuşma",
-    participantCount: participants.length,
-    participantNames: others.map(userName).filter((name) => name !== ""),
+    participantCount: active.length,
+    participantNames: others.map((participant) => participant.name).filter((name) => name !== ""),
+    participants,
+    readReceipts: rawParticipants.some((participant) => "lastReadAt" in participant),
     profilePictureUrl: isGroup ? null : (counterpart?.profilePictureUrl ?? null),
     counterpartId: isGroup ? null : (counterpart?.id ?? null),
     lastMessageAt: value.lastMessageAt ?? null,
@@ -270,6 +298,23 @@ function toConversation(value: BackendConversation, viewerId: string): Conversat
     closed: value.closed === true,
     online: null,
   };
+}
+
+function toParticipant(value: BackendParticipant & { id: string }): ConversationParticipant {
+  return {
+    id: value.id,
+    name: userName(value),
+    profilePictureUrl: value.profilePictureUrl ?? null,
+    role: participantRole(value.role),
+    joinedAt: value.joinedAt ?? null,
+    lastReadAt: value.lastReadAt ?? null,
+    left: value.left === true,
+  };
+}
+
+/** Tanınmayan rol `null`: panel o satırda rol yazmaz, uydurmaz. */
+function participantRole(value: string | null | undefined): ConversationParticipantRole | null {
+  return value === "EMPLOYER" || value === "COMPANY_CONTACT" || value === "WORKER" ? value : null;
 }
 
 function userName(user: BackendUser | null) {
@@ -281,10 +326,15 @@ function isUser(user: BackendUser | null | undefined): user is BackendUser {
   return user !== null && user !== undefined;
 }
 
-function toMessage(value: Message): Message {
+function hasId(user: BackendParticipant): user is BackendParticipant & { id: string } {
+  return typeof user.id === "string" && user.id !== "";
+}
+
+function toMessage(value: BackendMessage): Message {
   return {
     id: value.id,
     senderId: value.senderId,
+    senderName: normalizeSenderName(value.senderName),
     body: value.body,
     sentAt: value.sentAt,
     readAt: value.readAt ?? null,

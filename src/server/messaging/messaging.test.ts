@@ -91,6 +91,27 @@ describe("mesajlaşma backend modülü", () => {
         displayName: "Ece Yılmaz",
         participantCount: 2,
         participantNames: ["Ece Yılmaz"],
+        participants: [
+          {
+            id: viewerId,
+            name: "Deniz Ak",
+            profilePictureUrl: null,
+            role: null,
+            joinedAt: null,
+            lastReadAt: null,
+            left: false,
+          },
+          {
+            id: otherId,
+            name: "Ece Yılmaz",
+            profilePictureUrl: null,
+            role: null,
+            joinedAt: null,
+            lastReadAt: null,
+            left: false,
+          },
+        ],
+        readReceipts: false,
         profilePictureUrl: null,
         counterpartId: otherId,
         lastMessageAt: "2026-09-06T11:00:00Z",
@@ -154,6 +175,104 @@ describe("mesajlaşma backend modülü", () => {
       online: null,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("#281 katılımcı sözleşmesini rol, katılma ve okuma damgasıyla taşır; ayrılanı sayıdan düşer", async () => {
+    // `ConversationParticipantDto` (is-koala/koala-backend#281): ayrılan
+    // `left=true` ile listede kalıyor ki eski mesajlarının adı çözülsün, ama
+    // satırın "4 katılımcı" sayısı ve ad listesi yalnız aktifleri anlatır.
+    // `lastReadAt` alanının varlığı "görüldü"nün çizilip çizilmeyeceğini
+    // söylüyor; tanınmayan rol uydurulmaz, `null` kalır.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      content: [{
+        id: conversationId,
+        jobId: "44444444-4444-4444-8444-444444444444",
+        jobTitle: "Depo sayımı",
+        kind: "GROUP",
+        participants: [
+          {
+            id: viewerId, firstName: "Deniz", lastName: "Ak", profilePictureUrl: null,
+            role: "EMPLOYER", joinedAt: "2026-09-01T09:00:00Z",
+            lastReadAt: "2026-09-06T12:00:00Z", left: false,
+          },
+          {
+            id: otherId, firstName: "Ece", lastName: "Yılmaz", profilePictureUrl: "https://cdn.example.test/ece.webp",
+            role: "WORKER", joinedAt: "2026-09-02T09:00:00Z", lastReadAt: null, left: false,
+          },
+          {
+            id: "third-user", firstName: "Mehmet", lastName: "Kaya", profilePictureUrl: null,
+            role: "COMPANY_CONTACT", joinedAt: "2026-09-01T09:00:00Z",
+            lastReadAt: "2026-09-03T09:00:00Z", left: true,
+          },
+          {
+            id: "fourth-user", firstName: "Anonim", lastName: "Kullanıcı", profilePictureUrl: null,
+            role: "SOMETHING_NEW", joinedAt: "2026-09-02T09:00:00Z", lastReadAt: null, left: false,
+          },
+        ],
+        lastMessageAt: null,
+        lastMessageBody: null,
+        unreadCount: 0,
+        closed: false,
+      }],
+      page: 0,
+      totalElements: 1,
+      totalPages: 1,
+      last: true,
+    }))));
+
+    const page = await getConversations(viewerId, 0, 20);
+
+    expect(page.content[0]).toMatchObject({
+      kind: "GROUP",
+      participantCount: 3,
+      participantNames: ["Ece Yılmaz", "Anonim Kullanıcı"],
+      readReceipts: true,
+      participants: [
+        {
+          id: viewerId, name: "Deniz Ak", role: "EMPLOYER", joinedAt: "2026-09-01T09:00:00Z",
+          lastReadAt: "2026-09-06T12:00:00Z", left: false,
+        },
+        {
+          id: otherId, name: "Ece Yılmaz", role: "WORKER",
+          profilePictureUrl: "https://cdn.example.test/ece.webp", lastReadAt: null, left: false,
+        },
+        {
+          id: "third-user", name: "Mehmet Kaya", role: "COMPANY_CONTACT",
+          lastReadAt: "2026-09-03T09:00:00Z", left: true,
+        },
+        { id: "fourth-user", name: "Anonim Kullanıcı", role: null, left: false },
+      ],
+    });
+  });
+
+  it("mesajın senderName alanını taşır; eski sunucuda null bırakır", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope({
+      content: [
+        {
+          id: "66666666-6666-4666-8666-666666666666", senderId: otherId, senderName: "Ece Yılmaz",
+          senderProfilePictureUrl: null, body: "Yeni sunucu", sentAt: "2026-09-06T11:01:00Z", readAt: null,
+        },
+        {
+          id: "55555555-5555-4555-8555-555555555555", senderId: otherId,
+          body: "Eski sunucu", sentAt: "2026-09-06T11:00:00Z", readAt: null,
+        },
+      ],
+      page: 0, totalElements: 2, totalPages: 1, last: true,
+    }))));
+
+    const page = await getConversationMessages(conversationId);
+
+    expect(page.content).toEqual([
+      {
+        id: "55555555-5555-4555-8555-555555555555", senderId: otherId, senderName: null,
+        body: "Eski sunucu", sentAt: "2026-09-06T11:00:00Z", readAt: null,
+      },
+      {
+        id: "66666666-6666-4666-8666-666666666666", senderId: otherId, senderName: "Ece Yılmaz",
+        body: "Yeni sunucu", sentAt: "2026-09-06T11:01:00Z", readAt: null,
+      },
+    ]);
+    expect(page.content[1]).not.toHaveProperty("senderProfilePictureUrl");
   });
 
   it("çalışan tarafında konuşmayı workerId göndermeden açar", async () => {
@@ -389,7 +508,7 @@ describe("mesajlaşma backend modülü", () => {
 });
 
 function message(id: string, body: string, sentAt: string) {
-  return { id, senderId: otherId, body, sentAt, readAt: null };
+  return { id, senderId: otherId, senderName: null, body, sentAt, readAt: null };
 }
 
 function conversation(overrides: { id: string; unreadCount: number }) {

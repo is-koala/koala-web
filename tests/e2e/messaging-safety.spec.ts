@@ -9,6 +9,10 @@ const conversationId = "33333333-3333-4333-8333-333333333333";
 const messageId = "44444444-4444-4444-8444-444444444444";
 const firstPageConversationId = "88888888-8888-4888-8888-888888888888";
 const firstPageUserId = "99999999-9999-4999-8999-999999999999";
+const groupConversationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const groupJobId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const groupWorkerId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const groupLeftWorkerId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
 let backend: Server;
 let web: ChildProcessWithoutNullStreams;
@@ -77,7 +81,8 @@ test("çalışan ve işveren konuşmalarında engelleme, engel kaldırma ve şik
     await expect(page.getByRole("region", { name: "Çerez tercihleri" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Konuşmaların" })).toBeVisible();
     await page.getByRole("button", { name: "Daha fazla konuşma" }).click();
-    const laterPageConversation = page.getByRole("link", { name: /Ece Yılmaz/ });
+    // Grup satırının alt metni de "Ece Yılmaz" içeriyor; ikili satır adıyla başlar.
+    const laterPageConversation = page.getByRole("link", { name: /^Ece Yılmaz/ });
     await expect(laterPageConversation).toHaveAttribute(
       "href",
       `${basePath}/${conversationId}?conversationPage=1`,
@@ -125,6 +130,68 @@ test("çalışan ve işveren konuşmalarında engelleme, engel kaldırma ve şik
   }
 });
 
+test("grup sohbeti gönderen adını, görenleri ve katılımcılar panelini gösterir", async ({ browser }) => {
+  // Sahte backend #281 sözleşmesini konuşuyor: `senderName`, katılımcı rolü,
+  // `joinedAt`, `lastReadAt`, `left`. Ayrılan çalışan listede kalıyor ki eski
+  // mesajı adıyla çözülsün; "görüldü" `lastReadAt >= sentAt` ile hesaplanıyor.
+  const context = await browser.newContext();
+  await context.addCookies([
+    { name: "koala_at", value: "access-placeholder", url: webOrigin },
+    { name: "koala_rt", value: "refresh-placeholder", url: webOrigin },
+    { name: "koala_did", value: "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e", url: webOrigin },
+  ]);
+  const page = await context.newPage();
+  const browserBackendRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().startsWith(backendOrigin)) browserBackendRequests.push(request.url());
+  });
+
+  await page.goto(`${webOrigin}/panel/mesajlar`);
+  await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
+  await expect(page.getByRole("region", { name: "Çerez tercihleri" })).toHaveCount(0);
+  const groupRow = page.getByRole("link", { name: /Depo sayımı/ });
+  await expect(groupRow).toContainText("Grup sohbeti · 3 katılımcı: Bora Kaya, Ece Yılmaz");
+  await groupRow.click();
+
+  const title = page.getByRole("heading", { level: 1 }).getByRole("button", { name: "Depo sayımı" });
+  await expect(title).toBeVisible();
+
+  const fromEce = page.locator("article", { hasText: "Raflar sayıldı" });
+  await expect(fromEce.locator(".message-sender")).toHaveText("Ece Yılmaz");
+  const fromLeft = page.locator("article", { hasText: "Ben ayrılıyorum" });
+  await expect(fromLeft.locator(".message-sender")).toContainText("Zeynep Demir");
+  await expect(fromLeft.locator(".message-sender")).toContainText("Ayrıldı");
+  const mine = page.locator("article", { hasText: "Yarın 09:00'da başlıyoruz" });
+  await expect(mine.locator(".message-sender")).toHaveCount(0);
+  await mine.getByText("1 kişi gördü").click();
+  await expect(mine.getByRole("listitem")).toHaveText(/Ece Yılmaz/);
+
+  await title.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Katılımcılar" });
+  await expect(dialog).toBeVisible();
+  const rows = dialog.getByRole("list", { name: "Katılımcılar" }).getByRole("listitem");
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(0)).toContainText("Deniz Ak");
+  await expect(rows.nth(0)).toContainText("İşveren");
+  await expect(rows.nth(0).getByRole("link", { name: "Profilim" })).toHaveAttribute("href", "/panel/profil");
+  await expect(rows.nth(1)).toContainText("Bora Kaya");
+  await expect(rows.nth(1)).toContainText("Şirket yetkilisi");
+  await expect(rows.nth(2)).toContainText("Ece Yılmaz");
+  await expect(rows.nth(2)).toContainText("Çalışan");
+  await expect(rows.nth(2)).toContainText("Katıldı: 2 Eylül 2026");
+  await expect(rows.nth(3)).toContainText("Zeynep Demir");
+  await expect(rows.nth(3)).toContainText("Ayrıldı");
+  await expect(rows.nth(3)).toHaveClass(/participant-row-left/);
+  await expect(dialog.getByRole("link", { name: "Profilim" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(title).toBeFocused();
+
+  expect(browserBackendRequests).toEqual([]);
+  await context.close();
+});
+
 function createBackend() {
   return createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://backend.test");
@@ -160,25 +227,42 @@ function createBackend() {
       }
       const isFirstPage = requestedPage === 0;
       send({
-        content: requestedPage > 1 ? [] : [{
-          id: isFirstPage ? firstPageConversationId : conversationId,
-          kind: "DIRECT",
-          participants: [
-            { id: viewerId, firstName: "Deniz", lastName: "Ak" },
-            isFirstPage
-              ? { id: firstPageUserId, firstName: "Bora", lastName: "Kaya" }
-              : { id: otherId, firstName: "Ece", lastName: "Yılmaz" },
-          ],
-          lastMessageAt: "2026-09-07T12:00:00Z",
-          lastMessageBody: isFirstPage ? "İlk sayfa konuşması" : "Uygunsuz içerik",
-          unreadCount: isFirstPage ? 0 : 1,
-          closed: false,
-        }],
+        content: requestedPage > 1 ? [] : [
+          {
+            id: isFirstPage ? firstPageConversationId : conversationId,
+            kind: "DIRECT",
+            participants: [
+              { id: viewerId, firstName: "Deniz", lastName: "Ak" },
+              isFirstPage
+                ? { id: firstPageUserId, firstName: "Bora", lastName: "Kaya" }
+                : { id: otherId, firstName: "Ece", lastName: "Yılmaz" },
+            ],
+            lastMessageAt: "2026-09-07T12:00:00Z",
+            lastMessageBody: isFirstPage ? "İlk sayfa konuşması" : "Uygunsuz içerik",
+            unreadCount: isFirstPage ? 0 : 1,
+            closed: false,
+          },
+          ...(isFirstPage ? [groupConversation()] : []),
+        ],
         page: requestedPage,
         totalPages: 2,
-        totalElements: 2,
+        totalElements: 3,
         last: requestedPage >= 1,
       });
+      return;
+    }
+    if (request.method === "GET" && url.pathname === `/conversations/${groupConversationId}/messages`) {
+      send({
+        content: [...groupMessages()].reverse(),
+        page: 0,
+        totalPages: 1,
+        totalElements: 3,
+        last: true,
+      });
+      return;
+    }
+    if (request.method === "POST" && url.pathname === `/conversations/${groupConversationId}/read`) {
+      send(null);
       return;
     }
     if (request.method === "GET" && url.pathname === `/conversations/${conversationId}/messages`) {
@@ -257,6 +341,58 @@ function createBackend() {
       httpStatus: 404,
     }));
   });
+}
+
+/**
+ * İlanın ekip sohbeti, is-koala/koala-backend#281 sözleşmesiyle. Bora şirket
+ * yetkilisi; Zeynep ayrılmış ama eski mesajı adıyla çözülsün diye listede.
+ */
+function groupConversation() {
+  return {
+    id: groupConversationId,
+    jobId: groupJobId,
+    jobTitle: "Depo sayımı",
+    kind: "GROUP",
+    participants: [
+      {
+        id: viewerId, firstName: "Deniz", lastName: "Ak", profilePictureUrl: null,
+        role: "EMPLOYER", joinedAt: "2026-09-01T09:00:00Z", lastReadAt: "2026-09-08T09:00:00Z", left: false,
+      },
+      {
+        id: firstPageUserId, firstName: "Bora", lastName: "Kaya", profilePictureUrl: null,
+        role: "COMPANY_CONTACT", joinedAt: "2026-09-01T09:00:00Z", lastReadAt: "2026-09-07T08:00:00Z", left: false,
+      },
+      {
+        id: groupWorkerId, firstName: "Ece", lastName: "Yılmaz", profilePictureUrl: null,
+        role: "WORKER", joinedAt: "2026-09-02T09:00:00Z", lastReadAt: "2026-09-07T12:30:00Z", left: false,
+      },
+      {
+        id: groupLeftWorkerId, firstName: "Zeynep", lastName: "Demir", profilePictureUrl: null,
+        role: "WORKER", joinedAt: "2026-09-02T09:00:00Z", lastReadAt: "2026-09-07T10:30:00Z", left: true,
+      },
+    ],
+    lastMessageAt: "2026-09-07T12:10:00Z",
+    lastMessageBody: "Raflar sayıldı",
+    unreadCount: 0,
+    closed: false,
+  };
+}
+
+function groupMessages() {
+  return [
+    {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", senderId: groupLeftWorkerId, senderName: "Zeynep Demir",
+      senderProfilePictureUrl: null, body: "Ben ayrılıyorum", sentAt: "2026-09-07T10:00:00Z", readAt: null,
+    },
+    {
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff", senderId: viewerId, senderName: "Deniz Ak",
+      senderProfilePictureUrl: null, body: "Yarın 09:00'da başlıyoruz", sentAt: "2026-09-07T12:00:00Z", readAt: null,
+    },
+    {
+      id: "12121212-1212-4121-8121-121212121212", senderId: groupWorkerId, senderName: "Ece Yılmaz",
+      senderProfilePictureUrl: null, body: "Raflar sayıldı", sentAt: "2026-09-07T12:10:00Z", readAt: null,
+    },
+  ];
 }
 
 async function requestBody(request: AsyncIterable<Uint8Array>) {
