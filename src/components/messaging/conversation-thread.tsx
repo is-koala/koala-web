@@ -44,6 +44,8 @@ import { errorPresentation } from "@/lib/errors";
 import { jobApplicantsPath } from "@/lib/app-routes";
 import {
   applyReadEvent,
+  knowsParticipant,
+  mergeParticipants,
   participantRoleLabels,
   seenBy,
   senderPresentation,
@@ -161,6 +163,13 @@ export function ConversationThread({
   const safetyTriggerRef = useRef<HTMLButtonElement | null>(null);
   const reportTriggerRef = useRef<HTMLButtonElement | null>(null);
   const participantsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const participantsRef = useRef(participants);
+  const participantsRefreshing = useRef(false);
+  // Listede olmayan okuyucuların damgaları; özet gelince üstüne işlenir ki
+  // tazeleme yoldayken gelen READ kaybolmasın.
+  const pendingReads = useRef(new Map<string, string>());
+  const lastConnectionPhase = useRef<RealtimeConnectionState["phase"] | null>(null);
+  const hasBeenLive = useRef(false);
   const initialScrollPositioned = useRef(false);
   const lastScrollTop = useRef(0);
   const pendingScrollAnchor = useRef<{ height: number; top: number } | null>(null);
@@ -178,6 +187,10 @@ export function ConversationThread({
   const composerLocked = permanentlyBlocked || conversation === null || conversation.closed
     || (safetyPending && safetyDialog === "block");
   const sendUnavailable = composerLocked || !body.trim();
+
+  useEffect(() => {
+    participantsRef.current = participants;
+  }, [participants]);
 
   useLayoutEffect(() => {
     const history = historyRef.current;
@@ -197,7 +210,39 @@ export function ConversationThread({
     const controller = new AbortController();
     const release = retainRealtimeClient(client);
     const disposers: Array<() => void> = [];
-    const removeState = client.onStateChange(setConnection);
+    const removeState = client.onStateChange((state) => {
+      setConnection(state);
+      // Kopukken kaçan READ olayları geri gelmez; bağlantı canlıdan düşüp
+      // yeniden kurulunca damgalar özetten bir kez tazelenir. İlk kuruluş
+      // ve aynı durumun tekrar bildirilmesi tazeleme değil.
+      const previous = lastConnectionPhase.current;
+      lastConnectionPhase.current = state.phase;
+      if (state.phase !== "live") return;
+      if (hasBeenLive.current && previous !== "live") void refreshParticipants();
+      hasBeenLive.current = true;
+    });
+    // Özet sayfadan çıkarılıyor (`getConversation`); tek konuşma ucu yok.
+    // Tazeleme tek seferlik ve tekil: aynı anda ikinci istek açılmaz.
+    async function refreshParticipants() {
+      if (participantsRefreshing.current) return;
+      participantsRefreshing.current = true;
+      try {
+        const result = await loadSummary(conversationId, conversationPage);
+        if (!result.ok || controller.signal.aborted) return;
+        setParticipants((current) => {
+          let next = mergeParticipants(current, result.conversation.participants);
+          pendingReads.current.forEach((lastReadAt, userId) => {
+            next = applyReadEvent(next, userId, lastReadAt);
+            if (knowsParticipant(next, userId)) pendingReads.current.delete(userId);
+          });
+          return next;
+        });
+      } catch {
+        // Tazeleme yardımcı; başarısızlığı bir sonraki olay ya da yenileme kapatır.
+      } finally {
+        participantsRefreshing.current = false;
+      }
+    }
     const receive = (event: RealtimeEvent) => {
       if (event.conversationId !== conversationId) return;
       if (event.type === "MESSAGE") {
@@ -212,6 +257,18 @@ export function ConversationThread({
         const readerId = event.userId;
         const lastReadAt = event.lastReadAt ?? event.at;
         setParticipants((current) => applyReadEvent(current, readerId, lastReadAt));
+        // Listede olmayan okuyucu sayfa açıldıktan sonra katılmış demektir;
+        // olay damgayı taşısa da kişiyi taşımaz, özet yeniden okunur. Özet
+        // hiç okunamadıysa liste boştur ve yolu hata kartındaki "Tekrar dene"
+        // açar; her READ'de yeniden denemek o kartı gereksiz kılmaz.
+        const known = participantsRef.current;
+        if (known.length > 0 && !knowsParticipant(known, readerId)) {
+          const pending = pendingReads.current.get(readerId);
+          if (pending === undefined || Date.parse(lastReadAt) > Date.parse(pending)) {
+            pendingReads.current.set(readerId, lastReadAt);
+          }
+          void refreshParticipants();
+        }
         if (readerId !== viewerId) {
           setThread((current) => markMessagesRead(current, viewerId, event.at));
         }
@@ -262,7 +319,17 @@ export function ConversationThread({
       removeState();
       release();
     };
-  }, [client, confirmConversation, confirmPresence, conversation?.counterpartId, conversationId, markRead, viewerId]);
+  }, [
+    client,
+    confirmConversation,
+    confirmPresence,
+    conversation?.counterpartId,
+    conversationId,
+    conversationPage,
+    loadSummary,
+    markRead,
+    viewerId,
+  ]);
 
   async function submitBody(rawBody: string) {
     const trimmed = rawBody.trim();
@@ -889,7 +956,7 @@ function ParticipantsPanel({
       <p className="participants-dialog-subtitle">
         {conversation.kind === "GROUP"
           ? (conversation.jobTitle ?? conversation.displayName)
-          : (conversation.jobTitle ?? "Doğrudan konuşma")}
+          : conversationSubtitle(conversation)}
       </p>
       {conversation.closed ? (
         <p role="note" className="participants-closed-note">

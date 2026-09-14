@@ -31,7 +31,7 @@ export function senderPresentation(
 ): SenderPresentation | null {
   if (message.senderId === viewerId) return null;
   const participant = participants.find((item) => item.id === message.senderId) ?? null;
-  const name = message.senderName?.trim() || participant?.name || "";
+  const name = message.senderName ?? participant?.name ?? "";
   if (name === "") return { name: unknownSenderLabel, left: true };
   return { name, left: participant === null || participant.left };
 }
@@ -62,6 +62,8 @@ export function seenBy(
  * Olay okuyan başına geliyor (`userId`) ve `lastReadAt` damgasını taşıyor;
  * damga yoksa (eski sunucu) olayın kendi zamanı kullanılır. Damga geriye
  * gitmez: sırası karışmış iki olay "gördü"yü "görmedi"ye çeviremez.
+ * Listede olmayan okuyucu — sayfa açıldıktan sonra katılan biri — burada
+ * işlenemez; çağıran `knowsParticipant` ile bunu görüp özeti tazeler.
  */
 export function applyReadEvent(
   participants: readonly ConversationParticipant[],
@@ -71,11 +73,39 @@ export function applyReadEvent(
   let changed = false;
   const next = participants.map((participant) => {
     if (participant.id !== userId) return participant;
-    if (participant.lastReadAt !== null && Date.parse(participant.lastReadAt) >= Date.parse(lastReadAt)) {
-      return participant;
-    }
+    if (!isLater(lastReadAt, participant.lastReadAt)) return participant;
     changed = true;
     return { ...participant, lastReadAt };
   });
   return changed ? next : participants;
+}
+
+export function knowsParticipant(
+  participants: readonly ConversationParticipant[],
+  userId: string,
+): boolean {
+  return participants.some((participant) => participant.id === userId);
+}
+
+/**
+ * Yeniden okunan özetin katılımcılarını eldeki damgalarla birleştirir.
+ *
+ * Özet, tazeleme isteği yoldayken gelen bir READ olayından eski olabilir;
+ * bu yüzden her katılımcının damgası iki kaynağın ileri olanı. Liste (kim
+ * var, kim ayrıldı, rol) özetten gelir: onu yalnız sunucu bilir.
+ */
+export function mergeParticipants(
+  current: readonly ConversationParticipant[],
+  fresh: readonly ConversationParticipant[],
+): readonly ConversationParticipant[] {
+  return fresh.map((participant) => {
+    const known = current.find((item) => item.id === participant.id);
+    if (!known || !isLater(known.lastReadAt, participant.lastReadAt)) return participant;
+    return { ...participant, lastReadAt: known.lastReadAt };
+  });
+}
+
+function isLater(candidate: string | null, reference: string | null): candidate is string {
+  if (candidate === null) return false;
+  return reference === null || Date.parse(candidate) > Date.parse(reference);
 }

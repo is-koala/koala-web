@@ -16,6 +16,17 @@ export type Message = {
 export type ConversationKind = "DIRECT" | "GROUP";
 
 /**
+ * `senderName`in tek normalizasyonu; iki giriş noktası (REST eşlemesi ve
+ * STOMP çözücü) bunu çağırır, tüketiciler değeri olduğu gibi okur. Boş ya da
+ * yalnız boşluk olan ad alanın yokluğuyla aynı şey: `null`.
+ */
+export function normalizeSenderName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+/**
  * `ConversationParticipantDto.role`. İşveren tarafı ilan sahibi ya da şirket
  * yetkilisi; çalışan ödemesi emanete alınmış kişi. Eski sunucuda alan yok,
  * `null` "bilinmiyor" demek ve panel rolü o satırda hiç yazmaz.

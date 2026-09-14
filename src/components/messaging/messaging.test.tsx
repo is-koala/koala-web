@@ -3,13 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
-  ConversationParticipant,
   ConversationSummary,
   Message,
   MessagingMutationResult,
   Page,
 } from "@/messaging/contract";
 import { errorPresentation } from "@/lib/errors";
+import { participant } from "../../../tests/support/messaging";
 import type {
   RealtimeClient,
   RealtimeConnectionState,
@@ -1370,6 +1370,89 @@ describe("grup sohbeti (is-koala/koala-web#167)", () => {
     expect(within(newest).queryByText("Gönderildi")).toBeNull();
   });
 
+  it("listede olmayan okuyucunun READ olayında özeti bir kez tazeler ve sayıyı artırır", async () => {
+    // Sayfa açıldıktan sonra katılan biri READ gönderiyor: olay damgayı
+    // taşıyor ama kişiyi taşımıyor. Özet yeniden okunur; yoldayken gelen
+    // damga (12:20) özettekinden (12:10) ileri olduğu için korunur.
+    const newcomerId = "77777777-7777-4777-8777-777777777777";
+    const realtime = new FakeRealtime();
+    const refreshed = groupConversation({
+      participants: [
+        ...groupConversation().participants,
+        participant(newcomerId, "Ali Can", { role: "WORKER", lastReadAt: "2026-09-06T12:10:00Z" }),
+      ],
+    });
+    const loadSummary = vi.fn().mockResolvedValue({ ok: true, conversation: refreshed });
+    render(
+      <ConversationThread
+        conversationId={groupId}
+        initialSummary={{ ok: true, conversation: groupConversation() }}
+        initialMessages={messagePage([
+          message("Yeni gelen görecek mi?", viewerId, { id: "g1", sentAt: "2026-09-06T12:00:00Z" }),
+        ])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        loadSummary={loadSummary}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+    const bubble = screen.getByText("Yeni gelen görecek mi?").closest("article")!;
+    expect(within(bubble).getByText("Gönderildi")).toBeVisible();
+
+    const readBy = (userId: string, lastReadAt: string) => act(() => realtime.emitPersonal({
+      type: "READ", conversationId: groupId, userId, message: null, online: null,
+      at: lastReadAt, lastReadAt, error: null,
+    }));
+    readBy(newcomerId, "2026-09-06T12:20:00Z");
+    readBy(newcomerId, "2026-09-06T12:21:00Z");
+
+    await waitFor(() => expect(within(bubble).getByText("1 kişi gördü")).toBeVisible());
+    expect(loadSummary).toHaveBeenCalledTimes(1);
+    expect(loadSummary).toHaveBeenCalledWith(groupId, 0);
+    fireEvent.click(within(bubble).getByText("1 kişi gördü"));
+    expect(within(bubble).getByRole("listitem")).toHaveTextContent("Ali Can");
+    expect(within(bubble).getByRole("listitem")).toHaveTextContent("6 Eyl 15:21");
+  });
+
+  it("bağlantı kopup yeniden kurulunca damgaları özetten tazeler; ilk kuruluşta tazelemez", async () => {
+    const realtime = new FakeRealtime();
+    realtime.state = { phase: "connecting", mode: "rest" };
+    const loadSummary = vi.fn().mockResolvedValue({
+      ok: true,
+      conversation: groupConversation({
+        participants: groupConversation().participants.map((item) =>
+          item.id === thirdId ? { ...item, lastReadAt: "2026-09-06T12:30:00Z" } : item,
+        ),
+      }),
+    });
+    render(
+      <ConversationThread
+        conversationId={groupId}
+        initialSummary={{ ok: true, conversation: groupConversation() }}
+        initialMessages={messagePage([
+          message("Kopukken okundu", viewerId, { id: "g1", sentAt: "2026-09-06T12:00:00Z" }),
+        ])}
+        viewerId={viewerId}
+        basePath="/isveren/mesajlar"
+        realtimeClient={realtime}
+        confirmConversation={vi.fn().mockResolvedValue(true)}
+        loadSummary={loadSummary}
+        markRead={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+    const bubble = screen.getByText("Kopukken okundu").closest("article")!;
+
+    act(() => realtime.emitState({ phase: "live", mode: "realtime" }));
+    expect(loadSummary).not.toHaveBeenCalled();
+    act(() => realtime.emitState({ phase: "reconnecting", mode: "rest", retryInMs: 1_000 }));
+    act(() => realtime.emitState({ phase: "live", mode: "realtime" }));
+
+    await waitFor(() => expect(within(bubble).getByText("1 kişi gördü")).toBeVisible());
+    expect(loadSummary).toHaveBeenCalledTimes(1);
+  });
+
   it("eski sunucu READ olayında damga yoksa olayın zamanına düşer", () => {
     const realtime = new FakeRealtime();
     renderGroup(groupConversation(), [
@@ -1519,12 +1602,18 @@ class FakeRealtime implements RealtimeClient {
   followedConversations: string[] = [];
   followedPresence: string[] = [];
   state: RealtimeConnectionState = { phase: "live", mode: "realtime" };
+  stateListeners: Array<(state: RealtimeConnectionState) => void> = [];
   start = vi.fn();
   stop = vi.fn();
   getState = () => this.state;
   onStateChange(listener: (state: RealtimeConnectionState) => void) {
+    this.stateListeners.push(listener);
     listener(this.state);
-    return () => undefined;
+    return () => { this.stateListeners = this.stateListeners.filter((item) => item !== listener); };
+  }
+  emitState(state: RealtimeConnectionState) {
+    this.state = state;
+    this.stateListeners.forEach((listener) => listener(state));
   }
   listenToMessages(listener: RealtimeEventListener) {
     this.personalListeners.push(listener);
@@ -1605,23 +1694,6 @@ function message(body: string, senderId: string, overrides: Partial<Message> = {
     body,
     sentAt: "2026-09-06T11:00:00Z",
     readAt: null,
-    ...overrides,
-  };
-}
-
-function participant(
-  id: string,
-  name: string,
-  overrides: Partial<ConversationParticipant> = {},
-): ConversationParticipant {
-  return {
-    id,
-    name,
-    profilePictureUrl: null,
-    role: null,
-    joinedAt: "2026-09-01T09:00:00Z",
-    lastReadAt: null,
-    left: false,
     ...overrides,
   };
 }

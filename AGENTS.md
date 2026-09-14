@@ -74,8 +74,11 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   `LinkTabs` (adres çubuğuna yazan süzgeç/sıralama), `EmptyStateCard` (maskot),
   `ListRow`/`FactList`, `StatCard`, `Field`. Kabuk kromu
   `src/components/app-shell.css`'te, token'lar `globals.css`'te; yeni kural
-  ham renk ya da piksel köşe yazmaz, token okur. Hepsi sunucu bileşeni — tek
-  istemci parçası menünün `aria-current` bağlantısı (`app-nav-link.tsx`).
+  ham renk ya da piksel köşe yazmaz, token okur. Hepsi durumsuz sunum
+  bileşeni: `use client` taşımaz, durum okumaz, çerez açmaz; sunucu sayfaları
+  da istemci parçaları da aynı dosyalardan alır (mesaj dizisi
+  `list-row`/`status-badge`, üst bar `icon`). Kabuk kromunun tek istemci
+  parçası menünün `aria-current` bağlantısı (`app-nav-link.tsx`).
 - Kabuk kökleri `src/lib/private-routes.ts` içindeki `privateRouteTrees`
   listesinde durur. `/isveren` tanıtım sayfası `/isverenler`'in **öneki**:
   robots.txt eşleşmesi önek temelli olduğu için ağaç `/isveren$` ve `/isveren/`

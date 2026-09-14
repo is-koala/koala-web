@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { participant } from "../../tests/support/messaging";
+
 import type { ConversationParticipant } from "./contract";
-import { applyReadEvent, seenBy, senderPresentation, unknownSenderLabel } from "./participants";
+import {
+  applyReadEvent,
+  knowsParticipant,
+  mergeParticipants,
+  seenBy,
+  senderPresentation,
+  unknownSenderLabel,
+} from "./participants";
 
 const viewerId = "11111111-1111-4111-8111-111111111111";
 const otherId = "22222222-2222-4222-8222-222222222222";
@@ -65,21 +74,28 @@ describe("grup katılımcıları", () => {
     expect(applyReadEvent(fresh, otherId, "2026-09-06T13:00:00Z")[0]?.lastReadAt)
       .toBe("2026-09-06T13:00:00Z");
   });
-});
 
-function participant(
-  id: string,
-  name: string,
-  overrides: Partial<ConversationParticipant> = {},
-): ConversationParticipant {
-  return {
-    id,
-    name,
-    profilePictureUrl: null,
-    role: null,
-    joinedAt: null,
-    lastReadAt: null,
-    left: false,
-    ...overrides,
-  };
-}
+  it("listede olmayan okuyucuyu bildirir ki çağıran özeti tazelesin", () => {
+    expect(knowsParticipant(participants, otherId)).toBe(true);
+    expect(knowsParticipant(participants, "newcomer")).toBe(false);
+  });
+
+  it("tazelenen özeti birleştirirken listeyi sunucudan, damgayı ileri olandan alır", () => {
+    // Özet, yoldayken gelen READ'den eski olabilir: Ece'nin eldeki damgası
+    // (13:00) özetteki (11:00) damgayı ezmez; yeni katılan özetten gelir,
+    // ayrılma ve rol da öyle.
+    const current = applyReadEvent(participants, otherId, "2026-09-06T13:00:00Z");
+    const fresh = [
+      participant(viewerId, "Deniz Ak", { lastReadAt: "2026-09-06T12:30:00Z" }),
+      participant(otherId, "Ece Yılmaz", { role: "WORKER", lastReadAt: "2026-09-06T11:00:00Z" }),
+      participant("newcomer", "Ali Can", { lastReadAt: "2026-09-06T12:45:00Z" }),
+    ];
+
+    const merged = mergeParticipants(current, fresh);
+
+    expect(merged.map((item) => item.id)).toEqual([viewerId, otherId, "newcomer"]);
+    expect(merged[0]?.lastReadAt).toBe("2026-09-06T12:30:00Z");
+    expect(merged[1]).toMatchObject({ role: "WORKER", lastReadAt: "2026-09-06T13:00:00Z" });
+    expect(merged[2]?.lastReadAt).toBe("2026-09-06T12:45:00Z");
+  });
+});

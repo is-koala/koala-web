@@ -10,7 +10,11 @@ import type {
   Page,
   ReportReason,
 } from "@/messaging/contract";
-import { conversationListPageSize, isConversationSourcePage } from "@/messaging/contract";
+import {
+  conversationListPageSize,
+  isConversationSourcePage,
+  normalizeSenderName,
+} from "@/messaging/contract";
 import { apiRequest } from "@/server/session/session";
 
 type BackendUser = {
@@ -330,7 +334,7 @@ function toMessage(value: BackendMessage): Message {
   return {
     id: value.id,
     senderId: value.senderId,
-    senderName: value.senderName?.trim() || null,
+    senderName: normalizeSenderName(value.senderName),
     body: value.body,
     sentAt: value.sentAt,
     readAt: value.readAt ?? null,
