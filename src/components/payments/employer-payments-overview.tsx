@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EmptyStateCard, LinkTabs } from "@/components/ui";
 import { formatMoney, sumMoney } from "@/lib/money";
 import type { EmployerAssignment } from "@/payments/contract";
 
@@ -47,23 +48,21 @@ export function EmployerPaymentsOverview({
         <SummaryCard title="Emanette bekleyen" totals={held} />
       </div>
 
-      <nav className="payment-filters" aria-label="Ödeme durumu filtresi">
-        {filters.map(([value, label]) => (
-          <Link
-            key={value}
-            href={value === "all" ? "/isveren/odemeler" : `/isveren/odemeler?durum=${value}`}
-            aria-current={filter === value ? "page" : undefined}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <LinkTabs
+        label="Ödeme durumu filtresi"
+        items={filters.map(([value, label]) => ({
+          href: value === "all" ? "/isveren/odemeler" : `/isveren/odemeler?durum=${value}`,
+          label,
+          current: filter === value,
+        }))}
+      />
 
       {visible.length === 0 ? (
-        <div role="status" className="state-card">
-          <h2>Bu durumda ödeme yok</h2>
-          <p>Başka bir durum filtresi seçebilirsin.</p>
-        </div>
+        <EmptyStateCard
+          title="Bu durumda ödeme yok"
+          message="Başka bir durum filtresi seçebilirsin."
+          mascot="employer"
+        />
       ) : (
         <div className="payment-overview-list">
           {visible.map((assignment) => (

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { assignmentNextStep } from "@/assignments/employer-tracking";
 import { assignmentStatusLabel, formatAssignmentDate } from "@/components/assignment-presenters";
+import { StatusBadge, assignmentStatusTone } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import type { EmployerAssignmentPage } from "@/payments/contract";
 
@@ -18,9 +19,9 @@ export function EmployerAssignmentList({
         {assignments.content.map((assignment) => (
           <article key={assignment.id} className="assignment-card">
             <div className="assignment-card-topline">
-              <span className={`assignment-status assignment-status-${assignment.status.toLowerCase()}`}>
+              <StatusBadge tone={assignmentStatusTone(assignment.status)}>
                 {assignmentStatusLabel[assignment.status]}
-              </span>
+              </StatusBadge>
               <PaymentStatusBadge status={assignment.paymentStatus} />
             </div>
             <div>

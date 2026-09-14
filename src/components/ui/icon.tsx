@@ -1,7 +1,8 @@
 import type { SVGProps } from "react";
 
 /**
- * Tanıtım sitesinin ikon seti: 24px ızgara, 1,5px yuvarlak uçlu çizgi.
+ * Sitenin ikon seti: 24px ızgara, 1,5px yuvarlak uçlu çizgi. Tanıtım
+ * sayfaları da oturumlu kabuklar da aynı kümeden okur.
  *
  * Tasarım sistemi Hugeicons'ın stroke-rounded ailesini kullanıyor; o font
  * yalnız CDN'den geliyor ve sayfaya üçüncü taraf bir stil dosyası sokardı.
@@ -39,6 +40,16 @@ const paths = {
   bookmark: "M7 4.5h10c.6 0 1 .4 1 1v14l-6-3.5L6 19.5v-14c0-.6.4-1 1-1Z",
   home: "M4 11 12 4l8 7v8c0 .6-.4 1-1 1h-4.5v-6h-5v6H5c-.6 0-1-.4-1-1v-8Z",
   menu: "M4 7h16M4 12h16M4 17h16",
+  bell: "M6.5 16.5v-6a5.5 5.5 0 0 1 11 0v6l1.5 2h-14l1.5-2Zm3.5 2.5a2 2 0 0 0 4 0",
+  logout: "M10 4.5H6.5c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2H10m4.5-4 3.5-3.5-3.5-3.5m3.5 3.5H9.5",
+  alert: "M12 4.5 20 19H4L12 4.5Zm0 5.5v4m0 2.5v.5",
+  info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-9.5v5m0-8v.5",
+  wallet: "M4 8.5c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-9Zm0 3h16m-4 3.5h.5",
+  template: "M5 6.5c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v11c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2v-11Zm3 2.5h8m-8 4h8m-8 4h5",
+  arrowLeft: "M19 12H5m6-6-6 6 6 6",
+  close: "m6 6 12 12M18 6 6 18",
+  grid: "M4.5 4.5h6v6h-6v-6Zm9 0h6v6h-6v-6Zm-9 9h6v6h-6v-6Zm9 0h6v6h-6v-6Z",
+  image: "M4 7c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V7Zm0 9 4.5-4.5 3.5 3.5 2.5-2.5L20 17M15 9.5h.5",
 } as const;
 
 export type IconName = keyof typeof paths;

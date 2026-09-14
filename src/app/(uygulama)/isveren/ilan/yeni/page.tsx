@@ -6,6 +6,7 @@ import {
   type JobFormData,
   type JobFormTemplate,
 } from "@/components/job-form";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { newIndividualJobPath } from "@/lib/app-routes";
 import type { JobCategory } from "@/lib/job-posting";
 import { failureView } from "@/server/form";
@@ -57,13 +58,12 @@ export async function NewIndividualJobPanel() {
   const blocked = verdict === undefined || verdict.open ? [] : verdict.blockedBy;
 
   return (
-    <section className="app-panel">
-      <p className="eyebrow">İşveren</p>
-      <h1>Yeni bireysel ilan</h1>
-      <p className="lede">
-        Kendi adına ilan açıyorsun. Şirket adına ilan açmak istiyorsan şirket ilanlarını
-        kullanman gerekiyor.
-      </p>
+    <PagePanel>
+      <PageHeader
+        eyebrow="İşveren"
+        title="Yeni bireysel ilan"
+        lede="Kendi adına ilan açıyorsun. Şirket adına ilan açmak istiyorsan şirket ilanlarını kullanman gerekiyor."
+      />
 
       <JobForm
         owner={{ kind: "individual" }}
@@ -73,7 +73,7 @@ export async function NewIndividualJobPanel() {
         action={publishIndividualJobAction}
         quote={quotePriceAction}
       />
-    </section>
+    </PagePanel>
   );
 }
 

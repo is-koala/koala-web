@@ -4,6 +4,7 @@ import { ShellGate } from "@/app/(uygulama)/shell";
 import type { ApplicationFilter } from "@/applications/contract";
 import { ApplicationList } from "@/components/application-list";
 import { ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { readWorkerApplications } from "@/server/applications/applications";
 import { failureView } from "@/server/form";
 import { enterShell } from "@/server/session/viewer";
@@ -43,17 +44,19 @@ export async function ApplicationsPage({ searchParams }: ApplicationsPageProps) 
   }
 
   return (
-    <section className="app-panel applications-page">
-      <p className="eyebrow">İş arayan paneli</p>
-      <h1>Başvurularım</h1>
-      <p className="lede">Başvurularının durumunu izle, açık başvurularını yönet.</p>
+    <PagePanel className="applications-page">
+      <PageHeader
+        eyebrow="İş arayan paneli"
+        title="Başvurularım"
+        lede="Başvurularının durumunu izle, açık başvurularını yönet."
+      />
       <ApplicationList
         initialPage={result.applications}
         filter={filter}
         requestPage={page}
         action={withdrawApplicationAction}
       />
-    </section>
+    </PagePanel>
   );
 }
 

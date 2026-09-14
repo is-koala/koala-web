@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Icon, type IconName } from "./icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 type SectionTone = "white" | "sunken" | "deep" | "dark";
 

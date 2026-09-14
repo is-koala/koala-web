@@ -5,7 +5,7 @@ import { homeContent, jobCategories, sampleJobs } from "@/content/marketing";
 
 import mapImage from "../../../public/brand/map-istanbul.webp";
 import { CategoryPin, categoryOf } from "./category-pin";
-import { Icon } from "./icon";
+import { Icon } from "@/components/ui/icon";
 import { SampleBadge } from "./section";
 
 const { hero } = homeContent;

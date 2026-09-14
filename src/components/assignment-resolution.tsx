@@ -9,6 +9,7 @@ import {
 import { formatDateTime } from "@/lib/dates";
 import { errorPresentation } from "@/lib/errors";
 import { formatMoney } from "@/lib/money";
+import { StatusBadge } from "@/components/ui";
 
 import { EvidenceDownloadButton } from "./evidence-download-button";
 import { EvidenceRetryButton } from "./evidence-retry-button";
@@ -116,13 +117,13 @@ function CancellationPartyLabel({
   party: CancellationRecord["cancelledByParty"];
 }) {
   return (
-    <span className="payment-status payment-status-neutral">
+    <StatusBadge tone="neutral">
       {party === "EMPLOYER"
         ? "İşveren iptal etti"
         : party === "WORKER"
           ? "İşçi çekildi"
           : "Atama iptal edildi"}
-    </span>
+    </StatusBadge>
   );
 }
 

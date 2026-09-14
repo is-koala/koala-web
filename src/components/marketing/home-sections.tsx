@@ -16,7 +16,7 @@ import mascot2 from "../../../public/brand/maskot-2.webp";
 import mascot3 from "../../../public/brand/maskot-3.webp";
 import { CategoryPin, categoryOf } from "./category-pin";
 import { FaqList } from "./faq-list";
-import { Icon } from "./icon";
+import { Icon } from "@/components/ui/icon";
 import { IconTile, SampleBadge, Section, SectionHeading } from "./section";
 
 const mascots = { 1: mascot1, 2: mascot2, 3: mascot3 } as const;

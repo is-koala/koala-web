@@ -19,6 +19,7 @@ import type {
   PaymentResolution,
 } from "@/payments/contract";
 import type { GateRequirements } from "@/server/session/gates";
+import { StatusBadge, paymentToneToStatusTone } from "@/components/ui";
 
 export function PaymentBreakdown({ pricing }: { pricing: PricingBreakdown }) {
   return (
@@ -50,9 +51,9 @@ export function PaymentBreakdown({ pricing }: { pricing: PricingBreakdown }) {
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   const presentation = paymentStatusPresentation(status);
   return (
-    <span className={`payment-status payment-status-${presentation.tone}`}>
+    <StatusBadge className="payment-status" tone={paymentToneToStatusTone(presentation.tone)}>
       {presentation.label}
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -147,9 +148,12 @@ export function PaymentHistory({ attempts }: { attempts: readonly PaymentAttempt
               <p className="eyebrow">Ödeme denemesi</p>
               <h2>{`${attempts.length - index}. deneme`}</h2>
             </div>
-            <span className={`payment-attempt-status payment-attempt-status-${paymentAttemptPresentation(attempt.status).tone}`}>
+            <StatusBadge
+              className="payment-attempt-status"
+              tone={paymentToneToStatusTone(paymentAttemptPresentation(attempt.status).tone)}
+            >
               {paymentAttemptLabel(attempt.status)}
-            </span>
+            </StatusBadge>
           </div>
           <dl className="payment-attempt-facts">
             <div>

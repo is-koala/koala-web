@@ -7,6 +7,7 @@ import {
   acceptanceHeadcount,
   applicantMessaging,
   applicantPage,
+  applicantStatusLabel,
   applicantsInFilter,
   applicationDecisionGate,
   idleApplicantDossierState,
@@ -31,6 +32,7 @@ import {
 import { AssignmentDialog } from "@/components/assignment-dialog";
 import { MessagingGate } from "@/components/messaging/messaging-gate";
 import { ErrorState } from "@/components/states";
+import { EmptyStateCard, Field, StatusBadge, applicationStatusTone, fieldDescribedBy } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { errorPresentation } from "@/lib/errors";
@@ -321,13 +323,14 @@ function ApplicantCard({
   return (
     <article className="application-card applicant-card" aria-labelledby={titleId}>
       <div className="application-card-body">
-        <span className={`application-status application-status-${applicant.status.toLowerCase()}`}>
-          {decisionLabel[applicant.status]}
-        </span>
+        <StatusBadge tone={applicationStatusTone(applicant.status)}>
+          {applicantStatusLabel[applicant.status]}
+        </StatusBadge>
         <div className="applicant-identity">
           <ApplicantAvatar applicant={applicant} />
           <h2 id={titleId}>{applicant.applicant.fullName || "Adı paylaşılmadı"}</h2>
         </div>
+        <ApplicantCompareStrip dossier={dossier} />
         <dl className="application-facts">
           {applicant.occupation ? (
             <div><dt>Mesleği</dt><dd>{applicant.occupation}</dd></div>
@@ -495,8 +498,11 @@ function ApplicantDecision({
           <input type="hidden" name="applicationId" value={applicant.id} />
           <input type="hidden" name="jobId" value={jobId} />
           <input type="hidden" name="decision" value="REJECTED" />
-          <div className="field">
-            <label htmlFor={reasonId}>Red gerekçesi</label>
+          <Field
+            id={reasonId}
+            label="Red gerekçesi"
+            hint="Aday bu açıklamayı başvuru ekranında okuyacak. Red kararı da geri alınamıyor."
+          >
             <textarea
               id={reasonId}
               name="rejectionReason"
@@ -504,11 +510,9 @@ function ApplicantDecision({
               rows={3}
               maxLength={rejectionReasonMaxLength}
               disabled={!gate.canReject}
+              aria-describedby={fieldDescribedBy(reasonId, { hint: true })}
             />
-            <p className="field-hint">
-              Aday bu açıklamayı başvuru ekranında okuyacak. Red kararı da geri alınamıyor.
-            </p>
-          </div>
+          </Field>
           <button
             className="button button-danger button-small"
             disabled={!gate.canReject || pending}
@@ -645,6 +649,62 @@ function ApplicantAvatar({ applicant }: { applicant: JobApplicant }) {
   );
 }
 
+/**
+ * Karşılaştırma şeridi: her kartta aynı üç hücre, aynı sırada.
+ *
+ * Adayları yan yana okumak için hücreler sabit — puan, rozet, konum — ve
+ * özet inmemişken boş değil "incele" yazıyor: hücreyi gizlemek kartları
+ * farklı boyda bırakır ve kıyaslamayı bozardı. Üçü de bugünkü alanlardan
+ * geliyor (`ApplicantDossier`): mesafe backend'de yok, en yakın ölçü il/ilçe;
+ * müsaitlik başvuru ya da profil yanıtında taşınmıyor ve uydurulmuyor.
+ */
+function ApplicantCompareStrip({ dossier }: { dossier: ApplicantDossier | null }) {
+  const rating = dossier?.ratingSummary ?? null;
+  const badges = dossier?.badges ?? null;
+  const location = dossier
+    ? [dossier.profile.districtName, dossier.profile.cityName].filter(Boolean).join(", ")
+    : null;
+
+  return (
+    <dl className="applicant-compare" aria-label="Karşılaştırma">
+      <div>
+        <dt>Puan</dt>
+        {rating && rating.reviewCount > 0 ? (
+          <dd className="ui-rating">{`${rating.averageRating} · ${rating.reviewCount} değerlendirme`}</dd>
+        ) : (
+          <dd className="is-empty">{dossier ? "Henüz yok" : "İncele"}</dd>
+        )}
+      </div>
+      <div>
+        <dt>Rozet</dt>
+        {badges && badges.length > 0 ? (
+          <dd>{badgeSummary(badges)}</dd>
+        ) : (
+          <dd className="is-empty">{dossier ? "Henüz yok" : "İncele"}</dd>
+        )}
+      </div>
+      <div>
+        <dt>Konum</dt>
+        {location ? (
+          <dd>{location}</dd>
+        ) : (
+          <dd className="is-empty">{dossier ? "Paylaşılmadı" : "İncele"}</dd>
+        )}
+      </div>
+    </dl>
+  );
+}
+
+/** "3 rozet · 1 altın" — en yüksek seviye sayısıyla birlikte. */
+function badgeSummary(badges: readonly ApplicantBadge[]): string {
+  const count = `${badges.length} rozet`;
+  for (const tier of ["GOLD", "SILVER", "BRONZE"] as const) {
+    const tierCount = badges.filter((badge) => badge.tier === tier).length;
+    if (tierCount > 0) return `${count} · ${tierCount} ${badgeTierLabel[tier].toLocaleLowerCase("tr-TR")}`;
+  }
+  return count;
+}
+
 function ApplicantDossierPanel({ dossier }: { dossier: ApplicantDossier }) {
   return (
     <section className="applicant-dossier" aria-label="Aday ayrıntısı">
@@ -718,14 +778,15 @@ function ApplicantBadges({ badges }: { badges: readonly ApplicantBadge[] }) {
 
 function ApplicantEmpty({ filter }: { filter: ApplicantFilter }) {
   return (
-    <div role="status" className="state-card">
-      <h2>{filter === "ALL" ? "Henüz başvuru yok" : "Bu süzgeçte başvuru yok"}</h2>
-      <p>
-        {filter === "ALL"
+    <EmptyStateCard
+      title={filter === "ALL" ? "Henüz başvuru yok" : "Bu süzgeçte başvuru yok"}
+      message={
+        filter === "ALL"
           ? "İlanına gelen başvurular burada listelenecek."
-          : "Başka bir durum seçerek listedeki adayları görebilirsin."}
-      </p>
-    </div>
+          : "Başka bir durum seçerek listedeki adayları görebilirsin."
+      }
+      mascot="employer"
+    />
   );
 }
 
@@ -822,11 +883,3 @@ const filterOptions: ReadonlyArray<{ value: ApplicantFilter; label: string }> = 
   { value: "WITHDRAWN", label: "Geri çekilenler" },
 ];
 
-/** Karar metinleri işverenin bakış açısıyla yazılı; iş arayanınkiyle aynı değil. */
-const decisionLabel: Readonly<Record<JobApplicant["status"], string>> = {
-  APPLIED: "Karar bekliyor",
-  ACCEPTED: "Kabul edildi",
-  REJECTED: "Reddedildi",
-  WITHDRAWN: "Aday başvurusunu geri çekti",
-  UNKNOWN: "Durum güncelleniyor",
-};

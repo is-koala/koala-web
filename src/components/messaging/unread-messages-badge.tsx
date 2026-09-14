@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadUnreadStateAction } from "@/app/(uygulama)/messaging-actions";
 import { messageFromRealtime } from "@/messaging/realtime";
 import type { RealtimeClient } from "@/realtime/client";
+import { Icon } from "@/components/ui/icon";
 import { retainRealtimeClient, sharedRealtimeClient } from "@/realtime/shared-client";
 
 type UnreadState = { total: number; byConversation: Record<string, number> };
@@ -93,7 +94,8 @@ export function UnreadMessagesBadge({
   const label = unread.total > 0 ? `${unread.total} okunmamış mesaj` : "Okunmamış mesaj yok";
   return (
     <Link className="message-badge-link" href={href} aria-label={label}>
-      <span aria-hidden="true">Mesajlar</span>
+      <Icon name="chat" size={18} />
+      <span className="message-badge-label" aria-hidden="true">Mesajlar</span>
       {unread.total > 0 ? <span className="message-badge" aria-hidden="true">{unread.total}</span> : null}
     </Link>
   );

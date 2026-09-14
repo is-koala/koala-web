@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { EmployerGate } from "@/components/employer-gate";
 import { LoadingState } from "@/components/states";
 import { JobForm, type JobFormData, type JobFormTemplate } from "@/components/job-form";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { isUuid } from "@/lib/identifiers";
 import type { JobCategory } from "@/lib/job-posting";
 import { quotePriceAction } from "@/app/(uygulama)/isveren/ilan/yeni/actions";
@@ -56,12 +57,12 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
   const company = gates.companies.find((candidate) => candidate.companyId === companyId);
 
   return (
-    <section className="app-panel">
-      <p className="eyebrow">İşveren</p>
-      <h1>{company ? `${company.companyName} adına yeni ilan` : "Şirket adına yeni ilan"}</h1>
-      <p className="lede">
-        Bu ilan şirket adına açılıyor. Başvurular ve ödeme de şirketin üzerinden yürür.
-      </p>
+    <PagePanel>
+      <PageHeader
+        eyebrow="İşveren"
+        title={company ? `${company.companyName} adına yeni ilan` : "Şirket adına yeni ilan"}
+        lede="Bu ilan şirket adına açılıyor. Başvurular ve ödeme de şirketin üzerinden yürür."
+      />
 
       <EmployerGate blocked={verdict.open ? [] : verdict.blockedBy} action="İlanı yayımla">
         {verdict.open && company ? (
@@ -70,7 +71,7 @@ export default async function Page({ params }: { params: Promise<{ companyId: st
           </Suspense>
         ) : null}
       </EmployerGate>
-    </section>
+    </PagePanel>
   );
 }
 

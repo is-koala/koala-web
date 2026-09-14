@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { EmployerAssignmentList } from "@/components/payments/employer-assignment-list";
 import { EmptyState, ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { failureView } from "@/server/form";
 import { readEmployerAssignments } from "@/server/payments/payments";
 import { enterShell } from "@/server/session/viewer";
@@ -37,16 +38,18 @@ export async function EmployerAssignmentsPage({ searchParams }: EmployerAssignme
   }
 
   return (
-    <section className="app-panel assignments-page">
-      <p className="eyebrow">İşveren paneli</p>
-      <h1>Atamalar</h1>
-      <p className="lede">İşçilerin onay durumunu ve her atamanın ödeme adımını takip et.</p>
+    <PagePanel className="assignments-page">
+      <PageHeader
+        eyebrow="İşveren paneli"
+        title="Atamalar"
+        lede="İşçilerin onay durumunu ve her atamanın ödeme adımını takip et."
+      />
       {result.assignments.content.length === 0 ? (
         <EmptyState kind="employerAssignments" />
       ) : (
         <EmployerAssignmentList assignments={result.assignments} />
       )}
-    </section>
+    </PagePanel>
   );
 }
 

@@ -499,3 +499,18 @@ export function applicationDecisionGate(input: {
 function closed(reason: string): ApplicationDecisionGate {
   return { canAccept: false, canReject: false, closedReason: reason, acceptClosedReason: null };
 }
+
+/**
+ * Başvuru durumunun işveren gözünden etiketi.
+ *
+ * İş arayanın gördüğü metinlerle aynı değil ("Kabul edildi" ikisinde de var
+ * ama "Aday başvurusunu geri çekti" yalnız burada). Başvuru listesi ve
+ * işveren ana sayfası aynı sözlüğü okur; iki ekranda iki ayrı metin olmasın.
+ */
+export const applicantStatusLabel: Readonly<Record<ApplicationStatus, string>> = {
+  APPLIED: "Karar bekliyor",
+  ACCEPTED: "Kabul edildi",
+  REJECTED: "Reddedildi",
+  WITHDRAWN: "Aday başvurusunu geri çekti",
+  UNKNOWN: "Durum güncelleniyor",
+};

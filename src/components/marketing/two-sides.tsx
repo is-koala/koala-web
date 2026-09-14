@@ -5,7 +5,7 @@ import { homeContent } from "@/content/marketing";
 
 import mascotEmployer from "../../../public/brand/maskot-isveren.webp";
 import mascotWorker from "../../../public/brand/maskot-calisan.webp";
-import { Icon, type IconName } from "./icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Section, SectionHeading } from "./section";
 import { Tabs } from "./tabs";
 

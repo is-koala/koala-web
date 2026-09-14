@@ -68,6 +68,14 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   ve sayfa kapısını layout'tan miras almıyor.
 - Menü ve "henüz açılmadı" ekranları tek bir kayıttan çizilir:
   `src/lib/app-routes.ts`. Yeni bir bölüm önce oraya yazılır.
+- Kabuk sayfaları görünüşü `src/components/ui` setinden alır (is-koala/koala-web#156):
+  `PagePanel`/`PageHeader` sayfa başlığı, `Card`, `StatusBadge` (tonlar tasarım
+  sisteminin durum token'larından; etiket metni kendi modülünde kalır),
+  `LinkTabs` (adres çubuğuna yazan süzgeç/sıralama), `EmptyStateCard` (maskot),
+  `ListRow`/`FactList`, `StatCard`, `Field`. Kabuk kromu
+  `src/components/app-shell.css`'te, token'lar `globals.css`'te; yeni kural
+  ham renk ya da piksel köşe yazmaz, token okur. Hepsi sunucu bileşeni — tek
+  istemci parçası menünün `aria-current` bağlantısı (`app-nav-link.tsx`).
 - Kabuk kökleri `src/lib/private-routes.ts` içindeki `privateRouteTrees`
   listesinde durur. `/isveren` tanıtım sayfası `/isverenler`'in **öneki**:
   robots.txt eşleşmesi önek temelli olduğu için ağaç `/isveren$` ve `/isveren/`

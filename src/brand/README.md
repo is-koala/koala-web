@@ -13,6 +13,7 @@ ile gerçek marka geldi. Dosyalar `public/brand/` altında:
 | `map-istanbul.webp` | `assets/images/background_map.png` | Hero harita kartı, telefon ekranı |
 | `maskot-1..3.webp` | `assets/images/onboarding-*.png` (800px) | Biz kimiz, adımlar, erken erişim |
 | `maskot-calisan.webp`, `maskot-isveren.webp` | `assets/images/koala_worker.png`, `koala_business.png` (600px) | İki taraf |
+| `maskot-calisan-bos.webp`, `maskot-isveren-bos.webp` | aynı kaynaklar, kenar boşluğu kırpılıp 300px yüksekliğe indirildi (~15 KB) | Kabuk boş durumları ve karşılama (`ui/mascot.tsx`, düz `<img>`) |
 | `profil-ornek.png` | `assets/images/koala_profile_picture.png` | Telefon ekranı |
 | `pins/*.svg` | `assets/map_pins/*.svg` | Kategori pinleri |
 

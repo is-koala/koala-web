@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { AssignmentList } from "@/components/assignment-list";
 import { EmptyState, ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { readWorkerAssignments } from "@/server/assignments/assignments";
 import { failureView } from "@/server/form";
 import { enterShell } from "@/server/session/viewer";
@@ -40,10 +41,12 @@ export async function AssignmentsPage() {
   const { assignments } = result;
 
   return (
-    <section className="app-panel assignments-page">
-      <p className="eyebrow">Çalışan paneli</p>
-      <h1>İşlerim</h1>
-      <p className="lede">Atamalarını gör, onay bekleyen işlere tek yerden yanıt ver.</p>
+    <PagePanel className="assignments-page">
+      <PageHeader
+        eyebrow="Çalışan paneli"
+        title="İşlerim"
+        lede="Atamalarını gör, onay bekleyen işlere tek yerden yanıt ver."
+      />
 
       {assignments.content.length === 0 ? (
         <EmptyState kind="assignments" />
@@ -54,6 +57,6 @@ export async function AssignmentsPage() {
           acceptanceAction={readAssignmentAcceptanceAction}
         />
       )}
-    </section>
+    </PagePanel>
   );
 }

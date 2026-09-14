@@ -17,6 +17,7 @@ import { viewerGates } from "@/server/session/gates";
 import { enterShell, type Viewer } from "@/server/session/viewer";
 
 import { CheckoutButton } from "@/components/payments/checkout-button";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { startPaymentAction } from "./actions";
 
 type CheckoutPageProps = { params: Promise<{ assignmentId: string }> };
@@ -88,13 +89,13 @@ export async function CheckoutContent({
   const paymentAttemptInProgress = hasUnresolvedPaymentAttempt(attemptsResult.attempts);
 
   return (
-    <section className="app-panel checkout-page">
-      <p className="eyebrow">Ödeme öncesi kontrol</p>
-      <h1>{assignment.title}</h1>
-      <p className="lede">
-        İşçi: {assignment.workerName || "Bilgi bekleniyor"}. Kart bilgilerini yalnız Iyzico&apos;nun
-        güvenli ödeme sayfasına gireceksin.
-      </p>
+    <PagePanel className="checkout-page">
+      <PageHeader
+        eyebrow="Ödeme öncesi kontrol"
+        title={assignment.title}
+        lede={<>İşçi: {assignment.workerName || "Bilgi bekleniyor"}. Kart bilgilerini yalnız Iyzico&apos;nun
+        güvenli ödeme sayfasına gireceksin.</>}
+      />
 
       <section className="checkout-prerequisites" aria-labelledby="checkout-prerequisites-title">
         <h2 id="checkout-prerequisites-title">Ön koşullar</h2>
@@ -143,6 +144,6 @@ export async function CheckoutContent({
           <CheckoutButton action={startPaymentAction.bind(null, assignment.id)} />
         </EmployerPaymentGate>
       )}
-    </section>
+    </PagePanel>
   );
 }

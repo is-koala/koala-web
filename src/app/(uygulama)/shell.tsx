@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { AppShell, SectionNotOpen, ShellNotice } from "@/components/app-shell";
+import { AppShell, SectionNotOpen } from "@/components/app-shell";
 import { GateBlocks } from "@/components/employer-gate";
 import { UnreadMessagesBadge } from "@/components/messaging/unread-messages-badge";
+import { Card, MascotImage } from "@/components/ui";
 import { appShells, publicJobsPath, sectionAt, type AppShellId } from "@/lib/app-routes";
 import { enterSection, enterShellGates } from "@/server/session/gates";
 import { enterShell } from "@/server/session/viewer";
+
+import { EmployerDashboard } from "./isveren/dashboard";
 
 /**
  * İki kabuğun ortak rota gövdeleri.
@@ -67,51 +70,67 @@ export async function ShellLayout({
  */
 export async function ShellHome({ shell }: { shell: AppShellId }) {
   const { viewer, blocked } = await enterShellGates(shell);
-  const definition = appShells[shell];
 
   return (
-    <section className="app-panel">
-      <p className="eyebrow">{definition.title}</p>
-      <h1>{viewer ? `Merhaba ${viewer.firstName}` : "Merhaba"}</h1>
-      <p className="lede">{definition.description}</p>
+    <>
+      <ShellWelcome shell={shell} name={viewer?.firstName ?? null} />
 
       {/*
-       * Kabuğun engelleyici kapıları kökte yazılı duruyor. Bugün kapatılacak
-       * bir düğme yok — bölümler henüz açılmadı — ama `isEmployer: false` bir
-       * hesabın bireysel ilan açamayacağını ve bunun kayıt anında
+       * Kabuğun engelleyici kapıları kökte yazılı duruyor: `isEmployer: false`
+       * bir hesabın bireysel ilan açamayacağını ve bunun kayıt anında
        * kararlaştığını kullanıcı bir bölüme tıklamayı denemeden okumalı.
        */}
       <GateBlocks gates={blocked} />
 
       {/*
-       * Kabuk kökü artık girişin de indiği yer (is-koala/koala-web#154). Planlı
-       * bölümü kalan kabuk bunu söyler; hepsi teslim edilmiş kabuk ise
-       * kullanıcıyı ilk işe yönlendirir — iş arayan için ilan bulmak, ve o
-       * liste kabuğun dışında (`/is-ilanlari`), menüden ulaşılmıyor.
+       * Kabuk kökü girişin de indiği yer (is-koala/koala-web#154). İşveren
+       * özetini ve son başvurularını görür; iş arayan ilk işine yönlendirilir
+       * — ilan bulmak, ve o liste kabuğun dışında (`/is-ilanlari`), menüden
+       * ulaşılmıyor.
        */}
-      {definition.sections.some((section) => section.status === "planned") ? (
-        <ShellNotice
-          title="Bölümler sırayla açılıyor"
-          message="Hazır bölümlere menüden ulaşabilirsin. Diğer maddeler açıldığında tıklanabilir olacak."
-        />
-      ) : (
-        <ShellStart shell={shell} />
-      )}
+      {shell === "employer" && viewer !== null ? <EmployerDashboard viewer={viewer} /> : null}
+      {shell === "worker" ? <ShellStart /> : null}
+    </>
+  );
+}
+
+/**
+ * Karşılama şeridi.
+ *
+ * İşverende yeşil gradyan: tasarım sistemine göre üründe gradyanın olduğu
+ * tek yer işveren panelinin karşılama bandı. Çalışan kabuğu düz beyaz kart.
+ * Maskot dekor (`alt=""`); geniş ekranda bandın sağında, darda gizli.
+ */
+function ShellWelcome({ shell, name }: { shell: AppShellId; name: string | null }) {
+  const definition = appShells[shell];
+  const employer = shell === "employer";
+
+  return (
+    <section
+      className={employer ? "shell-welcome" : "app-panel shell-welcome-plain"}
+      aria-labelledby="shell-welcome-title"
+    >
+      <div className="shell-welcome-copy">
+        <p className="eyebrow">{definition.title}</p>
+        <h1 id="shell-welcome-title">{name ? `Merhaba ${name}` : "Merhaba"}</h1>
+        <p className="lede">{definition.description}</p>
+      </div>
+      <div className="shell-welcome-mascot" aria-hidden="true">
+        <MascotImage mascot={employer ? "employer" : "worker"} height={150} />
+      </div>
     </section>
   );
 }
 
 /**
- * Teslimi tamamlanmış kabuğun giriş kartı.
+ * İş arayan kabuğunun giriş kartı.
  *
- * Bugün yalnız iş arayan kabuğu bu dala düşüyor; bağlantılar kayıttaki
- * adreslerden okunuyor ki bir bölüm taşınırsa kart da onunla taşınsın.
+ * Bağlantılar kayıttaki adreslerden okunuyor ki bir bölüm taşınırsa kart da
+ * onunla taşınsın.
  */
-function ShellStart({ shell }: { shell: AppShellId }) {
-  if (shell !== "worker") return null;
-
+function ShellStart() {
   return (
-    <div role="status" className="state-card shell-start">
+    <Card as="section" className="shell-start" role="status">
       <h2>Buradan başla</h2>
       <p>
         Yakınındaki ilanları bul, başvur; başvurunun kabulünü, işi ve ödemeyi buradan takip et.
@@ -133,7 +152,7 @@ function ShellStart({ shell }: { shell: AppShellId }) {
           </Link>
         </li>
       </ul>
-    </div>
+    </Card>
   );
 }
 

@@ -1,4 +1,5 @@
 import { LoadingState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 
 /**
  * Bölümün kendi yükleniyor durumu. Sayfa `notFound()` çağırmıyor, yani
@@ -6,10 +7,9 @@ import { LoadingState } from "@/components/states";
  */
 export default function Loading() {
   return (
-    <section className="app-panel notifications-page">
-      <p className="eyebrow">İş arayan paneli</p>
-      <h1>Bildirimler</h1>
+    <PagePanel className="notifications-page">
+      <PageHeader eyebrow="İş arayan paneli" title="Bildirimler" />
       <LoadingState label="Bildirimler yükleniyor" />
-    </section>
+    </PagePanel>
   );
 }

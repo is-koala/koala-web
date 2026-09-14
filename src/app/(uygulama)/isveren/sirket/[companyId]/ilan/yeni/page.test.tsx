@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PageHeader } from "@/components/ui";
 import { ApiError } from "@/server/api/errors";
 
 import { sessionExpiryRedirect } from "../../../../../../../../tests/support/control-flow";
@@ -125,7 +126,9 @@ describe("şirket adına ilan açma sayfası", () => {
     };
     const nodes = [tree.props.children].flat(3);
 
-    expect(nodes.find((node) => node?.type === "h1")?.props.children).toBe(
+    // Başlık artık `PageHeader` üzerinden çiziliyor (#156); seçici düğüme
+    // değil bileşene bakıyor.
+    expect(nodes.find((node) => node?.type === PageHeader)?.props.title).toBe(
       "Koala Etkinlik adına yeni ilan",
     );
     expect(

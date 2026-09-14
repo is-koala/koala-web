@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { ApplicantReview } from "@/components/applicant-review";
 import { ErrorState, LoadingState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { jobHeadcount } from "@/jobs/headcount";
 import { publishedJobPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
@@ -67,13 +68,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const headcount = jobHeadcount({ headcount: job.headcount, hiredCount: job.hiredCount });
 
   return (
-    <section className="app-panel applications-page">
-      <p className="eyebrow">İlanın başvuruları</p>
-      <h1>{job.title}</h1>
-      <p className="lede">
-        Adayları inceleyip yetenek havuzuna alabilir, ilanla ilgili yazışmayı buradan
-        başlatabilirsin.
-      </p>
+    <PagePanel className="applications-page">
+      <PageHeader
+        eyebrow="İlanın başvuruları"
+        title={job.title}
+        lede="Adayları yan yana karşılaştır, beğendiklerini yetenek havuzuna al; ilanla ilgili yazışmayı buradan başlat."
+        actions={
+          <Link className="button button-secondary button-small" href={publishedJobPath(id)}>
+            İlana dön
+          </Link>
+        }
+      />
       {/*
         Kontenjan sayısı ve belirsizliği birlikte duruyor: sayı gösterilip
         `hiredCount` ile kabul kapısının ayrıştığı söylenmezse, "yer var"
@@ -88,10 +93,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </div>
       ) : null}
 
-      <Link className="button button-secondary button-small" href={publishedJobPath(id)}>
-        İlana dön
-      </Link>
-
       {/*
         Panele **sayı** geçiyor, `headcount.full` değil: o bayrak `hiredCount`tan
         türüyor ve kabul kapısının saydığı kümeyi (`SLOT_OCCUPYING_STATUSES`)
@@ -101,7 +102,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <Suspense fallback={<LoadingState label="Başvurular yükleniyor" />}>
         <JobApplicantsPanel jobId={id} headcount={job.headcount} hiredCount={job.hiredCount} />
       </Suspense>
-    </section>
+    </PagePanel>
   );
 }
 

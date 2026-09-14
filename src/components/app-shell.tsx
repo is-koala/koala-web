@@ -1,12 +1,17 @@
 import Link from "next/link";
 
 import { Wordmark } from "@/brand/Wordmark";
+import { AppNavLink } from "@/components/app-nav-link";
 import { GateAdvisories } from "@/components/employer-gate";
 import { MainContent } from "@/components/main-content";
 import { ErrorState } from "@/components/states";
+import { Avatar, Icon, type IconName } from "@/components/ui";
 import type { AppSection, AppShell as AppShellDefinition } from "@/lib/app-routes";
 import type { GateId } from "@/lib/gates";
+import { safeImageUrl } from "@/lib/urls";
 import type { ViewerContext } from "@/server/session/viewer";
+
+import "./app-shell.css";
 
 export type AppShellProps = {
   shell: AppShellDefinition;
@@ -43,13 +48,20 @@ export function AppShell({ shell, context, advisories, children, headerActions }
     <div className="app-shell">
       <header className="app-bar">
         <div className="app-bar-inner">
-          <Wordmark />
+          <Wordmark height={26} />
           <span className="app-bar-title">{shell.title}</span>
           <div className="app-bar-actions">
             {viewer === null ? null : headerActions}
-            {viewer === null ? null : <span className="app-bar-user">{viewer.displayName}</span>}
-            <Link className="nav-auth-link" href="/cikis">
-              Çıkış
+            {viewer === null ? null : (
+              <span className="app-bar-user">
+                <Avatar name={viewer.displayName} src={safeImageUrl(viewer.profilePictureUrl)} size="sm" />
+                <span className="app-bar-user-name">{viewer.displayName}</span>
+              </span>
+            )}
+            {/* Dar ekranda metin gizleniyor; ad `aria-label` ile kalıyor. */}
+            <Link className="app-bar-logout" href="/cikis" aria-label="Çıkış">
+              <Icon name="logout" size={18} />
+              <span aria-hidden="true">Çıkış</span>
             </Link>
           </div>
         </div>
@@ -61,23 +73,25 @@ export function AppShell({ shell, context, advisories, children, headerActions }
          * bağlantıları göstermek, arkasında ne olduğu denetlenmemiş kapıları
          * işaret etmek demek; nedeni aşağıdaki hata durumu yazıyor.
          *
-         * `details` dar ekranda menüyü kapatılabilir yapıyor ve bunu JavaScript
-         * olmadan yapıyor: kapatma tercihi ziyaretçinin, ve JavaScript hiç
-         * çalışmasa da menü açık kalıyor.
+         * Geniş ekranda sol sütun, dar ekranda içeriğin üstünde yatay
+         * kaydırılan bir şerit; ikisi de aynı liste ve JavaScript istemiyor.
          */}
         {viewer === null ? null : (
-          <details className="app-nav-disclosure" open>
-            <summary>Menü</summary>
-            <nav className="app-nav" aria-label={`${shell.title} menüsü`}>
-              <ul>
-                {shell.sections.map((section) => (
-                  <li key={section.href}>
-                    <SectionEntry section={section} />
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </details>
+          <nav className="app-nav" aria-label={`${shell.title} menüsü`}>
+            <ul>
+              <li>
+                <AppNavLink href={shell.root} exact>
+                  <Icon name="home" size={20} />
+                  <span>Genel bakış</span>
+                </AppNavLink>
+              </li>
+              {shell.sections.map((section) => (
+                <li key={section.href}>
+                  <SectionEntry section={section} />
+                </li>
+              ))}
+            </ul>
+          </nav>
         )}
 
         <MainContent className="app-main">
@@ -133,18 +147,53 @@ export function SectionNotOpen({ section }: { section: Extract<AppSection, { sta
  * olamaz.
  */
 function SectionEntry({ section }: { section: AppSection }) {
+  const icon = sectionIcon(section.href);
+
   if (section.status === "ready") {
     return (
-      <Link className="app-nav-link" href={section.href}>
-        {section.label}
-      </Link>
+      <AppNavLink href={section.href}>
+        <Icon name={icon} size={20} />
+        <span>{section.label}</span>
+      </AppNavLink>
     );
   }
 
   return (
     <span className="app-nav-link app-nav-link-planned">
-      {section.label}
-      <span className="app-nav-note">{section.note}</span>
+      <Icon name={icon} size={20} />
+      <span>
+        {section.label}
+        <span className="app-nav-note">{section.note}</span>
+      </span>
     </span>
   );
 }
+
+/**
+ * Bölümün menü simgesi, adresin son parçasından.
+ *
+ * Kayıt (`app-routes.ts`) davranış taşıyor, görünüş değil; simgeyi oraya
+ * yazmak rota kaydını sunuma bağlardı. Tanınmayan bölüm nötr bir simge alır,
+ * menü kırılmaz.
+ */
+function sectionIcon(href: string): IconName {
+  const leaf = href.split("/").filter(Boolean).pop() ?? "";
+  return sectionIcons[leaf] ?? "grid";
+}
+
+const sectionIcons: Readonly<Record<string, IconName>> = {
+  sirket: "building",
+  ilanlar: "briefcase",
+  yeni: "plus",
+  basvurular: "users",
+  "yetenek-havuzu": "star",
+  atamalar: "calendar",
+  mesajlar: "chat",
+  odemeler: "wallet",
+  hesap: "settings",
+  profil: "user",
+  islerim: "briefcase",
+  basvurularim: "file",
+  kazanclarim: "money",
+  bildirimler: "bell",
+};

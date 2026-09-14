@@ -4,6 +4,7 @@ import { notFound, unstable_rethrow } from "next/navigation";
 
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
+import { PageHeader, PagePanel, StatusBadge, jobStatusTone } from "@/components/ui";
 import { jobStatusLabel } from "@/jobs/lifecycle";
 import { jobApplicantsPath, jobGalleryPath } from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
@@ -57,10 +58,29 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   }
 
   return (
-    <section className="app-panel">
-      <p className="eyebrow">İlanım</p>
-      <h1>{job.title}</h1>
-      <p className="lede">{jobStatusLabel(job.status)}</p>
+    <PagePanel>
+      <PageHeader
+        eyebrow="İlanım"
+        title={job.title}
+        actions={
+          <>
+            {/*
+              Başvuruların menüde bir maddesi yok: bir başvuru bir **ilanın**
+              kaydı ve `GET /jobs/{jobId}/applications` dışında onları getiren
+              bir uç yok. İlanı görüntüleyen kullanıcının başvurulara ulaştığı
+              tek yer burası.
+            */}
+            <Link className="button button-primary button-small" href={jobApplicantsPath(id)}>
+              Başvuruları gör
+            </Link>
+            <Link className="button button-secondary button-small" href={jobGalleryPath(id)}>
+              Galeriyi yönet
+            </Link>
+          </>
+        }
+      >
+        <StatusBadge tone={jobStatusTone(job.status)}>{jobStatusLabel(job.status)}</StatusBadge>
+      </PageHeader>
 
       {job.pricing === null ? (
         <p>Bu ilanın fiyat dökümü okunamadı.</p>
@@ -86,24 +106,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </p>
 
       {/*
-        Başvuruların menüde bir maddesi yok: bir başvuru bir **ilanın** kaydı
-        ve `GET /jobs/{jobId}/applications` dışında onları getiren bir uç yok.
-        İlanı görüntüleyen kullanıcının başvurulara ulaştığı tek yer burası.
-      */}
-      <Link className="button button-primary" href={jobApplicantsPath(id)}>
-        Başvuruları gör
-      </Link>
-
-      <Link className="button button-secondary" href={jobGalleryPath(id)}>
-        Galeriyi yönet
-      </Link>
-
-      {/*
         Kimlik `id`'den bağlanıyor, yanıttaki `job.id`'den değil: bu değer
         yukarıda UUID olarak doğrulandı ve action aynı doğrulamayı tekrar
         yapıyor.
       */}
       <JobLifecycleActions status={job.status} action={jobLifecycleAction.bind(null, id)} />
-    </section>
+    </PagePanel>
   );
 }

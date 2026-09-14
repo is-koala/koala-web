@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { brandTokens } from "./tokens";
 
-const { paper, surface, ink, greenInk, greenDeep, muted, subtle } = brandTokens;
+const { paper, surface, ink, greenInk, greenDeep, muted, subtle, status, ratingInk } = brandTokens;
 
 describe("metin kontrast bütçesi", () => {
   it("açık zeminde yazı renkleri WCAG AA 4,5:1 geçiyor", () => {
@@ -23,6 +23,51 @@ describe("metin kontrast bütçesi", () => {
     // yüzden mürekkep yeşilini kullanıyor. Test iki dolguyu da tutuyor.
     expect(contrast("#FFFFFF", greenInk)).toBeGreaterThanOrEqual(4.5);
     expect(contrast("#FFFFFF", greenDeep)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("kabuk karşılama bandı yalnız koyu yeşiller üstünde beyaz yazı taşıyor", () => {
+    // Band `--koala-green-ink` → `--koala-green-deep` gradyanı; iki ucu da
+    // beyaz yazıyla AA geçmeli. Marka yeşili (2,1:1) banda zemin olamaz;
+    // `app-shell.css` bu yüzden `--koala-green` okumaz.
+    const shellCss = readFileSync(join(import.meta.dirname, "../components/app-shell.css"), "utf8");
+    const band = /\.shell-welcome \{[^}]*background: linear-gradient\((.*?)\); \}/.exec(shellCss);
+    if (!band) throw new Error("`.shell-welcome` gradyanı bulunamadı");
+    expect(band[1]).not.toContain("var(--koala-green)");
+    expect(band[1]).toContain("var(--koala-green-ink)");
+    expect(band[1]).toContain("var(--koala-green-deep)");
+    expect(contrast("#FFFFFF", greenInk)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast("#FFFFFF", greenDeep)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("durum rozetlerinin yazısı kendi yıkaması üstünde AA geçiyor", () => {
+    for (const [tone, { ink: toneInk, wash }] of Object.entries(status)) {
+      expect(contrast(toneInk, wash), `${tone} ink on wash`).toBeGreaterThanOrEqual(4.5);
+    }
+    // CSS aynı değerleri okuyor; aksi hâlde test başka bir paleti ölçerdi.
+    expect(cssVariable("--success-ink")).toBe(status.success.ink);
+    expect(cssVariable("--success-wash")).toBe(status.success.wash);
+    expect(cssVariable("--warning-ink")).toBe(status.warning.ink);
+    expect(cssVariable("--warning-wash")).toBe(status.warning.wash);
+    expect(cssVariable("--info-ink")).toBe(status.info.ink);
+    expect(cssVariable("--info-wash")).toBe(status.info.wash);
+    expect(cssVariable("--pending-strong")).toBe(status.pending.ink);
+    expect(cssVariable("--pending-wash")).toBe(status.pending.wash);
+    expect(cssVariable("--danger-strong")).toBe(status.danger.ink);
+    expect(cssVariable("--danger-wash")).toBe(status.danger.wash);
+    expect(cssVariable("--grey-800")).toBe(status.neutral.ink);
+    expect(cssVariable("--grey-200")).toBe(status.neutral.wash);
+  });
+
+  it("aday karşılaştırma şeridinin yazıları gri-100 üstünde AA geçiyor", () => {
+    // Şerit `--surface-sunken` (gri-100) üstünde: boş hücre `--text-subtle`,
+    // puan `--rating-ink`. `--text-placeholder` (2,5:1) ve `--rating-strong`
+    // (3,2:1) burada yazı olamaz.
+    expect(contrast(subtle, surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(ratingInk, surface)).toBeGreaterThanOrEqual(4.5);
+    expect(cssVariable("--rating-ink")).toBe(ratingInk);
+    const shellCss = readFileSync(join(import.meta.dirname, "../components/app-shell.css"), "utf8");
+    expect(shellCss).toMatch(/\.applicant-compare dd\.is-empty \{[^}]*color: var\(--text-subtle\)/);
+    expect(shellCss).toMatch(/\.applicant-compare \.ui-rating \{[^}]*color: var\(--rating-ink\)/);
   });
 
   it("CSS değişkenleri adlandırılmış marka tokenlarıyla aynı kalıyor", () => {

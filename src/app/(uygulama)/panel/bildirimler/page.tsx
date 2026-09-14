@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { ShellGate } from "@/app/(uygulama)/shell";
 import { ErrorState } from "@/components/states";
+import { PageHeader, PagePanel } from "@/components/ui";
 import { workerNotificationsPath } from "@/lib/app-routes";
 import { listNotifications } from "@/server/account-settings/settings";
 import { failureView } from "@/server/form";
@@ -50,13 +51,12 @@ export async function NotificationsPage({ searchParams }: NotificationsPageProps
     });
 
   return (
-    <section className="app-panel notifications-page">
-      <p className="eyebrow">İş arayan paneli</p>
-      <h1>Bildirimler</h1>
-      <p className="lede">
-        Başvuru, atama ve hesap güvenliği bildirimlerin burada toplanır. Bildirim kanallarını
-        hesap ayarlarından seçebilirsin.
-      </p>
+    <PagePanel className="notifications-page">
+      <PageHeader
+        eyebrow="İş arayan paneli"
+        title="Bildirimler"
+        lede="Başvuru, atama ve hesap güvenliği bildirimlerin burada toplanır. Bildirim kanallarını hesap ayarlarından seçebilirsin."
+      />
       {"failure" in result ? (
         <ErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
       ) : (
@@ -66,7 +66,7 @@ export async function NotificationsPage({ searchParams }: NotificationsPageProps
           markAllReadAction={markAllNotificationsReadAction}
         />
       )}
-    </section>
+    </PagePanel>
   );
 }
 

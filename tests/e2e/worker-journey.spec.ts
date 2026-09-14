@@ -87,6 +87,37 @@ test("panel bölümleri gerçek sayfalarla açılır; bilinmeyen adres 404 kalı
   expect(missing?.status()).toBe(404);
 });
 
+test("kabuk menüsü dar ekranda yatay şerit olarak klavyeyle gezilir ve bulunulan bölümü işaretler", async ({
+  page,
+}) => {
+  // Menü <900px'te açılır-kapanır bir `details` değil, yatay kaydırılan bir
+  // şerit (#156). JavaScript istemiyor; sekme sırası üst bar → menü → içerik
+  // olmalı ve bulunulan bölüm `aria-current` taşımalı.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/panel");
+
+  const menu = page.getByRole("navigation", { name: "Panel menüsü" });
+  await expect(menu.getByRole("link", { name: "Genel bakış" })).toHaveAttribute("aria-current", "page");
+  await expect(menu.getByRole("link", { name: "Profilim" })).not.toHaveAttribute("aria-current", /.*/);
+
+  await page.getByRole("link", { name: "Çıkış" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(menu.getByRole("link", { name: "Genel bakış" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(menu.getByRole("link", { name: "Profilim" })).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL("/panel/profil");
+  await expect(page.getByRole("heading", { level: 1, name: "Profilim" })).toBeVisible();
+  const menuAfter = page.getByRole("navigation", { name: "Panel menüsü" });
+  await expect(menuAfter.getByRole("link", { name: "Profilim" })).toHaveAttribute("aria-current", "page");
+  await expect(menuAfter.getByRole("link", { name: "Genel bakış" })).not.toHaveAttribute("aria-current", /.*/);
+  // Şeridin son maddesi de klavyeyle ulaşılabilir; kaydırma odağı engellemez.
+  await menuAfter.getByRole("link", { name: "Hesap ve ayarlar" }).focus();
+  await expect(menuAfter.getByRole("link", { name: "Hesap ve ayarlar" })).toBeFocused();
+  await expect(menuAfter.getByRole("link", { name: "Hesap ve ayarlar" })).toBeInViewport();
+});
+
 test("konum süzgeci kartta uzaklık yazar; harita görünümü anahtarsız ortamda yer tutucu çizer", async ({
   page,
 }) => {
