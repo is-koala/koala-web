@@ -5,6 +5,7 @@ import { cache } from "react";
 
 import type { CanonicalAddress } from "@/address/contract";
 import { canonicalAddressFrom } from "@/address/read";
+import type { AppShellId } from "@/lib/app-routes";
 import type { Badge, Education, Experience } from "@/lib/profile";
 import { ApiError } from "@/server/api/errors";
 import { backendPaths, unauthorizedStatus, unexpectedError } from "@/server/contract";
@@ -106,6 +107,26 @@ export const currentViewer: () => Promise<ViewerContext> = cache(loadViewer);
  */
 export function currentUserAddress(): Promise<CanonicalAddress | null> {
   return loadProfile().then((loaded) => loaded.address);
+}
+
+/**
+ * Kullanıcının kabuğu. `isEmployer` kayıt anında yazılıyor ve değişmiyor
+ * (`AGENTS.md`, "Rol değiştirici yok"); bu bir yetki kapısı değil, girişin
+ * ve başlığın varsayılan hedefi. İki kabuk da yalnız oturuma göre kapalı.
+ */
+export function shellFor(viewer: Pick<Viewer, "isEmployer">): AppShellId {
+  return viewer.isEmployer ? "employer" : "worker";
+}
+
+/**
+ * Bu isteğin kullanıcısının kabuğu; profil okunamadıysa `null`.
+ *
+ * Giriş action'ı ve başlığın `/api/session` ucu okuyor. Oturum bitmişse
+ * `loadProfile` girişe yönlendirir; çağıran onu bir arıza gibi yutmamalı.
+ */
+export async function viewerShell(): Promise<AppShellId | null> {
+  const { viewer } = await currentViewer();
+  return viewer === null ? null : shellFor(viewer);
 }
 
 /**

@@ -10,7 +10,9 @@ import { marketingNav } from "@/lib/site";
  * Yerleşim tasarımcının v2 mockup'ından (#155): yapışkan beyaz bant, ince alt
  * çizgi, sağda hap biçimli yeşil çağrı. Bağlantı kümesi mockup'taki bölüm
  * çıpaları değil sitenin gerçek rotaları — mockup tek sayfaydı, site değil.
- * Dar ekranda `.nav-links` gizlenir ve `MobileNav` devreye girer.
+ * Hap artık oturum çağrısı (giriş ya da kullanıcının paneli); "Uygulamayı aç"
+ * yanında metin bağlantısı. Dar ekranda `.nav-links` gizlenir ve `MobileNav`
+ * devreye girer.
  */
 export function SiteHeader() {
   return (
@@ -27,8 +29,13 @@ export function SiteHeader() {
           ))}
         </ul>
         <div className="nav-actions">
+          {/*
+            Asıl çağrı oturuma göre değişiyor (`SessionNav`: giriş ya da kabuk);
+            uygulama bağlantısı ikincil — web akışı artık kendi başına yetiyor
+            (is-koala/koala-web#154), uygulama bir seçenek.
+          */}
+          <Link className="nav-auth-link nav-app-link" href="/uygulamayi-ac">Uygulamayı aç</Link>
           <SessionNav />
-          <Link className="button button-primary button-small" href="/uygulamayi-ac">Uygulamayı aç</Link>
           <MobileNav />
         </div>
       </nav>

@@ -8,7 +8,7 @@ import {
   requestHeaders as testRequestHeaders,
 } from "../../../tests/support/session-cookies";
 
-import { loadViewer } from "./viewer";
+import { loadViewer, shellFor, viewerShell } from "./viewer";
 
 vi.mock("next/headers", async () => {
   const support = await import("../../../tests/support/session-cookies");
@@ -233,6 +233,17 @@ describe("kabuğun kullanıcı bağlamı", () => {
         earnedAt: "2026-09-01T10:00:00Z",
       },
     ]);
+  });
+
+  it("kabuğu isEmployer'dan okur; profil yoksa kabuk yok", async () => {
+    expect(shellFor({ isEmployer: true })).toBe("employer");
+    expect(shellFor({ isEmployer: false })).toBe("worker");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(200, envelope(userMe({ isEmployer: false })))),
+    );
+    await expect(viewerShell()).resolves.toBe("worker");
   });
 
   it("kimlik numarasını ve adresi değer olarak değil, varlık olarak taşır", async () => {

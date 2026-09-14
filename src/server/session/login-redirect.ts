@@ -2,6 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+import { shellHomePath, type AppShellId } from "@/lib/app-routes";
 import { loginPath } from "@/lib/site";
 import { safeInternalPath } from "@/lib/urls";
 import { requestPathHeader } from "@/server/contract";
@@ -45,7 +46,7 @@ export async function currentPathLoginRedirect(): Promise<string> {
   return loginRedirect(await currentRequestPath());
 }
 
-/** Dönüş hedefi yokken kullanıcının bırakılacağı yer. */
+/** Rolü okunamayan kullanıcının bırakılacağı yer. */
 const defaultDestination = "/";
 
 /**
@@ -54,8 +55,26 @@ const defaultDestination = "/";
  * Giriş formuna gelen değer tarayıcıdan geçtiği için `loginRedirect`'in
  * ürettiği hedefle aynı olduğu varsayılamaz: kullanıcı adres çubuğunda
  * değiştirebilir. Aynı `safeInternalPath` denetiminden geçirmek, giriş sayfasının
- * açık yönlendirme aracına dönmesini engeller; hedef yoksa ana sayfaya düşer.
+ * açık yönlendirme aracına dönmesini engeller. Hedef yoksa `null`: nereye
+ * gidileceğine giriş **sonrası**, kullanıcının rolüyle karar veriliyor
+ * (`postLoginDestination`).
  */
-export function returnDestination(candidate: string | undefined | null): string {
-  return safeInternalPath(candidate) || defaultDestination;
+export function returnDestination(candidate: string | undefined | null): string | null {
+  return safeInternalPath(candidate);
+}
+
+/**
+ * Giriş sonrası hedef.
+ *
+ * Dönülecek bir sayfa varsa oraya — kullanıcı kapıya takıldığı yere geri
+ * bırakılır. Yoksa kabuğuna: çalışan `/panel`, işveren `/isveren`
+ * (is-koala/koala-web#154). Rolü okunamadıysa ana sayfa; kabuk tahmin
+ * edilmez, çünkü yanlış kabuk kullanıcıya "hesabın işveren değil" şeridiyle
+ * açılırdı.
+ */
+export function postLoginDestination(
+  candidate: string | undefined | null,
+  shell: AppShellId | null,
+): string {
+  return returnDestination(candidate) ?? (shell === null ? defaultDestination : shellHomePath(shell));
 }

@@ -153,9 +153,14 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   yok, ve iki kabuk da bugün role göre değil yalnız oturuma göre kapalı.
   **Kayıt** sonrası hedef de bu yüzden `/` (`postRegistrationPath`,
   `src/lib/site.ts`): hangi kabuğa gidileceği #25'e bağlı. Girişin hedefi
-  ayrı bir karar ve ayrı dosyada — `returnDestination`
+  ayrı bir karar ve ayrı dosyada — `postLoginDestination`
   (`src/server/session/login-redirect.ts`) kullanıcıyı kapıya takıldığı
-  sayfaya geri bırakıyor, dönülecek bir sayfa yoksa `/` kalıyor.
+  sayfaya geri bırakıyor; dönülecek bir sayfa yoksa `isEmployer`'a göre
+  kabuğuna (`/panel` ya da `/isveren`, is-koala/koala-web#154) gidiyor ve rol
+  okunamadıysa `/` kalıyor. Bu bir kapı değil, varsayılan: öbür kabuk
+  adresinden hâlâ açılıyor. Tanıtım başlığı aynı bilgiyi `/api/session`'dan
+  okuyup "Panelim" ya da "İşveren panelim" yazıyor; "Uygulamayı aç" ikincil
+  bağlantı.
 - **`isEmployer` şirket ilanının koşulu değil.** `JobManager.createIndividualJob`
   rolü ve kimliği arıyor, `createCorporateJob` yalnız şirketin yetkili
   listesinde olmayı. Bu yüzden şirket ilanı formu `/isveren/ilan/yeni`
