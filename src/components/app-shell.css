@@ -82,7 +82,7 @@ a.app-nav-link[aria-current="page"] svg { color: var(--koala-green-ink); }
 .applicant-card { grid-template-columns: minmax(0, 1fr); }
 .applicant-compare { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; margin: 0; }
 .applicant-compare > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--r-12); background: var(--surface-sunken); min-width: 0; }
-.applicant-compare dt { font-size: 11px; font-weight: var(--w-medium); letter-spacing: .04em; text-transform: uppercase; color: var(--text-subtle); }
+.applicant-compare dt { font-size: var(--size-12); font-weight: var(--w-medium); letter-spacing: .04em; text-transform: uppercase; color: var(--text-subtle); }
 .applicant-compare dd { margin: 0; font-size: var(--size-14); font-weight: var(--w-semibold); overflow-wrap: anywhere; }
 .applicant-compare dd.is-empty { color: var(--text-subtle); font-weight: var(--w-regular); }
 .applicant-compare .ui-rating { color: var(--rating-ink); }
