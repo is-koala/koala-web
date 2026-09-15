@@ -8,11 +8,10 @@ import {
   type CompletionDecision,
   type TrackingEvent,
 } from "@/assignments/employer-tracking";
-import { assignmentNotFoundMessage } from "@/assignments/contract";
 import type { WorkSession } from "@/assignments/work-detail";
 import { formatDuration, totalMinutes } from "@/components/work-detail/presenters";
 import { formatDateTime } from "@/lib/dates";
-import { errorPresentation } from "@/lib/errors";
+import { assignmentErrorMessage } from "@/components/assignment-error-message";
 
 /**
  * Atamanın durum çizelgesi, puantajı ve tamamlama eylemi.
@@ -116,12 +115,11 @@ export function EmployerAssignmentTracking({
  * birinde ödeme tamamlanacak, öbüründe atamanın durumu değişmiş.
  */
 function completionErrorMessage(errorCode: string, httpStatus: number): string {
-  if (errorCode === "ASSIGNMENT_PAYMENT_NOT_SECURED") {
-    return "Ödeme emanete alınmadan atama tamamlanamaz. Önce ödemeyi tamamla.";
-  }
-  if (errorCode === "JOB_ASSIGNMENT_NOT_COMPLETABLE") {
-    return "Atamanın durumu bu sırada değişmiş; tamamlanabilir bir durumda değil. Sayfayı yenileyip güncel durumu gör.";
-  }
-  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") return assignmentNotFoundMessage;
-  return errorPresentation(errorCode, httpStatus).message;
+  return assignmentErrorMessage(errorCode, httpStatus, completionSentences);
 }
+
+const completionSentences: Readonly<Record<string, string>> = {
+  ASSIGNMENT_PAYMENT_NOT_SECURED: "Ödeme emanete alınmadan atama tamamlanamaz. Önce ödemeyi tamamla.",
+  JOB_ASSIGNMENT_NOT_COMPLETABLE:
+    "Atamanın durumu bu sırada değişmiş; tamamlanabilir bir durumda değil. Sayfayı yenileyip güncel durumu gör.",
+};

@@ -123,7 +123,8 @@ test("tamamlanan atamada işçi yıldızla değerlendirilir; yeniden açılan sa
  * alınmış atamada; onay diyaloğu olmadan istek yok; onay sonrası sahte
  * backend'e `GET /job-assignments/{id}/worker-identity` düşer, alanlar
  * maskesiz gelir ve okuma kayda geçer. Sayfa açılırken kayıt oluşmaz. 60 sn
- * maskeleme bileşen testinde (`vi.useFakeTimers`).
+ * maskeleme bileşen testinde (`vi.useFakeTimers`); 409 ve 429 sahte
+ * backend'in iki kipiyle burada.
  */
 test("işe alınmamış atamada kimlik bölümü yok", async ({ page }) => {
   await page.goto(`/isveren/atama/${unpaidAssignmentId}`);
@@ -175,6 +176,30 @@ test("doğrulanmamış işçide 409 kendi cümlesiyle yazılır, alan çizilmez"
   await expect(section.getByRole("alert")).toContainText("çalışanın kimlik doğrulamasını tamamlaması gerekiyor");
   await expect(page.locator('dl[aria-label="Kimlik bilgileri"]')).toHaveCount(0);
   await expect(page.getByText("10000000146")).toHaveCount(0);
+});
+
+test("saatlik sınır dolunca 429 kendi cümlesiyle yazılır; önceki okumalar kayıtta kalır", async ({ page, request }, testInfo) => {
+  // Sahte backend üçüncü okumadan sonra 429 döndürüyor (`identityRevealHourlyLimit`).
+  await page.goto(`/isveren/atama/${paidAssignmentId}`);
+  const section = page.getByTestId("worker-identity");
+  const revealsUrl = `${backendURL}/__test__/identity-reveals?key=${stateKeyFor(testInfo)}`;
+
+  for (let round = 1; round <= 3; round += 1) {
+    await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Görüntülemeyi onayla" }).click();
+    // Diyalog yanıt gelene kadar açık; kapanması isteğin bittiği anlamına geliyor.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("worker-identity-number")).toHaveText("10000000146");
+    expect(await (await request.get(revealsUrl)).json()).toHaveLength(round);
+  }
+
+  await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Görüntülemeyi onayla" }).click();
+
+  await expect(section.getByRole("alert")).toContainText("Saatlik kimlik görüntüleme sınırına ulaştınız");
+  await expect(page.locator('dl[aria-label="Kimlik bilgileri"]')).toHaveCount(0);
+  await expect(page.getByText("10000000146")).toHaveCount(0);
+  expect(await (await request.get(revealsUrl)).json()).toHaveLength(3);
 });
 
 function stateKeyFor(testInfo: TestInfo): string {

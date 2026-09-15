@@ -1,8 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
-import { assignmentNotFoundMessage } from "@/assignments/contract";
 import { identityRevealErrors } from "@/assignments/errors";
 import {
   identityRevealVisibleMs,
@@ -14,8 +13,8 @@ import {
   type WorkerIdentity,
 } from "@/assignments/identity-reveal";
 import { AccessibleDialog } from "@/components/accessible-dialog";
+import { assignmentErrorMessage } from "@/components/assignment-error-message";
 import { formatDateTime, formatJobDate } from "@/lib/dates";
-import { errorPresentation } from "@/lib/errors";
 
 /**
  * İşverenin sigorta bildirimi için işçinin kimlik bilgilerini görüntülediği
@@ -26,15 +25,23 @@ import { errorPresentation } from "@/lib/errors";
  * Bölümün çizilip çizilmeyeceğine çağıran karar veriyor
  * (`canRevealWorkerIdentity`); bileşen atama durumunu bilmiyor.
  *
- * Değer yalnız action durumunda ve bu bileşenin yerel durumunda yaşıyor:
- * tarayıcı deposu yok, çerez yok, günlük yok; sayfa yenilenince gidiyor
+ * Sonuç `useActionState`'te değil yerel durumda: `useActionState` son yanıtı
+ * bir sonraki gönderime kadar tutar ve süre dolunca onu boşaltmanın yolu
+ * yeni bir istek atmaktır. Burada action bir geçiş içinde doğrudan çağrılıyor
+ * ve maske anında yanıt nesnesi durumdan düşüyor; ekranda da bellekte de
+ * kalmıyor. Tarayıcı deposu yok, çerez yok, günlük yok
  * (`src/server/server-only.test.ts` bunu dört modülde zorluyor).
- * Zamanlayıcı `useEffect` temizliğinde iptal ediliyor; bileşen ekrandan
- * kalkınca (gezinme, kabuk değişimi) süre dolmasını beklemiyor.
+ *
+ * Diyalog istek bitene kadar açık kalıyor (`dismissDisabled`): önce kapanıp
+ * düğme de kapalı olsaydı odak `body`'ye düşerdi. Yanıt gelince diyalog
+ * kapanır, odak yeniden açılan düğmeye döner ve canlı bölge sonucu okur.
  *
  * Maskeleme sonrası "Yeniden göster" aynı diyaloğu açıyor: her yeniden
  * görüntüleme backend'de yeni bir kayıt ve saatlik sınırdan bir hak.
  */
+
+type RevealView = IdentityRevealState | { readonly status: "masked" };
+
 export function WorkerIdentityReveal({
   workerName,
   action,
@@ -42,29 +49,33 @@ export function WorkerIdentityReveal({
   workerName: string;
   action: IdentityRevealAction;
 }) {
-  const [state, dispatch, pending] = useActionState(action, idleIdentityRevealState);
+  const [pending, startTransition] = useTransition();
+  const [view, setView] = useState<RevealView>(idleIdentityRevealState);
   const [dialogOpen, setDialogOpen] = useState(false);
-  // Süresi dolan yanıtın kendisi tutuluyor, bir bayrak değil: her başarılı
-  // yanıt yeni bir durum nesnesi, yani ikinci görüntüleme ilk çizimde bile
-  // maskesiz başlıyor ve süre yeniden sayılıyor.
-  const [expired, setExpired] = useState<IdentityRevealState | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
 
   useEffect(() => {
-    if (state.status !== "done") return;
-    const timer = setTimeout(() => setExpired(state), identityRevealVisibleMs);
+    if (view.status !== "done") return;
+    const timer = setTimeout(() => setView({ status: "masked" }), identityRevealVisibleMs);
     return () => clearTimeout(timer);
-  }, [state]);
+  }, [view]);
 
   function confirm() {
-    setDialogOpen(false);
-    startTransition(() => dispatch(new FormData()));
+    startTransition(async () => {
+      const next = await action(idleIdentityRevealState, new FormData());
+      // `await` sonrası güncellemeler geçişe yeniden sarılıyor ki sonuç,
+      // diyalogun kapanması ve `pending`'in düşmesi aynı çizimde olsun: diyalog
+      // düğme hâlâ kapalıyken kapanırsa odak `body`'ye düşer.
+      startTransition(() => {
+        setView(next);
+        setDialogOpen(false);
+      });
+    });
   }
 
-  const revealed = state.status === "done";
-  const masked = revealed && expired === state;
-  const visible = revealed && !masked ? state.identity : null;
+  const masked = view.status === "masked";
+  const identity = view.status === "done" ? view.identity : null;
 
   return (
     <section
@@ -79,18 +90,27 @@ export function WorkerIdentityReveal({
         60 saniye sonra ekrandan kaldırılır.
       </p>
 
-      {revealed ? (
-        <IdentityFacts identity={visible} masked={masked} />
-      ) : null}
-      {masked ? (
-        <p role="status" className="muted worker-identity-masked-note">
-          Süre doldu; bilgiler ekrandan kaldırıldı. Gerekirse yeniden görüntüleyebilirsiniz.
-        </p>
-      ) : null}
+      {identity !== null || masked ? <IdentityFacts identity={identity} /> : null}
 
-      {state.status === "error" ? (
+      {/*
+        Canlı bölge her zaman belgede: içerik değişince okunuyor. Başarıda
+        görsel olarak gizli (alanlar zaten ekranda), maskede görünür not.
+      */}
+      <p
+        role="status"
+        className={masked ? "muted worker-identity-masked-note" : "visually-hidden"}
+        data-testid="worker-identity-status"
+      >
+        {identity !== null
+          ? "Kimlik bilgileri görüntülendi."
+          : masked
+            ? "Süre doldu; bilgiler ekrandan kaldırıldı. Gerekirse yeniden görüntüleyebilirsiniz."
+            : null}
+      </p>
+
+      {view.status === "error" ? (
         <p role="alert" className="form-warning">
-          {revealErrorMessage(state.errorCode, state.httpStatus)}
+          {assignmentErrorMessage(view.errorCode, view.httpStatus, revealSentences)}
         </p>
       ) : null}
 
@@ -102,18 +122,14 @@ export function WorkerIdentityReveal({
           disabled={pending}
           onClick={() => setDialogOpen(true)}
         >
-          {pending
-            ? "Kimlik bilgileri alınıyor"
-            : masked
-              ? "Yeniden göster (sigorta için)"
-              : "Kimlik bilgilerini göster (sigorta için)"}
+          {masked ? "Yeniden göster (sigorta için)" : "Kimlik bilgilerini göster (sigorta için)"}
         </button>
       </div>
 
       {dialogOpen ? (
         <AccessibleDialog
           labelledBy={titleId}
-          dismissDisabled={false}
+          dismissDisabled={pending}
           returnFocus={triggerRef}
           onDismiss={() => setDialogOpen(false)}
         >
@@ -132,6 +148,7 @@ export function WorkerIdentityReveal({
               <button
                 className="button button-secondary button-small"
                 type="button"
+                disabled={pending}
                 onClick={() => setDialogOpen(false)}
               >
                 Vazgeç
@@ -139,9 +156,10 @@ export function WorkerIdentityReveal({
               <button
                 className="button button-primary button-small"
                 type="button"
+                disabled={pending}
                 onClick={confirm}
               >
-                Görüntülemeyi onayla
+                {pending ? "Kimlik bilgileri alınıyor" : "Görüntülemeyi onayla"}
               </button>
             </div>
           </section>
@@ -152,12 +170,13 @@ export function WorkerIdentityReveal({
 }
 
 /**
- * Alanlar tek `<dl>`; maskeli hâlde değerlerin yerine sabit nokta dizisi.
- *
- * Maskeli görünüm gerçek değerden türetilmiyor: `identity` `null` olunca
- * ekranda bilgiden bir iz kalmıyor, yalnız satır başlıkları.
+ * Alanlar tek `<dl>`. Maskeli hâlde (`identity` null) değerlerin yerine sabit
+ * nokta dizisi; açık hâlde boş gelen alan "—" — ikisi görsel olarak ayrı, boş
+ * alan maskelenmiş sanılmasın.
  */
-function IdentityFacts({ identity, masked }: { identity: WorkerIdentity | null; masked: boolean }) {
+function IdentityFacts({ identity }: { identity: WorkerIdentity | null }) {
+  const masked = identity === null;
+  const value = (text: string | null | undefined) => (masked ? maskedIdentityValue : text || "—");
   return (
     <dl
       className="assignment-detail-facts worker-identity-facts"
@@ -166,30 +185,30 @@ function IdentityFacts({ identity, masked }: { identity: WorkerIdentity | null; 
     >
       <div>
         <dt>Ad soyad</dt>
-        <dd>{identity?.fullName || maskedIdentityValue}</dd>
+        <dd>{value(identity?.fullName)}</dd>
       </div>
       <div>
         <dt>T.C. kimlik numarası</dt>
         <dd className="worker-identity-number">
-          <span data-testid="worker-identity-number">
-            {identity?.tcIdentityNumber || maskedIdentityValue}
-          </span>
+          <span data-testid="worker-identity-number">{value(identity?.tcIdentityNumber)}</span>
           {identity?.tcIdentityNumber ? <CopyButton value={identity.tcIdentityNumber} /> : null}
         </dd>
       </div>
       <div>
         <dt>Doğum tarihi</dt>
-        <dd>{identity?.birthDate ? formatJobDate(identity.birthDate) : maskedIdentityValue}</dd>
+        <dd>{value(identity?.birthDate ? formatJobDate(identity.birthDate) : null)}</dd>
       </div>
       <div>
         <dt>Doğrulama</dt>
         <dd>
-          {identity
-            ? [
-                verificationMethodLabel(identity.verificationMethod),
-                identity.verifiedAt ? formatDateTime(identity.verifiedAt) : null,
-              ].filter(Boolean).join(" · ")
-            : maskedIdentityValue}
+          {value(
+            identity
+              ? [
+                  verificationMethodLabel(identity.verificationMethod),
+                  identity.verifiedAt ? formatDateTime(identity.verifiedAt) : null,
+                ].filter(Boolean).join(" · ")
+              : null,
+          )}
         </dd>
       </div>
     </dl>
@@ -221,23 +240,13 @@ function CopyButton({ value }: { value: string }) {
   }
 
   return (
-    <button
-      type="button"
-      className="button button-secondary button-small worker-identity-copy"
-      onClick={() => void copy()}
-    >
+    <button type="button" className="button button-secondary button-small" onClick={() => void copy()}>
       {copied === "done" ? "Kopyalandı" : copied === "failed" ? "Kopyalanamadı" : "Kopyala"}
     </button>
   );
 }
 
-/**
- * Bölümün üç reddi kendi kataloğundan (`identityRevealErrors`), 404 öbür
- * atama eylemleriyle aynı cümleden, gerisi kabuk kataloğundan.
- */
-function revealErrorMessage(errorCode: string, httpStatus: number): string {
-  const own = identityRevealErrors[errorCode];
-  if (own) return own.message;
-  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND" || httpStatus === 404) return assignmentNotFoundMessage;
-  return errorPresentation(errorCode, httpStatus).message;
-}
+/** Bölümün kendi iki cümlesi; kataloğun `title`/`action`'ı burada okunmuyor. */
+const revealSentences: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(identityRevealErrors).map(([code, presentation]) => [code, presentation.message]),
+);
