@@ -7,6 +7,7 @@ import {
   assignmentNextStep,
   employerAssignmentTimeline,
 } from "@/assignments/employer-tracking";
+import { canRevealWorkerIdentity } from "@/assignments/identity-reveal";
 import { showsReviewSection } from "@/assignments/review";
 import { ApplicantNameLink } from "@/components/applicant-name-link";
 import { AssignmentResolutionPanel } from "@/components/assignment-resolution";
@@ -22,6 +23,7 @@ import {
 } from "@/components/payments/employer-payment";
 import { ErrorState, LoadingState } from "@/components/states";
 import { Avatar, PageHeader, PagePanel } from "@/components/ui";
+import { WorkerIdentityReveal } from "@/components/worker-identity-reveal";
 import { isUuid } from "@/lib/identifiers";
 import type { EmployerAssignment } from "@/payments/contract";
 import { failureView } from "@/server/form";
@@ -40,6 +42,7 @@ import {
   employerConversationAction,
   employerResolutionAction,
   employerReviewAction,
+  revealWorkerIdentityAction,
 } from "./actions";
 
 type EmployerAssignmentPageProps = {
@@ -129,6 +132,20 @@ export async function EmployerAssignmentContent({
       {showPaymentResult ? <PaymentResultNotice resolution={loaded.paymentResolution} /> : null}
 
       <AssignmentWorkerCard assignment={assignment} />
+
+      {/*
+        Kimlik bölümü işçi kartının hemen altında: "bu kim" sorusunun devamı.
+        Yalnız işe alınmış atamada (`CONFIRMED`/`IN_PROGRESS`/`COMPLETED`);
+        backend başka durumda 404 döndürüyor ve karar satırdan okunuyor, bu
+        yüzden düğme hiç çizilmiyor (#185). Değer sayfa çiziminde değil
+        action'da okunuyor: her okuma kayda geçip işçiye bildiriliyor.
+      */}
+      {canRevealWorkerIdentity(assignment.status) ? (
+        <WorkerIdentityReveal
+          workerName={assignment.workerName || "İşçi"}
+          action={revealWorkerIdentityAction.bind(null, assignment.id)}
+        />
+      ) : null}
 
       <dl className="assignment-detail-facts">
         <div>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import type { CompletionActionState } from "@/assignments/employer-tracking";
+import type { IdentityRevealState } from "@/assignments/identity-reveal";
 import {
   parseReviewRating,
   reviewCommentMaxLength,
@@ -20,6 +21,7 @@ import { isUuid } from "@/lib/identifiers";
 import type { ConversationState } from "@/messaging/contract";
 import { openApplicantConversation } from "@/server/applications/employer-review";
 import { completeAssignment } from "@/server/assignments/employer-tracking";
+import { readWorkerIdentity } from "@/server/assignments/identity-reveal";
 import {
   cancelAssignment,
   createAssignmentDispute,
@@ -204,5 +206,43 @@ export async function employerReviewAction(
     unstable_rethrow(error);
     if (isAlreadyReviewed(error)) return { status: "reviewed" };
     return { status: "error", ...failureView(error) };
+  }
+}
+
+/**
+ * "Kimlik bilgilerini göster (sigorta için)".
+ *
+ * Değer sayfa çiziminde değil burada okunuyor (is-koala/koala-web#185):
+ * backend her okumayı kayda geçirip işçiye bildiriyor, o yüzden okuma
+ * kullanıcının onayladığı bir eylem olmalı, sayfanın açılması değil. Yanıt
+ * `no-store` ile alınıp olduğu gibi istemciye dönüyor; `revalidatePath`
+ * yok, çünkü sayfada değişen bir şey yok — tek istisna 404: atama bu sırada
+ * durum değiştirmiş olabilir ve düğmenin kendisi kalkmalı.
+ *
+ * Yanıt hiçbir yerde günlüklenmiyor; hata yolu yalnız `errorCode` taşıyor.
+ */
+export async function revealWorkerIdentityAction(
+  assignmentId: string,
+  _state: IdentityRevealState,
+  formData: FormData,
+): Promise<IdentityRevealState> {
+  void _state;
+  void formData;
+  await requireSessionForCurrentPath();
+
+  if (!isUuid(assignmentId)) {
+    return { status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 };
+  }
+
+  try {
+    const identity = await readWorkerIdentity(assignmentId);
+    return { status: "done", identity };
+  } catch (error) {
+    unstable_rethrow(error);
+    const failure = failureView(error);
+    if (failure.httpStatus === 404) {
+      revalidatePath(`/isveren/atama/${assignmentId}`);
+    }
+    return { status: "error", ...failure };
   }
 }

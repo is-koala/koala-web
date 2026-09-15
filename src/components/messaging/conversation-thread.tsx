@@ -3,9 +3,6 @@
 import Link from "next/link";
 import {
   type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-  type RefObject,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -24,6 +21,7 @@ import {
   sendMessageAction,
   unblockConversationUserAction,
 } from "@/app/(uygulama)/messaging-actions";
+import { AccessibleDialog } from "@/components/accessible-dialog";
 import { Avatar, ListRow, ListRows } from "@/components/ui/list-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type {
@@ -773,72 +771,6 @@ function SafetyError({ failure }: { failure: MessagingActionFailure }) {
 
 function isPermanentReportFailure(failure: MessagingActionFailure | null) {
   return failure?.errorCode === "REPORT_IDEMPOTENCY_CONFLICT" && failure.status === 409;
-}
-
-function AccessibleDialog({
-  labelledBy,
-  dismissDisabled,
-  returnFocus,
-  onDismiss,
-  children,
-}: {
-  labelledBy: string;
-  dismissDisabled: boolean;
-  returnFocus: RefObject<HTMLElement | null>;
-  onDismiss: () => void;
-  children: ReactNode;
-}) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const returnFocusElement = returnFocus.current;
-    focusableElements(dialogRef.current)[0]?.focus();
-    return () => {
-      queueMicrotask(() => {
-        if (returnFocusElement?.isConnected) returnFocusElement.focus();
-      });
-    };
-  }, [returnFocus]);
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape" && !dismissDisabled) {
-      event.preventDefault();
-      onDismiss();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const focusable = focusableElements(event.currentTarget);
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  return (
-    <div
-      ref={dialogRef}
-      className="assignment-dialog-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={labelledBy}
-      onKeyDown={handleKeyDown}
-    >
-      {children}
-    </div>
-  );
-}
-
-function focusableElements(container: HTMLElement | null): HTMLElement[] {
-  if (container === null) return [];
-  return [...container.querySelectorAll<HTMLElement>(
-    "a[href], button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
-  )];
 }
 
 type SeenMode = "direct" | "group" | "hidden";

@@ -33,6 +33,7 @@ vi.mock("@/server/assignments/reviews", () => ({
   createAssignmentReview: vi.fn(),
   isAlreadyReviewed: vi.fn(() => false),
 }));
+vi.mock("@/server/assignments/identity-reveal", () => ({ readWorkerIdentity: vi.fn() }));
 vi.mock("@/server/session/gates", () => ({ viewerGates }));
 vi.mock("@/app/(uygulama)/shell", () => ({ ShellGate: shellGate }));
 vi.mock("next/navigation", () => ({ notFound, unstable_rethrow: vi.fn() }));
@@ -253,6 +254,35 @@ describe("işveren atama ayrıntısı", () => {
     expect(screen.getByRole("radio", { name: "5 yıldız" })).toBeVisible();
     expect(screen.getByLabelText("Yorum (isteğe bağlı)")).toHaveAttribute("maxlength", "2000");
     expect(screen.getByRole("button", { name: "Değerlendirmeyi gönder" })).toBeEnabled();
+  });
+
+  it("kimlik bölümünü yalnız işe alınmış atamada çizer; değer sayfa açılırken okunmaz (#185)", async () => {
+    // Backend `IdentityRevealManager` başka durumda 404 döndürüyor ve karar
+    // satırdan okunabiliyor: düğme hiç çizilmiyor, 404 yedirilmiyor.
+    for (const status of ["PENDING_CONFIRMATION", "REJECTED", "CANCELLED", "UNKNOWN"] as const) {
+      const { unmount } = render(await EmployerAssignmentContent({
+        assignment: { ...assignment, status },
+        viewer,
+        searchParams: Promise.resolve({}),
+      }));
+      expect(screen.queryByTestId("worker-identity")).toBeNull();
+      unmount();
+    }
+
+    for (const status of ["CONFIRMED", "IN_PROGRESS", "COMPLETED"] as const) {
+      const { unmount } = render(await EmployerAssignmentContent({
+        assignment: { ...assignment, status },
+        viewer,
+        searchParams: Promise.resolve({}),
+      }));
+      const section = screen.getByTestId("worker-identity");
+      expect(section).toHaveTextContent("Ayşe Yılmaz adlı çalışanın doğrulanmış kimlik bilgilerini");
+      expect(screen.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" })).toBeEnabled();
+      // Sayfa açılırken hiçbir alan yok: her okuma kayda geçiyor.
+      expect(screen.queryByLabelText("Kimlik bilgileri")).toBeNull();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      unmount();
+    }
   });
 
   it("satır işverenin değerlendirmesini taşıyorsa yükleme anında özet çizilir, form yok; işçinin değerlendirmesi rozet (#179)", async () => {

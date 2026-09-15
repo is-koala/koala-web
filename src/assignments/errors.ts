@@ -59,3 +59,25 @@ export const disputeErrors: ErrorCatalog = {
     action: "retry",
   },
 };
+
+/**
+ * İşçi kimliğini görüntülemenin iki reddi (is-koala/koala-web#185).
+ *
+ * Kabuk kataloğuna (`@/lib/errors`) **birleştirilmiyor**: iki cümle yalnız
+ * atama sayfasındaki bölümde okunuyor ve bileşen onları önce buradan, sonra
+ * kabuk kataloğundan seçiyor. Kabuğun her sayfasına iki cümle daha yüklemenin
+ * karşılığı yok. 404 ise `assignmentNotFoundMessage` ile öbür eylemlerle aynı.
+ */
+export const identityRevealErrors: ErrorCatalog = {
+  WORKER_IDENTITY_NOT_VERIFIED: {
+    title: "Çalışanın kimliği doğrulanmamış",
+    message:
+      "Sigorta bildirimi için çalışanın kimlik doğrulamasını tamamlaması gerekiyor. Doğrulama bitince bilgileri buradan görüntüleyebilirsiniz.",
+    action: "none",
+  },
+  IDENTITY_REVEAL_TOO_MANY_REQUESTS: {
+    title: "Çok sık görüntülendi",
+    message: "Saatlik kimlik görüntüleme sınırına ulaştınız. Biraz sonra yeniden deneyin.",
+    action: "retry",
+  },
+};

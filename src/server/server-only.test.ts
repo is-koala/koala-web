@@ -105,9 +105,36 @@ describe("kapı katmanının gizlilik sınırı", () => {
       .filter((file) => file !== path.join(sourceRoot, "server", "contract.ts"));
 
     expect(readers).toEqual([
+      // İşçi kimliğini işverene gösterme (is-koala/koala-web#185): burada
+      // değer bir kapı girdisi değil, ekranın kendisi — model, sunucu okuyucu
+      // ve bölüm. Üçü de aşağıdaki testte log/depo yasağına bağlı.
+      path.join(sourceRoot, "assignments", "identity-reveal.ts"),
+      path.join(sourceRoot, "components", "worker-identity-reveal.tsx"),
+      path.join(sourceRoot, "server", "assignments", "identity-reveal.ts"),
       path.join(sourceRoot, "server", "identity", "documents.ts"),
       path.join(sourceRoot, "server", "session", "viewer.ts"),
     ]);
+  });
+
+  it("işçi kimliği yanıtı hiçbir yerde günlüğe, ölçümlemeye ya da tarayıcı deposuna yazılmaz", () => {
+    // Backend her okumayı kayda geçirip işçiye bildiriyor; web'in tek işi
+    // değeri 60 saniye ekranda tutmak. Değeri taşıyan üç modül ve action
+    // dosyası `console`, Sentry, ölçümleme ve kalıcı tarayıcı deposundan uzak
+    // durur (is-koala/koala-web#185).
+    const revealModules = [
+      path.join(sourceRoot, "assignments", "identity-reveal.ts"),
+      path.join(sourceRoot, "components", "worker-identity-reveal.tsx"),
+      path.join(sourceRoot, "server", "assignments", "identity-reveal.ts"),
+      path.join(sourceRoot, "app", "(uygulama)", "isveren", "atama", "[assignmentId]", "actions.ts"),
+    ];
+
+    for (const file of revealModules) {
+      const source = readFileSync(file, "utf8");
+      expect(
+        /console\.|captureException|sendHandoffEvent|localStorage|sessionStorage|indexedDB|document\.cookie/.test(source),
+        file,
+      ).toBe(false);
+    }
   });
 
   it("kapı kararları hiçbir yerde log'a ya da ölçümlemeye yazılmaz", () => {
