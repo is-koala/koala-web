@@ -154,6 +154,85 @@ describe("bireysel ilan yayımlama action'ı", () => {
     );
   });
 
+  it("ulaşım adımı doluysa ilan yaratıldıktan sonra planı ilanın ucuna yazar; boş plan hiç gitmez", async () => {
+    // Plan ilanın gövdesinde değil (is-koala/koala-web#187): ayrı bir uç ve
+    // ilan kimliği ister, yani ancak yayımdan sonra yazılabilir.
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      void _init;
+      const url = String(input);
+      if (url.includes("/reference/job-categories")) return jsonResponse(200, envelope(categories));
+      if (url.endsWith("/transport-plan")) {
+        return jsonResponse(200, envelope({ outboundMethod: "NONE", returnMethod: "CASH_ALLOWANCE", shuttles: [] }));
+      }
+      return jsonResponse(201, envelope({ id: jobId }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const plan = {
+      outboundMethod: "NONE",
+      returnMethod: "CASH_ALLOWANCE",
+      allowanceAmount: "150",
+      allowanceNote: "",
+      notes: "",
+      shuttles: [],
+    };
+
+    await expect(
+      publishIndividualJobAction(idleFormState, submission({ transportPlan: JSON.stringify(plan) })),
+    ).rejects.toThrowError(new Error(redirectTo(`/isveren/ilan/${jobId}`)));
+
+    const call = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/transport-plan"));
+    expect(String(call?.[0])).toBe(`https://api.example.test/jobs/${jobId}/transport-plan`);
+    expect(call?.[1]).toMatchObject({ method: "PUT" });
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      outboundMethod: "NONE",
+      returnMethod: "CASH_ALLOWANCE",
+      allowanceAmount: "150",
+      allowanceNote: null,
+      notes: null,
+      shuttles: [],
+    });
+
+    fetchMock.mockClear();
+    const empty = { ...plan, returnMethod: "NONE", allowanceAmount: "" };
+    await expect(
+      publishIndividualJobAction(idleFormState, submission({ transportPlan: JSON.stringify(empty) })),
+    ).rejects.toThrowError(new Error(redirectTo(`/isveren/ilan/${jobId}`)));
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/transport-plan"))).toBe(false);
+  });
+
+  it("ulaşım planı eksikse ilanı hiç yaratmaz ve hatayı `transport.` önekiyle verir", async () => {
+    const fetchMock = backend(jsonResponse(201, envelope({ id: jobId })));
+    const plan = { outboundMethod: "NONE", returnMethod: "CASH_ALLOWANCE", allowanceAmount: "", allowanceNote: "", notes: "", shuttles: [] };
+
+    await expect(
+      publishIndividualJobAction(idleFormState, submission({ transportPlan: JSON.stringify(plan) })),
+    ).resolves.toEqual({
+      status: "error",
+      errorCode: "VALIDATION_FAILED",
+      httpStatus: 400,
+      fieldErrors: { "transport.allowanceAmount": "Yol parası tutarını yazmalısın." },
+    });
+    expect(bodyOf(fetchMock, "/users/me/jobs")).toBeNull();
+  });
+
+  it("ilan yayımlanıp plan yazılamazsa ilan sayfasına notla düşer, ilanı geri almaz", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/reference/job-categories")) return jsonResponse(200, envelope(categories));
+      if (url.endsWith("/transport-plan")) {
+        return jsonResponse(503, { success: false, httpStatus: 503, errorCode: "UNEXPECTED", errorCategory: "UNEXPECTED", message: "x" });
+      }
+      return jsonResponse(201, envelope({ id: jobId }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const plan = { outboundMethod: "SELF", returnMethod: "SELF", allowanceAmount: "", allowanceNote: "", notes: "", shuttles: [] };
+
+    await expect(
+      publishIndividualJobAction(idleFormState, submission({ transportPlan: JSON.stringify(plan) })),
+    ).rejects.toThrowError(new Error(redirectTo(`/isveren/ilan/${jobId}?ulasim=kaydedilemedi`)));
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/cancel"))).toBe(false);
+  });
+
   it("bitiş tarihi başlangıçtan önceyse isteği hiç göndermez", async () => {
     // Backend bu kuralı uygulamıyor; istemci geçirirse ilan bozuk kaydedilir.
     const fetchMock = backend(jsonResponse(201, envelope({ id: jobId })));

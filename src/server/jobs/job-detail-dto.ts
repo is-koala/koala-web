@@ -4,6 +4,7 @@ import { safeImageUrl } from "@/lib/urls";
 import type { JobDetail, JobImage, JobPricing } from "@/jobs/contract";
 import { jobStatuses } from "@/jobs/lifecycle";
 import { clean, jobTypes, known, openings, precisionOf, salaryTypes } from "@/server/api/dto";
+import { toPublicTransportSummary, type JobTransportDto } from "@/server/transport/dto";
 
 /**
  * `JobDetailDto`'nun tel biçimi ve onu ekran modeline daraltan çevirici.
@@ -47,6 +48,7 @@ export type JobDetailDto = {
   addressPrecision?: string | null;
   status?: string | null;
   acceptingApplications?: boolean | null;
+  transport?: JobTransportDto | null;
 };
 
 /**
@@ -123,6 +125,7 @@ export function toJobDetail(dto: JobDetailDto): JobDetail {
     // Alan eski/eksik bir backend yanıtında yoksa başvuru ve indeksleme
     // yüzeylerini açık bırakmak yerine güvenli biçimde kapat.
     acceptingApplications: dto.acceptingApplications === true,
+    transport: toPublicTransportSummary(dto.transport),
   };
 }
 

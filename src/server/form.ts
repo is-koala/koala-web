@@ -17,7 +17,7 @@ const validationFailed = "VALIDATION_FAILED";
  * alanları backend DTO alan adlarıyla aynı adlandırıldığı için eşleme
  * dönüştürme gerektirmez.
  */
-export function failureState(error: unknown): FormState {
+export function failureState(error: unknown): Extract<FormState, { status: "error" }> {
   const { errorCode, httpStatus } = failureView(error);
   return {
     status: "error",

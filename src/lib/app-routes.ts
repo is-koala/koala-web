@@ -255,6 +255,19 @@ export function publishedJobPath(jobId: string): string {
 }
 
 /**
+ * Sihirbaz ilanı yayımladı ama ulaşım planını kaydedemedi: ilan sayfası bu
+ * sorgu ile açılır ve plan bölümü yeniden denemeyi ister. Sorgu, çünkü
+ * ilan zaten yaratıldı ve `redirect` dışında taşınacak durum yok
+ * (is-koala/koala-web#187).
+ */
+export const transportPlanFailedParam = "ulasim";
+export const transportPlanFailedValue = "kaydedilemedi";
+
+export function publishedJobPathAfterTransportFailure(jobId: string): string {
+  return `${publishedJobPath(jobId)}?${transportPlanFailedParam}=${transportPlanFailedValue}`;
+}
+
+/**
  * Bir ilana gelen başvuruların inceleme ekranı.
  *
  * Adres ilanın **altında**: kabul, red, havuz ve mesaj burada. İlanlar arası

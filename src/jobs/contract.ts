@@ -1,4 +1,5 @@
 import type { JobType } from "@/lib/job-posting";
+import type { PublicTransportSummary } from "@/transport/contract";
 
 import type { JobStatus } from "./lifecycle";
 
@@ -118,6 +119,13 @@ export type JobDetail = {
   readonly status: JobStatus | "UNKNOWN";
   /** Backend'in durum ve bitiş anını birlikte değerlendirerek verdiği başvuru kapısı. */
   readonly acceptingApplications: boolean;
+  /**
+   * Ulaşım özeti (`JobDetailDto.transport`, backend 0.9.28): yöntemler, yol
+   * parası tutarı, servis sayısı ve durakların ilçe/semt adıyla saati. Plaka,
+   * şoför ve tam adres **tipte yok**. Planı olmayan ilanda ve eski sunucuda
+   * `null`; bölüm çizilmiyor.
+   */
+  readonly transport: PublicTransportSummary | null;
 };
 
 /**

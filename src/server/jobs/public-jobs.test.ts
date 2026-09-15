@@ -91,6 +91,7 @@ describe("herkese açık ilan okumasının BFF sözleşmesi", () => {
       addressPrecision: "EXACT",
       status: "OPEN",
       acceptingApplications: true,
+      transport: null,
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

@@ -5,7 +5,8 @@ import type {
 } from "@/assignments/work-detail";
 import type { LocationCapture } from "@/assignments/geolocation";
 import { canOpenAssignmentDispute } from "@/assignments/resolution";
-import { errorPresentation } from "@/lib/errors";
+import { assignmentErrorMessage } from "@/components/assignment-error-message";
+import { transportErrorSentences } from "@/transport/errors";
 
 export function openSession(detail: WorkDetail): WorkSession | null {
   return detail.sessions.find((session) => session.checkOutAt === null) ?? null;
@@ -59,15 +60,20 @@ export function formatElapsed(checkInAt: string, now: number): string {
   return [hours, minutes, rest].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-export function timesheetErrorMessage(errorCode: string, status: number): string {
-  if (errorCode === "TIMESHEET_ALREADY_CHECKED_IN") {
-    return "Zaten açık bir çalışma oturumu var. Güncel durum gösteriliyor.";
-  }
-  if (errorCode === "TIMESHEET_NOT_CHECKED_IN") {
-    return "Açık çalışma oturumu bulunamadı. Güncel durum gösteriliyor.";
-  }
-  return errorPresentation(errorCode, status).message;
+/**
+ * İş ayrıntısı komut kanalının (`workDetailAction`) hata cümleleri: mesai
+ * yarışları ve koltuk seçimi redleri bölümün kendi cümleleri, 404 ve gerisi
+ * `assignmentErrorMessage` köprüsünden (ortak atama kuralı + kabuk kataloğu).
+ */
+export function workDetailErrorMessage(errorCode: string, status: number): string {
+  return assignmentErrorMessage(errorCode, status, workDetailSentences);
 }
+
+const workDetailSentences: Readonly<Record<string, string>> = {
+  TIMESHEET_ALREADY_CHECKED_IN: "Zaten açık bir çalışma oturumu var. Güncel durum gösteriliyor.",
+  TIMESHEET_NOT_CHECKED_IN: "Açık çalışma oturumu bulunamadı. Güncel durum gösteriliyor.",
+  ...transportErrorSentences,
+};
 
 export function locationNotice(
   capture: LocationCapture,

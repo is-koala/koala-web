@@ -2,6 +2,7 @@ import type { WorkerAssignment } from "@/assignments/contract";
 import type { WorkerAssignmentResolution } from "@/assignments/resolution";
 import type { AssignmentReviewState } from "@/assignments/review";
 import type { MessagingAvailability } from "@/messaging/contract";
+import type { AssignmentTransport } from "@/transport/contract";
 
 export type { CancellationPreview } from "@/assignments/resolution";
 
@@ -68,6 +69,13 @@ export type WorkDetail = {
   createdAt: string | null;
   sessions: readonly WorkSession[];
   resolution: WorkerAssignmentResolution;
+  /**
+   * Ulaşım planı ve bu atamanın koltukları (`GET /job-assignments/{id}/transport`,
+   * backend 0.9.28). Plaka/şoför yalnız koltuk seçilen serviste dolu — kararı
+   * sunucu veriyor. Planı olmayan ilanda ve eski sunucuda `null`; kart
+   * çizilmiyor (is-koala/koala-web#187).
+   */
+  transport: AssignmentTransport | null;
 };
 
 export type CheckpointKind = "check-in" | "check-out";
@@ -82,7 +90,9 @@ export type WorkDetailCommand =
   | { type: "cancel"; reason: string }
   | { type: "dispute"; reason: string; evidence?: readonly File[] }
   | { type: "evidence"; disputeId: string; evidence: readonly File[] }
-  | { type: "review"; rating: number; comment: string };
+  | { type: "review"; rating: number; comment: string }
+  /** Koltuk seçimi; yön servisin yönünden türüyor ve o yöndeki seçimin yerine geçiyor. */
+  | { type: "seat"; shuttleId: string; stopId: string };
 
 export type WorkDetailActionResult =
   | {

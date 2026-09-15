@@ -3,7 +3,7 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
-import { newIndividualJobPath, publishedJobPath } from "@/lib/app-routes";
+import { newIndividualJobPath } from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
 import {
   individualJobBody,
@@ -14,7 +14,13 @@ import {
 } from "@/lib/job-posting";
 import { failureState, failureView, validationState } from "@/server/form";
 import { createIndividualJob, fetchPriceQuote } from "@/server/jobs/jobs";
-import { closedGateState, loadJobCategories, readJobDraft } from "@/server/jobs/submission";
+import {
+  closedGateState,
+  loadJobCategories,
+  readJobDraft,
+  finishJobPublish,
+  readTransportPlanForPublish,
+} from "@/server/jobs/submission";
 import { currentGates } from "@/server/session/gates";
 
 /**
@@ -61,10 +67,12 @@ export async function publishIndividualJobAction(
 
   const draft = readJobDraft(formData);
   const address = readAddressWrite(formData);
+  const transport = readTransportPlanForPublish(formData);
   const categories = await loadJobCategories();
 
   const errors = individualJobErrors(draft, categories);
   if (address === null) errors.address = "Adresi onaylaman gerekiyor.";
+  if (transport.status === "invalid") Object.assign(errors, transport.fieldErrors);
   if (Object.keys(errors).length > 0) return validationState(errors);
 
   const body = individualJobBody(draft, address, categories);
@@ -83,5 +91,6 @@ export async function publishIndividualJobAction(
 
   // Yayımdan sonra kullanıcı ilanın kendi sayfasına düşer: fiyat orada
   // kilitlenmiş hâliyle duruyor ve form durumu geride kalmıyor.
-  redirect(created.id ? publishedJobPath(created.id) : newIndividualJobPath);
+  if (!created.id) redirect(newIndividualJobPath);
+  return finishJobPublish(created.id, transport);
 }

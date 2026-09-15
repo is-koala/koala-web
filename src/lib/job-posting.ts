@@ -501,8 +501,36 @@ export function unmatchedFieldMessages(
     .map(([, message]) => message);
 }
 
+/**
+ * Sihirbazın ulaşım adımının hata anahtarlarının öneki (is-koala/koala-web#187).
+ *
+ * Ulaşım planı ilanın gövdesine girmiyor — ayrı bir uca, ilan yaratıldıktan
+ * sonra gidiyor — ve alan adları (`notes`, `shuttles[0].name`) ilan alanlarıyla
+ * aynı düzlemde çakışmasın diye önek taşıyor. `TransportPlanFields` öneksiz
+ * anahtar okuyor; kırpma `transportFieldErrorsOf` ile.
+ */
+export const transportFieldPrefix = "transport.";
+
+export function transportFieldErrorsOf(
+  fieldErrors: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const [field, message] of Object.entries(fieldErrors)) {
+    if (field.startsWith(transportFieldPrefix)) errors[field.slice(transportFieldPrefix.length)] = message;
+  }
+  return errors;
+}
+
+export function withTransportFieldPrefix(
+  fieldErrors: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(fieldErrors).map(([field, message]) => [`${transportFieldPrefix}${field}`, message]),
+  );
+}
+
 function isRenderedField(field: string): boolean {
-  if (field.startsWith("address.")) return true;
+  if (field.startsWith("address.") || field.startsWith(transportFieldPrefix)) return true;
   const target = fieldAliases[field] ?? field;
   return (draftFields as string[]).includes(target);
 }

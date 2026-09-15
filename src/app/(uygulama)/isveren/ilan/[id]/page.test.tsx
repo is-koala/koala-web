@@ -23,9 +23,20 @@ const jobLifecycleActions = vi.hoisted(() =>
     return null;
   }),
 );
+const readTransportPlan = vi.hoisted(() => vi.fn());
+const transportPlanEditor = vi.hoisted(() =>
+  vi.fn((props: { plan: unknown; action: unknown; publishFailed: boolean }) => {
+    void props;
+    return null;
+  }),
+);
 
 vi.mock("@/server/session/viewer", () => ({ enterShell }));
 vi.mock("@/server/jobs/jobs", () => ({ fetchJobDetail }));
+vi.mock("@/server/transport/transport", () => ({ readTransportPlan }));
+vi.mock("@/components/transport/transport-plan-editor", () => ({
+  TransportPlanEditor: transportPlanEditor,
+}));
 // `unstable_rethrow` gerçek kalıyor: yönlendirme testi Next'in kendi
 // kesmesini sayfadan geçirmeli, taklit edilmiş bir geçiş bunu ölçmezdi.
 vi.mock("next/navigation", async (importOriginal) => ({
@@ -52,6 +63,7 @@ describe("yayımlanmış ilan sayfası", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     enterShell.mockResolvedValue({ viewer: { firstName: "Ayşe" }, failure: null });
+    readTransportPlan.mockResolvedValue(null);
   });
 
   it("kilitlenen fiyatı yanıttaki değerlerle gösterir", async () => {
@@ -235,6 +247,57 @@ describe("yayımlanmış ilan sayfası", () => {
     render(await Page({ params: Promise.resolve({ id: jobId }) }));
 
     expect(screen.queryByText(/yakında ekleniyor/)).toBeNull();
+  });
+
+  it("ulaşım planını ilanla birlikte okuyup düzenleyiciye ilan kimliğiyle bağlar", async () => {
+    // Plan yoksa da bölüm çiziliyor (boş düzenleyici); eski sunucu 404
+    // veriyor ve okuyucu onu `null`'a çeviriyor (is-koala/koala-web#187).
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+    const plan = { outboundMethod: "SHUTTLE", returnMethod: "NONE", shuttles: [] };
+    readTransportPlan.mockResolvedValue(plan);
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(readTransportPlan).toHaveBeenCalledWith(jobId);
+    const props = transportPlanEditor.mock.calls[0][0];
+    expect(props.plan).toBe(plan);
+    expect(typeof props.action).toBe("function");
+    expect(props.publishFailed).toBe(false);
+  });
+
+  it("sihirbaz planı kaydedemediyse sorgudan gelen notu düzenleyiciye taşır", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+
+    render(
+      await Page({
+        params: Promise.resolve({ id: jobId }),
+        searchParams: Promise.resolve({ ulasim: "kaydedilemedi" }),
+      }),
+    );
+
+    expect(transportPlanEditor.mock.calls[0][0].publishFailed).toBe(true);
+  });
+
+  it("plan okunamazsa ilan yüklü kalır, yalnız bölüm hata kartı çizer", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+    readTransportPlan.mockRejectedValue(
+      new ApiError({ status: 503, errorCode: "UNEXPECTED", errorCategory: "UNEXPECTED", message: "ham" }),
+    );
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByRole("heading", { name: "Hafta sonu garson" })).toBeVisible();
+    expect(screen.getByTestId("transport-plan-unavailable")).toHaveTextContent("Ulaşım planı şu an okunamadı");
+    expect(transportPlanEditor).not.toHaveBeenCalled();
+    expect(screen.queryByText("ham")).toBeNull();
+  });
+
+  it("plan okumasının oturum yönlendirmesini bölüm kartına dönüştürmez", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Filan%2F${jobId}`);
+    readTransportPlan.mockRejectedValue(interrupt);
+
+    await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toBe(interrupt);
   });
 
   it("backend enum'undaki her durumu adlandırır", async () => {

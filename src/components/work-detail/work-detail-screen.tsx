@@ -18,11 +18,12 @@ import { WorkerAssignmentResolutionPanel } from "@/components/assignment-resolut
 import { AssignmentMessaging } from "@/components/messaging/assignment-messaging";
 import type { ConversationAction } from "@/messaging/contract";
 
-import { locationNotice, timesheetErrorMessage } from "./presenters";
+import { locationNotice, workDetailErrorMessage } from "./presenters";
 import { WorkSecondaryActions } from "./work-secondary-actions";
 import { WorkSessions } from "./work-sessions";
 import { WorkSummary } from "./work-summary";
 import { WorkTimeline } from "./work-timeline";
+import { WorkTransport } from "./work-transport";
 
 export function WorkDetailScreen({
   initialDetail,
@@ -55,7 +56,7 @@ export function WorkDetailScreen({
     if ("detail" in result) setDetail(result.detail ?? null);
     setFeedback({
       kind: "error",
-      message: timesheetErrorMessage(result.errorCode, result.httpStatus),
+      message: workDetailErrorMessage(result.errorCode, result.httpStatus),
     });
   }, []);
 
@@ -123,6 +124,7 @@ export function WorkDetailScreen({
         />
         <WorkTimeline detail={detail} />
       </div>
+      <WorkTransport detail={detail} pending={isPending} onCommand={run} />
       <AssignmentMessaging
         availability={detail.assignment.messaging}
         party="worker"

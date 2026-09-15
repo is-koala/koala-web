@@ -17,6 +17,12 @@ const jobCreatorId = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
 const assignmentPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/(payments|disputes|work-sessions|cancellation-preview)$/;
 const reviewPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/reviews$/;
 const workerIdentityPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/worker-identity$/;
+const assignmentTransportPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/transport(\/seat)?$/;
+// Ulaşım planı (is-koala/koala-web#187, backend 0.9.28). Fikstür planı
+// `?transport=plan` ile açılır: gidiş servisi (2 koltuk, 2 durak), dönüş yol
+// parası. Öbür senaryolar plansız ilanı varsayıyor (GET 404).
+const shuttleId = "cccccccc-cccc-4ccc-8ccc-000000000001";
+const stopIds = ["cccccccc-cccc-4ccc-8ccc-000000000011", "cccccccc-cccc-4ccc-8ccc-000000000012"];
 // Backend `rate-limit.identity-reveal.max-attempts` üretimde saatte 30; sahte
 // üçte kesiyor ki 429 yolu tek senaryoda görülsün.
 const identityRevealHourlyLimit = 3;
@@ -71,6 +77,17 @@ const server = createServer(async (request, response) => {
       sessionsMode: url.searchParams.get("sessions"),
       sessions: initialSessions(),
       deviceRenames: [],
+      // `?transport=race`: aynı plan ama koltuk seçimi 409 `TRANSPORT_SHUTTLE_FULL`
+      // ile reddedilir — görünümde boş görünen koltuk bu arada başkasınca alındı.
+      // `?transport=seated`: gidiş servisinde başkalarınca seçilmiş 2 koltuk
+      // (fikstürde koltuk seçebilen tek atama var; işverenin silme uyarısı ve
+      // kapasite kuralı iki koltuk ister).
+      transportPlan: ["plan", "race", "seated"].includes(url.searchParams.get("transport"))
+        ? initialTransportPlan(url.searchParams.get("transport") === "seated" ? 2 : 0)
+        : null,
+      transportSeatRace: url.searchParams.get("transport") === "race",
+      seats: [],
+      transportRequests: [],
     });
     return json(response, 200, { ok: true });
   }
@@ -78,6 +95,12 @@ const server = createServer(async (request, response) => {
     const state = stateFrom(url);
     return state
       ? json(response, 200, state.deviceRenames)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/transport-requests") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.transportRequests)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
   if (request.method === "GET" && url.pathname === "/__test__/requests") {
@@ -115,7 +138,13 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, expiredOpenJob());
   }
   if (request.method === "GET" && url.pathname === `/jobs/${openJobId}`) {
-    return backendSuccess(response, viewerJob(openJob(), request));
+    // Herkese açık okuyucunun test anahtarı yok: özet oturumsuz istekte
+    // fikstür planından, oturumlu istekte anahtarın planından kurulur.
+    const viewerState = authorizedState(request);
+    const transport = viewerState
+      ? publicTransportSummary(viewerState)
+      : publicTransportSummary({ transportPlan: initialTransportPlan() });
+    return backendSuccess(response, { ...viewerJob(openJob(), request), transport });
   }
   if (request.method === "GET" && url.pathname === `/users/${jobCreatorId}/employer-stats`) {
     // İlan sayfasının işveren güven kartı (is-koala/koala-web#166); uç herkese
@@ -582,6 +611,117 @@ const server = createServer(async (request, response) => {
       verificationMethod: "DOCUMENT",
     });
   }
+  /*
+   * Ulaşım planı (is-koala/koala-web#187). Backend `TransportManager` gibi:
+   * plan yoksa GET 404; PUT planı bütünüyle yazar, `id` taşıyan servis/durak
+   * yerinde kalır, kalanlar yeni kimlik alır; koltuk seçimi yön başına tek,
+   * dolu serviste 409 `TRANSPORT_SHUTTLE_FULL`; işçi görünümünde plaka/şoför
+   * yalnız koltuk seçilen serviste.
+   */
+  if (url.pathname === `/jobs/${openJobId}/transport-plan`) {
+    if (request.method === "GET") {
+      return state.transportPlan
+        ? backendSuccess(response, employerPlanView(state))
+        : backendError(response, 404, "TRANSPORT_PLAN_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    }
+    if (request.method === "PUT") {
+      const body = await readJson(request);
+      state.transportRequests.push({ method: "PUT", path: url.pathname, body });
+      if (!body || !["SHUTTLE", "CASH_ALLOWANCE", "SELF", "NONE"].includes(body.outboundMethod)) {
+        return backendError(response, 400, "VALIDATION_FAILED", "VALIDATION");
+      }
+      const previous = state.transportPlan;
+      let shuttles;
+      try {
+        shuttles = (body.shuttles ?? []).map((shuttle, index) => {
+        const existing = previous?.shuttles.find((row) => row.id === shuttle.id) ?? null;
+        if (existing && existing.direction !== shuttle.direction) {
+          throw new ConflictSignal("TRANSPORT_SHUTTLE_DIRECTION_LOCKED");
+        }
+        const seatsTaken = existing ? existing.seatsTaken : 0;
+        if (shuttle.capacity < seatsTaken) throw new ConflictSignal("TRANSPORT_SHUTTLE_CAPACITY_BELOW_SEATS");
+        return {
+          id: existing?.id ?? `cccccccc-cccc-4ccc-8ccc-${String(100 + index).padStart(12, "0")}`,
+          direction: shuttle.direction,
+          name: shuttle.name,
+          plate: shuttle.plate ?? null,
+          capacity: shuttle.capacity,
+          seatsTaken,
+          driverName: shuttle.driverName ?? null,
+          driverPhone: shuttle.driverPhone ?? null,
+          sortOrder: index,
+          stops: (shuttle.stops ?? []).map((stop, stopIndex) => {
+            const existingStop = existing?.stops.find((row) => row.id === stop.id) ?? null;
+            return {
+              id: existingStop?.id ?? `cccccccc-cccc-4ccc-8ccc-${String(200 + index * 10 + stopIndex).padStart(12, "0")}`,
+              label: stop.label ?? null,
+              scheduledAt: stop.scheduledAt,
+              sortOrder: stopIndex,
+              address: stop.address ? addressFromWrite(stop.address) : existingStop?.address ?? null,
+              seatsTaken: existingStop?.seatsTaken ?? 0,
+            };
+          }),
+        };
+        });
+      } catch (error) {
+        if (error instanceof ConflictSignal) return backendError(response, 409, error.code, "DATA_CONFLICT");
+        throw error;
+      }
+      state.transportPlan = {
+        outboundMethod: body.outboundMethod,
+        returnMethod: body.returnMethod,
+        allowanceAmount: body.allowanceAmount ?? null,
+        allowanceNote: body.allowanceNote ?? null,
+        notes: body.notes ?? null,
+        shuttles,
+        updatedAt: "2026-09-15T09:00:00Z",
+      };
+      return backendSuccess(response, employerPlanView(state));
+    }
+  }
+  const transportMatch = assignmentTransportPathPattern.exec(url.pathname);
+  if (transportMatch) {
+    const assignment = assignments().find((row) => row.id === transportMatch[1]);
+    if (!assignment || !state.transportPlan) {
+      return backendError(response, 404, "TRANSPORT_PLAN_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    }
+    if (request.method === "GET" && !transportMatch[2]) {
+      return backendSuccess(response, workerTransportView(state, assignment.id));
+    }
+    if (request.method === "PUT" && transportMatch[2]) {
+      const body = await readJson(request);
+      state.transportRequests.push({ method: "PUT", path: url.pathname, body });
+      // `TransportManager.SEAT_STATUSES`: onay bekleyen atama koltuk seçemez.
+      if (!["CONFIRMED", "IN_PROGRESS"].includes(assignment.status)) {
+        return backendError(response, 409, "TRANSPORT_ASSIGNMENT_NOT_ACTIVE", "DATA_CONFLICT");
+      }
+      const shuttle = state.transportPlan.shuttles.find((row) => row.id === body?.shuttleId);
+      const stop = shuttle?.stops.find((row) => row.id === body?.stopId);
+      if (!shuttle || !stop) {
+        return backendError(response, 404, "TRANSPORT_SHUTTLE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+      }
+      const current = state.seats.find(
+        (seat) => seat.assignmentId === assignment.id && seat.direction === shuttle.direction,
+      );
+      const taken = state.seats.filter((seat) => seat.shuttleId === shuttle.id).length;
+      if (current?.shuttleId !== shuttle.id && (state.transportSeatRace || taken >= shuttle.capacity)) {
+        return backendError(response, 409, "TRANSPORT_SHUTTLE_FULL", "DATA_CONFLICT");
+      }
+      if (current) {
+        current.shuttleId = shuttle.id;
+        current.stopId = stop.id;
+      } else {
+        state.seats.push({
+          id: `dddddddd-dddd-4ddd-8ddd-${String(state.seats.length + 1).padStart(12, "0")}`,
+          assignmentId: assignment.id,
+          direction: shuttle.direction,
+          shuttleId: shuttle.id,
+          stopId: stop.id,
+        });
+      }
+      return backendSuccess(response, workerTransportView(state, assignment.id));
+    }
+  }
   const assignmentMatch = assignmentPathPattern.exec(url.pathname);
   if (request.method === "GET" && assignmentMatch) {
     // Emanete alınmış atamanın tek başarılı denemesi; çalışan çizelgesi
@@ -783,6 +923,146 @@ function sessionDetailOf(session) {
     createdAt: session.createdAt,
     logins: session.logins,
     loginHistory: session.loginHistory,
+  };
+}
+
+class ConflictSignal extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+function initialTransportPlan(seatsTaken = 0) {
+  return {
+    outboundMethod: "SHUTTLE",
+    returnMethod: "CASH_ALLOWANCE",
+    allowanceAmount: 150,
+    allowanceNote: "İş bitince elden",
+    notes: "Servis 5 dk bekler.",
+    updatedAt: "2026-09-14T08:00:00Z",
+    shuttles: [
+      {
+        id: shuttleId,
+        direction: "OUTBOUND",
+        name: "Anadolu yakası servisi",
+        plate: "34 ABC 12",
+        capacity: 2,
+        seatsTaken,
+        driverName: "Mehmet Şoför",
+        driverPhone: "0500 000 00 00",
+        sortOrder: 0,
+        stops: [
+          {
+            id: stopIds[0],
+            label: "Kadıköy İskele",
+            scheduledAt: "2026-09-20T03:40:00Z",
+            sortOrder: 0,
+            seatsTaken,
+            address: stopAddress("Rıhtım Caddesi No: 1, Caferağa, Kadıköy/İstanbul", "Caferağa", 40.9925, 29.0245),
+          },
+          {
+            id: stopIds[1],
+            label: "Bostancı",
+            scheduledAt: "2026-09-20T04:00:00Z",
+            sortOrder: 1,
+            seatsTaken: 0,
+            address: stopAddress("Bağdat Caddesi No: 500, Suadiye, Kadıköy/İstanbul", "Suadiye", 40.9612, 29.0866),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function stopAddress(displayAddress, neighborhood, latitude, longitude) {
+  return {
+    countryName: "Türkiye",
+    cityName: "İstanbul",
+    districtName: "Kadıköy",
+    components: { neighborhood },
+    displayAddress,
+    needsReview: false,
+    position: { latitude, longitude, source: "USER_CONFIRMED_PIN" },
+  };
+}
+
+function addressFromWrite(write) {
+  const district = referenceDistricts.find((row) => row.id === write.districtId);
+  const parts = [write.components?.thoroughfare, write.components?.buildingNumber ? `No: ${write.components.buildingNumber}` : null]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    countryName: "Türkiye",
+    cityName: "İstanbul",
+    districtName: district?.name ?? "Kadıköy",
+    components: write.components ?? {},
+    displayAddress: `${parts}, ${write.components?.neighborhood ?? ""}, ${district?.name ?? "Kadıköy"}/İstanbul`,
+    needsReview: false,
+    position: { latitude: write.position?.latitude ?? 41, longitude: write.position?.longitude ?? 29, source: "USER_CONFIRMED_PIN" },
+  };
+}
+
+/** İşveren görünümü: plaka/şoför/adres hepsinde, doluluk koltuk listesinden. */
+function employerPlanView(state) {
+  const plan = state.transportPlan;
+  return {
+    id: "eeeeeeee-eeee-4eee-8eee-000000000001",
+    jobId: openJobId,
+    ...plan,
+    shuttles: plan.shuttles.map((shuttle) => ({
+      ...shuttle,
+      seatsTaken: shuttle.seatsTaken + state.seats.filter((seat) => seat.shuttleId === shuttle.id).length,
+      stops: shuttle.stops.map((stop) => ({
+        ...stop,
+        seatsTaken: stop.seatsTaken + state.seats.filter((seat) => seat.stopId === stop.id).length,
+      })),
+    })),
+  };
+}
+
+/** İşçi görünümü: plaka/şoför yalnız koltuk seçilen serviste, koltuklar bu atamanın. */
+function workerTransportView(state, assignmentId) {
+  const plan = state.transportPlan;
+  const seats = state.seats.filter((seat) => seat.assignmentId === assignmentId);
+  return {
+    outboundMethod: plan.outboundMethod,
+    returnMethod: plan.returnMethod,
+    allowanceAmount: plan.allowanceAmount,
+    allowanceNote: plan.allowanceNote,
+    notes: plan.notes,
+    shuttles: plan.shuttles.map((shuttle) => {
+      const mine = seats.some((seat) => seat.shuttleId === shuttle.id);
+      return {
+        ...shuttle,
+        plate: mine ? shuttle.plate : null,
+        driverName: mine ? shuttle.driverName : null,
+        driverPhone: mine ? shuttle.driverPhone : null,
+        seatsTaken: shuttle.seatsTaken + state.seats.filter((seat) => seat.shuttleId === shuttle.id).length,
+      };
+    }),
+    seats: seats.map((seat) => ({ id: seat.id, direction: seat.direction, shuttleId: seat.shuttleId, stopId: seat.stopId })),
+  };
+}
+
+/** `JobDetailDto.transport`: herkese açık özet — plaka, şoför, tam adres yok. */
+function publicTransportSummary(state) {
+  const plan = state?.transportPlan;
+  if (!plan) return null;
+  return {
+    outboundMethod: plan.outboundMethod,
+    returnMethod: plan.returnMethod,
+    allowanceAmount: plan.allowanceAmount,
+    shuttleCount: plan.shuttles.length,
+    shuttles: plan.shuttles.map((shuttle) => ({
+      direction: shuttle.direction,
+      name: shuttle.name,
+      stops: shuttle.stops.map((stop) => ({
+        districtName: stop.address?.districtName ?? null,
+        neighborhood: stop.address?.components?.neighborhood ?? null,
+        scheduledAt: stop.scheduledAt,
+      })),
+    })),
   };
 }
 

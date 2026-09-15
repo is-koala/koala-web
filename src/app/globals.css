@@ -1032,6 +1032,56 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .assignment-detail-facts > div, .checkout-prerequisites, .checkout-breakdown, .assignment-pricing { padding: 18px 20px; border-radius: var(--r-secondary); background: var(--surface-sunken); }
 .assignment-detail-facts dt, .payment-breakdown dt, .payment-attempt-facts dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); letter-spacing: .06em; text-transform: uppercase; }
 .assignment-detail-facts dd, .payment-breakdown dd, .payment-attempt-facts dd { margin: 4px 0 0; font-weight: var(--w-semibold); overflow-wrap: anywhere; }
+/* Ulaşım planı (#187). Üç yüzey: herkese açık özet (ilan gövdesinde, tanıtımın
+   bölüm ölçüleriyle), işverenin plan düzenleyicisi (servis kartları, içinde durak
+   kartları, her durakta kanonik adres formu) ve çalışanın "Ulaşım" kartı (yön
+   başına servis kümesi, durak radyo listesi, seçili durakta adres + yol tarifi). */
+.job-transport-methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0 0 16px; }
+.job-transport-methods > div { padding: 14px 16px; border-radius: var(--r-16); background: var(--surface-sunken); }
+.job-transport-methods dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
+.job-transport-methods dd { margin: 4px 0 0; font-weight: var(--w-semibold); }
+.job-transport-shuttles { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.job-transport-shuttles > li { padding: 14px 16px; border: 1px solid var(--border-soft); border-radius: var(--r-16); }
+.job-transport-stops { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: var(--size-14); }
+.job-transport-stops li + li { margin-top: 4px; }
+.transport-plan-editor { display: flex; flex-direction: column; gap: 14px; padding: clamp(18px, 3vw, 26px); border: 1px solid var(--border-soft); border-radius: var(--r-secondary); background: var(--surface); }
+.transport-plan-editor > h2 { margin-bottom: 0; font-size: var(--size-20); }
+.transport-plan-editor > .muted, .transport-plan-editor > .field-hint { margin: 0; max-width: 760px; }
+.transport-plan-form, .transport-plan-fields, .transport-direction, .transport-stops { display: flex; flex-direction: column; gap: 16px; }
+.transport-methods, .transport-shuttle-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.transport-allowance { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: var(--r-16); background: var(--surface-sunken); }
+.transport-direction > h3 { margin: 0; font-size: var(--size-18); }
+.transport-shuttle { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 18px; border: 1px solid var(--border-soft); border-radius: var(--r-secondary); background: var(--surface-sunken); }
+.transport-shuttle > legend { padding: 0 8px; font-weight: var(--w-semibold); }
+.transport-stops > h4 { margin: 0; font-size: var(--size-16); }
+.transport-stop { display: flex; flex-direction: column; gap: 14px; padding: 16px; border: 1px solid var(--border-soft); border-radius: var(--r-16); background: var(--surface); }
+.transport-stop-title, .transport-stop-saved-address { margin: 0; }
+.transport-stop-address { display: flex; flex-direction: column; gap: 10px; }
+.transport-stop-address .text-link, .transport-stop-saved-address .text-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; }
+.transport-remove-confirm { display: flex; flex-direction: column; gap: 10px; }
+.transport-remove-actions, .transport-plan-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.transport-shuttle > .button, .transport-stop > .button, .transport-stops > .button, .transport-direction > .button { align-self: flex-start; }
+.work-transport { display: flex; flex-direction: column; gap: 18px; }
+.work-transport > h2 { margin-bottom: 0; }
+.work-transport-notes { margin: 0; padding: 12px 14px; border-radius: var(--r-16); background: var(--surface-sunken); }
+.work-transport-direction { display: flex; flex-direction: column; gap: 10px; }
+.work-transport-direction > h3 { margin: 0; font-size: var(--size-18); }
+.work-transport-direction > p { margin: 0; }
+.work-transport-shuttles { display: flex; flex-direction: column; gap: 12px; }
+.work-transport-shuttles > .muted { margin: 0; }
+.work-transport-shuttle { margin: 0; padding: 14px 16px; border: 1px solid var(--border-soft); border-radius: var(--r-16); }
+.work-transport-shuttle[data-selected="true"] { border-color: var(--primary); background: var(--success-wash); }
+.work-transport-shuttle > legend { padding: 0 6px; font-weight: var(--w-semibold); }
+.work-transport-facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 10px; }
+.work-transport-facts dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: .06em; }
+.work-transport-facts dd { margin: 2px 0 0; font-weight: var(--w-semibold); }
+.work-transport-stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.work-transport-stop label { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+.work-transport-stop-line time { font-variant-numeric: tabular-nums; font-weight: var(--w-semibold); }
+.work-transport-address { margin: 2px 0 0 24px; font-style: normal; color: var(--text-muted); font-size: var(--size-14); overflow-wrap: anywhere; }
+.work-transport-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 6px 0 0 24px; }
+.work-transport-mine .badge { padding: 2px 10px; border-radius: var(--r-pill); background: var(--koala-green-ink); color: var(--on-primary); font-size: var(--size-12); font-weight: var(--w-semibold); }
+.work-transport-shuttles > .button { align-self: flex-start; }
 /* İşçi kimliği bölümü (#185): dört alan, TCKN satırında kopyalama düğmesi; maskeli hâl solgun. */
 .worker-identity { display: flex; flex-direction: column; gap: 16px; }
 .worker-identity > h2 { margin-bottom: 0; }
@@ -1097,5 +1147,6 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 @media (max-width: 520px) { .job-filters { padding: 18px; border-radius: 20px; } .job-card-facts { grid-template-columns: 1fr; } .job-pagination { gap: 8px; font-size: .85rem; } .job-detail { padding-top: 44px; } .job-detail-hero h1 { font-size: clamp(2.8rem, 14vw, 4rem); } .job-application-card { margin-inline: -8px; padding: 24px 20px; border-radius: 22px; } .job-application-form .button { width: 100%; } }
 @media (max-width: 860px) { .work-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .work-detail-facts, .work-brief-grid, .cancellation-facts { grid-template-columns: 1fr; } .work-session-panel .section-heading-row { flex-direction: column; gap: 8px; } .work-session-history li { flex-direction: column; gap: 2px; } }
+@media (max-width: 720px) { .job-transport-methods, .transport-methods, .transport-shuttle-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .assignment-detail-facts, .worker-identity-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts, .employer-job-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }
 @media print { .site-header, .site-footer { display: none !important; } .legal-shell { width: 100%; padding: 0; } body { background: white; color: black; font-size: 11pt; } a { text-decoration: none; } }

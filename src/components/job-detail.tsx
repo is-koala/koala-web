@@ -10,6 +10,7 @@ import type { FormAction } from "@/lib/form-state";
 import { formatMoney } from "@/lib/money";
 
 import { JobApplicationForm } from "./job-application-form";
+import { JobTransportSummary } from "./job-transport-summary";
 
 /**
  * Herkese açık ilan ayrıntısı.
@@ -202,6 +203,7 @@ export function JobDetailBody({ job, className }: { job: JobDetail; className?: 
           {job.dressCode ? <li>Kıyafet: {job.dressCode}</li> : null}
         </ul>
       </section>
+      <JobTransportSummary transport={job.transport} />
       <JobGallery images={job.images} title={job.title} />
       <JobPricing job={job} />
     </div>

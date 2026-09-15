@@ -197,6 +197,45 @@ describe("bireysel ilan formu — backend'in sabitlediği alanlar", () => {
   });
 });
 
+describe("bireysel ilan formu — ulaşım adımı", () => {
+  it("boş bırakılan ulaşım adımı gönderimi durdurmaz ve gövdeye boş plan taşır", async () => {
+    // Boş plan sunucuda "yok" sayılıyor (`readTransportPlanForPublish`);
+    // form onu yine de gizli alanda gönderiyor ki sunucu kararı tek yerde kalsın.
+    const action = vi.fn<FormAction>(async () => ({ status: "idle" as const }));
+    const { user } = renderForm({ action });
+
+    await fillForm(user);
+    await goToStep(user, "Ulaşım");
+    expect(screen.getByLabelText("İşe gidiş")).toHaveValue("NONE");
+    await goToStep(user, "Adres");
+    await user.type(screen.getByLabelText("Adres ara"), "büyükdere");
+    await user.click(await screen.findByRole("option", { name: /Büyükdere Caddesi 12/ }));
+    await user.click(screen.getByRole("button", { name: "İlanı yayımla" }));
+
+    expect(action).toHaveBeenCalled();
+    const formData = action.mock.calls[0][1];
+    expect(JSON.parse(String(formData.get("transportPlan")))).toMatchObject({ outboundMethod: "NONE", shuttles: [] });
+  });
+
+  it("yol parası seçilip tutar yazılmazsa gönderim ulaşım adımına döner", async () => {
+    const action = vi.fn(async () => ({ status: "idle" as const }));
+    const { user } = renderForm({ action });
+
+    await fillForm(user);
+    await goToStep(user, "Adres");
+    await user.type(screen.getByLabelText("Adres ara"), "büyükdere");
+    await user.click(await screen.findByRole("option", { name: /Büyükdere Caddesi 12/ }));
+    await goToStep(user, "Ulaşım");
+    await user.selectOptions(screen.getByLabelText("İşten dönüş"), "CASH_ALLOWANCE");
+    await goToStep(user, "Fiyat ve yayımla");
+    await user.click(screen.getByRole("button", { name: "İlanı yayımla" }));
+
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Ulaşım" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText("Yol parası tutarını yazmalısın.")).toBeVisible();
+  });
+});
+
 describe("bireysel ilan formu — yayımlama kapısı", () => {
   it("kimlik doğrulanmamışken form doldurulabilir ama yayımlama düğmesi kapalıdır", () => {
     // Düğme ve gerekçesi kalıcı altlıkta: kullanıcı hangi adımda olursa olsun

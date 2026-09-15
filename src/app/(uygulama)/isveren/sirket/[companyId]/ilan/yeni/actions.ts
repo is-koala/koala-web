@@ -3,13 +3,19 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
-import { newCompanyJobPath, publishedJobPath } from "@/lib/app-routes";
+import { newCompanyJobPath } from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/identifiers";
 import { companyJobBody, companyJobErrors, withJobFieldAliases } from "@/lib/job-posting";
 import { failureState, validationState } from "@/server/form";
 import { createCompanyJob } from "@/server/jobs/jobs";
-import { closedGateState, loadJobCategories, readJobDraft } from "@/server/jobs/submission";
+import {
+  closedGateState,
+  loadJobCategories,
+  readJobDraft,
+  finishJobPublish,
+  readTransportPlanForPublish,
+} from "@/server/jobs/submission";
 import { corporateJobGate, currentGates } from "@/server/session/gates";
 
 /**
@@ -44,10 +50,12 @@ export async function publishCompanyJobAction(
 
   const draft = readJobDraft(formData);
   const address = readAddressWrite(formData);
+  const transport = readTransportPlanForPublish(formData);
   const categories = await loadJobCategories();
 
   const errors = companyJobErrors(draft, categories);
   if (address === null) errors.address = "Adresi onaylaman gerekiyor.";
+  if (transport.status === "invalid") Object.assign(errors, transport.fieldErrors);
   if (Object.keys(errors).length > 0) return validationState(errors);
 
   // Sigorta değeri gövdeyi kuran işlevde kategoriden türetiliyor: formdan
@@ -68,5 +76,6 @@ export async function publishCompanyJobAction(
 
   // Yayımdan sonra kullanıcı ilanın kendi sayfasına düşer: fiyat orada
   // kilitlenmiş hâliyle duruyor ve form durumu geride kalmıyor.
-  redirect(created.id ? publishedJobPath(created.id) : newCompanyJobPath(companyId));
+  if (!created.id) redirect(newCompanyJobPath(companyId));
+  return finishJobPublish(created.id, transport);
 }
