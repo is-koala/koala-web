@@ -5,6 +5,8 @@ import { isNotFound, isUnauthorized } from "@/server/api/errors";
 import { backendPaths } from "@/server/contract";
 import { bffUpstreamTimeoutMs } from "@/server/env";
 
+import type { DeviceHints } from "./device-hints";
+
 /** `TokenResponseDto`. */
 export type TokenPair = {
   token: string;
@@ -18,6 +20,8 @@ export type RefreshInput = {
   refreshToken: string;
   deviceId: string;
   clientIp?: string | null;
+  /** Backend yenilemede de cihaz adını tazeliyor (`DeviceIdentityRequest`). */
+  deviceHints?: DeviceHints;
   /** Yalnız bu bekleyiciyi iptal eder; paylaşılan yenileme diğer çağıranlar için sürer. */
   signal?: AbortSignal;
 };
@@ -68,6 +72,7 @@ async function requestRefresh(input: RefreshInput): Promise<TokenPair> {
       accessToken: input.accessToken,
       deviceId: input.deviceId,
       clientIp: input.clientIp,
+      deviceHints: input.deviceHints,
       // Bir istemcinin iptali paylaşılan isteği kesmez; bu bağımsız üst sınır
       // askıda kalan isteğin ve inFlight girdisinin sonlu kalmasını sağlar.
       signal: AbortSignal.timeout(bffUpstreamTimeoutMs()),

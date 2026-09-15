@@ -35,6 +35,11 @@ yaptığını değil.
 - BFF her backend isteğine `X-App-Version`, `X-Client-Platform: web` ve
   tarayıcı profiline ait `X-Device-Id` başlıklarını ekler. Cihaz kimliği ile
   tokenlar `HttpOnly`, `Secure`, `SameSite=Lax` cookie'lerde tutulur.
+  Oturum açan üç çağrı (giriş, kayıt tamamlama, yenileme) ayrıca
+  `X-Koala-OS` (isteğin `User-Agent`'ından) ve `X-Koala-App-Version`
+  (`package.json` sürümü, build sabiti) taşır; backend cihaz adını bunlardan
+  kurar (`src/server/session/device-hints.ts`, is-koala/koala-web#188).
+  `X-Koala-Device-Model` web'de hiç gönderilmez — tarayıcı donanımı söylemez.
 - Tarayıcının doğrudan açtığı STOMP bağlantısı HTTP BFF sınırının tek
   istisnasıdır. Ana oturum tokenını JavaScript'e açma; kısa ömürlü STOMP
   kimliği backend'de hazır olana kadar web mesajlaşmasını bağlama.

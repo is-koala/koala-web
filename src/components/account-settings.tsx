@@ -11,15 +11,19 @@ import type {
   AccountSettingsActions,
   AccountSettingsViewer,
 } from "@/components/account-settings/types";
+import type { AppShellId } from "@/lib/app-routes";
 import type { AccountSettingsData } from "@/server/account-settings/settings";
 
 export type { AccountSettingsActions, AccountSettingsViewer } from "@/components/account-settings/types";
 
 export function AccountSettings({
+  shell,
   viewer,
   data,
   actions,
 }: {
+  /** Oturum satırları kendi kabuğunun ayrıntı adresine bağlanır. */
+  shell: AppShellId;
   viewer: AccountSettingsViewer;
   data: AccountSettingsData;
   actions: AccountSettingsActions;
@@ -61,7 +65,9 @@ export function AccountSettings({
         markAllReadAction={actions.markAllNotificationsRead}
       />
       <SessionSettings
+        shell={shell}
         sessions={data.sessions}
+        detailAvailable={data.sessionDetailAvailable}
         revokeAction={actions.revokeSession}
         revokeOtherAction={actions.revokeOtherSessions}
       />

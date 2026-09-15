@@ -514,6 +514,10 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .payout-failure { padding: 12px 14px; border-radius: var(--r-12); background: var(--danger-wash); }
 .payout-failure p { margin: 0 0 6px; }
 .account-settings { display: flex; flex-direction: column; gap: 22px; }
+.session-detail { display: flex; flex-direction: column; gap: 18px; }
+.session-detail-back { margin: 0; font-size: var(--size-14); }
+.session-detail-title { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.session-detail .settings-form { max-width: 480px; border-top: 0; padding-top: 4px; }
 .account-settings > .lede { margin-bottom: 0; }
 .settings-jump { padding-bottom: 20px; border-bottom: 1px solid var(--border-soft); }
 .settings-card { border: 1px solid var(--border-soft); border-radius: var(--r-secondary); padding: clamp(20px, 3vw, 28px); background: var(--surface); scroll-margin-top: 90px; }

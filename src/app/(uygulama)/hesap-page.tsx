@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { AccountSettings, type AccountSettingsActions } from "@/components/account-settings";
 import { ErrorState } from "@/components/states";
 import { PageHeader, PagePanel } from "@/components/ui";
+import type { AppShellId } from "@/lib/app-routes";
 import {
   loadAccountSettings,
   type AccountSettingsData,
@@ -44,7 +45,10 @@ export type AccountPageProps = {
   searchParams?: Promise<{ bildirimSayfasi?: string | string[] }>;
 };
 
-export async function AccountPage({ searchParams }: AccountPageProps = {}) {
+export async function AccountPage({
+  shell,
+  searchParams,
+}: AccountPageProps & { shell: AppShellId }) {
   const { viewer } = await enterShell();
   if (viewer === null) return null;
 
@@ -64,6 +68,7 @@ export async function AccountPage({ searchParams }: AccountPageProps = {}) {
 
   return (
     <AccountSettings
+      shell={shell}
       viewer={{
         email: viewer.email,
         phoneNumber: viewer.phoneNumber,

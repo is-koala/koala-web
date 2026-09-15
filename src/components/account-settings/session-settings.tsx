@@ -1,17 +1,24 @@
 import Link from "next/link";
 
 import type { SettingsAction } from "@/app/(uygulama)/hesap-actions";
+import { LinkPending } from "@/components/link-pending";
+import { sessionDetailPath, type AppShellId } from "@/lib/app-routes";
 import type { AccountSession } from "@/server/account-settings/settings";
 
 import { ResourceAction, SimpleAction } from "./action-controls";
-import { formatAccountDate } from "./presentation";
+import { deviceTypeLabel, formatAccountDate, sessionLocationLabel } from "./presentation";
 
 export function SessionSettings({
+  shell,
   sessions,
+  detailAvailable,
   revokeAction,
   revokeOtherAction,
 }: {
+  shell: AppShellId;
   sessions: readonly AccountSession[];
+  /** Eski sunucuda ayrıntı ucu yok; satır o zaman bağlantısız kalır, uyarı da yok. */
+  detailAvailable: boolean;
   revokeAction: SettingsAction;
   revokeOtherAction: SettingsAction;
 }) {
@@ -37,9 +44,20 @@ export function SessionSettings({
           {sessions.map((session) => (
             <li className="settings-list-item" key={session.id}>
               <div>
-                <strong>{session.deviceName || deviceLabel(session.deviceType)}</strong>
+                <strong>
+                  {detailAvailable ? (
+                    // Bekleme göstergesi bağlantının içinde: ayrıntı sayfası
+                    // `notFound()` çağırdığı için yanına `loading.tsx` konamıyor.
+                    <Link className="text-link" href={sessionDetailPath(shell, session.id)}>
+                      {session.deviceName || deviceTypeLabel(session.deviceType)}
+                      <LinkPending />
+                    </Link>
+                  ) : (
+                    session.deviceName || deviceTypeLabel(session.deviceType)
+                  )}
+                </strong>
                 <p className="muted">
-                  {session.location || "Konum bilgisi yok"} · Son kullanım{" "}
+                  {sessionLocationLabel(session.location)} · Son kullanım{" "}
                   {formatAccountDate(session.lastAccessedAt)}
                 </p>
                 {session.current ? <span className="status-pill">Bu cihaz</span> : null}
@@ -64,8 +82,4 @@ export function SessionSettings({
       )}
     </section>
   );
-}
-
-function deviceLabel(type: string): string {
-  return { WEB: "Web tarayıcısı", MOBILE: "Mobil cihaz" }[type] ?? "Bilinmeyen cihaz";
 }

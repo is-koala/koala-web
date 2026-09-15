@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function Page({ searchParams }: AccountPageProps = {}) {
   return (
     <ShellGate shell="worker" href="/panel/hesap">
-      <AccountPage searchParams={searchParams} />
+      <AccountPage shell="worker" searchParams={searchParams} />
     </ShellGate>
   );
 }

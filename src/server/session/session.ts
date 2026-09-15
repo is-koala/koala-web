@@ -13,6 +13,7 @@ import { isUnauthorized } from "@/server/api/errors";
 import { ingressClientIpHeader, sessionCookies } from "@/server/contract";
 
 import { clearSessionCookies, writeSessionCookies } from "./cookies";
+import { webDeviceHints } from "./device-hints";
 import { createDeviceId, isValidDeviceId } from "./device-id";
 import { currentPathLoginRedirect } from "./login-redirect";
 import { refreshTokenPair, SessionExpiredError } from "./refresh";
@@ -159,6 +160,7 @@ async function renew(
       refreshToken,
       deviceId: session.deviceId,
       clientIp,
+      deviceHints: await webDeviceHints(),
       signal,
     });
     await writeSessionCookies(pair);

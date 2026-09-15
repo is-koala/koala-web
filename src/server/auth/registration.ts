@@ -4,6 +4,7 @@ import type { ConsentDecision } from "@/lib/consents";
 import { apiFetch } from "@/server/api/client";
 import { backendPaths } from "@/server/contract";
 import type { TokenPair } from "@/server/session/refresh";
+import { webDeviceHints } from "@/server/session/device-hints";
 import { anonymousCaller } from "@/server/session/session";
 
 import { establishSession } from "./session-start";
@@ -73,6 +74,8 @@ export async function completeRegistration(input: CompleteRegistrationInput): Pr
       password: input.password,
       consents: input.consents,
     },
+    // Kayıt da bir oturum açıyor; cihaz adı bu istekte kuruluyor.
+    deviceHints: await webDeviceHints(),
   });
 
   await establishSession(session, caller.deviceId);

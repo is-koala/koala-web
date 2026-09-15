@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function Page({ searchParams }: AccountPageProps = {}) {
   return (
     <ShellGate shell="employer" href="/isveren/hesap">
-      <AccountPage searchParams={searchParams} />
+      <AccountPage shell="employer" searchParams={searchParams} />
     </ShellGate>
   );
 }

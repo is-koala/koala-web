@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { errorPresentation } from "@/lib/errors";
 import { ApiError } from "@/server/api/errors";
 
-import { cookieStore, envelope, jsonResponse } from "../../../tests/support/session-cookies";
+import {
+  cookieStore,
+  envelope,
+  jsonResponse,
+  requestHeaders,
+} from "../../../tests/support/session-cookies";
 
 import { signIn } from "./login";
 
@@ -72,6 +77,7 @@ describe("giriş akışı", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    requestHeaders.delete("user-agent");
   });
 
   it("kayıtsız e-posta ile yanlış parolayı aynı hataya indirger", async () => {
@@ -154,6 +160,38 @@ describe("giriş akışı", () => {
     ).get("X-Device-Id");
     expect(sent).toMatch(/^[A-Za-z0-9._:-]{8,128}$/);
     expect(cookieStore.values.get("koala_did")).toBe(sent);
+  });
+
+  it("cihaz ipuçlarını giriş isteğine başlık olarak koyar; modeli hiç göndermez", async () => {
+    // Backend cihaz adını bu istekte kuruyor (`DeviceNaming.name`); ipucu
+    // gitmezse ad BFF'nin Node ajanından türer ve oturum listesinde
+    // "Bilinmeyen cihaz" yazar (is-koala/koala-web#188).
+    requestHeaders.set(
+      "user-agent",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+    );
+    const fetchMock = vi.fn().mockResolvedValue(tokenResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await signIn(credentials);
+
+    const sent = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
+    expect(sent.get("X-Koala-OS")).toBe("macOS");
+    expect(sent.get("X-Koala-App-Version")).toMatch(/^\d+\.\d+\.\d+/);
+    // Tarayıcı donanım modelini söylemiyor; boş başlık yerine başlık yok.
+    expect(sent.has("X-Koala-Device-Model")).toBe(false);
+  });
+
+  it("tanınmayan ajanda işletim sistemi başlığını hiç göndermez", async () => {
+    requestHeaders.set("user-agent", "curl/8.4.0");
+    const fetchMock = vi.fn().mockResolvedValue(tokenResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await signIn(credentials);
+
+    const sent = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
+    expect(sent.has("X-Koala-OS")).toBe(false);
+    expect(sent.get("X-Koala-App-Version")).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it("her iki durumda da kullanıcıya giriş bilgilerinin uyuşmadığını söyler", async () => {
