@@ -3,6 +3,7 @@ import "server-only";
 import { apiFetch } from "@/server/api/client";
 import { ApiError } from "@/server/api/errors";
 import { backendPaths, notFoundStatus, unauthorizedStatus } from "@/server/contract";
+import { webDeviceHints } from "@/server/session/device-hints";
 import type { TokenPair } from "@/server/session/refresh";
 import { anonymousCaller } from "@/server/session/session";
 
@@ -48,6 +49,9 @@ export async function signIn(credentials: Credentials): Promise<void> {
       ...caller,
       method: "POST",
       body: credentials,
+      // Backend cihaz adını girişte kuruyor; ipucu gitmezse web oturumu
+      // listede "Bilinmeyen cihaz" olarak durur.
+      deviceHints: await webDeviceHints(),
     });
   } catch (error) {
     throw collapseCredentialFailure(error);

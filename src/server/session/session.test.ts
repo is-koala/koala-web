@@ -114,6 +114,40 @@ describe("BFF oturum katmanı", () => {
     expect(retryHeaders.get("Authorization")).toBe("Bearer yeni-access-placeholder");
   });
 
+  it("yenileme isteğine cihaz ipuçlarını koyar, özgün isteğe koymaz", async () => {
+    // Backend yenilemede de cihaz adını tazeliyor (`DeviceIdentityRequest`);
+    // öbür uçlar ipucu okumuyor, o yüzden yalnız yenileme taşır (#188).
+    testRequestHeaders.set(
+      "user-agent",
+      "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36",
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(unauthorized())
+      .mockResolvedValueOnce(
+        jsonResponse(
+          200,
+          envelope({
+            token: "yeni-access-placeholder",
+            refreshToken: "refresh-placeholder",
+            refreshExpiresAt: "2026-10-06T00:00:00Z",
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, envelope({ id: "u1" })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiRequest("/users/me");
+
+    const firstHeaders = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
+    const refreshHeaders = new Headers((fetchMock.mock.calls[1] as [string, RequestInit])[1].headers);
+    expect(firstHeaders.has("X-Koala-OS")).toBe(false);
+    expect(refreshHeaders.get("X-Koala-OS")).toBe("Android 14");
+    expect(refreshHeaders.get("X-Koala-App-Version")).toMatch(/^\d+\.\d+\.\d+/);
+    expect(refreshHeaders.has("X-Koala-Device-Model")).toBe(false);
+    testRequestHeaders.delete("user-agent");
+  });
+
   it("dosya yanıtını 401 sonrası yenileyip ham gövdesiyle döndürür", async () => {
     const fetchMock = vi
       .fn()

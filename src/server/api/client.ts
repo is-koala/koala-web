@@ -10,6 +10,7 @@ import {
   webClientPlatform,
 } from "@/server/contract";
 import { serverEnvironment } from "@/server/env";
+import type { DeviceHints } from "@/server/session/device-hints";
 
 import { ApiError, type ApiFieldError } from "./errors";
 
@@ -34,6 +35,12 @@ export type ApiCaller = {
 export type ApiRequestOptions = ApiCaller & {
   method?: HttpMethod;
   body?: unknown;
+  /**
+   * Yalnız oturum açan çağrılar (giriş, kayıt tamamlama, yenileme) geçirir:
+   * backend ipuçlarını başka hiçbir uçta okumuyor ve cihaz adı o anda
+   * kuruluyor. `null` alan başlık olarak hiç gitmez.
+   */
+  deviceHints?: DeviceHints;
   cache?: RequestCache;
   redirect?: RequestRedirect;
   signal?: AbortSignal;
@@ -92,6 +99,13 @@ export async function apiFetchResponse(
 
   if (options.clientIp) {
     headers.set(backendHeaders.forwardedFor, options.clientIp);
+  }
+
+  if (options.deviceHints) {
+    const { model, os, appVersion } = options.deviceHints;
+    if (model) headers.set(backendHeaders.deviceModel, model);
+    if (os) headers.set(backendHeaders.deviceOs, os);
+    if (appVersion) headers.set(backendHeaders.deviceAppVersion, appVersion);
   }
 
   if (options.accessToken) {

@@ -8,13 +8,26 @@ import "server-only";
  * diye kod içine dağıtılmadan burada toplanır.
  */
 
-/** `DeviceIdentity.HEADER`, `ClientPlatform.HEADER`, `MinimumAppVersionFilter`. */
+/**
+ * `DeviceIdentity.HEADER`, `ClientPlatform.HEADER`, `MinimumAppVersionFilter`,
+ * `DeviceHints` (`X-Koala-*`).
+ *
+ * Üç cihaz ipucu yalnız oturum açan uçlarda okunuyor (`DeviceIdentityRequest`,
+ * giriş ve yenileme): backend cihaz adını bunlardan kuruyor
+ * (`DeviceNaming.name`), ipucu yoksa BFF'nin Node `User-Agent`'ından — yani
+ * web oturumu "Bilinmeyen cihaz" kalıyordu (is-koala/koala-web#188).
+ * `X-App-Version` ayrı bir şey: sürüm kapısının okuduğu çalışma zamanı
+ * değeri, cihaz adına giren değil.
+ */
 export const backendHeaders = {
   acceptLanguage: "Accept-Language",
   appVersion: "X-App-Version",
   authorization: "Authorization",
   clientPlatform: "X-Client-Platform",
+  deviceAppVersion: "X-Koala-App-Version",
   deviceId: "X-Device-Id",
+  deviceModel: "X-Koala-Device-Model",
+  deviceOs: "X-Koala-OS",
   forwardedFor: "X-Forwarded-For",
   minimumAppVersion: "X-Minimum-App-Version",
 } as const;
@@ -80,6 +93,13 @@ export const backendPaths = {
   agreements: "/legal/agreements",
   completeRegistration: "/auth/complete-registration",
   currentUserPayouts: "/users/me/payouts",
+  /**
+   * `PATCH /users/me/devices/{deviceId}` — cihazı adlandırma
+   * (`UserProfileController`, backend 0.9.28). Adı `usersMe` ile başlamıyor:
+   * `server-only.test.ts` kabuğun tek `GET /users/me` çağrısını o önekle
+   * arıyor ve bu bambaşka bir uç.
+   */
+  devices: "/users/me/devices",
   forgotPassword: "/auth/forgot-password",
   /**
    * `POST /users/me/jobs` — bireysel ilan; yanıt `IndividualJobDto`.
