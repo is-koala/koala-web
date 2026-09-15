@@ -624,7 +624,7 @@ describe("oturumlu catch sınırları Next kontrol akışını yeniden fırlatı
 
   it.each([
     ["app/(account)/davet/[invitationId]/page.tsx", "enterShell"],
-    ["app/(account)/payment/result/page.tsx", "requireSessionForCurrentPath"],
+    ["app/(account)/payment/result/page.tsx", "redirect"],
     ["app/(uygulama)/panel/profil/page.tsx", "enterShell + apiRequest yükleyicileri"],
     ["app/api/users/me/identity-documents/route.ts", "loadViewer"],
     ["server/gallery/gallery.ts", "apiRequest"],

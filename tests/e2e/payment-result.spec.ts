@@ -54,3 +54,24 @@ test("yinelenen ödeme parametresi çökmek yerine geçersiz sayılır", async (
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Ödeme sonucu okunamadı" })).toBeVisible();
 });
+
+test.describe("masaüstü oturumsuz ödeme dönüşü", () => {
+  test.use({
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+  });
+
+  test("başarılı dönüş boş gövde çizmez ve ana sayfaya dönüş verir", async ({ page }) => {
+    const response = await page.goto(
+      `/payment/result?status=success&assignmentId=${assignmentId}`,
+    );
+
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "Ödeme dönüşü alındı" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "İş ilanları" })).toHaveAttribute(
+      "href",
+      "/is-ilanlari",
+    );
+    await expect(page.getByText(/Otomatik kontrol oturum olmadan yapılamaz/)).toBeVisible();
+  });
+});
