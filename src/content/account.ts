@@ -84,6 +84,12 @@ export const paymentContent = {
   body: "Ödemenin doğrulanmış durumunu ve iş ayrıntılarını Koala uygulamasından takip edebilirsin.",
   invalidTitle: "Ödeme sonucu okunamadı",
   invalidBody: "Ödemenin durumunu uygulamadaki iş detayından kontrol edebilirsin.",
+  guestLede:
+    "Bu bildirim tek başına finansal sonuç değildir. Doğrulanmış durumu giriş yaptıktan sonra atama ayrıntısından takip edebilirsin.",
+  guestTimeout:
+    "Otomatik kontrol oturum olmadan yapılamaz. Ödeme kesinleşene kadar yeni bir ödeme başlatma.",
+  homeLabel: "Ana sayfaya dön",
+  jobsLabel: "İş ilanları",
 } as const;
 
 export const trustMessage = "Bu sayfa hesabında tek başına bir değişiklik yapmaz.";

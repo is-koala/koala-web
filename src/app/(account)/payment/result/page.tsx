@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { OpenInApp } from "@/components/open-in-app";
@@ -13,12 +14,12 @@ import {
   storeUrl,
 } from "@/handoff/links";
 import { readSingleToken, type SearchValue } from "@/handoff/token";
+import { publicJobsPath } from "@/lib/app-routes";
 import { publicEnvironment } from "@/lib/env";
 import { isUuid } from "@/lib/identifiers";
 import { paymentReturnToneTitle } from "@/payments/checkout";
 import { failureView } from "@/server/form";
 import { readPaymentReconciliation } from "@/server/payments/payments";
-import { requireSessionForCurrentPath } from "@/server/session/guard";
 import { readSession } from "@/server/session/session";
 
 export const metadata: Metadata = {
@@ -50,8 +51,9 @@ export default async function Page({ searchParams }: PaymentResultPageProps) {
     if (platform !== "desktop") {
       return <PaymentResultHandoff status={status} assignmentId={assignmentId.value} />;
     }
-    await requireSessionForCurrentPath();
-    return null;
+    // Cookie düşmüş masaüstü dönüşü giriş kapısına veya boş gövdeye düşerse
+    // para alınmış ekran kaybolur (#193).
+    return <PaymentResultGuest status={status} />;
   }
 
   const result = await readPaymentReconciliation(assignmentId.value)
@@ -71,6 +73,27 @@ export default async function Page({ searchParams }: PaymentResultPageProps) {
   }
 
   return <PaymentResultWait assignmentId={assignmentId.value} initialTone={status} />;
+}
+
+function PaymentResultGuest({ status }: { status: "success" | "failed" }) {
+  return (
+    <section className="account-card">
+      <p className="eyebrow">{paymentContent.eyebrow}</p>
+      <h1>{paymentReturnToneTitle(status)}</h1>
+      <p className="lede">{paymentContent.guestLede}</p>
+      <p>{paymentContent.guestTimeout}</p>
+      <p>
+        <Link className="text-link" href="/">
+          {paymentContent.homeLabel}
+        </Link>
+      </p>
+      <p>
+        <Link className="text-link" href={publicJobsPath}>
+          {paymentContent.jobsLabel}
+        </Link>
+      </p>
+    </section>
+  );
 }
 
 function PaymentResultHandoff({

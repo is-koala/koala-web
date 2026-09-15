@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/server/api/errors";
+
 const readPaymentReconciliation = vi.hoisted(() => vi.fn());
 const readSession = vi.hoisted(() => vi.fn());
 const requireSessionForCurrentPath = vi.hoisted(() => vi.fn());
@@ -69,17 +71,71 @@ describe("ödeme dönüşü", () => {
     expect(readPaymentReconciliation).not.toHaveBeenCalled();
   });
 
-  it("oturumu düşmüş masaüstü kullanıcıyı sonuç adresini koruyan giriş kapısına yollar", async () => {
+  it.each([
+    ["success", "Ödeme dönüşü alındı"],
+    ["failed", "Ödeme tamamlanamadı bildirimi alındı"],
+  ] as const)(
+    "oturumsuz masaüstü %s dönüşünde boş gövde çizmez ve ana sayfaya dönüş verir",
+    async (status, heading) => {
+      readSession.mockResolvedValue({ refreshToken: null });
+      headers.mockResolvedValue({ get: () => "Mozilla/5.0 (Macintosh)" });
+
+      const view = await Page({
+        searchParams: Promise.resolve({ status, assignmentId }),
+      });
+
+      expect(view).not.toBeNull();
+      render(view);
+
+      expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+      expect(screen.getByText(/Otomatik kontrol oturum olmadan yapılamaz/)).toBeVisible();
+      expect(screen.getByRole("link", { name: "Ana sayfaya dön" })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: "İş ilanları" })).toHaveAttribute(
+        "href",
+        "/is-ilanlari",
+      );
+      expect(screen.queryByRole("link", { name: "Uygulamada aç" })).toBeNull();
+      expect(requireSessionForCurrentPath).not.toHaveBeenCalled();
+      expect(readPaymentReconciliation).not.toHaveBeenCalled();
+      expect(redirect).not.toHaveBeenCalled();
+    },
+  );
+
+  it("user-agent yokken masaüstü oturumsuz sonucu çizer", async () => {
     readSession.mockResolvedValue({ refreshToken: null });
-    headers.mockResolvedValue({ get: () => "Mozilla/5.0 (Macintosh)" });
-    requireSessionForCurrentPath.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    headers.mockResolvedValue({ get: () => null });
 
-    await expect(Page({
+    const view = await Page({
       searchParams: Promise.resolve({ status: "success", assignmentId }),
-    })).rejects.toThrow("NEXT_REDIRECT");
+    });
 
-    expect(requireSessionForCurrentPath).toHaveBeenCalledOnce();
-    expect(readPaymentReconciliation).not.toHaveBeenCalled();
+    expect(view).not.toBeNull();
+    render(view);
+
+    expect(screen.getByRole("heading", { name: "Ödeme dönüşü alındı" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ana sayfaya dön" })).toHaveAttribute("href", "/");
+    expect(requireSessionForCurrentPath).not.toHaveBeenCalled();
+  });
+
+  it("oturumlu mutabakat hatasını backend mesajıyla değil errorCode kataloğuyla çizer", async () => {
+    readPaymentReconciliation.mockRejectedValue(
+      new ApiError({
+        status: 502,
+        errorCode: "PAYMENT_PROVIDER_UNAVAILABLE",
+        errorCategory: "EXTERNAL_SERVICE",
+        message: "iyzico retrieve timed out after 30s",
+      }),
+    );
+
+    render(
+      await Page({
+        searchParams: Promise.resolve({ status: "success", assignmentId }),
+      }),
+    );
+
+    expect(screen.getByRole("heading", { name: "Ödeme sağlayıcısına ulaşılamadı" })).toBeVisible();
+    expect(screen.queryByText(/iyzico retrieve timed out/i)).toBeNull();
+    expect(requireSessionForCurrentPath).not.toHaveBeenCalled();
   });
 
   it("mutabakat bekliyorsa kesin sonuç yazmadan bekleme durumunu gösterir", async () => {
