@@ -422,14 +422,16 @@ const server = createServer(async (request, response) => {
   if (deviceMatch && request.method === "PATCH") {
     const body = await readJson(request);
     const name = typeof body?.name === "string" ? body.name.trim() : "";
-    if (!name || name.length > 60) {
+    // Action boş ve 60+ adı backend'e hiç göndermiyor; backend'in 400'ünü
+    // ekranda görmek için `__backend_reject__` her koşulda reddedilir.
+    if (!name || name.length > 60 || name === "__backend_reject__") {
       return json(response, 400, {
         success: false,
         httpStatus: 400,
         errorCode: "VALIDATION_FAILED",
         errorCategory: "VALIDATION",
         message: "Dogrulama hatasi.",
-        details: [{ field: "name", message: name ? "Cihaz adı en fazla 60 karakter olabilir." : "Cihaz adı boş olamaz." }],
+        details: [{ field: "name", message: name ? "Cihaz adı kabul edilmedi." : "Cihaz adı boş olamaz." }],
         timeStamp: "2026-09-09T12:00:00Z",
       });
     }

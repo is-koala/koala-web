@@ -114,11 +114,13 @@ export async function loadAccountSettings(notificationPage = 0): Promise<Account
     listSessions(),
     loadAccountDeletionStatus(),
   ]);
-  // Deneme listeden sonra: hangi oturumun sorulacağı listeden çıkıyor. Bu
-  // isteğin kendi oturumu yeni sunucuda 404 dönemez, yani cevap sunucuyu
-  // söyler. Liste boşsa bağlanacak satır da yok, tur atılmaz.
-  const probe = sessions.find((session) => session.current) ?? sessions[0];
-  const sessionDetailAvailable = probe ? await isSessionDetailAvailable(probe.id) : false;
+  // Deneme listeden sonra ve yalnız bu isteğin kendi oturumuyla: o oturum
+  // yeni sunucuda 404 dönemez, yani cevap sunucuyu söyler. Başka bir oturum
+  // listeden sonra kapatılmış olabilir ve 404'ü sunucu sanılırdı. Liste
+  // doluysa mevcut oturum hep içinde; yine de yoksa deneme yapılmaz ve
+  // bağlantılar durur — sayfa 404'ü kendisi çizer.
+  const current = sessions.find((session) => session.current);
+  const sessionDetailAvailable = current ? await isSessionDetailAvailable(current.id) : true;
   return { bankAccounts, notifications, preferences, sessions, sessionDetailAvailable, accountDeletion };
 }
 

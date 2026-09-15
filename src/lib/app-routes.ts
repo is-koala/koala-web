@@ -157,9 +157,18 @@ export function sessionDetailPath(shell: AppShellId, sessionId: string): string 
   return `${appShells[shell].root}/oturum/${encodeURIComponent(sessionId)}`;
 }
 
+/**
+ * Hesap ve ayarlar sayfası; kayıtta bir bölüm olarak da bildirilir. Sabit
+ * değil fonksiyon: aynı sayfa iki kabukta da var ve eylemler ikisini birden
+ * tazeliyor.
+ */
+export function accountSettingsPath(shell: AppShellId): string {
+  return `${appShells[shell].root}/hesap`;
+}
+
 /** Hesap sayfasındaki oturum listesinin çapası; ayrıntıdan geri dönüş buraya. */
 export function accountSessionsHref(shell: AppShellId): string {
-  return `${appShells[shell].root}/hesap#oturumlar`;
+  return `${accountSettingsPath(shell)}#oturumlar`;
 }
 
 /**

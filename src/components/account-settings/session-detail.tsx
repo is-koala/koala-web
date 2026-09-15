@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 
-import type { SessionDetailAction } from "@/app/(uygulama)/oturum-actions";
 import { SubmitButton, TextField } from "@/components/form-controls";
 import { FormAlert } from "@/components/states";
 import {
@@ -17,7 +16,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { accountSessionsHref, type AppShellId } from "@/lib/app-routes";
-import { fieldError, idleFormState } from "@/lib/form-state";
+import { fieldError, idleFormState, type FormAction, type FormState } from "@/lib/form-state";
 import {
   deviceNameMaxLength,
   loginHistorySize,
@@ -44,10 +43,13 @@ export function SessionDetailScreen({
 }: {
   shell: AppShellId;
   detail: SessionDetail;
-  renameAction: SessionDetailAction;
-  revokeAction: SessionDetailAction;
+  renameAction: FormAction;
+  revokeAction: FormAction;
 }) {
-  const deviceName = detail.deviceName ?? deviceTypeLabel(detail.deviceType);
+  // Adlandırma başarılı olunca sunucu sayfayı tazeliyor; o gelene kadar
+  // başlık yeni adı buradan okur.
+  const [renamedTo, setRenamedTo] = useState<string | null>(null);
+  const deviceName = renamedTo ?? detail.deviceName ?? deviceTypeLabel(detail.deviceType);
 
   return (
     <PagePanel className="session-detail" aria-labelledby="oturum-baslik">
@@ -82,7 +84,7 @@ export function SessionDetailScreen({
         />
       </Card>
 
-      <RenameDeviceForm detail={detail} action={renameAction} />
+      <RenameDeviceForm detail={detail} action={renameAction} onRenamed={setRenamedTo} />
 
       <Card as="section" aria-labelledby="giris-gecmisi-baslik">
         <SectionHeader
@@ -115,14 +117,38 @@ export function SessionDetailScreen({
   );
 }
 
+/**
+ * Form `action={submit}` ile değil `onSubmit` + `startTransition` ile
+ * gönderiliyor: React 19 `<form action>` gönderim biter bitmez formu koşulsuz
+ * sıfırlıyor, hata döndüğünde de — 404'te yazılan ad siliniyordu (ölçüldü).
+ * Ad bu yüzden durumda: hata sonrası olduğu gibi kalıyor, başarıda başlık
+ * sunucu sayfayı yeniden çizene kadar yeni adı buradan okuyor.
+ */
 function RenameDeviceForm({
   detail,
   action,
+  onRenamed,
 }: {
   detail: SessionDetail;
-  action: SessionDetailAction;
+  action: FormAction;
+  onRenamed: (name: string) => void;
 }) {
-  const [state, submit] = useActionState(action, idleFormState);
+  const [state, dispatch, pending] = useActionState(
+    async (previous: FormState, formData: FormData) => {
+      const next = await action(previous, formData);
+      if (next.status === "done") onRenamed(String(formData.get("name") ?? "").trim());
+      return next;
+    },
+    idleFormState,
+  );
+  const [name, setName] = useState(detail.deviceCustomName ?? "");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => dispatch(formData));
+  }
+
   return (
     <Card as="section" aria-labelledby="cihaz-adi-baslik">
       <SectionHeader
@@ -130,7 +156,7 @@ function RenameDeviceForm({
         titleId="cihaz-adi-baslik"
         description="Listede tanımanı kolaylaştıracak bir ad ver, örneğin “Evdeki iPad”."
       />
-      <form className="form settings-form" action={submit}>
+      <form className="form settings-form" onSubmit={submit}>
         <FormAlert state={state} />
         {state.status === "done" ? (
           <p className="inline-success" role="status">
@@ -143,12 +169,15 @@ function RenameDeviceForm({
           name="name"
           label="Cihaz adı"
           autoComplete="off"
-          defaultValue={detail.deviceCustomName ?? ""}
+          value={name}
+          onValueChange={setName}
           maxLength={deviceNameMaxLength}
           hint={`En fazla ${deviceNameMaxLength} karakter.`}
           error={fieldError(state, "name")}
         />
-        <SubmitButton label="Cihazı adlandır" pendingLabel="Kaydediliyor…" />
+        <button className="button button-primary" type="submit" disabled={pending}>
+          {pending ? "Kaydediliyor…" : "Cihazı adlandır"}
+        </button>
       </form>
     </Card>
   );
@@ -159,7 +188,7 @@ function RevokeSessionForm({
   action,
 }: {
   sessionId: string;
-  action: SessionDetailAction;
+  action: FormAction;
 }) {
   const [state, submit] = useActionState(action, idleFormState);
   return (

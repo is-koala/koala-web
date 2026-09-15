@@ -46,7 +46,10 @@ export function deviceTypeLabel(type: string): string {
   }
 }
 
-/** Konum yaklaşık (IP'den türetilmiş); yoksa tire. */
+/**
+ * Konum yaklaşık (IP'den türetilmiş); yoksa tire. Liste ve ayrıntı aynı
+ * metni yazar — iki ekranda iki ifade aynı bilgiyi başka bir şey sanmalıydı.
+ */
 export function sessionLocationLabel(location: string | null): string {
   return location ? `Yaklaşık: ${location}` : "—";
 }

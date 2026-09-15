@@ -77,8 +77,12 @@ test("satırdan ayrıntıya gider, cihazı adlandırır ve yeni ad listeye döne
   ).toBeVisible();
 });
 
-test("boş ad backend'in reddini alanın altında gösterir", async ({ page, context, request }, testInfo) => {
-  await signedIn({ context, request }, testInfo, "detail");
+test("boş adı action ön denetimi backend'e gitmeden alanın altında reddeder", async ({
+  page,
+  context,
+  request,
+}, testInfo) => {
+  const stateKey = await signedIn({ context, request }, testInfo, "detail");
   await page.goto(`/panel/oturum/${otherSessionId}`);
   await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
 
@@ -92,6 +96,28 @@ test("boş ad backend'in reddini alanın altında gösterir", async ({ page, con
   const errorId = await nameField.getAttribute("aria-describedby");
   expect(errorId).toBeTruthy();
   await expect(page.locator(`#${errorId!.split(" ").pop()}`)).toContainText("Cihaza bir ad ver.");
+  expect(await (await request.get(`${backendURL}/__test__/device-renames?key=${stateKey}`)).json()).toEqual([]);
+});
+
+test("backend'in 400 reddi alanın altında görünür ve yazılan ad alanda kalır", async ({
+  page,
+  context,
+  request,
+}, testInfo) => {
+  await signedIn({ context, request }, testInfo, "detail");
+  await page.goto(`/panel/oturum/${otherSessionId}`);
+  await page.getByRole("button", { name: "Yalnız zorunlu" }).click();
+
+  const nameField = page.getByRole("textbox", { name: "Cihaz adı" });
+  await nameField.fill("__backend_reject__");
+  await page.getByRole("button", { name: "Cihazı adlandır" }).click();
+
+  await expect(nameField).toHaveAttribute("aria-invalid", "true");
+  const errorId = await nameField.getAttribute("aria-describedby");
+  expect(errorId).toBeTruthy();
+  await expect(page.locator(`#${errorId!.split(" ").pop()}`)).toContainText("Cihaz adı kabul edilmedi.");
+  // React 19 `<form action>` hata dönüşünde alanı sıfırlıyordu; yazılan ad durmalı.
+  await expect(nameField).toHaveValue("__backend_reject__");
 });
 
 test("mevcut cihazı rozetler, kapatmayı çıkışa bağlar, geçmişi rozetlerle listeler", async ({

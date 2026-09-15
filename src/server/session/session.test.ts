@@ -67,6 +67,7 @@ describe("BFF oturum katmanı", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    testRequestHeaders.delete("user-agent");
   });
 
   it("çerezdeki erişim tokenı ve cihaz kimliğiyle çağırır", async () => {
@@ -145,7 +146,6 @@ describe("BFF oturum katmanı", () => {
     expect(refreshHeaders.get("X-Koala-OS")).toBe("Android 14");
     expect(refreshHeaders.get("X-Koala-App-Version")).toMatch(/^\d+\.\d+\.\d+/);
     expect(refreshHeaders.has("X-Koala-Device-Model")).toBe(false);
-    testRequestHeaders.delete("user-agent");
   });
 
   it("dosya yanıtını 401 sonrası yenileyip ham gövdesiyle döndürür", async () => {

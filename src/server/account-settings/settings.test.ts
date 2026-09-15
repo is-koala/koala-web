@@ -393,6 +393,37 @@ describe("hesap ayarları banka sözleşmesi", () => {
     }
   });
 
+  it("mevcut oturum listede yoksa ayrıntı ucunu denemez ve bağlantıları açık bırakır", async () => {
+    // Başka bir oturumla denemek çıkarımı bozardı: listeden sonra kapatılan
+    // oturum 404 verir ve eski sunucu sanılırdı.
+    const feed = {
+      notifications: {
+        content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true,
+      },
+      unreadCount: 0,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope(feed)))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(
+        jsonResponse(200, envelope([{ ...sessionDetailFixture, id: "0e30edb1-3642-458b-aa0b-7569842448f0", current: false }])),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(404, {
+          success: false,
+          errorCode: "LEGAL_DELETION_NOT_FOUND",
+          errorCategory: "RESOURCE_NOT_FOUND",
+          message: "Talep yok",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadAccountSettings()).resolves.toMatchObject({ sessionDetailAvailable: true });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
   it("eski bildirimler için istenen backend sayfasını okur", async () => {
     const secondPage = {
       notifications: {

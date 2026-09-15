@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
-import { accountSessionsHref, sessionDetailPath, type AppShellId } from "@/lib/app-routes";
+import {
+  accountSessionsHref,
+  accountSettingsPath,
+  appShells,
+  sessionDetailPath,
+  type AppShellId,
+} from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/identifiers";
 import { deviceNameMaxLength } from "@/lib/session-detail";
@@ -11,8 +17,6 @@ import { renameDevice } from "@/server/account-settings/session-detail";
 import { revokeSession } from "@/server/account-settings/settings";
 import { failureState, textField, validationState } from "@/server/form";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
-
-export type SessionDetailAction = (state: FormState, formData: FormData) => Promise<FormState>;
 
 /**
  * Cihazı adlandırır (`PATCH /users/me/devices/{deviceId}`, ad ≤ 60).
@@ -78,6 +82,5 @@ export async function revokeSessionFromDetailAction(
 function revalidateSessionScreens(shell: AppShellId, sessionId: string) {
   revalidatePath(sessionDetailPath(shell, sessionId));
   // Cihaz adı iki kabuğun hesap sayfasındaki listede de görünüyor.
-  revalidatePath("/panel/hesap");
-  revalidatePath("/isveren/hesap");
+  for (const id of Object.keys(appShells) as AppShellId[]) revalidatePath(accountSettingsPath(id));
 }

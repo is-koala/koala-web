@@ -6,7 +6,7 @@ import { sessionDetailPath, type AppShellId } from "@/lib/app-routes";
 import type { AccountSession } from "@/server/account-settings/settings";
 
 import { ResourceAction, SimpleAction } from "./action-controls";
-import { deviceTypeLabel, formatAccountDate } from "./presentation";
+import { deviceTypeLabel, formatAccountDate, sessionLocationLabel } from "./presentation";
 
 export function SessionSettings({
   shell,
@@ -57,7 +57,7 @@ export function SessionSettings({
                   )}
                 </strong>
                 <p className="muted">
-                  {session.location || "Konum bilgisi yok"} · Son kullanım{" "}
+                  {sessionLocationLabel(session.location)} · Son kullanım{" "}
                   {formatAccountDate(session.lastAccessedAt)}
                 </p>
                 {session.current ? <span className="status-pill">Bu cihaz</span> : null}

@@ -42,35 +42,46 @@ type SessionDetailDto = {
  * satırları bağlantısız bırakıyor, sayfa ise 404 çiziyor.
  */
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
-  try {
-    const dto = await apiRequest<SessionDetailDto | null>(sessionDetailPath(sessionId), {
-      cache: "no-store",
-    });
-    return dto === null ? null : sessionDetailView(dto, sessionId);
-  } catch (error) {
-    unstable_rethrow(error);
-    if (error instanceof ApiError && isDetailUnavailable(error.status)) return null;
-    throw error;
-  }
+  const dto = await fetchDetailOrNull(sessionId);
+  return dto === null ? null : sessionDetailView(dto, sessionId);
 }
 
 /**
  * Sunucu ayrıntı ucunu biliyor mu.
  *
  * Liste DTO'su 0.9.28'de değişmedi, yani eski sunucuyu listeden anlamanın
- * bir yolu yok; tek yol ucu bir kez denemek. Bu isteğin kendi oturumu deneme
- * için doğru aday: az önce bu tokenla kimlik doğrulandı, yani yeni sunucuda
- * 404 dönemez — 404 ya da 405 yalnız eski sunucudan gelir. Öbür hatalar
- * "var" sayılır: geçici bir arıza satırları bağlantısız bırakmamalı, sayfa
- * kendi hata kartını çizer.
+ * bir yolu yok; tek yol ucu bir kez denemek. Yalnız bu isteğin **kendi**
+ * oturumuyla denenir: az önce bu tokenla kimlik doğrulandı, yani yeni
+ * sunucuda 404 dönemez — 404 ya da 405 yalnız eski sunucudan gelir. Başka bir
+ * oturumla denemek bu çıkarımı bozardı (listeden sonra kapatılmış oturum
+ * 404 verir ve bütün bağlantılar sessizce kaybolurdu). Öbür hatalar "var"
+ * sayılır: geçici bir arıza satırları bağlantısız bırakmamalı, sayfa kendi
+ * hata kartını çizer. Deneme tam ayrıntıyı indiriyor; daha hafif bir uç yok.
  */
-export async function isSessionDetailAvailable(sessionId: string): Promise<boolean> {
+export async function isSessionDetailAvailable(currentSessionId: string): Promise<boolean> {
   try {
-    await apiRequest<SessionDetailDto | null>(sessionDetailPath(sessionId), { cache: "no-store" });
-    return true;
+    return (await fetchDetailOrNull(currentSessionId)) !== null;
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof ApiError) return !isDetailUnavailable(error.status);
+    if (error instanceof ApiError) return true;
+    throw error;
+  }
+}
+
+/**
+ * Ayrıntı ucunun tek okuma yolu: 404 ve 405 `null`, gövdesiz 200 de `null`
+ * (backend zarfı boş döndürmez ama `apiFetch` onu `null` olarak geçiriyor).
+ * Oturum bitmişse `apiRequest` girişe yönlendirir; o kontrol akışı burada
+ * yutulmaz.
+ */
+async function fetchDetailOrNull(sessionId: string): Promise<SessionDetailDto | null> {
+  try {
+    return await apiRequest<SessionDetailDto | null>(backendSessionPath(sessionId), {
+      cache: "no-store",
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError && isDetailUnavailable(error.status)) return null;
     throw error;
   }
 }
@@ -106,7 +117,8 @@ export function sessionDetailView(dto: SessionDetailDto, sessionId: string): Ses
   };
 }
 
-function sessionDetailPath(sessionId: string): string {
+/** Backend yolu; sayfa adresi `app-routes.ts` içindeki `sessionDetailPath`. */
+function backendSessionPath(sessionId: string): string {
   return `${backendPaths.sessions}/${encodeURIComponent(sessionId)}`;
 }
 
