@@ -82,7 +82,7 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, expiredOpenJob());
   }
   if (request.method === "GET" && url.pathname === `/jobs/${openJobId}`) {
-    return backendSuccess(response, openJob());
+    return backendSuccess(response, viewerJob(openJob(), request));
   }
   if (request.method === "GET" && url.pathname === `/users/${jobCreatorId}/employer-stats`) {
     // İlan sayfasının işveren güven kartı (is-koala/koala-web#166); uç herkese
@@ -101,7 +101,7 @@ const server = createServer(async (request, response) => {
       return backendError(response, 503, "TEST_BACKEND_UNAVAILABLE", "SERVICE_UNAVAILABLE");
     }
     return backendSuccess(response, {
-      content: [openJobSummary()],
+      content: [viewerJob(openJobSummary(), request)],
       page: 0,
       size: 20,
       totalElements: 1,
@@ -771,6 +771,31 @@ function viewerAssignment(assignment, asEmployer, state) {
       ? { id: mine.id, rating: mine.rating, comment: mine.comment, createdAt: mine.createdAt }
       : null,
     counterpartyReviewed: !asEmployer && assignment.id === completedAssignmentId,
+  };
+}
+
+/**
+ * İlanın görüntüleyene göre biçimi (backend 0.9.27, is-koala/koala-backend#304).
+ * Gerçek backend tam dökümü yalnız ilanın sahibine ve şirket yetkilisine
+ * veriyor; herkese açık ve işçi görünümünde `serviceFeeRate`,
+ * `serviceFeeAmount` ve `employerTotal` null, `workerPayout` ile `currency`
+ * kalıyor. Bu sahtede tek kullanıcı hem sahip hem işçi olduğu için ayrım
+ * oturumdan okunuyor: tanıtım sayfası ilanı oturumsuz `web-public-reader`
+ * kimliğiyle çekiyor, işveren kabuğu erişim tokenıyla.
+ */
+function viewerJob(job, request) {
+  if (authorizedState(request) !== null || job.pricing === null) return job;
+  const { pricingVersion, currency, workerPayout } = job.pricing;
+  return {
+    ...job,
+    pricing: {
+      pricingVersion,
+      currency,
+      workerPayout,
+      serviceFeeRate: null,
+      serviceFeeAmount: null,
+      employerTotal: null,
+    },
   };
 }
 

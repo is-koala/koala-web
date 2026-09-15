@@ -64,3 +64,27 @@ test("yayındaki ilan yayın tarihini ve işveren güven kartını script'siz HT
   await expect(trust).toContainText("4.6 / 5 · 7 değerlendirme");
   await expect(trust).toContainText("Mart 2025");
 });
+
+test("yayındaki ilan ziyaretçiye kazancı gösterir, hizmet bedeli ile işveren toplamını göstermez", async ({
+  page,
+}) => {
+  /*
+   * Backend 0.9.27 herkese açık görünümde `serviceFeeRate/serviceFeeAmount/
+   * employerTotal` null gönderiyor (is-koala/koala-backend#304); sahte backend
+   * oturumsuz okuyucuya aynı gövdeyi veriyor. Kazanç kaybolmamalı
+   * (is-koala/koala-web#181) ve olmayan iki satır uydurulmamalı.
+   */
+  const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
+  await page.goto(`/is-ilanlari/${openJobId}`);
+
+  const facts = page.locator('dl[aria-label="İlan özeti"]');
+  await expect(facts).toContainText("günlük 1.250,00 ₺");
+  await expect(page.locator("body")).not.toContainText("Kazanç bilgisi paylaşılmadı");
+
+  const breakdown = page.locator('dl[aria-label="Ücret dökümü"]');
+  await expect(breakdown).toContainText("Çalışan ücreti");
+  await expect(breakdown).toContainText("1.250,00 ₺");
+  await expect(page.locator("body")).not.toContainText("Koala hizmet bedeli");
+  await expect(page.locator("body")).not.toContainText("İşveren toplamı");
+  await expect(page.locator("body")).not.toContainText("1.500,00");
+});

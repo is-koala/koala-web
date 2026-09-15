@@ -42,6 +42,39 @@ describe("ilan ayrıntısı", () => {
     expect(breakdown).toHaveTextContent("1.343,75 ₺");
   });
 
+  it("ücret alanları gelmeyen herkese açık görünümde yalnız kazancı yazar", () => {
+    /*
+     * Backend herkese açık görünümde hizmet bedeli ile işveren toplamını null
+     * gönderiyor (is-koala/koala-backend#304, is-koala/koala-web#181). Kazanç
+     * satırı ve döküm bölümündeki çalışan ücreti kalıyor; olmayan iki satır
+     * uydurulmuyor ve "paylaşılmadı" da yazılmıyor.
+     */
+    render(
+      <JobDetailView
+        job={jobDetailFixture({
+          pricing: {
+            pricingVersion: "v1",
+            currency: "TRY",
+            workerPayout: "1250.00",
+            serviceFeeRate: null,
+            serviceFeeAmount: null,
+            employerTotal: null,
+          },
+        })}
+        applyAction={vi.fn()}
+      />,
+    );
+    const breakdown = screen.getByLabelText("Ücret dökümü");
+
+    expect(screen.getByText("günlük 1.250,00 ₺")).toBeVisible();
+    expect(breakdown).toHaveTextContent("Çalışan ücreti");
+    expect(breakdown).toHaveTextContent("1.250,00 ₺");
+    expect(breakdown).not.toHaveTextContent("Koala hizmet bedeli");
+    expect(breakdown).not.toHaveTextContent("İşveren toplamı");
+    expect(screen.queryByText("Kazanç bilgisi paylaşılmadı")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/hizmet bedeli çalışan ücretinin üstüne/);
+  });
+
   it("fiyat anlık görüntüsü olmayan ilanda döküm bölümünü hiç açmaz", () => {
     render(<JobDetailView job={jobDetailFixture({ pricing: null })} applyAction={vi.fn()} />);
 
