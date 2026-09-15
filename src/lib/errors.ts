@@ -5,23 +5,17 @@ import { jobManagementErrors } from "@/jobs/errors";
 import { messagingErrors } from "@/messaging/errors";
 import { paymentErrors } from "@/payments/errors";
 
+import { accountErrors } from "./account-errors";
 import { companyErrors } from "./company-errors";
+import type { ErrorCatalog, ErrorPresentation } from "./error-presentation";
 import { galleryErrors } from "./gallery-errors";
-import {
-  catalogErrorPresentation,
-  publicErrors,
-  type ErrorCatalog,
-  type ErrorPresentation,
-} from "./public-errors";
+import { catalogErrorPresentation, publicErrors } from "./public-errors";
 
-export type {
-  ErrorAction,
-  ErrorCatalog,
-  ErrorPresentation,
-  ErrorRecoveryAction,
-} from "./error-presentation";
+// Kabuk kodu `errorRecoveryAction`'ı kart üzerinden, `gateNotice`'i kendi
+// modülünden okur; ikisi burada `errors.test.ts`'in tek kapıdan baktığı
+// katalog arayüzü için duruyor.
 export { errorRecoveryAction } from "./error-presentation";
-export { gateNotice, type GateNotice } from "./gate-notices";
+export { gateNotice } from "./gate-notices";
 
 /**
  * Oturumlu kabuğun tam hata kataloğu.
@@ -32,7 +26,8 @@ export { gateNotice, type GateNotice } from "./gate-notices";
  * `error-presentation`'ın kodsuz yedeğini; ilan ayrıntısının betik bütçesi
  * bu ayrımla korunuyor (is-koala/koala-web#177,
  * sınır testi `src/lib/error-catalog-boundary.test.ts`). Yeni bir kabuk
- * cümlesi ait olduğu alan modülüne yazılır ve burada birleşir; herkese açık
+ * cümlesi ait olduğu alan modülüne yazılır (alanı yoksa `account-errors.ts`
+ * gibi yeni bir dosya açılır) ve burada birleşir; herkese açık
  * bir sayfada görünecek cümle `public-errors.ts`'e gider ve önce bütçe ölçülür.
  */
 const appErrors: ErrorCatalog = {
@@ -45,11 +40,7 @@ const appErrors: ErrorCatalog = {
   ...companyErrors,
   ...messagingErrors,
   ...addressErrors,
-  LEGAL_DELETION_ALREADY_REQUESTED: {
-    title: "Silme talebin zaten var",
-    message: "Bekleyen talebinin güncel durumunu görmek için sayfayı yenileyebilirsin.",
-    action: "retry",
-  },
+  ...accountErrors,
 };
 
 export function errorPresentation(

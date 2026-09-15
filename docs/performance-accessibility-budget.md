@@ -44,8 +44,8 @@ kabuğuna özel modüllerde (`payments/payouts.ts`, `assignments/review.ts`, kab
 `errors.ts`'e dokunulmadı, tek baytlık fark chunk adlarından.
 
 2026-09-15 (is-koala/koala-web#177, hata kataloğunun rota bazında bölünmesi) ölçümü: ana sayfa
-**237.748**, ilan listesi **239.639**, ilan ayrıntısı **241.096** bayt — ilan ayrıntısında 14.640
-bayt düşüş, sınıra 14.904 bayt kaldı (bir önceki ölçümde 266). Kök neden `src/lib/errors.ts`'in
+**237.750**, ilan listesi **239.641**, ilan ayrıntısı **241.150** bayt (#182 üzerinde) — ilan
+ayrıntısında 14.586 bayt düşüş, sınıra 14.850 bayt kaldı (bir önceki ölçümde 266). Kök neden `src/lib/errors.ts`'in
 tamamının — kapı metinleri, ödeme/şirket/mesajlaşma/uyuşmazlık cümleleri ve onların içe aktardığı
 `app-routes`, `address/contract`, `identity/handoff` — ilan sayfasının **iki** istemci chunk'ına
 girmesiydi: başvuru formu (`FormAlert` → `ErrorState` → `errorPresentation`) ve kök `error.tsx`
@@ -55,19 +55,21 @@ girmesiydi: başvuru formu (`FormAlert` → `ErrorState` → `errorPresentation`
 | --- | --- | --- |
 | `src/lib/error-presentation.ts` | tipler, `errorRecoveryAction`, kodsuz yedek cümleler | her rota (kök `error.tsx` yalnız bunu okur) |
 | `src/lib/public-errors.ts` | oturum, giriş, kayıt, başvuru kodları + backend aile metinleri | `(marketing)` ilan ayrıntısı, `(account)` giriş/kayıt/parola formları, iletişim formu |
-| `src/lib/errors.ts` | yukarıdakiler + alan katalogları + `LEGAL_DELETION_*` (kabuğun tam kataloğu) | yalnız `(uygulama)` kabuğu ve `/davet`, `/kimlik-dogrula`, `/payment/result` |
-| `src/payments/errors.ts`, `src/lib/company-errors.ts`, `src/messaging/errors.ts`, `src/assignments/errors.ts`, `src/jobs/errors.ts`, `src/identity/errors.ts`, `src/address/errors.ts`, `src/lib/gallery-errors.ts` | alanın kendi cümleleri | yalnız `errors.ts` üzerinden kabuk |
+| `src/lib/errors.ts` | yukarıdakiler + alan katalogları (kabuğun tam kataloğu) | yalnız `(uygulama)` kabuğu ve `/davet`, `/kimlik-dogrula`, `/payment/result` |
+| `src/payments/errors.ts`, `src/lib/company-errors.ts`, `src/messaging/errors.ts`, `src/assignments/errors.ts`, `src/jobs/errors.ts`, `src/identity/errors.ts`, `src/address/errors.ts`, `src/lib/gallery-errors.ts`, `src/lib/account-errors.ts` | alanın kendi cümleleri | yalnız `errors.ts` üzerinden kabuk |
 | `src/lib/gate-notices.ts` | kapı metinleri (`gateNotice`) ve `app-routes` bağımlılığı | yalnız kabuk (`EmployerGate`, ilan gönderimi) |
-| `src/components/public-states.tsx` | `PublicErrorState`, `PublicFormAlert` (küçük katalog) | herkese açık formlar |
-| `src/components/states.tsx` | `ErrorState`, `FormAlert` (tam katalog) | kabuk |
+| `src/components/public-states.tsx` | `PublicErrorState`, `PublicFormAlert` (küçük katalog) | herkese açık formlar ve sayfalar (ilan listesi, hesap doğrulama dahil) |
+| `src/components/placeholder-states.tsx` | `LoadingState`, `EmptyState` (katalogsuz) | her rota |
+| `src/components/states.tsx` | `ErrorState`, `FormAlert` (tam katalog) + yer tutucuların yeniden dışa aktarımı | kabuk |
 
 İlan ayrıntısındaki chunk'lar (aktarım baytı, önce → sonra): başvuru formu chunk'ı 11.299 → 6.745,
 kök `error.tsx` chunk'ı 10.944 + 1.015 → 1.879, kabuk menüsüyle paylaşılan chunk 8.394 → 8.388.
-Sınır `src/lib/error-catalog-boundary.test.ts` ile kaynak kodda tutuluyor.
+Sınır `src/lib/error-catalog-boundary.test.ts` ile kaynak kodda tutuluyor: herkese açık rotaların
+import grafiği (sunucu dahil) `ErrorCatalog` bildiren hiçbir modüle ulaşmaz.
 
 Başvuru formu chunk'ında kalan 6,7 KB'ın en büyük parçası `backend-error-codes.ts` (244 kodun
 aile haritası, ≈2,3 KB): bilinmeyen kodu aile metnine düşürmek herkese açık yüzeyde de aynı
-davranış olduğu için bölünmedi. İlan ayrıntısı 240.000 hedefinin 1.096 bayt üstünde; bir sonraki
+davranış olduğu için bölünmedi. İlan ayrıntısı 240.000 hedefinin 1.150 bayt üstünde; bir sonraki
 düşüş `app-routes`/`site.ts` yaprakları (~1 KB) ya da aile haritasının tembel yüklenmesi (~2,3 KB)
 ile gelir, `errors.ts`'ten değil.
 

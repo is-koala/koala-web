@@ -1,10 +1,11 @@
 import type { ErrorCatalog } from "@/lib/error-presentation";
 
 /**
- * İlan yönetiminin (açma, kapatma, iptal, listeleme) hata metinleri.
+ * İlan yönetiminin (açma, kapatma, iptal) hata metinleri.
  *
- * Başvuru reddi (`JOB_APPLICATION_*`) burada değil, `@/lib/public-errors`
- * içinde: o kodlar herkese açık ilan sayfasında görünüyor.
+ * Başvuru reddi (`JOB_APPLICATION_*`) ve liste sıralaması reddi
+ * (`PAGE_SORT_FIELD_NOT_ALLOWED`) burada değil, `@/lib/public-errors`
+ * içinde: o kodlar herkese açık ilan sayfalarında görünüyor.
  */
 export const jobManagementErrors: ErrorCatalog = {
   // Bireysel ilanın üç reddi. Üçü de aile metnine düşseydi ("Bilgileri kontrol
@@ -43,15 +44,6 @@ export const jobManagementErrors: ErrorCatalog = {
     title: "Bu şirketin yetkilisi değilsin",
     message:
       "İlanı yalnız şirketin yetkili listesindeki kişiler açabilir. Şirket yöneticisinden seni yetkili olarak eklemesini isteyebilirsin.",
-    action: "none",
-  },
-  // Sıralama alanı beyaz listede değil (`PageableSanitizer.rejectUnknownSort`).
-  // Listeler yalnız izin verilen alanları sunuyor, yani buraya ancak elle
-  // yazılmış bir adresle düşülür; aile metni kullanıcıya adres çubuğuna
-  // bakması gerektiğini söylemezdi.
-  PAGE_SORT_FIELD_NOT_ALLOWED: {
-    title: "Bu sıralama desteklenmiyor",
-    message: "Listeyi sayfadaki sıralama seçeneklerinden biriyle yeniden açabilirsin.",
     action: "none",
   },
   // İlanın üç durum geçişi reddi. Üçü de `conflict` ailesinde, ama aile

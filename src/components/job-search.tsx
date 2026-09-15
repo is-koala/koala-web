@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { JobLocationFilter } from "@/components/job-location-filter";
 import { LinkPending } from "@/components/link-pending";
-import { EmptyState } from "@/components/states";
+import { EmptyState } from "@/components/placeholder-states";
 import { formatDistanceKm, type GeoPoint } from "@/jobs/distance";
 import { employerTypeValues } from "@/jobs/employer-jobs";
 import {

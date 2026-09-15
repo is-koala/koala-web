@@ -10,37 +10,31 @@ import { describe, expect, it } from "vitest";
  * İlan ayrıntısı 256.000 baytlık betik bütçesinin sınırında ve kataloğun
  * tamamı bir zamanlar o sayfanın istemci paketine giriyordu: kabuğa yazılan
  * her yeni cümle herkese açık sayfayı büyütüyordu. Bu dosya iki yönü de
- * tutar — herkese açık istemci grafiği kabuk modüllerine ulaşmaz, kabuk da
- * herkese açık küçük kataloğu doğrudan okuyup cümlelerini aile metnine
- * düşürmez. İkisi de kaynak koddan okunuyor, derlenmiş paketten değil;
+ * tutar — herkese açık rotaların import grafiği (sunucu dahil) hiçbir
+ * kabuk kataloğuna ulaşmaz, kabuk da herkese açık küçük kataloğu doğrudan
+ * okuyup cümlelerini aile metnine düşürmez. Katalog modülleri bir listeden
+ * değil bildirimlerinden bulunuyor. İkisi de kaynak koddan okunuyor,
+ * derlenmiş paketten değil;
  * `docs/performance-accessibility-budget.md` ölçümü ayrıca tutar.
  */
 
 const sourceRoot = path.resolve(import.meta.dirname, "..");
 
-const appShellModules = [
-  path.join(sourceRoot, "lib", "errors.ts"),
-  path.join(sourceRoot, "lib", "gate-notices.ts"),
-  path.join(sourceRoot, "lib", "company-errors.ts"),
-  path.join(sourceRoot, "lib", "gallery-errors.ts"),
-  path.join(sourceRoot, "address", "errors.ts"),
-  path.join(sourceRoot, "assignments", "errors.ts"),
-  path.join(sourceRoot, "identity", "errors.ts"),
-  path.join(sourceRoot, "jobs", "errors.ts"),
-  path.join(sourceRoot, "messaging", "errors.ts"),
-  path.join(sourceRoot, "payments", "errors.ts"),
-  path.join(sourceRoot, "components", "states.tsx"),
-  path.join(sourceRoot, "components", "employer-gate.tsx"),
-  path.join(sourceRoot, "app", "(uygulama)"),
-];
-
-const publicCatalogModules = [
-  path.join(sourceRoot, "lib", "public-errors.ts"),
-  path.join(sourceRoot, "components", "public-states.tsx"),
-];
+const publicCatalog = path.join(sourceRoot, "lib", "public-errors.ts");
+const publicCatalogModules = [publicCatalog, path.join(sourceRoot, "components", "public-states.tsx")];
 
 /** Küçük kataloğu okuması beklenen tek kabuk kodu: onu tam katalogla birleştiren. */
 const publicCatalogComposers = [path.join(sourceRoot, "lib", "errors.ts")];
+
+/**
+ * `(account)` altında kabuk kataloğunu haklı olarak okuyan üç rota: davet
+ * şirket kodlarını, ödeme sonucu ödeme kodlarını, kimlik ekranı belge
+ * kodlarını gösteriyor. Geri kalanı giriş/kayıt/parola akışı ve herkese
+ * açık sayılıyor.
+ */
+const accountShellRoutes = ["davet", "kimlik-dogrula", "payment"].map((route) =>
+  path.join(sourceRoot, "app", "(account)", route),
+);
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -48,6 +42,19 @@ function sourceFiles(directory: string): string[] {
     if (entry.isDirectory()) return sourceFiles(full);
     return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [full] : [];
   });
+}
+
+/**
+ * Katalog modülü: bir `ErrorCatalog` değeri ya da kapı sözlüğü bildiren her
+ * dosya. Elle tutulan bir liste yerine kaynaktan okunuyor ki yeni bir alan
+ * kataloğu sınırın dışında kalamasın; yalnız küçük katalog muaf.
+ */
+function catalogModules(): string[] {
+  return sourceFiles(sourceRoot).filter(
+    (file) =>
+      file !== publicCatalog &&
+      /: ErrorCatalog = \{|Record<GateId, GateNotice>> = \{/.test(readFileSync(file, "utf8")),
+  );
 }
 
 function resolveImport(from: string, specifier: string): string | null {
@@ -161,20 +168,45 @@ function within(file: string, roots: string[]): boolean {
 
 const relative = (file: string) => path.relative(sourceRoot, file);
 
+const rootEntries = [
+  path.join(sourceRoot, "app", "layout.tsx"),
+  path.join(sourceRoot, "app", "error.tsx"),
+  path.join(sourceRoot, "app", "not-found.tsx"),
+];
+
+const publicAccountEntries = () =>
+  sourceFiles(path.join(sourceRoot, "app", "(account)")).filter(
+    (file) => !within(file, accountShellRoutes),
+  );
+
 describe("hata kataloğunun rota sınırı", () => {
-  it("herkese açık istemci grafiği kabuk modüllerine ulaşmaz", () => {
+  it("katalog modülleri kaynaktan bulunuyor", () => {
+    // Kural bir listeye değil bildirime bağlı; bu test bildirimin gerçekten
+    // yakalandığını gösteriyor ki aşağıdaki boş liste "hiç katalog yok" diye
+    // de geçmesin.
+    const found = catalogModules().map(relative);
+
+    expect(found).toContain(path.join("lib", "errors.ts"));
+    expect(found).toContain(path.join("lib", "gate-notices.ts"));
+    expect(found).toContain(path.join("payments", "errors.ts"));
+    expect(found).not.toContain(path.join("lib", "public-errors.ts"));
+  });
+
+  it("herkese açık rotalar kabuk kataloğuna ulaşmaz", () => {
     // Giriş kümesi `(marketing)` rotalarıyla bitmiyor: kök layout, kök
-    // `error.tsx` ve `not-found.tsx` her rotanın ilk yüküne giriyor, yani
-    // ilan sayfasının ölçülen paketi onları da taşıyor.
+    // `error.tsx` ve `not-found.tsx` her rotanın ilk yüküne giriyor, ve
+    // `(account)` giriş/kayıt/parola formları da küçük kataloğa taşındı.
+    // Sunucu grafiği de dahil: sunucu sayfasının çizdiği hata kartı da aynı
+    // küçük kataloğu okumalı ki iki yüzey aynı kodda ayrışmasın.
     const entries = [
       ...sourceFiles(path.join(sourceRoot, "app", "(marketing)")),
-      path.join(sourceRoot, "app", "layout.tsx"),
-      path.join(sourceRoot, "app", "error.tsx"),
-      path.join(sourceRoot, "app", "not-found.tsx"),
+      ...publicAccountEntries(),
+      ...rootEntries,
     ];
+    const forbidden = catalogModules();
 
-    const leaked = reachable(entries, { clientOnly: true })
-      .filter((file) => within(file, appShellModules))
+    const leaked = reachable(entries, { clientOnly: false })
+      .filter((file) => within(file, forbidden) || within(file, [path.join(sourceRoot, "app", "(uygulama)")]))
       .map(relative);
 
     expect(leaked).toEqual([]);
@@ -188,7 +220,7 @@ describe("hata kataloğunun rota sınırı", () => {
       clientOnly: true,
     });
 
-    expect(client).toContain(path.join(sourceRoot, "lib", "public-errors.ts"));
+    expect(client).toContain(publicCatalog);
     expect(client).toContain(path.join(sourceRoot, "components", "public-states.tsx"));
   });
 
@@ -198,23 +230,25 @@ describe("hata kataloğunun rota sınırı", () => {
     // yüzeyden de ulaşılan modüller (işveren ilan önizlemesinin çizdiği
     // başvuru formu gibi) kabuk kodu sayılmaz: onların cümleleri zaten
     // küçük katalogda. Tek izinli okuyucu küçük kataloğu tam katalogla
-    // birleştiren modüller.
+    // birleştiren modül.
     const publicSurface = new Set(
       reachable(
         [
           ...sourceFiles(path.join(sourceRoot, "app", "(marketing)")),
-          ...sourceFiles(path.join(sourceRoot, "app", "(account)")),
-          path.join(sourceRoot, "app", "layout.tsx"),
-          path.join(sourceRoot, "app", "error.tsx"),
-          path.join(sourceRoot, "app", "not-found.tsx"),
+          ...publicAccountEntries(),
+          ...rootEntries,
         ],
         { clientOnly: false },
       ),
     );
 
-    const offenders = reachable(sourceFiles(path.join(sourceRoot, "app", "(uygulama)")), {
-      clientOnly: false,
-    })
+    const offenders = reachable(
+      [
+        ...sourceFiles(path.join(sourceRoot, "app", "(uygulama)")),
+        ...accountShellRoutes.flatMap((route) => sourceFiles(route)),
+      ],
+      { clientOnly: false },
+    )
       .filter((file) => !publicSurface.has(file) && !within(file, publicCatalogComposers))
       .filter((file) =>
         moduleOf(file).imports.some((dependency) => within(dependency, publicCatalogModules)),

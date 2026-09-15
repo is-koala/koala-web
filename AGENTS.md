@@ -222,20 +222,24 @@ Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
 
 Hata kataloğu **rota bazında bölünmüş** (is-koala/koala-web#177):
 `src/lib/public-errors.ts` yalnız oturum, giriş, kayıt ve başvuru kodlarını
-taşır ve herkese açık yüzeylerin okuduğu tek katalog bu (`PublicErrorState`,
-`PublicFormAlert` — `src/components/public-states.tsx`; kök `error.tsx`
-kod bilmediği için doğrudan `unexpectedErrorPresentation` çizer). Kabuk
-`src/lib/errors.ts`'i okur (`ErrorState`, `FormAlert` —
-`src/components/states.tsx`); o dosya küçük kataloğu alan modülleriyle
-birleştirir: `src/payments/errors.ts`, `src/lib/company-errors.ts`,
-`src/messaging/errors.ts`, `src/assignments/errors.ts`, `src/jobs/errors.ts`,
-`src/identity/errors.ts`, `src/address/errors.ts`, `src/lib/gallery-errors.ts`.
-Yeni kabuk cümlesi ait olduğu alan dosyasına yazılır; herkese açık bir sayfada
-görünecek cümle `public-errors.ts`'e gider ve önce ilan ayrıntısının betik
-bütçesi ölçülür (`docs/performance-accessibility-budget.md`).
-`src/lib/error-catalog-boundary.test.ts` sınırı iki yönde tutar: `(marketing)`
-istemci grafiği kabuk modüllerine ulaşmaz, kabuk küçük kataloğu doğrudan
-okumaz.
+taşır; `(marketing)` ile `(account)` giriş/kayıt/parola rotaları — sunucu
+sayfaları dahil — yalnız onu okur (`PublicErrorState`, `PublicFormAlert` —
+`src/components/public-states.tsx`; kök `error.tsx` kod bilmediği için
+doğrudan `unexpectedErrorPresentation` çizer; yükleniyor/boş durumları
+katalogsuz `src/components/placeholder-states.tsx`'te). Kabuk ve `(account)`
+altındaki `davet`, `kimlik-dogrula`, `payment` rotaları `src/lib/errors.ts`'i
+okur (`ErrorState`, `FormAlert` — `src/components/states.tsx`); o dosya
+küçük kataloğu alan modülleriyle birleştirir: `src/payments/errors.ts`,
+`src/lib/company-errors.ts`, `src/messaging/errors.ts`,
+`src/assignments/errors.ts`, `src/jobs/errors.ts`, `src/identity/errors.ts`,
+`src/address/errors.ts`, `src/lib/gallery-errors.ts`, `src/lib/account-errors.ts`.
+Yeni kabuk cümlesi ait olduğu alan dosyasına yazılır (alanı yoksa yeni bir
+`*-errors.ts`); herkese açık bir sayfada görünecek cümle `public-errors.ts`'e
+gider ve önce ilan ayrıntısının betik bütçesi ölçülür
+(`docs/performance-accessibility-budget.md`).
+`src/lib/error-catalog-boundary.test.ts` sınırı iki yönde tutar: herkese açık
+rotaların import grafiği `ErrorCatalog` bildiren hiçbir modüle ulaşmaz
+(`public-errors.ts` hariç), kabuk küçük kataloğu doğrudan okumaz.
 
 Kapalı düğmeler iki ayrı durumu anlatır. Yalnız uçuşta olan bir istek yüzünden
 geçici kapanan `.button` varsayılan `cursor: wait` davranışını kullanır. Ürün

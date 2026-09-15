@@ -7,10 +7,12 @@ import { jobManagementErrors } from "@/jobs/errors";
 import { messagingErrors } from "@/messaging/errors";
 import { paymentErrors } from "@/payments/errors";
 
+import { accountErrors } from "./account-errors";
 import { companyErrors } from "./company-errors";
+import type { ErrorCatalog } from "./error-presentation";
 import { errorPresentation } from "./errors";
 import { galleryErrors } from "./gallery-errors";
-import { publicErrorPresentation, publicErrors, type ErrorCatalog } from "./public-errors";
+import { publicErrorPresentation, publicErrors } from "./public-errors";
 
 const shellCatalogs: Record<string, ErrorCatalog> = {
   identityErrors,
@@ -21,6 +23,7 @@ const shellCatalogs: Record<string, ErrorCatalog> = {
   companyErrors,
   messagingErrors,
   addressErrors,
+  accountErrors,
 };
 
 describe("herkese açık hata kataloğu", () => {

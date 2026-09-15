@@ -4,7 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 import { defaultMapCenter } from "@/address/contract";
 import { JobMapView } from "@/components/job-map-view";
 import { JobPagination, JobResultList, JobSearchForm } from "@/components/job-search";
-import { ErrorState } from "@/components/states";
+import { PublicErrorState } from "@/components/public-states";
 import {
   defaultJobSort,
   mapJobView,
@@ -130,7 +130,7 @@ export async function JobsPage({ searchParams }: JobsPageProps) {
       <JobSearchForm query={query} options={options} />
 
       {"failure" in result ? (
-        <ErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
+        <PublicErrorState errorCode={result.failure.errorCode} status={result.failure.httpStatus} />
       ) : (
         <>
           {/*

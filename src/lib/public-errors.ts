@@ -6,14 +6,6 @@ import {
   type ErrorPresentation,
 } from "./error-presentation";
 
-export type {
-  ErrorAction,
-  ErrorCatalog,
-  ErrorPresentation,
-  ErrorRecoveryAction,
-} from "./error-presentation";
-export { errorRecoveryAction } from "./error-presentation";
-
 /**
  * Herkese açık yüzeylerin hata kataloğu.
  *
@@ -108,6 +100,16 @@ export const publicErrors: ErrorCatalog = {
     title: "Sayfayı yenilemen gerekiyor",
     message: "Koala'nın güncel sürümünü kullanmak için sayfayı yenile.",
     action: "retry",
+  },
+  // Sıralama alanı beyaz listede değil (`PageableSanitizer.rejectUnknownSort`).
+  // Herkese açık ilan listesi de bu kodu görüyor (`?sort=`); listeler
+  // yalnız izin verilen alanları sunuyor, yani buraya ancak elle
+  // yazılmış bir adresle düşülür; aile metni kullanıcıya adres çubuğuna
+  // bakması gerektiğini söylemezdi.
+  PAGE_SORT_FIELD_NOT_ALLOWED: {
+    title: "Bu sıralama desteklenmiyor",
+    message: "Listeyi sayfadaki sıralama seçeneklerinden biriyle yeniden açabilirsin.",
+    action: "none",
   },
 };
 
