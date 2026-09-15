@@ -58,6 +58,23 @@ describe("herkese açık ilan aramasının BFF sözleşmesi", () => {
     expect(url.searchParams.get("sort")).toBe("createdAt,desc");
   });
 
+  it("yakınlık sıralamasında lat/lng ve sort=distance gönderir, distanceKm okur", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, envelope(pageDto({ distanceKm: 3.4 }))));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await searchJobs(
+      parseJobSearchParams({ konum: "41.008238,28.978359", sirala: "en-yakin" }),
+    );
+
+    const { url } = requestOf(fetchMock);
+    expect(url.searchParams.get("lat")).toBe("41.008238");
+    expect(url.searchParams.get("lng")).toBe("28.978359");
+    expect(url.searchParams.get("sort")).toBe("distance,asc");
+    expect(page.content[0].distanceKm).toBe(3.4);
+  });
+
   it("oturum tokenı taşımaz ve yanıtı önbelleğe almaz", async () => {
     // Liste herkese açık: oturum taşırsa `JobAddressVisibility` kesinliği
     // bakan kişiye göre seçer ve aynı liste iki ziyaretçide farklı adres
@@ -111,6 +128,7 @@ describe("herkese açık ilan aramasının BFF sözleşmesi", () => {
       latitude: 40.99,
       longitude: 29.03,
       addressPrecision: "APPROXIMATE",
+      distanceKm: null,
     });
   });
 

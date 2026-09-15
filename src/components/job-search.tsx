@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JobLocationFilter } from "@/components/job-location-filter";
 import { LinkPending } from "@/components/link-pending";
 import { EmptyState } from "@/components/placeholder-states";
-import { formatDistanceKm, type GeoPoint } from "@/jobs/distance";
+import { formatDistanceKm } from "@/jobs/distance";
 import { employerTypeValues } from "@/jobs/employer-jobs";
 import {
   activeJobFilters,
@@ -15,7 +15,6 @@ import {
   hasJobFilters,
   insuranceFilterLabels,
   isPageOutOfRange,
-  jobDistanceKm,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
@@ -23,7 +22,6 @@ import {
   lastJobPage,
   mapJobView,
   nearestJobSort,
-  orderPageByDistance,
   referenceFieldOptions,
   referenceFilterLabels,
   salaryTypeFilterLabels,
@@ -35,6 +33,13 @@ import {
   type JobSummary,
   type ReferenceOption,
 } from "@/jobs/search";
+import {
+  isJobStartOnPreset,
+  jobStartOnLabel,
+  jobStartOnLabels,
+  jobStartOnPresets,
+  type JobStartOn,
+} from "@/jobs/start-on";
 import { publicJobPath, publicJobsPath } from "@/lib/app-routes";
 import { formatJobDate } from "@/lib/dates";
 import { jobTypeValues, salaryTypeValues } from "@/lib/job-posting";
@@ -199,6 +204,15 @@ export function JobSearchForm({
           selected={booleanFilterChoice(query.experienceRequired)}
         />
 
+        <ChoiceField
+          id="job-filter-start-on"
+          label="Başlangıç günü"
+          name={jobSearchParamNames.startOn}
+          placeholder="Tüm günler"
+          choices={startOnChoices(query.startOn)}
+          selected={query.startOn}
+        />
+
         <div className="field">
           <label htmlFor="job-filter-sort">Sıralama</label>
           <select id="job-filter-sort" name={jobSearchParamNames.sort} defaultValue={query.sort}>
@@ -207,15 +221,13 @@ export function JobSearchForm({
                 {option.label}
               </option>
             ))}
-            {/*
-              Yakınlık yalnız konum seçiliyken bir seçenek: konumsuz gelirse
-              ayrıştırıcı zaten varsayılana düşürüyor, ve kullanıcıya
-              seçemeyeceği bir sıralama göstermek boş bir vaat olurdu.
-            */}
-            {query.location === null ? null : (
-              <option value={nearestJobSort.id}>{nearestJobSort.label}</option>
-            )}
+            <option value={nearestJobSort.id} disabled={query.location === null}>
+              {nearestJobSort.label}
+            </option>
           </select>
+          {query.location === null ? (
+            <p className="field-hint">Yakınlık sıralaması konum seçilince açılır.</p>
+          ) : null}
         </div>
 
         <JobLocationFilter query={query} />
@@ -315,6 +327,17 @@ function ActiveFilterBadges({
 /** Üç durumlu süzgecin iki yazılı seçeneği; üçüncüsü `placeholder`. */
 function booleanChoices(labels: Readonly<Record<BooleanFilterValue, string>>): readonly Choice[] {
   return booleanFilterValues.map((value) => ({ value, label: labels[value] }));
+}
+
+function startOnChoices(selected: JobStartOn | null): readonly Choice[] {
+  const presets = jobStartOnPresets.map((value) => ({
+    value,
+    label: jobStartOnLabels[value],
+  }));
+  if (selected !== null && !isJobStartOnPreset(selected)) {
+    return [...presets, { value: selected, label: jobStartOnLabel(selected) }];
+  }
+  return presets;
 }
 
 type Choice = { value: string; label: string };
@@ -481,28 +504,15 @@ export function JobResultList({
     );
   }
 
-  const ordered = orderPageByDistance(jobs.content, query);
-
   return (
     <>
       <p className="job-result-count" aria-live="polite">
         {jobs.totalElements} ilan bulundu
       </p>
-      {/*
-        Yakınlık sunucuda yok: sıralama bu sayfanın içinde. Birden çok sayfa
-        varken bunu yazmamak, ikinci sayfadaki daha yakın bir ilanı kullanıcıdan
-        saklamak olurdu.
-      */}
-      {query.sort === nearestJobSort.id && jobs.totalPages > 1 ? (
-        <p className="job-result-note">
-          Yakınlık sıralaması bu sayfadaki ilanlar için; daha dar bir uzaklık seçersen liste
-          tek sayfaya iner.
-        </p>
-      ) : null}
       <ul className="job-grid">
-        {ordered.map((job) => (
+        {jobs.content.map((job) => (
           <li key={job.id}>
-            <JobCard job={job} center={query.location} />
+            <JobCard job={job} />
           </li>
         ))}
       </ul>
@@ -561,10 +571,10 @@ export function jobSearchHref(query: JobSearchQuery): string {
   return params.size === 0 ? publicJobsPath : `${publicJobsPath}?${params}`;
 }
 
-function JobCard({ job, center }: { job: JobSummary; center: GeoPoint | null }) {
+function JobCard({ job }: { job: JobSummary }) {
   const titleId = `ilan-${job.id}`;
   const cover = safeImageUrl(job.coverImageUrl);
-  const distance = center === null ? null : jobDistanceKm(job, center);
+  const distance = job.distanceKm;
 
   return (
     <article className="job-card" aria-labelledby={titleId}>

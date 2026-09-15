@@ -43,6 +43,20 @@ describe("herkese açık hata kataloğu", () => {
     });
   });
 
+  it("ilan listesinin sıralama ve aralık 400'ünü kendi cümlesiyle karşılar", () => {
+    expect(publicErrorPresentation("PAGE_SORT_FIELD_NOT_ALLOWED", 400)).toEqual({
+      title: "Bu sıralama desteklenmiyor",
+      message: "Listeyi sayfadaki sıralama seçeneklerinden biriyle yeniden açabilirsin.",
+      action: "none",
+    });
+    // Ters Instant bean validation: özel kod yok, kategori adı VALIDATION_FAILED.
+    expect(publicErrorPresentation("VALIDATION_FAILED", 400)).toEqual({
+      title: "Bilgileri kontrol et",
+      message: "Gönderdiğin bilgilerden bazıları geçerli değil.",
+      action: "none",
+    });
+  });
+
   it("kabuk cümlelerini taşımaz ve onları aile metnine düşürür", () => {
     // Bilinçli takas: ödeme reddi herkese açık bir sayfada görünmez, ama
     // görünürse kullanıcı ham kodu değil ailesinin nötr Türkçesini okur.

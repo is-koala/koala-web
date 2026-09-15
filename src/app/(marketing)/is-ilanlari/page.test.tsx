@@ -47,6 +47,7 @@ function job(overrides: Partial<JobSummary> = {}): JobSummary {
     latitude: 40.99,
     longitude: 29.03,
     addressPrecision: "APPROXIMATE",
+    distanceKm: null,
     ...overrides,
   };
 }
@@ -159,6 +160,7 @@ describe("herkese açık ilan listesi", () => {
       location: null,
       distanceKm: null,
       view: "liste",
+      startOn: null,
     });
   });
 
@@ -221,6 +223,7 @@ describe("herkese açık ilan listesi", () => {
     // Üç durumlu: "hayır" seçili, "farketmez" değil.
     expect(screen.getByLabelText("Sigorta")).toHaveValue("hayir");
     expect(screen.getByLabelText("Deneyim")).toHaveValue("");
+    expect(screen.getByLabelText("Başlangıç günü")).toHaveValue("");
   });
 
   it("seçili süzgeçleri tek tek kaldırılabilir bağlantılar olarak listeler", async () => {
@@ -272,12 +275,12 @@ describe("herkese açık ilan listesi", () => {
     }
   });
 
-  it("konum süzgeci açıkken kartta yaklaşık uzaklık ve yakınlık sıralaması sunulur", async () => {
+  it("konum süzgeci açıkken kartta sunucu uzaklığı ve yakınlık sıralaması sunulur", async () => {
     searchJobs.mockResolvedValue(
       page({
         content: [
-          job({ id: "far", title: "Uzak iş", latitude: 41.1, longitude: 29.1 }),
-          job({ id: "near", title: "Yakın iş", latitude: 41.01, longitude: 28.98 }),
+          job({ id: "near", title: "Yakın iş", latitude: 41.01, longitude: 28.98, distanceKm: 0.4 }),
+          job({ id: "far", title: "Uzak iş", latitude: 41.1, longitude: 29.1, distanceKm: 12.3 }),
         ],
         totalElements: 2,
       }),
@@ -288,13 +291,12 @@ describe("herkese açık ilan listesi", () => {
     const cards = screen.getAllByRole("article");
     expect(within(cards[0]).getByRole("heading")).toHaveTextContent("Yakın iş");
     expect(within(cards[0]).getByText("1 km'den yakın")).toBeInTheDocument();
-    expect(within(cards[1]).getByText(/^yaklaşık \d+(,\d)? km$/)).toBeInTheDocument();
+    expect(within(cards[1]).getByText("yaklaşık 12 km")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Önce en yakın" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Konumuma yakın süzgecini kaldır" })).toHaveAttribute(
       "href",
       "/is-ilanlari",
     );
-    // Sunucuya kutu gitti, yakınlık gitmedi.
     expect(searchJobs).toHaveBeenCalledWith(
       expect.objectContaining({
         location: { latitude: 41.008238, longitude: 28.978359 },
@@ -304,10 +306,11 @@ describe("herkese açık ilan listesi", () => {
     );
   });
 
-  it("konum yokken yakınlık sıralaması sunulmaz ve kartta uzaklık yazmaz", async () => {
+  it("konum yokken yakınlık sıralaması kapalı durur ve kartta uzaklık yazmaz", async () => {
     render(await renderPage({ sirala: "en-yakin" }));
 
-    expect(screen.queryByRole("option", { name: "Önce en yakın" })).toBeNull();
+    expect(screen.getByRole("option", { name: "Önce en yakın" })).toBeDisabled();
+    expect(screen.getByText("Yakınlık sıralaması konum seçilince açılır.")).toBeInTheDocument();
     expect(screen.queryByText("Uzaklık")).toBeNull();
     expect(searchJobs).toHaveBeenCalledWith(expect.objectContaining({ sort: "en-yeni" }));
   });

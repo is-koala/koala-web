@@ -1,18 +1,16 @@
 import { coordinateDecimals } from "@/address/contract";
 
 /**
- * Konum süzgecinin ortak matematiği: adres çubuğundaki `konum`, yarıçaptan
- * sınırlayıcı kutu, karttaki mesafe.
+ * Konum süzgecinin ortak matematiği: adres çubuğundaki `konum` ve yarıçaptan
+ * sınırlayıcı kutu. Kart metni `formatDistanceKm` ile biçimlenir; km değeri
+ * backend `distanceKm`.
  *
  * `server-only` yok: sunucu sayfası sınırlayıcı kutuyu, istemcideki konum
  * düğmesi ise yazım biçimini kullanıyor. Ağ çağrısı ve gizli değer yok.
  *
- * **Backend yarıçapla süzmüyor, yalnız kutuyla** (`JobSearchCriteriaDto`
- * `minLatitude`…`maxLongitude`); mesafeye göre **sıralamıyor** da
- * (`JobManager.SORTABLE_FIELDS`). Bu yüzden yarıçap burada bir kareye
- * çevriliyor, mesafe kartta bu dosyayla hesaplanıyor ve "en yakın" sıralaması
- * yalnız gelen sayfa içinde uygulanıyor — eksiği is-koala/koala-web#154
- * raporunda backend'e yazıldı.
+ * Yarıçap hâlâ kutuya çevriliyor (`minLatitude`…); yakınlık sıralaması ve
+ * kart mesafesi backend `lat`/`lng` + `sort=distance` ve `distanceKm` ile
+ * geliyor (koala-backend#271, koala-web#164).
  */
 
 export type GeoPoint = { readonly latitude: number; readonly longitude: number };

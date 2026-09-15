@@ -1,15 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   activeJobFilters,
   backendJobSearchParams,
   districtCityParamName,
   hasJobFilters,
-  jobDistanceKm,
   jobSearchParamNames,
   jobSearchParams,
   jobSortOptions,
-  orderPageByDistance,
   parseJobSearchParams,
   type JobFilterOptions,
   type JobSearchQuery,
@@ -52,6 +50,7 @@ const job: JobSummary = {
   latitude: null,
   longitude: null,
   addressPrecision: "APPROXIMATE",
+  distanceKm: null,
 };
 
 /** `JobManager.SORTABLE_FIELDS`; sunucu bunun dışındaki alanı 400 ile reddediyor. */
@@ -235,6 +234,7 @@ describe("adres çubuğuna geri yazma", () => {
     location: null,
     distanceKm: null,
     view: "liste",
+    startOn: null,
   };
 
   it("varsayılan sayfa ve sıralamayı URL'ye yazmaz", () => {
@@ -446,6 +446,7 @@ describe("tam süzgeç seti", () => {
       location: { latitude: 41.008238, longitude: 28.978359 },
       distanceKm: 10,
       view: "harita",
+      startOn: "bugun",
     };
     const written = Object.fromEntries(jobSearchParams(query));
 
@@ -463,6 +464,7 @@ describe("tam süzgeç seti", () => {
       deneyim: "hayir",
       konum: "41.008238,28.978359",
       mesafe: "10",
+      tarih: "bugun",
       sirala: "baslik",
       gorunum: "harita",
       sayfa: "2",
@@ -491,35 +493,23 @@ describe("konum süzgeci ve yakınlık sıralaması", () => {
     expect(Object.fromEntries(jobSearchParams(query))).toEqual({ konum, sirala: "en-yakin" });
   });
 
-  it("yarıçapı backend'in sınırlayıcı kutusuna çevirir; yakınlık sunucuya varsayılan sırayla gider", () => {
+  it("yarıçapı kutuya çevirir; yakınlığı sunucuya lat/lng ve sort=distance,asc olarak gönderir", () => {
     const params = backendJobSearchParams(parseJobSearchParams({ konum, mesafe: "3", sirala: "en-yakin" }));
     expect(Number(params.get("minLatitude"))).toBeLessThan(41.008238);
     expect(Number(params.get("maxLatitude"))).toBeGreaterThan(41.008238);
     expect(Number(params.get("minLongitude"))).toBeLessThan(28.978359);
     expect(Number(params.get("maxLongitude"))).toBeGreaterThan(28.978359);
-    // `SORTABLE_FIELDS` mesafeyi tanımıyor; bilinmeyen alan 400 üretirdi.
-    expect(params.get("sort")).toBe("createdAt,desc");
+    expect(params.get("lat")).toBe("41.008238");
+    expect(params.get("lng")).toBe("28.978359");
+    expect(params.get("sort")).toBe("distance,asc");
   });
 
-  it("gelen sayfayı yalnız yakınlık seçiliyken diziyor; koordinatsız ilan sona düşer", () => {
-    const near = { ...job, id: "near", latitude: 41.01, longitude: 28.98 };
-    const far = { ...job, id: "far", latitude: 41.1, longitude: 29.1 };
-    const unknown = { ...job, id: "unknown", latitude: null, longitude: null };
+  it("sunucu sırasını korur; kart mesafesini distanceKm'den okur", () => {
+    const near = { ...job, id: "near", latitude: 41.01, longitude: 28.98, distanceKm: 0.4 };
+    const unknown = { ...job, id: "unknown", latitude: null, longitude: null, distanceKm: null };
 
-    const nearest = parseJobSearchParams({ konum, sirala: "en-yakin" });
-    expect(orderPageByDistance([far, unknown, near], nearest).map(({ id }) => id)).toEqual([
-      "near",
-      "far",
-      "unknown",
-    ]);
-
-    const newest = parseJobSearchParams({ konum });
-    expect(orderPageByDistance([far, unknown, near], newest).map(({ id }) => id)).toEqual([
-      "far",
-      "unknown",
-      "near",
-    ]);
-    expect(jobDistanceKm(unknown, nearest.location!)).toBeNull();
+    expect(near.distanceKm).toBe(0.4);
+    expect(unknown.distanceKm).toBeNull();
   });
 
   it("konum rozeti kaldırılınca yarıçap ve yakınlık sıralaması da düşer", () => {
@@ -539,6 +529,35 @@ describe("konum süzgeci ve yakınlık sıralaması", () => {
     expect(hasJobFilters(query)).toBe(false);
     expect(Object.fromEntries(jobSearchParams(query))).toEqual({ gorunum: "harita" });
     expect(parseJobSearchParams({ gorunum: "uydu" }).view).toBe("liste");
+  });
+});
+
+describe("başlangıç günü süzgeci", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("üç örnek: belirli gün, bugün ve yarın Instant penceresine gider", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-15T12:00:00+03:00"));
+
+    const calendar = backendJobSearchParams(parseJobSearchParams({ tarih: "2026-09-20" }));
+    expect(calendar.get("startFrom")).toBe("2026-09-19T21:00:00.000Z");
+    expect(calendar.get("startTo")).toBe("2026-09-20T20:59:59.999Z");
+
+    const today = backendJobSearchParams(parseJobSearchParams({ tarih: "bugun" }));
+    expect(today.get("startFrom")).toBe("2026-09-14T21:00:00.000Z");
+    expect(today.get("startTo")).toBe("2026-09-15T20:59:59.999Z");
+
+    const tomorrow = backendJobSearchParams(parseJobSearchParams({ tarih: "yarin" }));
+    expect(tomorrow.get("startFrom")).toBe("2026-09-15T21:00:00.000Z");
+    expect(tomorrow.get("startTo")).toBe("2026-09-16T20:59:59.999Z");
+  });
+
+  it("geçersiz tarihi düşürür; Instant aralığı üretmez", () => {
+    expect(parseJobSearchParams({ tarih: "garson" }).startOn).toBeNull();
+    expect(backendParams({ tarih: "2026-02-31" }).has("startFrom")).toBe(false);
+    expect(backendParams({ tarih: "2026-02-31" }).has("startTo")).toBe(false);
   });
 });
 
@@ -687,6 +706,7 @@ describe("süzgeç listelerinin ayrışmaması", () => {
     konum: { value: "41.008238,28.978359" },
     // Yarıçap konumsuz okunmuyor; varsayılan 5 km olduğu için örnek 10.
     mesafe: { value: "10", context: { konum: "41.008238,28.978359" } },
+    tarih: { value: "bugun" },
   };
 
   const options: JobFilterOptions = { categories: [], cities: [], districts: [] };
