@@ -1,8 +1,7 @@
 import "server-only";
 
-import type { PricingBreakdown } from "@/lib/job-posting";
 import { safeImageUrl } from "@/lib/urls";
-import type { JobDetail, JobImage } from "@/jobs/contract";
+import type { JobDetail, JobImage, JobPricing } from "@/jobs/contract";
 import { jobStatuses } from "@/jobs/lifecycle";
 import { clean, jobTypes, known, openings, precisionOf, salaryTypes } from "@/server/api/dto";
 
@@ -36,7 +35,7 @@ export type JobDetailDto = {
   startDateTime?: string | null;
   endDateTime?: string | null;
   createdAt?: string | null;
-  pricing?: PricingBreakdown | null;
+  pricing?: PricingDto | null;
   minAge?: number | null;
   maxAge?: number | null;
   insuranceRequired?: boolean;
@@ -48,6 +47,20 @@ export type JobDetailDto = {
   addressPrecision?: string | null;
   status?: string | null;
   acceptingApplications?: boolean | null;
+};
+
+/**
+ * `PricingBreakdownDto`'nun tel biçimi. Ücret alanları bakan kişiye göre
+ * **null** gelebiliyor (is-koala/koala-backend#304); eski sunucu herkese tam
+ * dökümü gönderiyordu ve iki biçim de aynı çeviriciden geçiyor.
+ */
+export type PricingDto = {
+  pricingVersion?: string | null;
+  currency?: string | null;
+  workerPayout?: string | null;
+  serviceFeeRate?: string | null;
+  serviceFeeAmount?: string | null;
+  employerTotal?: string | null;
 };
 
 /** `GalleryImageDto`; sıralama backend'den geliyor, kapak bayrağı ayrı bir alan. */
@@ -114,26 +127,34 @@ export function toJobDetail(dto: JobDetailDto): JobDetail {
 }
 
 /**
- * Fiyat anlık görüntüsü ya tam gelir ya hiç.
+ * Fiyat anlık görüntüsü: kazanç zorunlu, döküm bakan kişiye göre.
  *
- * Üç tutardan biri eksikse tamamı düşüyor: yarım bir döküm, çalışanın
- * alacağı ile işverenin ödeyeceği tutarın hangisi olduğunu belirsiz bırakır
- * ve ADR-0002'nin ayrı ayrı gösterme şartını sessizce bozardı.
+ * `workerPayout` ile `currency` yoksa tamamı düşüyor — kazanç, ilanın
+ * ziyaretçiye söylediği tek tutar. Hizmet bedeli ile işveren toplamı ise
+ * birlikte ya geliyor ya hiç: backend herkese açık görünümde ikisini de null
+ * gönderiyor (is-koala/koala-backend#304) ve bu bir eksiklik değil, bir
+ * görünüm. Yalnız birinin gelmesi ise yarım bir döküm; o da düşüyor, çünkü
+ * çalışanın alacağı ile işverenin ödeyeceği tutarın hangisi olduğunu belirsiz
+ * bırakır ve ADR-0002'nin ayrı ayrı gösterme şartını sessizce bozardı.
+ * Eski kural üç tutarı da zorunlu sayıyordu ve yeni sunucuda kazancı da
+ * silip ilan sayfasına "Kazanç bilgisi paylaşılmadı" yazdırıyordu
+ * (is-koala/koala-web#181).
  */
-export function toPricing(dto: PricingBreakdown | null | undefined): PricingBreakdown | null {
+export function toPricing(dto: PricingDto | null | undefined): JobPricing | null {
   if (!dto) return null;
   const currency = clean(dto.currency);
   const workerPayout = clean(dto.workerPayout);
+  if (!currency || !workerPayout) return null;
   const serviceFeeAmount = clean(dto.serviceFeeAmount);
   const employerTotal = clean(dto.employerTotal);
-  if (!currency || !workerPayout || !serviceFeeAmount || !employerTotal) return null;
+  const breakdown = serviceFeeAmount !== null && employerTotal !== null;
   return {
     pricingVersion: dto.pricingVersion ?? "",
     currency,
     workerPayout,
-    serviceFeeRate: dto.serviceFeeRate ?? "",
-    serviceFeeAmount,
-    employerTotal,
+    serviceFeeRate: breakdown ? clean(dto.serviceFeeRate) : null,
+    serviceFeeAmount: breakdown ? serviceFeeAmount : null,
+    employerTotal: breakdown ? employerTotal : null,
   };
 }
 

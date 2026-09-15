@@ -1,4 +1,4 @@
-import type { JobType, PricingBreakdown } from "@/lib/job-posting";
+import type { JobType } from "@/lib/job-posting";
 
 import type { JobStatus } from "./lifecycle";
 
@@ -83,13 +83,11 @@ export type JobDetail = {
   /**
    * İlan yayımlanırken kilitlenen fiyat anlık görüntüsü (ADR-0002).
    *
-   * Tek parça taşınıyor çünkü tek bir karar: çalışan ücreti, hizmet bedeli ve
-   * işveren toplamı aynı anda donduruluyor ve biri öbürleri olmadan
-   * gösterilirse ekran, işverenin ödediği ile çalışanın aldığı tutarı
-   * karıştırır. Snapshot'ı olmayan ilanda `null`; `salary` alanından yeniden
-   * üretmek kilitlenmiş tutarla ayrışabilirdi.
+   * Snapshot'ı olmayan ilanda `null`; `salary` alanından yeniden üretmek
+   * kilitlenmiş tutarla ayrışabilirdi. Ücret alanlarının bakan kişiye göre
+   * neden düştüğü `JobPricing` üzerinde.
    */
-  readonly pricing: PricingBreakdown | null;
+  readonly pricing: JobPricing | null;
   /** `0` "belirtilmedi" demek: DTO alanı ilkel `int` ve yaş sınırı yoksa sıfır kalıyor. */
   readonly minAge: number;
   readonly maxAge: number;
@@ -120,6 +118,31 @@ export type JobDetail = {
   readonly status: JobStatus | "UNKNOWN";
   /** Backend'in durum ve bitiş anını birlikte değerlendirerek verdiği başvuru kapısı. */
   readonly acceptingApplications: boolean;
+};
+
+/**
+ * İlanın kilitlenen fiyat anlık görüntüsü — `PricingBreakdownDto`'nun
+ * **bakan kişiye göre** okunan hâli.
+ *
+ * Backend herkese açık ve işçi görünümünde yalnız `workerPayout`, `currency`
+ * ve `pricingVersion` gönderiyor; `serviceFeeRate`, `serviceFeeAmount` ve
+ * `employerTotal` **null** (is-koala/koala-backend#304, is-koala/koala-web#181).
+ * Sahibi ve şirket yetkilisi tam dökümü alıyor. Bu yüzden tip, teklif ve
+ * ödeme akışlarının tam `PricingBreakdown`'ından (`@/lib/job-posting`) ayrı:
+ * orada eksik bir ücret alanı bozuk bir yanıt, burada bir görünüm.
+ *
+ * Hizmet bedeli ile işveren toplamı birlikte ya var ya yok (`toPricing`,
+ * `@/server/jobs/job-detail-dto`): yarım bir döküm, çalışanın alacağı ile
+ * işverenin ödeyeceği tutarın hangisi olduğunu belirsiz bırakırdı. Bütün
+ * tutarlar dize; nedeni `PricingBreakdown` üzerinde.
+ */
+export type JobPricing = {
+  readonly pricingVersion: string;
+  readonly currency: string;
+  readonly workerPayout: string;
+  readonly serviceFeeRate: string | null;
+  readonly serviceFeeAmount: string | null;
+  readonly employerTotal: string | null;
 };
 
 /** Başarılı 201 zarfından bu akışın kullandığı tek alan. */

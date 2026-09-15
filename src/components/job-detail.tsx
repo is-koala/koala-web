@@ -294,22 +294,36 @@ function EmployerTrust({ stats }: { stats: EmployerStats }) {
  * çalışan ödemesinin **üstüne** ekliyor, yani işverenin ödeyeceği toplam ile
  * çalışanın alacağı tutar farklı sayılar. Tek bir "ücret" yazmak ikisinden
  * hangisi olduğunu belirsiz bırakır ve iş arayanı yanıltırdı.
+ *
+ * Hizmet bedeli ile işveren toplamı bakan kişiye göre geliyor: backend
+ * herkese açık görünümde ikisini de null gönderiyor, sahibine tam dökümü
+ * (is-koala/koala-backend#304). Bu yüzden yalnız kazanç geldiğinde bölüm
+ * kapanmıyor, tek satıra iniyor — işverenin sayfası kilitlenen fiyatı
+ * yalnız burada gösteriyor ve eski sunucunun tam dökümü de aynı bölümden
+ * çıkıyor.
  */
 function JobPricing({ job }: { job: JobDetail }) {
   if (job.pricing === null) return null;
   const { currency, workerPayout, serviceFeeAmount, employerTotal } = job.pricing;
+  const breakdown = serviceFeeAmount !== null && employerTotal !== null;
 
   return (
     <section>
       <h2>Ücret dökümü</h2>
       <dl className="price-breakdown" aria-label="Ücret dökümü">
         <Fact label="Çalışan ücreti" value={formatMoney(workerPayout, currency)} />
-        <Fact label="Koala hizmet bedeli" value={formatMoney(serviceFeeAmount, currency)} />
-        <Fact label="İşveren toplamı" value={formatMoney(employerTotal, currency)} />
+        {breakdown ? (
+          <>
+            <Fact label="Koala hizmet bedeli" value={formatMoney(serviceFeeAmount, currency)} />
+            <Fact label="İşveren toplamı" value={formatMoney(employerTotal, currency)} />
+          </>
+        ) : null}
       </dl>
       <p className="muted">
-        Çalışana ödenen tutar ile işverenin ödediği toplam ayrı: Koala hizmet bedeli çalışan
-        ücretinin üstüne ekleniyor. Bu fiyat ilan yayımlandığında kilitlendi ve değişmiyor.
+        {breakdown
+          ? "Çalışana ödenen tutar ile işverenin ödediği toplam ayrı: Koala hizmet bedeli çalışan ücretinin üstüne ekleniyor. "
+          : null}
+        Bu fiyat ilan yayımlandığında kilitlendi ve değişmiyor.
       </p>
     </section>
   );

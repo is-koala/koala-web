@@ -162,6 +162,29 @@ describe("yayımlanmış ilan sayfası", () => {
     expect(screen.queryByText("ham mesaj")).toBeNull();
   });
 
+  it("ücret alanları gelmeyen yanıtta yalnız çalışan ücretini gösterir", async () => {
+    /*
+     * Sahibe tam döküm gelir; yine de ücret alanları null gelirse
+     * (is-koala/koala-backend#304 sonrası eski/yetkisiz bir görünüm) kazanç
+     * kaybolmaz ve "okunamadı" uyarısı yazılmaz (is-koala/koala-web#181).
+     */
+    fetchJobDetail.mockResolvedValue(
+      jobDetail("OPEN", {
+        pricing: { ...pricing, serviceFeeRate: null, serviceFeeAmount: null, employerTotal: null },
+      }),
+    );
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    const breakdown = screen.getByLabelText("Ücret dökümü");
+    expect(breakdown).toHaveTextContent("Çalışan ücreti");
+    expect(breakdown).toHaveTextContent("1.500,50 ₺");
+    expect(breakdown).not.toHaveTextContent("Koala hizmet bedeli");
+    expect(breakdown).not.toHaveTextContent("112,54 ₺");
+    expect(breakdown).not.toHaveTextContent("1.613,04 ₺");
+    expect(screen.queryByText("Bu ilanın fiyat dökümü okunamadı.")).toBeNull();
+  });
+
   it("fiyat dökümü gelmezse uydurmaz", async () => {
     fetchJobDetail.mockResolvedValue(jobDetail("OPEN", { pricing: null }));
 
