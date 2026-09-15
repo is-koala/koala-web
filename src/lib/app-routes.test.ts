@@ -7,6 +7,7 @@ import {
   editCompanyPath,
   companyAddressPath,
   employerJobsPath,
+  employerApplicationsPath,
   companyGalleryPath,
   jobApplicantsPath,
   jobGalleryPath,
@@ -252,24 +253,30 @@ describe("kabuk rota kaydı", () => {
     expect(talentPoolPath).toBe("/isveren/yetenek-havuzu");
   });
 
-  it("ilanlar arası başvuru gelen kutusunu planlı ve gerekçeli bırakır", () => {
-    // Bölüm creator bazlı ilan listesini bekliyor (is-koala/koala-web#33);
-    // bugün başvurular yalnız ilanın kendi sayfasından açılıyor.
-    const inbox = sectionAt("employer", ["basvurular"]);
-
-    expect(inbox?.status).toBe("planned");
-    expect(inbox?.status === "planned" && inbox.note).toContain("ilan");
+  it("ilanlar arası başvuru gelen kutusunu teslim edilmiş işveren bölümü olarak kaydeder", () => {
+    // `planned` kalsaydı menü maddesi tıklanamaz olur ve `[...section]`
+    // yakalayıcısı gerçek listenin önüne "henüz açılmadı" ekranını koyardı.
+    expect(sectionAt("employer", ["basvurular"])).toEqual({
+      href: employerApplicationsPath,
+      label: "Başvurular",
+      requires: [],
+      status: "ready",
+    });
+    expect(employerApplicationsPath).toBe("/isveren/basvurular");
   });
 
-  it("henüz açılmamış her bölüm nedenini yazılı taşır", () => {
+  it("henüz açılmamış bölüm varsa nedenini yazılı taşır", () => {
     const planned = Object.values(appShells)
       .flatMap((shell) => shell.sections)
       .filter((section) => section.status === "planned");
 
-    expect(planned.length).toBeGreaterThan(0);
     for (const section of planned) {
       expect(section.note.trim().length).toBeGreaterThan(0);
     }
+  });
+
+  it("işveren kabuğunun her bölümü teslim edilmiş; yakalayıcı yalnız 404 üretir", () => {
+    expect(appShells.employer.sections.every((section) => section.status === "ready")).toBe(true);
   });
 
   it("her kabuk ve her bölüm istediği kapıları yazılı bildirir", () => {

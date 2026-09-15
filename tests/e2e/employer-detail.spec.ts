@@ -33,6 +33,31 @@ test.beforeEach(async ({ context, request }, testInfo) => {
   ]);
 });
 
+const inboxApplicationId = "cccccccc-cccc-4ccc-8ccc-000000000001";
+const foreignCompanyId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+test("işveren gelen kutusu bekleyen başvuruyu önce listeler ve incelemeye bağlar", async ({
+  page,
+}) => {
+  await page.goto("/isveren/basvurular");
+  await expect(page.getByRole("heading", { name: "Başvurular", exact: true })).toBeVisible();
+  const row = page.getByRole("listitem", { name: "Ayşe Yılmaz" }).first();
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("Etkinlik görevlisi");
+  await expect(page.getByRole("link", { name: "Başvuruyu incele" }).first()).toHaveAttribute(
+    "href",
+    `/isveren/ilan/${openJobId}/basvurular#applicant-${inboxApplicationId}`,
+  );
+
+  await page.getByRole("link", { name: "Reddedilenler" }).click();
+  await expect(page).toHaveURL(/status=REJECTED/);
+  await expect(page.getByText("Reddedildi")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Başvuruyu incele" })).toHaveCount(1);
+
+  await page.goto(`/isveren/basvurular?companyId=${foreignCompanyId}`);
+  await expect(page.getByRole("status")).toContainText("Bu süzgeçte başvuru yok");
+});
+
 test("işverenin ilan sayfası ilanın tam görünümünü ve işveren eylemlerini çizer", async ({ page }) => {
   await page.goto(`/isveren/ilan/${openJobId}`);
   await expect(page.getByRole("heading", { name: "Etkinlik görevlisi" })).toBeVisible();

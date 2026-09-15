@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { defaultJobSort } from "@/jobs/employer-jobs";
 import {
+  employerApplicationsPath,
   employerJobsPath,
   jobApplicantsPath,
   newCompanyJobPath,
@@ -67,8 +68,8 @@ export function EmployerDashboard({ viewer }: { viewer: Viewer }) {
             title="Son başvurular"
             titleId="dashboard-recent"
             actions={
-              <Link className="text-link" href={employerJobsPath}>
-                Tüm ilanlar
+              <Link className="text-link" href={employerApplicationsPath}>
+                Tüm başvurular
               </Link>
             }
           />
@@ -128,7 +129,7 @@ export function SummaryGrid({ summary }: { summary: EmployerSummary }) {
           value={countLabel(summary.openApplications, summary.partial.jobs)}
           icon="users"
           accent="purple"
-          href={employerJobsPath}
+          href={employerApplicationsPath}
           hint={
             summary.partial.jobs
               ? "ilk sayfadaki açık ilanlarda, işe alınmamış"
@@ -253,9 +254,9 @@ function QuickActions({
 /**
  * Son başvurular.
  *
- * İlanlar arası bir başvuru ucu yok (is-koala/koala-web#33); liste en yeni
- * açık ilanların başvurularından derleniyor (`jobsWorthReadingApplicants`,
- * en çok üç ilan). Bu bir gelen kutusu değil, bir pencere; not bunu söyler.
+ * Ana sayfa hâlâ creator bazlı ilan listesinin ilk sayfasından bir pencere
+ * derliyor — gelen kutunun tam listesi `employerApplicationsPath`. Not bunu
+ * söyler ki pencere tam kutu sanılmasın.
  */
 async function RecentApplications() {
   const loaded = await firstJobsPage()
@@ -329,7 +330,7 @@ async function RecentApplications() {
         ))}
       </ListRows>
       <p className="dashboard-note">
-        En yeni üç açık ilanın son başvuruları. Tamamı için ilanın kendi başvuru sayfasına git.
+        En yeni üç açık ilanın son başvuruları. Tamamı için gelen kutusuna git.
       </p>
     </div>
   );

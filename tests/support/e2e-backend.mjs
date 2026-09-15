@@ -358,6 +358,30 @@ const server = createServer(async (request, response) => {
       data: application,
     });
   }
+  if (request.method === "GET" && url.pathname === "/users/me/received-applications") {
+    const status = url.searchParams.get("status");
+    const jobId = url.searchParams.get("jobId");
+    const filterCompanyId = url.searchParams.get("companyId");
+    const page = Number(url.searchParams.get("page") ?? "0");
+    const size = Number(url.searchParams.get("size") ?? "20");
+    const content = receivedApplications().filter((application) => {
+      if (status !== null && application.status !== status) return false;
+      if (jobId !== null && application.jobId !== jobId) return false;
+      if (filterCompanyId !== null && application.companyId !== filterCompanyId) return false;
+      return true;
+    });
+    const start = Number.isSafeInteger(page) && page > 0 ? page * size : 0;
+    const slice = content.slice(start, start + size);
+    return backendSuccess(response, {
+      content: slice,
+      page: Number.isSafeInteger(page) && page > 0 ? page : 0,
+      size,
+      totalElements: content.length,
+      totalPages: content.length === 0 ? 0 : Math.ceil(content.length / size),
+      first: start === 0,
+      last: start + size >= content.length,
+    });
+  }
   if (request.method === "GET" && url.pathname === "/users/me/applications") {
     const status = url.searchParams.get("status");
     const content = state.applications.filter(
@@ -865,6 +889,40 @@ function openJob() {
     status: "OPEN",
     acceptingApplications: true,
   };
+}
+
+function receivedApplications() {
+  const job = openJob();
+  return [
+    {
+      id: "cccccccc-cccc-4ccc-8ccc-000000000001",
+      status: "APPLIED",
+      applicationDateTime: "2026-09-06T10:00:00Z",
+      answeredDateTime: null,
+      notes: "Hafta sonu uygunum.",
+      applicant: { id: assignmentWorkerId, firstName: "Ayşe", lastName: "Yılmaz" },
+      jobId: job.id,
+      postingTitle: job.title,
+      jobStatus: job.status,
+      companyId: job.company?.id ?? companyId,
+      companyName: job.company?.name ?? "Koala Temizlik",
+      assignmentId: null,
+    },
+    {
+      id: "cccccccc-cccc-4ccc-8ccc-000000000002",
+      status: "REJECTED",
+      applicationDateTime: "2026-09-05T09:00:00Z",
+      answeredDateTime: "2026-09-05T12:00:00Z",
+      notes: null,
+      applicant: { id: assignmentWorkerId, firstName: "Ayşe", lastName: "Yılmaz" },
+      jobId: job.id,
+      postingTitle: job.title,
+      jobStatus: job.status,
+      companyId: job.company?.id ?? companyId,
+      companyName: job.company?.name ?? "Koala Temizlik",
+      assignmentId: null,
+    },
+  ];
 }
 
 /**
