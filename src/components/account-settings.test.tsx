@@ -87,6 +87,7 @@ const data: AccountSettingsData = {
       current: false,
     },
   ],
+  sessionDetailAvailable: true,
 };
 
 describe("hesap ve ayarlar ekranı", () => {
@@ -289,6 +290,32 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(within(sessions).getByRole("button", { name: "Diğer tüm oturumları kapat" })).toBeVisible();
   });
 
+  it("oturum satırını kabuğun ayrıntı sayfasına bağlar", () => {
+    renderSettings();
+
+    const sessions = screen.getByRole("region", { name: "Oturumlar ve cihazlar" });
+    expect(within(sessions).getByRole("link", { name: "Safari" })).toHaveAttribute(
+      "href",
+      "/panel/oturum/4ace3ee5-f9fd-420c-8926-b35f2b82915a",
+    );
+    expect(within(sessions).getByRole("link", { name: "iPhone" })).toHaveAttribute(
+      "href",
+      "/panel/oturum/0e30edb1-3642-458b-aa0b-7569842448f0",
+    );
+  });
+
+  it("eski sunucuda satırı bağlantısız bırakır; uyarı da yok", () => {
+    // 0.9.28 öncesi sunucuda ayrıntı ucu yok (is-koala/koala-web#188). Liste
+    // yine çalışır; satır düz metin kalır, açıklama ya da toast çizilmez.
+    renderSettings({ data: { ...data, sessionDetailAvailable: false } });
+
+    const sessions = screen.getByRole("region", { name: "Oturumlar ve cihazlar" });
+    expect(within(sessions).queryByRole("link", { name: "Safari" })).toBeNull();
+    expect(within(sessions).getByText("Safari")).toBeVisible();
+    expect(within(sessions).getByText("iPhone")).toBeVisible();
+    expect(within(sessions).getByRole("button", { name: "iPhone oturumunu kapat" })).toBeVisible();
+  });
+
   it("hesap silme talebini iki kabuğun ortak ayar ekranında sunar", () => {
     renderSettings();
 
@@ -349,6 +376,7 @@ function renderSettings(overrides: Overrides = {}) {
   const { data: settingsData = data, ...actionOverrides } = overrides;
   render(
     <AccountSettings
+      shell="worker"
       viewer={{
         email: "ada@example.test",
         phoneNumber: "+905551112233",

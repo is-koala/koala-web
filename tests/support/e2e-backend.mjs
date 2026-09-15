@@ -30,6 +30,16 @@ const referenceDistricts = [
   { id: "1f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f51", name: "Beşiktaş" },
   { id: "1f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f53", name: "Kadıköy" },
 ];
+// Oturum ayrıntısı (is-koala/koala-web#188). Yalnız `?sessions=` ile sıfırlanan
+// durumda liste dolu gelir: öbür senaryolar boş listeyi varsayıyor.
+// `sessions=detail` 0.9.28 sunucusunu, `sessions=legacy` ayrıntı ucunu
+// bilmeyen eski sunucuyu (yol yalnız DELETE, GET'e 405) taklit eder.
+const currentSessionId = "4ace3ee5-f9fd-420c-8926-b35f2b82915a";
+const otherSessionId = "0e30edb1-3642-458b-aa0b-7569842448f0";
+const currentDeviceUuid = "30c46a8e-3e1b-4c35-b616-550171243a8b";
+const otherDeviceUuid = "5a7c1a3e-9d0e-4c8b-8f1a-2b3c4d5e6f70";
+const sessionPathPattern = /^\/users\/me\/sessions\/([0-9a-f-]{36})$/;
+const devicePathPattern = /^\/users\/me\/devices\/([0-9a-f-]{36})$/;
 const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
@@ -58,8 +68,17 @@ const server = createServer(async (request, response) => {
       companyRole: url.searchParams.get("companyRole"),
       companyAddress: initialCompanyAddress(),
       companyRequests: [],
+      sessionsMode: url.searchParams.get("sessions"),
+      sessions: initialSessions(),
+      deviceRenames: [],
     });
     return json(response, 200, { ok: true });
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/device-renames") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.deviceRenames)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
   if (request.method === "GET" && url.pathname === "/__test__/requests") {
     const state = stateFrom(url);
@@ -372,7 +391,60 @@ const server = createServer(async (request, response) => {
     return backendSuccess(response, []);
   }
   if (request.method === "GET" && url.pathname === "/users/me/sessions") {
-    return backendSuccess(response, []);
+    if (!state.sessionsMode) return backendSuccess(response, []);
+    return backendSuccess(
+      response,
+      state.sessions.filter((session) => session.active).map(sessionSummaryOf),
+    );
+  }
+  const sessionMatch = sessionPathPattern.exec(url.pathname);
+  if (sessionMatch && request.method === "GET") {
+    if (state.sessionsMode !== "detail") {
+      // Eski sunucu: `/users/me/sessions/{id}` yalnız DELETE ile eşleşiyor.
+      response.writeHead(405, { allow: "DELETE" });
+      return response.end();
+    }
+    const session = state.sessions.find((candidate) => candidate.id === sessionMatch[1]);
+    if (!session || !session.active) {
+      return backendError(response, 404, "SESSION_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    }
+    return backendSuccess(response, sessionDetailOf(session));
+  }
+  if (sessionMatch && request.method === "DELETE") {
+    const session = state.sessions.find((candidate) => candidate.id === sessionMatch[1]);
+    if (!session || !session.active) {
+      return backendError(response, 404, "SESSION_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    }
+    session.active = false;
+    return json(response, 200, { success: true, httpStatus: "OK", message: "Oturum kapatildi." });
+  }
+  const deviceMatch = devicePathPattern.exec(url.pathname);
+  if (deviceMatch && request.method === "PATCH") {
+    const body = await readJson(request);
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    if (!name || name.length > 60) {
+      return json(response, 400, {
+        success: false,
+        httpStatus: 400,
+        errorCode: "VALIDATION_FAILED",
+        errorCategory: "VALIDATION",
+        message: "Dogrulama hatasi.",
+        details: [{ field: "name", message: name ? "Cihaz adı en fazla 60 karakter olabilir." : "Cihaz adı boş olamaz." }],
+        timeStamp: "2026-09-09T12:00:00Z",
+      });
+    }
+    const session = state.sessions.find((candidate) => candidate.deviceId === deviceMatch[1]);
+    if (!session) return backendError(response, 404, "DEVICE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    session.customName = name;
+    state.deviceRenames.push({ deviceId: deviceMatch[1], name });
+    return backendSuccess(response, {
+      id: session.deviceId,
+      type: session.deviceType,
+      name,
+      customName: name,
+      firstSeenAt: session.createdAt,
+      lastSeenAt: session.lastAccessedAt,
+    });
   }
   if (request.method === "GET" && url.pathname === "/users/me/assignments") {
     // Aynı atamalar iki kabuğa da servis edilir: `asEmployer=true` işveren
@@ -611,6 +683,70 @@ async function drain(request) {
   for await (const chunk of request) {
     void chunk;
   }
+}
+
+function initialSessions() {
+  return [
+    {
+      id: currentSessionId,
+      deviceId: currentDeviceUuid,
+      deviceType: "WEB_BROWSER",
+      name: "iOS 18 · Koala 0.1.0 · web",
+      customName: null,
+      ipAddress: "192.0.2.1",
+      location: "İstanbul, TR",
+      createdAt: "2026-09-01T12:00:00Z",
+      lastAccessedAt: "2026-09-06T12:00:00Z",
+      refreshExpiresAt: "2026-10-06T12:00:00Z",
+      current: true,
+      active: true,
+      logins: 3,
+      loginHistory: [
+        { at: "2026-09-06T12:00:00Z", ipAddress: "192.0.2.1", location: "İstanbul, TR", success: true },
+        { at: "2026-09-05T20:00:00Z", ipAddress: "198.51.100.7", location: null, success: false },
+      ],
+    },
+    {
+      id: otherSessionId,
+      deviceId: otherDeviceUuid,
+      deviceType: "IOS",
+      name: "iPhone 14 Pro Max · iOS 18.1 · Koala 1.1.0",
+      customName: null,
+      ipAddress: null,
+      location: null,
+      createdAt: "2026-08-20T12:00:00Z",
+      lastAccessedAt: "2026-09-05T12:00:00Z",
+      refreshExpiresAt: "2026-10-05T12:00:00Z",
+      current: false,
+      active: true,
+      logins: 0,
+      loginHistory: [],
+    },
+  ];
+}
+
+function sessionSummaryOf(session) {
+  return {
+    id: session.id,
+    deviceId: session.deviceId,
+    deviceType: session.deviceType,
+    deviceName: session.customName ?? session.name,
+    ipAddress: session.ipAddress,
+    location: session.location,
+    lastAccessedAt: session.lastAccessedAt,
+    refreshExpiresAt: session.refreshExpiresAt,
+    current: session.current,
+  };
+}
+
+function sessionDetailOf(session) {
+  return {
+    ...sessionSummaryOf(session),
+    deviceCustomName: session.customName,
+    createdAt: session.createdAt,
+    logins: session.logins,
+    loginHistory: session.loginHistory,
+  };
 }
 
 function initialCompanyAddress() {

@@ -72,7 +72,7 @@ describe("hesap sayfası bildirim sayfalaması", () => {
       .mockResolvedValueOnce(jsonResponse(200, envelope([])));
     vi.stubGlobal("fetch", fetchMock);
 
-    await AccountPage({ searchParams: Promise.resolve({ bildirimSayfasi: "2" }) });
+    await AccountPage({ shell: "worker", searchParams: Promise.resolve({ bildirimSayfasi: "2" }) });
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
       "https://api.example.test/users/me/notifications?page=1",
@@ -106,7 +106,7 @@ describe("hesap sayfası bildirim sayfalaması", () => {
       .mockImplementation(unauthorized);
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(AccountPage()).rejects.toThrow(
+    await expect(AccountPage({ shell: "worker" })).rejects.toThrow(
       redirectTo("/giris?next=%2Fpanel%2Fhesap"),
     );
 
@@ -156,7 +156,7 @@ describe("hesap sayfası bildirim sayfalaması", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    render(await AccountPage());
+    render(await AccountPage({ shell: "worker" }));
 
     expect(screen.getByRole("region", { name: "Hesap silme" })).toHaveTextContent("Talebin alındı");
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain(

@@ -22,6 +22,22 @@ import {
 } from "./settings";
 
 const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
+/** `SessionDetailDto`; deneme yalnız durum koduna bakıyor, gövde okunmuyor. */
+const sessionDetailFixture = {
+  id: "4ace3ee5-f9fd-420c-8926-b35f2b82915a",
+  deviceId: "30c46a8e-3e1b-4c35-b616-550171243a8b",
+  deviceType: "WEB_BROWSER",
+  deviceName: "Safari",
+  deviceCustomName: null,
+  createdAt: "2026-09-01T12:00:00Z",
+  lastAccessedAt: "2026-09-06T12:00:00Z",
+  refreshExpiresAt: "2026-10-06T12:00:00Z",
+  ipAddress: "192.0.2.1",
+  location: "İstanbul, TR",
+  current: true,
+  logins: 3,
+  loginHistory: [],
+};
 const rawIban = "TR330006100519786457841326";
 const deletionStatusRequestId = "8847a941-da0e-45f3-868e-b262896243e4";
 
@@ -340,7 +356,10 @@ describe("hesap ayarları banka sözleşmesi", () => {
           errorCategory: "RESOURCE_NOT_FOUND",
           message: "Talep yok",
         }),
-      );
+      )
+      // Ayrıntı ucu denemesi: liste geldikten sonra bu isteğin kendi oturumu
+      // sorulur; cevap sunucunun 0.9.28 olup olmadığını söyler (#188).
+      .mockResolvedValueOnce(jsonResponse(200, envelope(sessionDetailFixture)));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(loadAccountSettings(1)).resolves.toEqual({
@@ -357,6 +376,7 @@ describe("hesap ayarları banka sözleşmesi", () => {
           current: true,
         },
       ],
+      sessionDetailAvailable: true,
       accountDeletion: { kind: "not-requested" },
     });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
@@ -365,6 +385,7 @@ describe("hesap ayarları banka sözleşmesi", () => {
       "https://api.example.test/users/me/notification-preferences",
       "https://api.example.test/users/me/sessions",
       "https://api.example.test/legal/account-deletion",
+      "https://api.example.test/users/me/sessions/4ace3ee5-f9fd-420c-8926-b35f2b82915a",
     ]);
     for (const [, init] of fetchMock.mock.calls as [string, RequestInit][]) {
       expect(new Headers(init.headers).get("Authorization")).toBe("Bearer access-placeholder");

@@ -143,6 +143,26 @@ export const employerBillingAddressPath = "/isveren/adres";
 export const workerApplicantAddressPath = "/panel/adres";
 
 /**
+ * Bir oturumun ayrıntısı: cihaz, IP, konum, giriş geçmişi ve cihazı adlandırma
+ * (is-koala/koala-web#188).
+ *
+ * Hesap sayfasının altında değil, kabuk kökünde: `hesap/loading.tsx` o
+ * segmenti bir Suspense sınırına alıyor ve altındaki her sayfanın
+ * `notFound()`'ı 200'de kilitlenirdi (`AGENTS.md`, "Yapı"). Menüde yok — bir
+ * liste maddesi değil, hesap sayfasındaki oturum satırından açılan bir
+ * kaydın adresi; kapısı da yok, oturumu görebilen kullanıcı ayrıntısını da
+ * görebilmeli. Kimlik tarayıcıdan geliyor, yola konmadan kaçırılıyor.
+ */
+export function sessionDetailPath(shell: AppShellId, sessionId: string): string {
+  return `${appShells[shell].root}/oturum/${encodeURIComponent(sessionId)}`;
+}
+
+/** Hesap sayfasındaki oturum listesinin çapası; ayrıntıdan geri dönüş buraya. */
+export function accountSessionsHref(shell: AppShellId): string {
+  return `${appShells[shell].root}/hesap#oturumlar`;
+}
+
+/**
  * Bir şirketin profili.
  *
  * Seçili şirket **rotada** taşınıyor, yerel durumda değil: bir kullanıcı

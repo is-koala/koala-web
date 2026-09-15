@@ -8,6 +8,8 @@ import { backendPaths, unexpectedError } from "@/server/contract";
 import { getNotificationPreferences } from "@/server/profile/profile";
 import { apiRequest } from "@/server/session/session";
 
+import { isSessionDetailAvailable } from "./session-detail";
+
 /** Backend'in ham IBAN yerine döndürdüğü güvenli hesap görünümü. */
 export type BankAccount = {
   id: string;
@@ -95,6 +97,12 @@ export type AccountSettingsData = {
   notifications: NotificationFeed;
   preferences: readonly NotificationPreference[];
   sessions: readonly AccountSession[];
+  /**
+   * Oturum satırları ayrıntı sayfasına bağlanır mı. 0.9.28 öncesi sunucuda
+   * `GET /users/me/sessions/{id}` yok; satır o zaman düz metin kalır
+   * (is-koala/koala-web#188).
+   */
+  sessionDetailAvailable: boolean;
   accountDeletion: AccountDeletionLoadState;
 };
 
@@ -106,7 +114,12 @@ export async function loadAccountSettings(notificationPage = 0): Promise<Account
     listSessions(),
     loadAccountDeletionStatus(),
   ]);
-  return { bankAccounts, notifications, preferences, sessions, accountDeletion };
+  // Deneme listeden sonra: hangi oturumun sorulacağı listeden çıkıyor. Bu
+  // isteğin kendi oturumu yeni sunucuda 404 dönemez, yani cevap sunucuyu
+  // söyler. Liste boşsa bağlanacak satır da yok, tur atılmaz.
+  const probe = sessions.find((session) => session.current) ?? sessions[0];
+  const sessionDetailAvailable = probe ? await isSessionDetailAvailable(probe.id) : false;
+  return { bankAccounts, notifications, preferences, sessions, sessionDetailAvailable, accountDeletion };
 }
 
 export async function listBankAccounts(): Promise<readonly BankAccount[]> {
