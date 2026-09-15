@@ -23,6 +23,7 @@ import {
   createAssignmentDisputeWithEvidence,
   createAssignmentReview,
   readWorkDetail,
+  selectSeat,
   uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/work-detail";
 import { failureView } from "@/server/form";
@@ -134,6 +135,12 @@ async function execute(
         command.comment,
       );
       return null;
+    case "seat":
+      // Yanıt güncel ulaşım görünümünü zaten taşıyor ama ekran tamamı
+      // (`readWorkDetail`) ile tazeleniyor: öbür komutlarla aynı yol ve
+      // koltuk düşmesi gibi eşzamanlı değişiklikler de görünsün.
+      await selectSeat(assignmentId, { shuttleId: command.shuttleId, stopId: command.stopId });
+      return null;
   }
 }
 
@@ -184,6 +191,14 @@ function validateCommand(value: unknown): WorkDetailCommand | null {
     if (typeof value.disputeId !== "string" || !isUuid(value.disputeId)) return null;
     const evidence = validateDisputeEvidenceFiles(value.evidence, true);
     return evidence === null ? null : { type: "evidence", disputeId: value.disputeId, evidence };
+  }
+
+  if (value.type === "seat") {
+    // İki kimlik de tarayıcıdan geliyor; UUID olmayan değer backend'e hiç
+    // sorulmuyor. Servisin bu ilana ait olup olmadığını backend söylüyor (404).
+    if (typeof value.shuttleId !== "string" || !isUuid(value.shuttleId)) return null;
+    if (typeof value.stopId !== "string" || !isUuid(value.stopId)) return null;
+    return { type: "seat", shuttleId: value.shuttleId, stopId: value.stopId };
   }
 
   if (value.type === "review") {

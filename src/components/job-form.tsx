@@ -16,6 +16,7 @@ import {
   TextareaField,
 } from "@/components/form-controls";
 import { EmptyState, ErrorState, FormAlert, LoadingState } from "@/components/states";
+import { TransportPlanFields } from "@/components/transport/transport-plan-fields";
 import { idleFormState, type FormAction, type FormState } from "@/lib/form-state";
 import type { GateId } from "@/lib/gates";
 import {
@@ -27,12 +28,22 @@ import {
   insuranceLocked,
   moneyPattern,
   serializeDraft,
+  transportFieldErrorsOf,
+  transportFieldPrefix,
   unmatchedFieldMessages,
+  withTransportFieldPrefix,
   type JobDraft,
   type JobCategory,
   type PriceQuoteResult,
 } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
+import {
+  emptyTransportPlanDraft,
+  isEmptyTransportPlan,
+  transportAddressField,
+  transportPlanErrors,
+  type TransportPlanDraft,
+} from "@/transport/plan-form";
 
 /**
  * İlan açma formu — bireysel ve şirket.
@@ -115,6 +126,7 @@ const steps = [
   "Tarih ve ücret",
   "Koşullar",
   "Adres",
+  "Ulaşım",
   "Fiyat ve yayımla",
 ] as const;
 
@@ -185,6 +197,9 @@ export function JobForm({
   const [edited, setEdited] = useState<JobDraft | null>(null);
   const [step, setStep] = useState<StepName>("Kategori");
   const [priceQuote, setPriceQuote] = useState<QuoteState>({ status: "idle" });
+  // Ulaşım planı ilanın taslağına girmiyor ve tarayıcıda saklanmıyor: durak
+  // adresleri tek kullanımlık aday kanıtı taşıyor ve on dakikada ölüyor.
+  const [transport, setTransport] = useState<TransportPlanDraft>(emptyTransportPlanDraft);
   const formId = useId();
 
   // `localStorage` sunucuda yok: hidratlanmadan önce okunursa sunucunun
@@ -209,6 +224,16 @@ export function JobForm({
   const submit = async (previous: FormState, formData: FormData): Promise<FormState> => {
     const errors = jobErrors(draft, catalog);
     if (!formData.get("address")) errors.address = "Adresi onaylaman gerekiyor.";
+    // Boş plan gönderilmiyor (sunucu da yazmıyor); dolu planın kuralları
+    // ilanınkilerle aynı turda okunuyor ki eksik, yayımdan önce görünsün.
+    if (!isEmptyTransportPlan(transport)) {
+      Object.assign(
+        errors,
+        withTransportFieldPrefix(
+          transportPlanErrors(transport, (key) => Boolean(formData.get(transportAddressField(key)))),
+        ),
+      );
+    }
 
     if (Object.keys(errors).length > 0) {
       setStep(firstStepWithError(errors));
@@ -503,6 +528,20 @@ export function JobForm({
         />
       </StepPanel>
 
+      <StepPanel name="Ulaşım" current={step}>
+        <p className="field-hint">
+          İsteğe bağlı. Servis, yol parası ya da kendi imkânı; boş bırakırsan ilanda ulaşım
+          bölümü görünmez. Planı yayımdan sonra ilan sayfasından da düzenleyebilirsin.
+        </p>
+        <TransportPlanFields
+          draft={transport}
+          onChange={setTransport}
+          fieldErrors={transportFieldErrorsOf(fieldErrors)}
+          addressGateway={addressGateway}
+          addressDebounceMs={addressDebounceMs}
+        />
+      </StepPanel>
+
       <StepPanel name="Fiyat ve yayımla" current={step}>
         <PriceSummary quote={priceQuote} onAsk={askForPrice} />
       </StepPanel>
@@ -792,9 +831,13 @@ function UnmatchedMessages({ fieldErrors }: { fieldErrors: Readonly<Record<strin
 
 function firstStepWithError(errors: Readonly<Record<string, string>>): StepName {
   const found = steps.find((name) =>
-    Object.keys(errors).some((field) => fieldSteps[field] === name),
+    Object.keys(errors).some((field) => stepOfField(field) === name),
   );
   return found ?? "Kategori";
+}
+
+function stepOfField(field: string): StepName | undefined {
+  return field.startsWith(transportFieldPrefix) ? "Ulaşım" : fieldSteps[field];
 }
 
 /** Hidrasyon dışında değişen bir şey yok; abone olunacak bir kaynak da yok. */

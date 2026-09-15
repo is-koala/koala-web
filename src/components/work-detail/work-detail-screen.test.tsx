@@ -65,6 +65,7 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
       checkOutAt: "2026-09-11T10:30:00Z",
       minutes: 90,
     }],
+    transport: null,
     resolution: {
       cancellationPreview: {
         noticeMinutes: 120,

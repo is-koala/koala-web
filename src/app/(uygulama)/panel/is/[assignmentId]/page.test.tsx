@@ -59,6 +59,7 @@ const detail = {
   fullAddress: null,
   sessions: [],
   resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
+  transport: null,
 } satisfies WorkDetail;
 
 describe("iş ayrıntısı sayfası", () => {

@@ -19,6 +19,14 @@ const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 const jobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 
+// Ulaşım görünümü kendi modülünde ölçülüyor (`server/transport/transport.test.ts`);
+// burada sıralı `fetch` taklidini bozmasın diye `null` (plan yok / eski sunucu).
+const readAssignmentTransport = vi.hoisted(() => vi.fn(async () => null));
+vi.mock("@/server/transport/transport", () => ({
+  readAssignmentTransport,
+  selectSeat: vi.fn(),
+}));
+
 vi.mock("next/headers", async () => {
   const support = await import("../../../tests/support/session-cookies");
   return {
@@ -211,7 +219,9 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         cancellation: null,
         disputes: [],
       },
+      transport: null,
     });
+    expect(readAssignmentTransport).toHaveBeenCalledWith(assignmentId);
 
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       "https://api.example.test/users/me/assignments?asEmployer=false&page=0&size=100",

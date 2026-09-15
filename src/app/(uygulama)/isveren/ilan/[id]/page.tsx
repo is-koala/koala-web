@@ -5,17 +5,25 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { EmployerJobFacts, JobDetailBody } from "@/components/job-detail";
 import { JobLifecycleActions } from "@/components/job-lifecycle-actions";
 import { ErrorState } from "@/components/states";
+import { TransportPlanEditor } from "@/components/transport/transport-plan-editor";
 import { PageHeader, PagePanel, StatusBadge, jobStatusTone } from "@/components/ui";
 import { jobStatusLabel } from "@/jobs/lifecycle";
-import { jobApplicantsPath, jobGalleryPath } from "@/lib/app-routes";
+import {
+  jobApplicantsPath,
+  jobGalleryPath,
+  transportPlanFailedParam,
+  transportPlanFailedValue,
+} from "@/lib/app-routes";
 import { isUuid } from "@/lib/identifiers";
 import { ApiError } from "@/server/api/errors";
 import { notFoundStatus } from "@/server/contract";
 import { failureView } from "@/server/form";
 import { fetchJobDetail, type EmployerJobDetail } from "@/server/jobs/jobs";
 import { enterShell } from "@/server/session/viewer";
+import { readTransportPlan } from "@/server/transport/transport";
+import type { TransportPlan } from "@/transport/contract";
 
-import { jobLifecycleAction } from "./actions";
+import { jobLifecycleAction, writeTransportPlanAction } from "./actions";
 
 export const metadata: Metadata = {
   title: "İlanım",
@@ -38,7 +46,13 @@ export const metadata: Metadata = {
  * Burada `loading.tsx` yok: bu sayfa `notFound()` çağırıyor ve bir Suspense
  * sınırı HTTP durumunu 200'de kilitlerdi (`AGENTS.md`).
  */
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { viewer } = await enterShell();
   if (viewer === null) return null;
 
@@ -48,8 +62,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!isUuid(id)) notFound();
 
   let job: EmployerJobDetail;
+  let transportPlan: TransportPlan | null;
   try {
-    job = await fetchJobDetail(id);
+    // Plan ilanla birlikte okunuyor; planı olmayan ilanda ve eski sunucuda
+    // `null` ve düzenleyici boş açılıyor (is-koala/koala-web#187).
+    [job, transportPlan] = await Promise.all([fetchJobDetail(id), readTransportPlan(id)]);
   } catch (error) {
     unstable_rethrow(error);
     // Backend yetkisiz kullanıcıya da 404 veriyor; ilanın varlığı sızmasın
@@ -102,6 +119,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         yukarıda UUID olarak doğrulandı ve action aynı doğrulamayı tekrar
         yapıyor.
       */}
+      <TransportPlanEditor
+        plan={transportPlan}
+        action={writeTransportPlanAction.bind(null, id)}
+        publishNotice={
+          (await searchParams)?.[transportPlanFailedParam] === transportPlanFailedValue
+            ? "İlan yayımlandı ama ulaşım planı kaydedilemedi. Planı gözden geçirip yeniden kaydet."
+            : null
+        }
+      />
+
       <JobLifecycleActions status={job.status} action={jobLifecycleAction.bind(null, id)} />
     </PagePanel>
   );

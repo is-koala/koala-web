@@ -6,6 +6,7 @@ import type {
 import type { LocationCapture } from "@/assignments/geolocation";
 import { canOpenAssignmentDispute } from "@/assignments/resolution";
 import { errorPresentation } from "@/lib/errors";
+import { transportErrors } from "@/transport/errors";
 
 export function openSession(detail: WorkDetail): WorkSession | null {
   return detail.sessions.find((session) => session.checkOutAt === null) ?? null;
@@ -60,6 +61,9 @@ export function formatElapsed(checkInAt: string, now: number): string {
 }
 
 export function timesheetErrorMessage(errorCode: string, status: number): string {
+  // Koltuk seçimi aynı komut kanalından geçiyor; cümleleri kendi
+  // kataloğunda (`transportErrors`), kabuk kataloğuna birleştirilmedi.
+  if (Object.hasOwn(transportErrors, errorCode)) return transportErrors[errorCode].message;
   if (errorCode === "TIMESHEET_ALREADY_CHECKED_IN") {
     return "Zaten açık bir çalışma oturumu var. Güncel durum gösteriliyor.";
   }

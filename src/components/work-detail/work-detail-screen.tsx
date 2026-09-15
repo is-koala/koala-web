@@ -23,6 +23,7 @@ import { WorkSecondaryActions } from "./work-secondary-actions";
 import { WorkSessions } from "./work-sessions";
 import { WorkSummary } from "./work-summary";
 import { WorkTimeline } from "./work-timeline";
+import { WorkTransport } from "./work-transport";
 
 export function WorkDetailScreen({
   initialDetail,
@@ -123,6 +124,7 @@ export function WorkDetailScreen({
         />
         <WorkTimeline detail={detail} />
       </div>
+      <WorkTransport detail={detail} pending={isPending} onCommand={run} />
       <AssignmentMessaging
         availability={detail.assignment.messaging}
         party="worker"

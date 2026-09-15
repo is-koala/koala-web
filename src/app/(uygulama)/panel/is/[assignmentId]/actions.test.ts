@@ -14,6 +14,7 @@ const createAssignmentDispute = vi.hoisted(() => vi.fn());
 const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
 const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const createAssignmentReview = vi.hoisted(() => vi.fn());
+const selectSeat = vi.hoisted(() => vi.fn());
 const openWorkerConversation = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/session/guard", () => ({ requireSessionForCurrentPath }));
@@ -26,6 +27,7 @@ vi.mock("@/server/assignments/work-detail", () => ({
   createAssignmentDisputeWithEvidence,
   uploadAssignmentDisputeEvidence,
   createAssignmentReview,
+  selectSeat,
 }));
 
 const detail = {
@@ -67,6 +69,7 @@ const detail = {
   fullAddress: "Moda Caddesi No: 12",
   sessions: [],
   resolution: { cancellationPreview: null, cancellation: null, disputes: [] },
+  transport: null,
 } satisfies WorkDetail;
 
 describe("iş ayrıntısı action sözleşmesi", () => {
@@ -259,6 +262,8 @@ describe("iş ayrıntısı action sözleşmesi", () => {
       [assignmentId, { type: "cancel", reason: " " }],
       [assignmentId, { type: "dispute", reason: "x".repeat(2001) }],
       [assignmentId, { type: "review", rating: 6, comment: "" }],
+      [assignmentId, { type: "seat", shuttleId: "../x", stopId: "cccccccc-cccc-4ccc-8ccc-000000000011" }],
+      [assignmentId, { type: "seat", shuttleId: "cccccccc-cccc-4ccc-8ccc-000000000001", stopId: 7 as unknown as string }],
     ] as const;
 
     for (const [id, command] of submissions) {
@@ -272,6 +277,39 @@ describe("iş ayrıntısı action sözleşmesi", () => {
     expect(readWorkDetail).not.toHaveBeenCalled();
     expect(checkpoint).not.toHaveBeenCalled();
     expect(cancelAssignment).not.toHaveBeenCalled();
+    expect(selectSeat).not.toHaveBeenCalled();
+  });
+
+  it("koltuk seçimini servis ve durak kimliğiyle gönderir, ekranı sunucu gerçeğiyle tazeler (200)", async () => {
+    const seat = { shuttleId: "cccccccc-cccc-4ccc-8ccc-000000000001", stopId: "cccccccc-cccc-4ccc-8ccc-000000000011" };
+
+    await expect(workDetailAction(assignmentId, { type: "seat", ...seat })).resolves.toEqual({
+      status: "done",
+      detail,
+    });
+
+    expect(selectSeat).toHaveBeenCalledWith(assignmentId, seat);
+    expect(readWorkDetail).toHaveBeenCalledWith(assignmentId);
+  });
+
+  it("dolu serviste 409'u kodla bırakır ve güncel doluluğu yeniden okur", async () => {
+    selectSeat.mockRejectedValueOnce(
+      new ApiError({
+        status: 409,
+        errorCode: "TRANSPORT_SHUTTLE_FULL",
+        errorCategory: "DATA_CONFLICT",
+        message: "ham backend mesajı",
+      }),
+    );
+
+    const result = await workDetailAction(assignmentId, {
+      type: "seat",
+      shuttleId: "cccccccc-cccc-4ccc-8ccc-000000000001",
+      stopId: "cccccccc-cccc-4ccc-8ccc-000000000011",
+    });
+
+    expect(result).toEqual({ status: "error", errorCode: "TRANSPORT_SHUTTLE_FULL", httpStatus: 409, detail });
+    expect(JSON.stringify(result)).not.toContain("ham backend mesajı");
   });
 });
 

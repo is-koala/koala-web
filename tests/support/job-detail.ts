@@ -51,6 +51,7 @@ export function jobDetailFixture(overrides: Partial<JobDetail> = {}): JobDetail 
     addressPrecision: "APPROXIMATE",
     status: "OPEN",
     acceptingApplications: true,
+    transport: null,
     ...overrides,
   };
 }

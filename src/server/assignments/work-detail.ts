@@ -25,6 +25,7 @@ import {
 } from "@/server/assignments/backend-contract";
 import { readWorkerAssignmentResolution } from "@/server/assignments/resolution";
 import { clean, employerTypes, known, openings } from "@/server/api/dto";
+import { readAssignmentTransport } from "@/server/transport/transport";
 
 export {
   cancelAssignment,
@@ -33,6 +34,7 @@ export {
   uploadAssignmentDisputeEvidence,
 } from "@/server/assignments/resolution";
 export { createAssignmentReview } from "@/server/assignments/reviews";
+export { selectSeat } from "@/server/transport/transport";
 
 /**
  * `JobDetailDto`'nun bu ekranda okunan parçası.
@@ -87,7 +89,7 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
   const assignment = await findOwnedAssignment(assignmentId);
   if (!assignment) return null;
 
-  const [job, sessionDtos, paymentSecuredAt, resolution] = await Promise.all([
+  const [job, sessionDtos, paymentSecuredAt, resolution, transport] = await Promise.all([
     apiRequest<JobDetailDto>(`/jobs/${assignment.job.id}`, { cache: "no-store" }),
     apiRequest<readonly WorkSessionDto[]>(
       `${backendPaths.jobAssignments}/${assignmentId}/work-sessions`,
@@ -95,6 +97,7 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
     ),
     readPaymentSecuredAt(assignment),
     readWorkerAssignmentResolution(assignmentId, assignment.status),
+    readAssignmentTransport(assignmentId),
   ]);
 
   const exact = job.addressPrecision === "EXACT";
@@ -126,6 +129,7 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
     createdAt: clean(job.createdAt),
     sessions: sessionDtos.map(toWorkSession),
     resolution,
+    transport,
   };
 }
 

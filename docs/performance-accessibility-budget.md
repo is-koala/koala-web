@@ -78,6 +78,14 @@ ile gelir, `errors.ts`'ten değil.
 ölçümle bayt bayt aynı. Yeni cümleler `src/assignments/errors.ts`'te (`identityRevealErrors`) ama
 `errors.ts`'e birleştirilmedi: bileşen onları doğrudan okuyor; `errors.ts`'e dokunulmadı.
 
+2026-09-15 (is-koala/koala-web#187, ulaşım planı T1: işveren düzenleyici, çalışan servis kartı,
+herkese açık özet) ölçümü: ana sayfa **237.749**, ilan listesi **239.640**, ilan ayrıntısı
+**241.149** bayt — üçü de bir önceki ölçümün bir bayt altında (chunk adı). İlan ayrıntısına
+giren tek şey sunucu bileşeni `src/components/job-transport-summary.tsx` ve onun okuduğu
+`src/transport/contract.ts` (tip + saat biçimlendirici, `ErrorCatalog` yok); düzenleyici ve
+koltuk seçimi yalnız kabuk rotalarının istemci grafiğinde, cümleleri `src/transport/errors.ts`'te
+ve `errors.ts`'e birleştirilmedi.
+
 Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
 kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;
 Raspberry Pi koşucunun daha düşük `benchmarkIndex` değeri için CI tavanı 12 saniyedir. Her
