@@ -3,20 +3,6 @@
 import type { ChangeEvent, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
-import { ErrorState } from "@/components/states";
-import type { FormState } from "@/lib/form-state";
-
-/**
- * Formun üst bandındaki hata.
- *
- * Metin `errorPresentation` üzerinden `errorCode` ile seçilir; alan bazlı
- * mesajlar ayrıca kendi alanlarının altında görünür.
- */
-export function FormAlert({ state }: { state: FormState }) {
-  if (state.status !== "error") return null;
-  return <ErrorState errorCode={state.errorCode} status={state.httpStatus} />;
-}
-
 type FieldPresentation = {
   /** Aynı formdan birden çok örnek çizildiğinde etiket bağını benzersiz tutar. */
   id?: string;

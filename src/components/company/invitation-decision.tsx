@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { FormAlert } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { idleFormState, type FormAction } from "@/lib/form-state";
 
 /**

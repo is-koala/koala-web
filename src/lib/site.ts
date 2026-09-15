@@ -15,12 +15,7 @@ export const site = {
     "Günlük ve kısa süreli işler için işvereni ve iş arayanı buluşturan platform.",
 } as const;
 
-/**
- * Oturum gerektiren sayfalardan dönülecek giriş adresi. Sayfanın kendisi
- * #15 ile geliyor; oturum katmanı hedefi buradan okur ki iki yerde
- * ayrışmasın.
- */
-export const loginPath = "/giris";
+export { loginPath } from "./login-path";
 
 /**
  * Kayıt tamamlandıktan sonra kullanıcının bırakılacağı yer.

@@ -1,7 +1,8 @@
 import { useActionState } from "react";
 
 import type { SettingsAction } from "@/app/(uygulama)/hesap-actions";
-import { FormAlert, SubmitButton, TextField } from "@/components/form-controls";
+import { SubmitButton, TextField } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { fieldError } from "@/lib/form-state";
 import { minPasswordLength, passwordPattern, passwordRequirement } from "@/lib/password";
 

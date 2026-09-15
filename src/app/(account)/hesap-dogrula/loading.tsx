@@ -1,4 +1,4 @@
-import { LoadingState } from "@/components/states";
+import { LoadingState } from "@/components/placeholder-states";
 
 /**
  * Sayfa açılışta kayıt tokenını ve sözleşme listesini backend'e soruyor; iki

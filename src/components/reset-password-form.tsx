@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { DoneNotice, FormAlert, SubmitButton, TextField } from "@/components/form-controls";
+import { DoneNotice, SubmitButton, TextField } from "@/components/form-controls";
+import { PublicFormAlert } from "@/components/public-states";
 import { resetPasswordContent } from "@/content/account";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 import { minPasswordLength, passwordPattern, passwordRequirement } from "@/lib/password";
@@ -28,7 +29,7 @@ export function ResetPasswordForm({
 
   return (
     <form className="form" action={submit}>
-      <FormAlert state={state} />
+      <PublicFormAlert state={state} />
 
       {/* Uyarı gönderimden önce görünür: sıfırlama bütün oturumları kapatıyor. */}
       <p className="form-warning" role="note">{resetPasswordContent.sessionWarning}</p>

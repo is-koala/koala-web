@@ -4,7 +4,7 @@ import Link from "next/link";
 import { InvalidLinkCard } from "@/components/invalid-link-card";
 import { OpenInAppPanel } from "@/components/open-in-app-panel";
 import { SetPasswordForm } from "@/components/set-password-form";
-import { ErrorState } from "@/components/states";
+import { PublicErrorState } from "@/components/public-states";
 import { secureLinkEyebrow, setPasswordContent, trustMessage } from "@/content/account";
 import { readUuidToken } from "@/handoff/token";
 import type { Agreement } from "@/lib/consents";
@@ -85,7 +85,7 @@ function RejectedCard({ errorCode, status }: { errorCode: string; status: number
       <h1>{setPasswordContent.rejectedTitle}</h1>
       {/* Metin `errorCode` ile seçilir: süresi dolmuş bağlantı için hazır
           Türkçe karşılık `src/lib/errors.ts` içinde duruyor. */}
-      <ErrorState errorCode={errorCode} status={status} />
+      <PublicErrorState errorCode={errorCode} status={status} />
       <p>{setPasswordContent.rejectedBody}</p>
       <Link className="button button-primary" href="/kayit">Yeni bağlantı iste</Link>
       <p className="trust-note">{trustMessage}</p>

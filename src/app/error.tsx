@@ -3,7 +3,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import { MainContent } from "@/components/main-content";
-import { ErrorState } from "@/components/states";
+import { ErrorCard } from "@/components/error-card";
+import { unexpectedErrorPresentation } from "@/lib/error-presentation";
 
 type ErrorPageProps = {
   error: Error & { digest?: string };
@@ -18,7 +19,7 @@ export default function ErrorPage({ error, retry }: ErrorPageProps) {
   return (
     <MainContent className="account-shell">
       <section className="account-card">
-        <ErrorState status={500} onRetry={retry} />
+        <ErrorCard presentation={unexpectedErrorPresentation} onRetry={retry} />
       </section>
     </MainContent>
   );

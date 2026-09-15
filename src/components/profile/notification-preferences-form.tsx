@@ -6,9 +6,9 @@ import { updateNotificationPreferencesAction } from "@/app/(uygulama)/panel/prof
 import {
   DoneNotice,
   FieldError,
-  FormAlert,
   SubmitButton,
 } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { fieldError, idleFormState } from "@/lib/form-state";
 import {
   notificationCategoryLabels,

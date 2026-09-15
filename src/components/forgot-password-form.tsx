@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { DoneNotice, FormAlert, SubmitButton, TextField } from "@/components/form-controls";
+import { DoneNotice, SubmitButton, TextField } from "@/components/form-controls";
+import { PublicFormAlert } from "@/components/public-states";
 import { forgotPasswordContent } from "@/content/account";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 
@@ -20,7 +21,7 @@ export function ForgotPasswordForm({ action }: { action: FormAction }) {
 
   return (
     <form className="form" action={submit}>
-      <FormAlert state={state} />
+      <PublicFormAlert state={state} />
       <TextField
         name="email"
         label="E-posta"

@@ -2,7 +2,7 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
-import { gateNotice } from "@/lib/errors";
+import { gateNotice } from "@/lib/gate-notices";
 import type { FormState } from "@/lib/form-state";
 import type { GateId } from "@/lib/gates";
 import { emptyJobDraft, type JobCategory, type JobDraft } from "@/lib/job-posting";

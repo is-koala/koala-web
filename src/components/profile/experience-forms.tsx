@@ -9,13 +9,13 @@ import {
 } from "@/app/(uygulama)/panel/profil/experience-actions";
 import {
   DoneNotice,
-  FormAlert,
   InputField,
   SelectField,
   SubmitButton,
   TextareaField,
   TextField,
 } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { ProfileDeleteForm } from "@/components/profile/delete-form";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 import { employmentTypeOptions, type Experience } from "@/lib/profile";
