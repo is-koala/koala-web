@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 
-import { assignmentNotFoundMessage } from "@/assignments/contract";
 import {
   canCancelAssignment,
   canOpenAssignmentDispute,
@@ -11,7 +10,7 @@ import {
   type ResolutionActionState,
 } from "@/assignments/resolution";
 import { formatNotice, formatRate } from "@/components/work-detail/presenters";
-import { errorPresentation } from "@/lib/errors";
+import { assignmentErrorMessage } from "@/components/assignment-error-message";
 import { formatMoney } from "@/lib/money";
 
 import { DisputeEvidenceFields } from "./dispute-evidence-fields";
@@ -214,9 +213,11 @@ const cancellationClosedReason =
   "Sunucu bu atamayı şu anda iptal edilebilir saymıyor: iptal edilmiş ya da durumu bu sırada değişmiş olabilir. Sayfayı yenileyip güncel durumu gör.";
 
 function resolutionErrorMessage(errorCode: string, httpStatus: number): string {
-  if (errorCode === "VALIDATION_FAILED") return "Geçerli bir gerekçe yazın.";
-  if (errorCode === "CANCELLATION_ALREADY_CANCELLED") return "Bu atama zaten iptal edildi.";
-  if (errorCode === "DISPUTE_ALREADY_OPEN") return "Bu atamada zaten açık bir uyuşmazlık var.";
-  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND") return assignmentNotFoundMessage;
-  return errorPresentation(errorCode, httpStatus).message;
+  return assignmentErrorMessage(errorCode, httpStatus, resolutionSentences);
 }
+
+const resolutionSentences: Readonly<Record<string, string>> = {
+  VALIDATION_FAILED: "Geçerli bir gerekçe yazın.",
+  CANCELLATION_ALREADY_CANCELLED: "Bu atama zaten iptal edildi.",
+  DISPUTE_ALREADY_OPEN: "Bu atamada zaten açık bir uyuşmazlık var.",
+};

@@ -9,6 +9,7 @@ const createAssignmentDisputeWithEvidence = vi.hoisted(() => vi.fn());
 const uploadAssignmentDisputeEvidence = vi.hoisted(() => vi.fn());
 const completeAssignment = vi.hoisted(() => vi.fn());
 const createAssignmentReview = vi.hoisted(() => vi.fn());
+const readWorkerIdentity = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 const openApplicantConversation = vi.hoisted(() => vi.fn());
 const redirect = vi.hoisted(() =>
@@ -25,6 +26,7 @@ vi.mock("@/server/assignments/resolution", () => ({
   uploadAssignmentDisputeEvidence,
 }));
 vi.mock("@/server/assignments/employer-tracking", () => ({ completeAssignment }));
+vi.mock("@/server/assignments/identity-reveal", () => ({ readWorkerIdentity }));
 vi.mock("@/server/assignments/reviews", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/assignments/reviews")>()),
   createAssignmentReview,
@@ -38,6 +40,7 @@ import {
   employerConversationAction,
   employerResolutionAction,
   employerReviewAction,
+  revealWorkerIdentityAction,
 } from "./actions";
 
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
@@ -305,5 +308,67 @@ describe("işçiyi değerlendirme action'ı", () => {
 
     await expect(employerReviewAction(assignmentId, { status: "idle" }, reviewForm("3", "Geç kaldı")))
       .resolves.toEqual({ status: "error", errorCode: "REVIEW_WORK_NOT_COMPLETED", httpStatus: 409 });
+  });
+});
+
+describe("işçi kimliğini görüntüleme action'ı", () => {
+  const identity = {
+    fullName: "Çağrı Yılmaz",
+    tcIdentityNumber: "10000000146",
+    birthDate: "1990-05-17",
+    verifiedAt: "2026-09-01T10:15:30Z",
+    verificationMethod: "DOCUMENT" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireSessionForCurrentPath.mockResolvedValue({});
+  });
+
+  it("oturumu kapıdan geçirip kimliği okur ve olduğu gibi durumda taşır; sayfayı yenilemez", async () => {
+    readWorkerIdentity.mockResolvedValueOnce(identity);
+
+    await expect(revealWorkerIdentityAction(assignmentId, { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "done", identity });
+    expect(requireSessionForCurrentPath).toHaveBeenCalledOnce();
+    expect(readWorkerIdentity).toHaveBeenCalledWith(assignmentId);
+    // Sayfada değişen bir şey yok; yeniden çizim ikinci bir okuma değil ama
+    // gereksiz bir tur olurdu.
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("bozuk kimlikte backend'e çıkmaz", async () => {
+    await expect(revealWorkerIdentityAction("42", { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode: "VALIDATION_FAILED", httpStatus: 400 });
+    expect(readWorkerIdentity).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [409, "WORKER_IDENTITY_NOT_VERIFIED"],
+    [429, "IDENTITY_REVEAL_TOO_MANY_REQUESTS"],
+  ])("%i reddini hata koduyla geri verir, sayfayı yenilemez", async (status, errorCode) => {
+    readWorkerIdentity.mockRejectedValueOnce(new ApiError({
+      status,
+      errorCode,
+      errorCategory: status === 409 ? "CONFLICT" : "RATE_LIMITED",
+      message: "",
+    }));
+
+    await expect(revealWorkerIdentityAction(assignmentId, { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode, httpStatus: status });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("404'te atama durumu değişmiş olabileceği için sayfayı yeniler", async () => {
+    readWorkerIdentity.mockRejectedValueOnce(new ApiError({
+      status: 404,
+      errorCode: "JOB_ASSIGNMENT_NOT_FOUND",
+      errorCategory: "RESOURCE_NOT_FOUND",
+      message: "",
+    }));
+
+    await expect(revealWorkerIdentityAction(assignmentId, { status: "idle" }, new FormData()))
+      .resolves.toEqual({ status: "error", errorCode: "JOB_ASSIGNMENT_NOT_FOUND", httpStatus: 404 });
+    expect(revalidatePath).toHaveBeenCalledWith(`/isveren/atama/${assignmentId}`);
   });
 });

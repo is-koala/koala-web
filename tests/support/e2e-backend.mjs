@@ -16,6 +16,10 @@ const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
 const jobCreatorId = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
 const assignmentPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/(payments|disputes|work-sessions|cancellation-preview)$/;
 const reviewPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/reviews$/;
+const workerIdentityPathPattern = /^\/job-assignments\/([0-9a-f-]{36})\/worker-identity$/;
+// Backend `rate-limit.identity-reveal.max-attempts` üretimde saatte 30; sahte
+// üçte kesiyor ki 429 yolu tek senaryoda görülsün.
+const identityRevealHourlyLimit = 3;
 // Şirket adresi düzenleme (is-koala/koala-web#172). Üyelik yalnız
 // `?companyRole=` ile sıfırlanan durumda verilir: öbür senaryolar şirketsiz
 // kullanıcıyı varsayıyor ve `/isveren/sirket` onlarda "şirket yok" ekranı.
@@ -47,6 +51,10 @@ const server = createServer(async (request, response) => {
       applications: [],
       applicationRequests: [],
       reviews: [],
+      identityReveals: [],
+      // `?workerIdentity=unverified`: fikstür işçisi kimliğini doğrulamamış
+      // sayılır ve okuma 409 `WORKER_IDENTITY_NOT_VERIFIED` döner.
+      workerIdentityVerified: url.searchParams.get("workerIdentity") !== "unverified",
       companyRole: url.searchParams.get("companyRole"),
       companyAddress: initialCompanyAddress(),
       companyRequests: [],
@@ -63,6 +71,12 @@ const server = createServer(async (request, response) => {
     const state = stateFrom(url);
     return state
       ? json(response, 200, state.reviews)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/identity-reveals") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.identityReveals)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
   if (request.method === "GET" && url.pathname === "/__test__/company-requests") {
@@ -430,6 +444,33 @@ const server = createServer(async (request, response) => {
       httpStatus: "CREATED",
       timeStamp: "2026-09-09T12:00:00Z",
       data: review,
+    });
+  }
+  /*
+   * İşçi kimliği (is-koala/koala-web#185, backend 0.9.27). Backend
+   * `IdentityRevealManager` gibi: yalnız işe alınmış atama (başkası 404 —
+   * var/yok sızdırmıyor), doğrulanmamış işçide 409, saatlik sınırda 429; her
+   * başarılı okuma kayda geçer.
+   */
+  const workerIdentityMatch = workerIdentityPathPattern.exec(url.pathname);
+  if (request.method === "GET" && workerIdentityMatch) {
+    const assignment = assignments().find((row) => row.id === workerIdentityMatch[1]);
+    if (!assignment || !["CONFIRMED", "IN_PROGRESS", "COMPLETED"].includes(assignment.status)) {
+      return backendError(response, 404, "JOB_ASSIGNMENT_NOT_FOUND", "RESOURCE_NOT_FOUND");
+    }
+    if (!state.workerIdentityVerified) {
+      return backendError(response, 409, "WORKER_IDENTITY_NOT_VERIFIED", "DATA_CONFLICT");
+    }
+    if (state.identityReveals.length >= identityRevealHourlyLimit) {
+      return backendError(response, 429, "IDENTITY_REVEAL_TOO_MANY_REQUESTS", "RATE_LIMITED");
+    }
+    state.identityReveals.push({ assignmentId: assignment.id, workerId: assignment.worker.id });
+    return backendSuccess(response, {
+      fullName: "Ayşe Yılmaz",
+      tcIdentityNumber: "10000000146",
+      birthDate: "1990-05-17",
+      verifiedAt: "2026-09-01T10:15:30Z",
+      verificationMethod: "DOCUMENT",
     });
   }
   const assignmentMatch = assignmentPathPattern.exec(url.pathname);

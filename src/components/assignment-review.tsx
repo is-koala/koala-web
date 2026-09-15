@@ -14,7 +14,7 @@ import {
 } from "@/assignments/review";
 import { ReviewSummary } from "@/components/review-summary";
 import { StatusBadge } from "@/components/ui";
-import { errorPresentation } from "@/lib/errors";
+import { assignmentErrorMessage } from "@/components/assignment-error-message";
 
 /**
  * İşverenin tamamlanan atamada işçiyi değerlendirdiği bölüm.
@@ -169,14 +169,13 @@ export function AssignmentReviewSection({
  * öbür eylemlerle aynı. Öbürleri kataloğa düşer.
  */
 function reviewErrorMessage(errorCode: string, httpStatus: number): string {
-  if (errorCode === "REVIEW_WORK_NOT_COMPLETED") {
-    return "Atama tamamlanmadan değerlendirme yapılamaz. Atamanın durumu siz bakarken değişmiş olabilir; sayfayı yenileyip güncel durumu görün.";
-  }
-  if (errorCode === "REVIEW_RATING_RANGE" || errorCode === "VALIDATION_FAILED") {
-    return `Puan 1 ile 5 arasında olmalı; yorum en fazla ${reviewCommentMaxLength} karakter.`;
-  }
-  if (errorCode === "JOB_ASSIGNMENT_NOT_FOUND" || errorCode === "REVIEW_ASSIGNMENT_NOT_FOUND") {
-    return assignmentNotFoundMessage;
-  }
-  return errorPresentation(errorCode, httpStatus).message;
+  return assignmentErrorMessage(errorCode, httpStatus, reviewSentences);
 }
+
+const reviewSentences: Readonly<Record<string, string>> = {
+  REVIEW_WORK_NOT_COMPLETED:
+    "Atama tamamlanmadan değerlendirme yapılamaz. Atamanın durumu siz bakarken değişmiş olabilir; sayfayı yenileyip güncel durumu görün.",
+  REVIEW_RATING_RANGE: `Puan 1 ile 5 arasında olmalı; yorum en fazla ${reviewCommentMaxLength} karakter.`,
+  VALIDATION_FAILED: `Puan 1 ile 5 arasında olmalı; yorum en fazla ${reviewCommentMaxLength} karakter.`,
+  REVIEW_ASSIGNMENT_NOT_FOUND: assignmentNotFoundMessage,
+};

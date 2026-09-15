@@ -1026,6 +1026,15 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .assignment-detail-facts > div, .checkout-prerequisites, .checkout-breakdown, .assignment-pricing { padding: 18px 20px; border-radius: var(--r-secondary); background: var(--surface-sunken); }
 .assignment-detail-facts dt, .payment-breakdown dt, .payment-attempt-facts dt { color: var(--text-subtle); font-size: var(--size-12); font-weight: var(--w-medium); letter-spacing: .06em; text-transform: uppercase; }
 .assignment-detail-facts dd, .payment-breakdown dd, .payment-attempt-facts dd { margin: 4px 0 0; font-weight: var(--w-semibold); overflow-wrap: anywhere; }
+/* İşçi kimliği bölümü (#185): dört alan, TCKN satırında kopyalama düğmesi; maskeli hâl solgun. */
+.worker-identity { display: flex; flex-direction: column; gap: 16px; }
+.worker-identity > h2 { margin-bottom: 0; }
+.worker-identity > .muted { margin: 0; max-width: 760px; }
+.worker-identity-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.worker-identity-facts[data-masked="true"] dd { color: var(--text-subtle); letter-spacing: .08em; }
+.worker-identity-number { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-variant-numeric: tabular-nums; }
+.worker-identity-masked-note { margin: 0; }
+.worker-identity-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .assignment-pricing h2, .checkout-prerequisites h2, .checkout-breakdown h2 { margin-bottom: 16px; font-size: var(--size-20); }
 .checkout-prerequisites ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
 .checkout-prerequisites p { margin: 0; }
@@ -1082,5 +1091,5 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 @media (max-width: 520px) { .job-filters { padding: 18px; border-radius: 20px; } .job-card-facts { grid-template-columns: 1fr; } .job-pagination { gap: 8px; font-size: .85rem; } .job-detail { padding-top: 44px; } .job-detail-hero h1 { font-size: clamp(2.8rem, 14vw, 4rem); } .job-application-card { margin-inline: -8px; padding: 24px 20px; border-radius: 22px; } .job-application-form .button { width: 100%; } }
 @media (max-width: 860px) { .work-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .work-detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .work-detail-facts, .work-brief-grid, .cancellation-facts { grid-template-columns: 1fr; } .work-session-panel .section-heading-row { flex-direction: column; gap: 8px; } .work-session-history li { flex-direction: column; gap: 2px; } }
-@media (max-width: 720px) { .assignment-detail-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts, .employer-job-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }
+@media (max-width: 720px) { .assignment-detail-facts, .worker-identity-facts, .payment-summary-grid, .payment-breakdown, .payment-attempt-facts, .employer-job-facts { grid-template-columns: 1fr; } .payment-overview-card { grid-template-columns: 1fr; align-items: start; } .payment-breakdown .payment-breakdown-total { grid-column: auto; } }
 @media print { .site-header, .site-footer { display: none !important; } .legal-shell { width: 100%; padding: 0; } body { background: white; color: black; font-size: 11pt; } a { text-decoration: none; } }

@@ -19,6 +19,7 @@ const deviceId = "b7b1f0d24c2f4f6c8a9e5d3c1b0a7f6e";
 const openJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const paidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f62";
 const completedAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f63";
+const unpaidAssignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f61";
 const assignmentWorkerId = "6d2c0e58-2f0a-4b1e-9c3d-7a8b9c0d1e2f";
 
 test.beforeEach(async ({ context, request }, testInfo) => {
@@ -115,6 +116,90 @@ test("tamamlanan atamada işçi yıldızla değerlendirilir; yeniden açılan sa
   // İşveren fiyat dökümünü görmeye devam eder; işçi görünümünde bu bölüm yok.
   await expect(page.getByRole("heading", { name: "Atamanın fiyat özeti" })).toBeVisible();
   await expect(page.locator(".payment-breakdown")).toContainText("1.500,00 ₺");
+});
+
+/**
+ * İşçi kimliğini görüntüleme (is-koala/koala-web#185). Düğme yalnız işe
+ * alınmış atamada; onay diyaloğu olmadan istek yok; onay sonrası sahte
+ * backend'e `GET /job-assignments/{id}/worker-identity` düşer, alanlar
+ * maskesiz gelir ve okuma kayda geçer. Sayfa açılırken kayıt oluşmaz. 60 sn
+ * maskeleme bileşen testinde (`vi.useFakeTimers`); 409 ve 429 sahte
+ * backend'in iki kipiyle burada.
+ */
+test("işe alınmamış atamada kimlik bölümü yok", async ({ page }) => {
+  await page.goto(`/isveren/atama/${unpaidAssignmentId}`);
+  await expect(page.getByRole("heading", { name: "Etkinlik görevlisi" })).toBeVisible();
+  await expect(page.getByTestId("worker-identity")).toHaveCount(0);
+});
+
+test("onaylanan atamada kimlik onayla görüntülenir ve okuma kayda geçer", async ({ page, request }, testInfo) => {
+  await page.goto(`/isveren/atama/${paidAssignmentId}`);
+  const section = page.getByTestId("worker-identity");
+  await expect(section.getByRole("heading", { name: "Çalışanın kimlik bilgileri" })).toBeVisible();
+  await expect(page.locator('dl[aria-label="Kimlik bilgileri"]')).toHaveCount(0);
+
+  const revealsUrl = `${backendURL}/__test__/identity-reveals?key=${stateKeyFor(testInfo)}`;
+  expect(await (await request.get(revealsUrl)).json()).toEqual([]);
+
+  await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+  const dialog = page.getByRole("dialog", { name: "Kimlik bilgilerini görüntüle" });
+  await expect(dialog).toContainText("Görüntülemeniz kayda geçer ve çalışana bildirilir");
+  await dialog.getByRole("button", { name: "Vazgeç" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await (await request.get(revealsUrl)).json()).toEqual([]);
+
+  await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Görüntülemeyi onayla" }).click();
+
+  const facts = page.locator('dl[aria-label="Kimlik bilgileri"]');
+  await expect(facts).toContainText("Ayşe Yılmaz");
+  await expect(page.getByTestId("worker-identity-number")).toHaveText("10000000146");
+  await expect(facts).toContainText("17 Mayıs 1990");
+  await expect(facts).toContainText("Kimlik belgesi fotoğrafı · 1 Eyl 2026 13:15");
+  await expect(facts.getByRole("button", { name: "Kopyala" })).toBeVisible();
+  expect(await (await request.get(revealsUrl)).json()).toEqual([
+    { assignmentId: paidAssignmentId, workerId: assignmentWorkerId },
+  ]);
+});
+
+test("doğrulanmamış işçide 409 kendi cümlesiyle yazılır, alan çizilmez", async ({ page, request }, testInfo) => {
+  const reset = await request.post(
+    `${backendURL}/__test__/reset?key=${stateKeyFor(testInfo)}&workerIdentity=unverified`,
+  );
+  expect(reset.ok()).toBe(true);
+
+  await page.goto(`/isveren/atama/${paidAssignmentId}`);
+  const section = page.getByTestId("worker-identity");
+  await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Görüntülemeyi onayla" }).click();
+
+  await expect(section.getByRole("alert")).toContainText("çalışanın kimlik doğrulamasını tamamlaması gerekiyor");
+  await expect(page.locator('dl[aria-label="Kimlik bilgileri"]')).toHaveCount(0);
+  await expect(page.getByText("10000000146")).toHaveCount(0);
+});
+
+test("saatlik sınır dolunca 429 kendi cümlesiyle yazılır; önceki okumalar kayıtta kalır", async ({ page, request }, testInfo) => {
+  // Sahte backend üçüncü okumadan sonra 429 döndürüyor (`identityRevealHourlyLimit`).
+  await page.goto(`/isveren/atama/${paidAssignmentId}`);
+  const section = page.getByTestId("worker-identity");
+  const revealsUrl = `${backendURL}/__test__/identity-reveals?key=${stateKeyFor(testInfo)}`;
+
+  for (let round = 1; round <= 3; round += 1) {
+    await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Görüntülemeyi onayla" }).click();
+    // Diyalog yanıt gelene kadar açık; kapanması isteğin bittiği anlamına geliyor.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("worker-identity-number")).toHaveText("10000000146");
+    expect(await (await request.get(revealsUrl)).json()).toHaveLength(round);
+  }
+
+  await section.getByRole("button", { name: "Kimlik bilgilerini göster (sigorta için)" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Görüntülemeyi onayla" }).click();
+
+  await expect(section.getByRole("alert")).toContainText("Saatlik kimlik görüntüleme sınırına ulaştınız");
+  await expect(page.locator('dl[aria-label="Kimlik bilgileri"]')).toHaveCount(0);
+  await expect(page.getByText("10000000146")).toHaveCount(0);
+  expect(await (await request.get(revealsUrl)).json()).toHaveLength(3);
 });
 
 function stateKeyFor(testInfo: TestInfo): string {

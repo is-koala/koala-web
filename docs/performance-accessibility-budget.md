@@ -73,6 +73,11 @@ davranış olduğu için bölünmedi. İlan ayrıntısı 240.000 hedefinin 1.150
 düşüş `app-routes`/`site.ts` yaprakları (~1 KB) ya da aile haritasının tembel yüklenmesi (~2,3 KB)
 ile gelir, `errors.ts`'ten değil.
 
+2026-09-15 (is-koala/koala-web#185, işçi kimliğini görüntüleme bölümü) ölçümü: ana sayfa
+**237.750**, ilan listesi **239.641**, ilan ayrıntısı **241.150** bayt — üçü de bir önceki
+ölçümle bayt bayt aynı. Yeni cümleler `src/assignments/errors.ts`'te (`identityRevealErrors`) ama
+`errors.ts`'e birleştirilmedi: bileşen onları doğrudan okuyor; `errors.ts`'e dokunulmadı.
+
 Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
 kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;
 Raspberry Pi koşucunun daha düşük `benchmarkIndex` değeri için CI tavanı 12 saniyedir. Her
