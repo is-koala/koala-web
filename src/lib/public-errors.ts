@@ -102,10 +102,12 @@ export const publicErrors: ErrorCatalog = {
     action: "retry",
   },
   // Sıralama alanı beyaz listede değil (`PageableSanitizer.rejectUnknownSort`).
-  // Herkese açık ilan listesi de bu kodu görüyor (`?sort=`); listeler
-  // yalnız izin verilen alanları sunuyor, yani buraya ancak elle
-  // yazılmış bir adresle düşülür; aile metni kullanıcıya adres çubuğuna
-  // bakması gerektiğini söylemezdi.
+  // Herkese açık ilan listesi de bu kodu görüyor (`?sort=` veya konumsuz
+  // `sort=distance`); listeler yalnız izin verilen alanları sunuyor, yani
+  // buraya ancak elle yazılmış bir adresle düşülür; aile metni kullanıcıya
+  // adres çubuğuna bakması gerektiğini söylemezdi.
+  // Ters `startFrom`/`startTo` bean validation: `errorCode` VALIDATION_FAILED
+  // (aile metni). İstemci geçersiz `tarih`i Instant'a çevirmiyor.
   PAGE_SORT_FIELD_NOT_ALLOWED: {
     title: "Bu sıralama desteklenmiyor",
     message: "Listeyi sayfadaki sıralama seçeneklerinden biriyle yeniden açabilirsin.",

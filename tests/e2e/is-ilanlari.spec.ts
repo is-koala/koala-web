@@ -75,3 +75,17 @@ test("liste sayfası arama motorlarına kapalı değil", async ({ request }) => 
   expect(robots.status()).toBe(200);
   expect(await robots.text()).not.toContain("/is-ilanlari");
 });
+
+test("yakınlık ve tarih süzgeci sahte backend'e sort=distance ve startFrom gider", async ({
+  page,
+}) => {
+  await page.goto(
+    "/is-ilanlari?ara=__assert_distance_sort__&konum=41.008238,28.978359&sirala=en-yakin&tarih=2026-09-20",
+  );
+
+  await expect(page.getByRole("article", { name: "Etkinlik görevlisi" })).toBeVisible();
+  const card = page.getByRole("article", { name: "Etkinlik görevlisi" });
+  await expect(card.getByText("Uzaklık")).toBeVisible();
+  await expect(card.getByText("yaklaşık 3,4 km")).toBeVisible();
+  await expect(page.locator(".state-card-error")).toHaveCount(0);
+});

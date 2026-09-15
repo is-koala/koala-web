@@ -165,6 +165,7 @@ type JobSummaryDto = {
   latitude?: number | null;
   longitude?: number | null;
   addressPrecision?: string | null;
+  distanceKm?: number | null;
 };
 
 function toJobSummary(dto: JobSummaryDto): JobSummary {
@@ -199,6 +200,7 @@ function toJobSummary(dto: JobSummaryDto): JobSummary {
     latitude: typeof dto.latitude === "number" ? dto.latitude : null,
     longitude: typeof dto.longitude === "number" ? dto.longitude : null,
     addressPrecision: precisionOf(dto.addressPrecision),
+    distanceKm: typeof dto.distanceKm === "number" && Number.isFinite(dto.distanceKm) ? dto.distanceKm : null,
   };
 }
 

@@ -133,8 +133,19 @@ const server = createServer(async (request, response) => {
     if (url.searchParams.get("query") === "__backend_failure__") {
       return backendError(response, 503, "TEST_BACKEND_UNAVAILABLE", "SERVICE_UNAVAILABLE");
     }
+    if (url.searchParams.get("query") === "__assert_distance_sort__") {
+      const sortedByDistance = url.searchParams.get("sort") === "distance,asc";
+      const hasWindow = Boolean(url.searchParams.get("startFrom"));
+      if (!sortedByDistance || !hasWindow) {
+        return backendError(response, 400, "PAGE_SORT_FIELD_NOT_ALLOWED", "VALIDATION");
+      }
+    }
+    const summary = openJobSummary();
+    if (url.searchParams.has("lat") && url.searchParams.has("lng")) {
+      summary.distanceKm = 3.4;
+    }
     return backendSuccess(response, {
-      content: [viewerJob(openJobSummary(), request)],
+      content: [viewerJob(summary, request)],
       page: 0,
       size: 20,
       totalElements: 1,
