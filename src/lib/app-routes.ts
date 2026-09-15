@@ -83,6 +83,15 @@ export const newIndividualJobPath = "/isveren/ilan/yeni";
 export const employerJobsPath = "/isveren/ilanlar";
 
 /**
+ * İlanlar arası başvuru gelen kutusu; kayıtta bir bölüm olarak da bildirilir.
+ *
+ * Adres menüde, ilanın altında değil: `GET /users/me/received-applications`
+ * yetkili şirket ve açılan bireysel ilan kapsamını tek sayfada veriyor.
+ * İnceleme hâlâ `jobApplicantsPath` — gelen kutu karar vermez, oraya götürür.
+ */
+export const employerApplicationsPath = "/isveren/basvurular";
+
+/**
  * Şirket bölümünün girişi; kullanıcının yetkilisi olduğu şirketlere buradan
  * dallanılır. Kayıtta bir bölüm olarak da bildirilir.
  */
@@ -246,12 +255,11 @@ export function publishedJobPath(jobId: string): string {
 }
 
 /**
- * Bir ilana gelen başvuruların listesi.
+ * Bir ilana gelen başvuruların inceleme ekranı.
  *
- * Adres ilanın **altında**, kabuk menüsünde değil: bir başvuru tek başına bir
- * kayıt değil, bir ilanın kaydı, ve `GET /jobs/{jobId}/applications` dışında
- * onu getiren bir uç yok. Kapısı da yok — ilanı görebilen kullanıcı
- * başvurularını da görebilmeli; yetkiyi backend ilanın kaydından okuyor.
+ * Adres ilanın **altında**: kabul, red, havuz ve mesaj burada. İlanlar arası
+ * gelen kutu (`employerApplicationsPath`) bu adrese derin bağlanır; kapısı
+ * yok — ilanı görebilen kullanıcı başvurularını da görebilmeli.
  */
 export function jobApplicantsPath(jobId: string): string {
   return `${publishedJobPath(jobId)}/basvurular`;
@@ -366,17 +374,12 @@ const employerShell: AppShell = {
       status: "ready",
     },
     {
-      href: "/isveren/basvurular",
+      href: employerApplicationsPath,
       label: "Başvurular",
       // Başvuruları görmek kapıya takılmıyor; kabul kararı atama ve ödeme
       // kapılarını açıyor ve onlar eylem başında okunuyor.
       requires: [],
-      status: "planned",
-      // Başvurular ilanın kendi sayfasından açılıyor (`jobApplicantsPath`).
-      // İlanlar arası bir gelen kutusu creator bazlı ilan listesini bekliyor
-      // (is-koala/koala-web#33): o uç olmadan hangi ilanların başvurusu
-      // toplanacağı okunamıyor.
-      note: "Başvurular şimdilik her ilanın kendi sayfasından açılıyor; ilanlar arası gelen kutusu ilan listesiyle birlikte gelecek.",
+      status: "ready",
     },
     {
       href: talentPoolPath,

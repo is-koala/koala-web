@@ -152,6 +152,13 @@ export const backendPaths = {
    */
   talentPool: "/users/me/talent-pool",
   /**
+   * `GET /users/me/received-applications` — ilanlar arası gelen kutu
+   * (`EmployerToolsController`, koala-backend#233). Adı `usersMe` ile
+   * başlamıyor: `server-only.test.ts` kabuğun tek `GET /users/me` çağrısını
+   * o önekle arıyor ve bu bambaşka bir uç.
+   */
+  receivedApplications: "/users/me/received-applications",
+  /**
    * `PUT /users/me/address`. Adı `usersMe` ile başlamıyor: `server-only.test.ts`
    * kabuğun tek `GET /users/me` çağrısını o önekle arıyor ve bu bambaşka bir uç.
    */

@@ -22,7 +22,7 @@ describe("işveren özet kartları", () => {
     expect(within(list).getByRole("link", { name: /Açık ilan/ })).toHaveTextContent(/^2Açık ilan$/);
     expect(within(list).getByRole("link", { name: /Bekleyen başvuru/ })).toHaveAttribute(
       "href",
-      "/isveren/ilanlar",
+      "/isveren/basvurular",
     );
     expect(within(list).getByRole("link", { name: /Bekleyen ödeme/ })).toHaveAttribute(
       "href",

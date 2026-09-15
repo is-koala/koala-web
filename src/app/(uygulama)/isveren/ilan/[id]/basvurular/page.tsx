@@ -35,11 +35,9 @@ export const metadata: Metadata = {
 /**
  * Bir ilana gelen başvurular.
  *
- * Adres ilanın altında, kabuk menüsünde değil: başvuru tek başına bir kayıt
- * değil, bir **ilanın** başvurusu ve `GET /jobs/{jobId}/applications` dışında
- * onu getiren bir uç yok. Menüdeki "Başvurular" maddesi bu yüzden hâlâ
- * planlı — ilanlar arası bir gelen kutusu, creator bazlı ilan listesi
- * indiğinde kurulabilir (is-koala/koala-web#33).
+ * Adres ilanın altında: kabul, red, havuz ve mesaj burada. Menüdeki
+ * "Başvurular" maddesi ilanlar arası gelen kutuya gider
+ * (`employerApplicationsPath`); o liste buraya derin bağlanır.
  *
  * Burada `loading.tsx` yok: sayfa `notFound()` çağırıyor ve dış bir Suspense
  * sınırı HTTP durumunu 200'de kilitlerdi (`AGENTS.md`). Yükleniyor durumu,

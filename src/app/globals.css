@@ -554,6 +554,8 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .button:disabled { cursor: wait; opacity: .65; transform: none; box-shadow: none; }
 .button:disabled[data-disabled-kind="permanent"] { cursor: not-allowed; }
 .applications-page > .lede { margin-bottom: 0; }
+.inbox-job-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-12); }
+.inbox-job-filter .field { flex: 1 1 16rem; min-width: 0; margin: 0; }
 .application-list { display: flex; flex-direction: column; gap: 22px; margin-top: 28px; }
 .application-list > .state-card { margin-top: 0; }
 .application-grid { display: grid; gap: 16px; }

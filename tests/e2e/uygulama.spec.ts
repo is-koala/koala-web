@@ -15,6 +15,7 @@ test("oturumsuz kullanıcı kabuğun her yolundan girişe düşer ve hedefini ta
   const targets = [
     ["/isveren", "/giris?next=%2Fisveren"],
     ["/isveren/ilanlar", "/giris?next=%2Fisveren%2Filanlar"],
+    ["/isveren/basvurular", "/giris?next=%2Fisveren%2Fbasvurular"],
     ["/panel", "/giris?next=%2Fpanel"],
     ["/panel/profil", "/giris?next=%2Fpanel%2Fprofil"],
     ["/panel/islerim", "/giris?next=%2Fpanel%2Fislerim"],
