@@ -9,11 +9,11 @@ import {
 import {
   DoneNotice,
   FileField,
-  FormAlert,
   SubmitButton,
   TextareaField,
   TextField,
 } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { fieldError, idleFormState } from "@/lib/form-state";
 import type { EditableProfile } from "@/lib/profile";
 

@@ -9,14 +9,13 @@ import { CanonicalAddressForm } from "@/components/canonical-address-form";
 import { EmployerGate } from "@/components/employer-gate";
 import {
   FieldError,
-  FormAlert,
   InputField,
   SelectField,
   SubmitButton,
   TextField,
   TextareaField,
 } from "@/components/form-controls";
-import { EmptyState, ErrorState, LoadingState } from "@/components/states";
+import { EmptyState, ErrorState, FormAlert, LoadingState } from "@/components/states";
 import { idleFormState, type FormAction, type FormState } from "@/lib/form-state";
 import type { GateId } from "@/lib/gates";
 import {

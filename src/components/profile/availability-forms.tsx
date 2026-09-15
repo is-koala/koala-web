@@ -10,11 +10,11 @@ import {
 import {
   DoneNotice,
   FieldError,
-  FormAlert,
   InputField,
   SubmitButton,
   TextField,
 } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { ProfileDeleteForm } from "@/components/profile/delete-form";
 import {
   dayOfWeekLabels,

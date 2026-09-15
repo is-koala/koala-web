@@ -5,7 +5,8 @@ import { useActionState } from "react";
 import type { AddressGateway } from "@/address/gateway-client";
 import { AddressView } from "@/components/address-view";
 import { CanonicalAddressForm } from "@/components/canonical-address-form";
-import { DoneNotice, FormAlert, SubmitButton } from "@/components/form-controls";
+import { DoneNotice, SubmitButton } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { idleAddressFormState, type ActionFor, type AddressFormState } from "@/lib/form-state";
 
 /**

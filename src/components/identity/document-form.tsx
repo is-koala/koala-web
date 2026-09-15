@@ -6,9 +6,9 @@ import { type FormEvent, useState } from "react";
 import {
   DoneNotice,
   FileField,
-  FormAlert,
   TextField,
 } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import {
   identityDocumentUploadPath,
   identityPhotoInputAccept,

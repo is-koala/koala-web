@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { identityHandoffHref, identityVerificationPath } from "@/identity/handoff";
-import { gateNotice } from "@/lib/errors";
+import { gateNotice } from "@/lib/gate-notices";
 import type { GateId } from "@/lib/gates";
 
 /**

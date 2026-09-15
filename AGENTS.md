@@ -121,7 +121,7 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   **sonra** açılan bir iç `Suspense` sınırına, ya da gezinme bağlantısının
   içine (`src/components/link-pending.tsx`, `useLinkStatus`).
 - Yetki kapıları tek katmanda: sözlük `src/lib/gates.ts`, karar
-  `src/server/session/gates.ts`, metin `src/lib/errors.ts`
+  `src/server/session/gates.ts`, metin `src/lib/gate-notices.ts`
   (`gateNotice`). Kararlar `enterShell()`'in zaten okuduğu `GET /users/me`
   yanıtından türüyor — ikinci bir tur **yok**. Bir bölüm hangi kapıya
   ihtiyacı olduğunu `app-routes.ts` içindeki `requires` ile bildirir; liste
@@ -219,6 +219,23 @@ doğrulamadığını **açıkça söyle** ve nelere bakılması gerektiğini yaz
 Yeni veri ekranı yükleniyor, boş ve hata durumlarının üçünü de tanımlar.
 Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
 `errorCode` ile seç ve bilinmeyen kodda nötr Türkçe yedeği göster.
+
+Hata kataloğu **rota bazında bölünmüş** (is-koala/koala-web#177):
+`src/lib/public-errors.ts` yalnız oturum, giriş, kayıt ve başvuru kodlarını
+taşır ve herkese açık yüzeylerin okuduğu tek katalog bu (`PublicErrorState`,
+`PublicFormAlert` — `src/components/public-states.tsx`; kök `error.tsx`
+kod bilmediği için doğrudan `unexpectedErrorPresentation` çizer). Kabuk
+`src/lib/errors.ts`'i okur (`ErrorState`, `FormAlert` —
+`src/components/states.tsx`); o dosya küçük kataloğu alan modülleriyle
+birleştirir: `src/payments/errors.ts`, `src/lib/company-errors.ts`,
+`src/messaging/errors.ts`, `src/assignments/errors.ts`, `src/jobs/errors.ts`,
+`src/identity/errors.ts`, `src/address/errors.ts`, `src/lib/gallery-errors.ts`.
+Yeni kabuk cümlesi ait olduğu alan dosyasına yazılır; herkese açık bir sayfada
+görünecek cümle `public-errors.ts`'e gider ve önce ilan ayrıntısının betik
+bütçesi ölçülür (`docs/performance-accessibility-budget.md`).
+`src/lib/error-catalog-boundary.test.ts` sınırı iki yönde tutar: `(marketing)`
+istemci grafiği kabuk modüllerine ulaşmaz, kabuk küçük kataloğu doğrudan
+okumaz.
 
 Kapalı düğmeler iki ayrı durumu anlatır. Yalnız uçuşta olan bir istek yüzünden
 geçici kapanan `.button` varsayılan `cursor: wait` davranışını kullanır. Ürün

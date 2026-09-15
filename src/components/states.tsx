@@ -1,9 +1,9 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { errorPresentation, errorRecoveryAction } from "@/lib/errors";
+import { errorPresentation } from "@/lib/errors";
+import type { FormState } from "@/lib/form-state";
 
-import { ErrorRetryAction } from "./error-retry-action";
+import { ErrorCard } from "./error-card";
 import { EmptyStateCard, type Mascot } from "./ui/empty-state";
 
 const emptyCopy = {
@@ -122,6 +122,14 @@ export function EmptyState({
   );
 }
 
+/**
+ * Kabuğun hata kartı: `@/lib/errors` içindeki tam kataloğu okur.
+ *
+ * Herkese açık yüzeyler (`(marketing)`, kök `error.tsx`, giriş/kayıt
+ * formları) bunu değil `PublicErrorState`'i kullanır (`public-states.tsx`);
+ * bu dosya tam kataloğu taşıdığı için ilan ayrıntısının betik bütçesine
+ * sığmıyor (is-koala/koala-web#177).
+ */
 export function ErrorState({
   errorCode,
   status,
@@ -132,20 +140,18 @@ export function ErrorState({
   /** Yalnız Client Component çağıranları retry kararının gerçek davranışını sağlar. */
   onRetry?: () => void;
 }) {
-  const presentation = errorPresentation(errorCode, status);
-  const recovery = errorRecoveryAction(presentation.action);
-  return (
-    <div role="alert" className="state-card state-card-error">
-      <h2>{presentation.title}</h2>
-      <p>{presentation.message}</p>
-      {recovery?.kind === "link" ? (
-        <Link className="text-link state-action" href={recovery.href}>
-          {recovery.label}
-        </Link>
-      ) : null}
-      {recovery?.kind === "retry" && onRetry ? (
-        <ErrorRetryAction label={recovery.label} onRetry={onRetry} />
-      ) : null}
-    </div>
-  );
+  return <ErrorCard presentation={errorPresentation(errorCode, status)} onRetry={onRetry} />;
+}
+
+/**
+ * Kabuk formunun üst bandındaki hata.
+ *
+ * Metin `errorPresentation` üzerinden `errorCode` ile seçilir; alan bazlı
+ * mesajlar ayrıca kendi alanlarının altında görünür. `form-controls.tsx`'te
+ * değil burada, çünkü katalog okuyan tek form denetimi bu ve öbür denetimler
+ * herkese açık formlarda da kullanılıyor.
+ */
+export function FormAlert({ state }: { state: FormState }) {
+  if (state.status !== "error") return null;
+  return <ErrorState errorCode={state.errorCode} status={state.httpStatus} />;
 }

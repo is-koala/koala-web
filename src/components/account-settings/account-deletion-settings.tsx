@@ -9,8 +9,8 @@ import type {
   AccountDeletionAction,
   AccountDeletionActionState,
 } from "@/app/(uygulama)/hesap-actions";
-import { CheckboxField, FormAlert, TextareaField } from "@/components/form-controls";
-import { ErrorState } from "@/components/states";
+import { CheckboxField, TextareaField } from "@/components/form-controls";
+import { ErrorState, FormAlert } from "@/components/states";
 import type {
   AccountDeletion,
   AccountDeletionLoadState,

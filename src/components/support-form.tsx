@@ -6,12 +6,12 @@ import { useActionState } from "react";
 import {
   CheckboxField,
   DoneNotice,
-  FormAlert,
   SelectField,
   SubmitButton,
   TextareaField,
   TextField,
 } from "@/components/form-controls";
+import { PublicFormAlert } from "@/components/public-states";
 import { controllerIdentity, supportContent } from "@/content/support";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 
@@ -28,7 +28,7 @@ export function SupportForm({ action }: { action: FormAction }) {
 
   return (
     <form className="form" action={submit}>
-      <FormAlert state={state} />
+      <PublicFormAlert state={state} />
 
       <div className="honeypot-field" aria-hidden="true">
         <label htmlFor="website">Web sitesi</label>

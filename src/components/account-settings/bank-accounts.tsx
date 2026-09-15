@@ -2,7 +2,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import type { SettingsAction } from "@/app/(uygulama)/hesap-actions";
-import { FieldError, FormAlert, SubmitButton, TextField } from "@/components/form-controls";
+import { FieldError, SubmitButton, TextField } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { fieldError } from "@/lib/form-state";
 import { formatMoney } from "@/lib/money";
 import type { BankAccount, IbanVerification } from "@/server/account-settings/settings";

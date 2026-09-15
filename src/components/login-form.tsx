@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { FormAlert, SubmitButton, TextField } from "@/components/form-controls";
+import { SubmitButton, TextField } from "@/components/form-controls";
+import { PublicFormAlert } from "@/components/public-states";
 import { idleFormState, type FormAction } from "@/lib/form-state";
 
 export type LoginFormProps = {
@@ -16,7 +17,7 @@ export function LoginForm({ destination, action }: LoginFormProps) {
 
   return (
     <form className="form" action={submit}>
-      <FormAlert state={state} />
+      <PublicFormAlert state={state} />
 
       {/* Sorgu parametresiyle aynı ad taşınır; sunucu değeri yeniden doğrular. */}
       <input type="hidden" name="next" value={destination} readOnly />

@@ -12,13 +12,12 @@ import {
 } from "@/app/(uygulama)/panel/profil/education-actions";
 import {
   DoneNotice,
-  FormAlert,
   InputField,
   SelectField,
   SubmitButton,
 } from "@/components/form-controls";
 import { ProfileDeleteForm } from "@/components/profile/delete-form";
-import { ErrorState } from "@/components/states";
+import { ErrorState, FormAlert } from "@/components/states";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 import {
   gradeTypeOptions,

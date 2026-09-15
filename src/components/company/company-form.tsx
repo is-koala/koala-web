@@ -7,12 +7,12 @@ import type { AddressGateway } from "@/address/gateway-client";
 import { CanonicalAddressForm } from "@/components/canonical-address-form";
 import {
   FileField,
-  FormAlert,
   SelectField,
   SubmitButton,
   TextField,
   TextareaField,
 } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import {
   companyDraftErrors,
   companyTextLimit,

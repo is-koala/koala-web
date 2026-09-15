@@ -6,10 +6,10 @@ import { useActionState } from "react";
 import {
   CheckboxField,
   FieldError,
-  FormAlert,
   SubmitButton,
   TextField,
 } from "@/components/form-controls";
+import { PublicFormAlert } from "@/components/public-states";
 import { setPasswordContent } from "@/content/account";
 import { agreementLink, agreementTitle, type Agreement } from "@/lib/consents";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
@@ -28,7 +28,7 @@ export function SetPasswordForm({
 
   return (
     <form className="form" action={submit}>
-      <FormAlert state={state} />
+      <PublicFormAlert state={state} />
 
       <input type="hidden" name="setPasswordToken" value={setPasswordToken} readOnly />
 

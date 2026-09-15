@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 
-import { FileField, FormAlert, SubmitButton } from "@/components/form-controls";
+import { FileField, SubmitButton } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import { idleFormState, type FormAction } from "@/lib/form-state";
 import type { Company } from "@/server/company/company";
 

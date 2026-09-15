@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { FormAlert, SubmitButton, TextareaField } from "@/components/form-controls";
+import { SubmitButton, TextareaField } from "@/components/form-controls";
+import { PublicFormAlert } from "@/components/public-states";
 import { applicationRemedy } from "@/jobs/application";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 
@@ -19,7 +20,7 @@ export function JobApplicationForm({
 
   return (
     <form className="form job-application-form" action={submit}>
-      <FormAlert state={state} />
+      <PublicFormAlert state={state} />
       {remedy ? (
         <Link className="text-link application-remedy" href={remedy.href}>
           {remedy.label}

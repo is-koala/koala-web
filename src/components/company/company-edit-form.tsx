@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 
-import { FormAlert, SubmitButton, TextField, TextareaField } from "@/components/form-controls";
+import { SubmitButton, TextField, TextareaField } from "@/components/form-controls";
+import { FormAlert } from "@/components/states";
 import {
   companyDraftErrors,
   companyTextLimit,
