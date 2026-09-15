@@ -26,7 +26,7 @@ const kadikoyDistrictId = "1f0a1e58-6a3c-4a3f-9a10-6a1c2d3e4f53";
 async function signIn(
   { context, request }: { context: import("@playwright/test").BrowserContext; request: import("@playwright/test").APIRequestContext },
   testInfo: TestInfo,
-  transport: "none" | "plan" | "race",
+  transport: "none" | "plan" | "race" | "seated",
 ) {
   const stateKey = stateKeyFor(testInfo);
   const reset = await request.post(`${backendURL}/__test__/reset?key=${stateKey}&transport=${transport}`);
@@ -126,29 +126,20 @@ test("işveren ilan sayfasından servisli planı yazar; ikinci kayıt kimlikle y
   expect(second[1].body.shuttles[0].stops[0]).not.toHaveProperty("address");
 });
 
-test("kayıtlı planda koltuk seçilmiş servisi kaldırmak uyarır; kapasite reddi kendi cümlesiyle yazılır", async ({
+test("kayıtlı planda koltuk seçilmiş servisi kaldırmak uyarır; koltukların altına inen kapasite gönderimden önce durur", async ({
   page,
   context,
   request,
 }, testInfo) => {
-  await signIn({ context, request }, testInfo, "plan");
+  // `seated`: gidiş servisinde başkalarınca seçilmiş 2 koltuk; sayfa bunu
+  // `seatsTaken` ile görür ve istemci kapısı 409'a gitmeden yakalar.
+  await signIn({ context, request }, testInfo, "seated");
 
   await page.goto(`/isveren/ilan/${openJobId}`);
   const editor = page.getByRole("region", { name: "Ulaşım planı" });
   await expect(editor.getByLabel("Servis adı")).toHaveValue("Anadolu yakası servisi");
   await expect(editor.getByLabel("Plaka")).toHaveValue("34 ABC 12");
   await expect(editor.getByLabel("Kalkış saati").first()).toHaveValue("2026-09-20T06:40");
-
-  // Sahte planda koltuk yok; uyarı yolunu istemci `seatsTaken` ile açıyor, o
-  // yüzden önce iki atamaya koltuk seçtiriyoruz (işçi ucundan, aynı anahtarla).
-  for (const assignmentId of [paidAssignmentId, unpaidAssignmentId]) {
-    const seat = await request.put(`${backendURL}/job-assignments/${assignmentId}/transport/seat`, {
-      headers: { authorization: `Bearer access-${stateKeyFor(testInfo)}`, "x-device-id": deviceId, "content-type": "application/json" },
-      data: { shuttleId, stopId: bostanciStopId },
-    });
-    expect(seat.ok()).toBe(true);
-  }
-  await page.reload();
   await expect(editor.getByText(/2 koltuk seçilmiş/)).toBeVisible();
 
   await editor.getByRole("button", { name: "Servisi kaldır" }).click();
@@ -156,11 +147,42 @@ test("kayıtlı planda koltuk seçilmiş servisi kaldırmak uyarır; kapasite re
   await editor.getByRole("button", { name: "Vazgeç" }).click();
   await expect(editor.getByLabel("Servis adı")).toBeVisible();
 
-  // Kapasiteyi seçilmiş koltukların altına indirmek gönderimden önce durur;
-  // backend'in 409'u yalnız yarış yedeği.
   await editor.getByLabel("Koltuk sayısı").fill("1");
   await editor.getByRole("button", { name: "Ulaşım planını kaydet" }).click();
   await expect(editor.getByText("Bu serviste 2 koltuk seçilmiş; sayı bunun altına inemez.")).toBeVisible();
+});
+
+test("kapasite başka cihazdan dolan koltukların altına inince backend 409 verir; cümle yazılır, taslak korunur, doluluk birleşir", async ({
+  page,
+  context,
+  request,
+}, testInfo) => {
+  const stateKey = await signIn({ context, request }, testInfo, "plan");
+
+  await page.goto(`/isveren/ilan/${openJobId}`);
+  const editor = page.getByRole("region", { name: "Ulaşım planı" });
+  await expect(editor.getByText(/0 koltuk seçilmiş/)).toBeVisible();
+
+  // Sayfa açıkken başka işçiler iki koltuk aldı: sahte durum aynı anahtarla
+  // yeniden kurulur; sayfa hâlâ sıfır doluluk görüyor.
+  expect((await request.post(`${backendURL}/__test__/reset?key=${stateKey}&transport=seated`)).ok()).toBe(true);
+
+  await editor.getByLabel("Koltuk sayısı").fill("1");
+  await editor.getByLabel("Şoför adı").fill("Mehmet Şoför Bey");
+  await editor.getByRole("button", { name: "Ulaşım planını kaydet" }).click();
+
+  await expect(editor.getByTestId("transport-plan-error")).toContainText(
+    "seçilmiş koltuk sayısının altına indirilemez",
+  );
+  // Kullanıcının yazdıkları duruyor, sunucunun doluluğu taslağa birleşti ve
+  // kural ilgili servisin altına düştü.
+  await expect(editor.getByLabel("Şoför adı")).toHaveValue("Mehmet Şoför Bey");
+  await expect(editor.getByLabel("Koltuk sayısı")).toHaveValue("1");
+  await expect(editor.getByText("· 2 koltuk seçilmiş")).toBeVisible();
+  await expect(editor.getByText("Bu serviste 2 koltuk seçilmiş; sayı bunun altına inemez.")).toBeVisible();
+
+  const requests = await (await request.get(`${backendURL}/__test__/transport-requests?key=${stateKey}`)).json();
+  expect(requests).toHaveLength(1);
 });
 
 test("çalışan servis durağını seçer; plaka ve yol tarifi yalnız seçtiği serviste görünür", async ({
@@ -197,6 +219,15 @@ test("çalışan servis durağını seçer; plaka ve yol tarifi yalnız seçtiğ
   expect(requests).toEqual([
     { method: "PUT", path: `/job-assignments/${paidAssignmentId}/transport/seat`, body: { shuttleId, stopId: bostanciStopId } },
   ]);
+
+  // Onay bekleyen atama: kart okunur, seçim kapalı ve nedeni yazılı
+  // (backend `SEAT_STATUSES = {CONFIRMED, IN_PROGRESS}`).
+  await page.goto(`/panel/is/${unpaidAssignmentId}`);
+  const pending = page.getByTestId("work-transport");
+  await expect(pending).toContainText("Koltuk seçimi işveren onayladıktan sonra açılır.");
+  await expect(pending).toContainText("Kadıköy İskele");
+  await expect(pending.getByRole("radio")).toHaveCount(0);
+  await expect(pending.getByRole("button", { name: /Koltuğu/ })).toHaveCount(0);
 });
 
 test("dolu servise koltuk seçimi 409 ile reddedilir ve kendi cümlesiyle yazılır", async ({

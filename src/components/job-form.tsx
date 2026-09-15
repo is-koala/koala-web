@@ -37,6 +37,7 @@ import {
   type PriceQuoteResult,
 } from "@/lib/job-posting";
 import { formatMoney } from "@/lib/money";
+import { clearTransportDraftHandoff, storeTransportDraftForHandoff } from "@/transport/carry-over";
 import {
   emptyTransportPlanDraft,
   isEmptyTransportPlan,
@@ -248,6 +249,12 @@ export function JobForm({
     // bulur. Sunucu yine de reddederse yazdıkları React durumunda duruyor ve
     // ilk tuş vuruşunda kayıt yeniden yazılıyor.
     clearStoredDraft(storageKey);
+    // Plan ilan yaratıldıktan sonra ayrı bir uca yazılıyor; o yazma düşerse
+    // kullanıcı ilan sayfasına yönlendiriliyor ve taslağı ancak buradan
+    // bırakılan kopya kurtarıyor (`carry-over.ts`). Boş planda bırakılacak
+    // bir şey yok; eski bir kopya kalmışsa silinir.
+    if (isEmptyTransportPlan(transport)) clearTransportDraftHandoff();
+    else storeTransportDraftForHandoff(transport);
 
     return action(previous, formData);
   };

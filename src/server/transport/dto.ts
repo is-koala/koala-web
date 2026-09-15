@@ -171,59 +171,59 @@ export function toAssignmentTransport(dto: AssignmentTransportDto): AssignmentTr
 }
 
 function toShuttles(dtos: readonly ShuttleDto[] | null | undefined): readonly Shuttle[] {
-  return (dtos ?? [])
-    .flatMap((shuttle) => {
-      const id = clean(shuttle?.id);
-      const direction = known(shuttle?.direction, directions);
-      if (id === null || direction === "UNKNOWN") return [];
-      return [
-        {
-          id,
-          direction,
-          name: clean(shuttle.name) ?? "Servis",
-          plate: clean(shuttle.plate),
-          capacity: typeof shuttle.capacity === "number" ? shuttle.capacity : 0,
-          seatsTaken: typeof shuttle.seatsTaken === "number" ? shuttle.seatsTaken : 0,
-          driverName: clean(shuttle.driverName),
-          driverPhone: clean(shuttle.driverPhone),
-          sortOrder: shuttle.sortOrder ?? 0,
-          stops: toStops(shuttle.stops),
-        },
-      ];
-    })
-    .sort((left, right) => left.sortOrder - right.sortOrder)
-    .map(({ sortOrder: _sortOrder, ...shuttle }) => {
-      void _sortOrder;
-      return shuttle;
-    });
+  return bySortOrder(dtos, (shuttle) => {
+    const id = clean(shuttle.id);
+    const direction = known(shuttle.direction, directions);
+    if (id === null || direction === "UNKNOWN") return null;
+    return {
+      id,
+      direction,
+      name: clean(shuttle.name) ?? "Servis",
+      plate: clean(shuttle.plate),
+      capacity: typeof shuttle.capacity === "number" ? shuttle.capacity : 0,
+      seatsTaken: typeof shuttle.seatsTaken === "number" ? shuttle.seatsTaken : 0,
+      driverName: clean(shuttle.driverName),
+      driverPhone: clean(shuttle.driverPhone),
+      stops: toStops(shuttle.stops),
+    };
+  });
 }
 
 function toStops(dtos: readonly ShuttleStopDto[] | null | undefined): readonly ShuttleStop[] {
+  return bySortOrder(dtos, (stop) => {
+    const id = clean(stop.id);
+    const scheduledAt = clean(stop.scheduledAt);
+    if (id === null || scheduledAt === null) return null;
+    const address = canonicalAddressFrom(stop.address);
+    return {
+      id,
+      label: clean(stop.label),
+      scheduledAt,
+      seatsTaken: typeof stop.seatsTaken === "number" ? stop.seatsTaken : 0,
+      address:
+        address === null
+          ? null
+          : { displayAddress: address.displayAddress, position: address.position ?? null },
+    };
+  });
+}
+
+/**
+ * Backend'in `sortOrder` alanıyla sıralar, okunamayan satırı (`null`) düşürür
+ * ve sıra numarasını modele taşımaz: ekranın gördüğü tek sıra dizinin sırası.
+ */
+function bySortOrder<D extends { sortOrder?: number | null }, T>(
+  dtos: readonly (D | null | undefined)[] | null | undefined,
+  convert: (dto: D) => T | null,
+): readonly T[] {
   return (dtos ?? [])
-    .flatMap((stop) => {
-      const id = clean(stop?.id);
-      const scheduledAt = clean(stop?.scheduledAt);
-      if (id === null || scheduledAt === null) return [];
-      const address = canonicalAddressFrom(stop.address);
-      return [
-        {
-          id,
-          label: clean(stop.label),
-          scheduledAt,
-          seatsTaken: typeof stop.seatsTaken === "number" ? stop.seatsTaken : 0,
-          address:
-            address === null
-              ? null
-              : { displayAddress: address.displayAddress, position: address.position ?? null },
-          sortOrder: stop.sortOrder ?? 0,
-        },
-      ];
+    .flatMap((dto, index) => {
+      if (!dto) return [];
+      const converted = convert(dto);
+      return converted === null ? [] : [{ order: dto.sortOrder ?? index, converted }];
     })
-    .sort((left, right) => left.sortOrder - right.sortOrder)
-    .map(({ sortOrder: _sortOrder, ...stop }) => {
-      void _sortOrder;
-      return stop;
-    });
+    .sort((left, right) => left.order - right.order)
+    .map((entry) => entry.converted);
 }
 
 function toSeat(dto: SeatAssignmentDto | null | undefined): readonly SeatAssignment[] {

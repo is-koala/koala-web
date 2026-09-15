@@ -192,6 +192,14 @@ export function stopDirectionsUrl(position: { latitude: number; longitude: numbe
   return `https://www.google.com/maps/dir/?${params}`;
 }
 
+/** Yönün yöntemi; üç görünüm ve form taslağı aynı iki alanı taşıyor. */
+export function methodFor<M extends string>(
+  plan: { readonly outboundMethod: M; readonly returnMethod: M },
+  direction: TransportDirection,
+): M {
+  return direction === "OUTBOUND" ? plan.outboundMethod : plan.returnMethod;
+}
+
 /** Yön başına seçili koltuk; yoksa `null`. */
 export function seatFor(
   transport: Pick<AssignmentTransport, "seats">,

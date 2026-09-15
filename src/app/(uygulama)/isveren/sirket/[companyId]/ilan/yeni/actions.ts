@@ -3,11 +3,7 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
-import {
-  newCompanyJobPath,
-  publishedJobPath,
-  publishedJobPathAfterTransportFailure,
-} from "@/lib/app-routes";
+import { newCompanyJobPath } from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
 import { isUuid } from "@/lib/identifiers";
 import { companyJobBody, companyJobErrors, withJobFieldAliases } from "@/lib/job-posting";
@@ -17,8 +13,8 @@ import {
   closedGateState,
   loadJobCategories,
   readJobDraft,
+  finishJobPublish,
   readTransportPlanForPublish,
-  writeTransportPlanAfterPublish,
 } from "@/server/jobs/submission";
 import { corporateJobGate, currentGates } from "@/server/session/gates";
 
@@ -81,10 +77,5 @@ export async function publishCompanyJobAction(
   // Yayımdan sonra kullanıcı ilanın kendi sayfasına düşer: fiyat orada
   // kilitlenmiş hâliyle duruyor ve form durumu geride kalmıyor.
   if (!created.id) redirect(newCompanyJobPath(companyId));
-  const transportWritten = await writeTransportPlanAfterPublish(created.id, transport);
-  redirect(
-    transportWritten
-      ? publishedJobPath(created.id)
-      : publishedJobPathAfterTransportFailure(created.id),
-  );
+  return finishJobPublish(created.id, transport);
 }

@@ -12,6 +12,7 @@ import {
   TextareaField,
 } from "@/components/form-controls";
 import {
+  methodFor,
   transportDirectionLabels,
   transportDirections,
   transportMethodLabels,
@@ -23,7 +24,6 @@ import {
   emptyShuttleDraft,
   emptyStopDraft,
   isTransportMethod,
-  methodFor,
   serializeTransportPlanDraft,
   shuttleCapacityRange,
   stopAddressFieldErrors,

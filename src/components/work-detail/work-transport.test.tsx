@@ -189,6 +189,20 @@ describe("çalışanın ulaşım kartı", () => {
     expect(onCommand).toHaveBeenCalledWith({ type: "seat", shuttleId: outboundId, stopId: stopIds[0] });
   });
 
+  it("onay bekleyen atamada kart okunur ama seçim kapalı ve nedeni yazılı", () => {
+    // Backend `TransportManager.SEAT_STATUSES = {CONFIRMED, IN_PROGRESS}`;
+    // PENDING_CONFIRMATION'da PUT 409 `TRANSPORT_ASSIGNMENT_NOT_ACTIVE` verir.
+    const view = transport({ seats: [] });
+    const noSeat = { ...view, shuttles: view.shuttles.map((shuttle) => ({ ...shuttle, plate: null, driverName: null, driverPhone: null })) };
+    render(<WorkTransport detail={detailWith(noSeat, "PENDING_CONFIRMATION")} pending={false} onCommand={vi.fn()} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Koltuk seçimi işveren onayladıktan sonra açılır.");
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Koltuğu/ })).toBeNull();
+    expect(screen.queryByText("Henüz durak seçmedin; bineceğin durağı seç.")).toBeNull();
+    expect(screen.getByText(/Kadıköy İskele/)).toBeInTheDocument();
+  });
+
   it("tamamlanmış atamada kart salt okunur: seçim denetimi yok, bilgi duruyor", () => {
     render(<WorkTransport detail={detailWith(transport(), "COMPLETED")} pending={false} onCommand={vi.fn()} />);
 

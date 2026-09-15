@@ -6,6 +6,7 @@ import type { WorkDetail, WorkDetailCommand } from "@/assignments/work-detail";
 import { formatMoney } from "@/lib/money";
 import {
   formatStopTime,
+  methodFor,
   seatFor,
   seatsLeft,
   shuttlesFor,
@@ -32,8 +33,10 @@ import {
  * sunucu gerçeğiyle tazeleniyor ve 409'da (`TRANSPORT_SHUTTLE_FULL`,
  * `TRANSPORT_SEAT_ALREADY_TAKEN`) güncel doluluk görünüyor.
  *
- * Koltuk seçimi yalnız PENDING_CONFIRMATION/CONFIRMED/IN_PROGRESS atamada;
- * öbürlerinde kart salt okunur ve seçim düğmesi çizilmiyor.
+ * Koltuk seçimi yalnız CONFIRMED/IN_PROGRESS atamada
+ * (`TransportManager.SEAT_STATUSES`; başkasında 409 `TRANSPORT_ASSIGNMENT_NOT_ACTIVE`).
+ * Onay bekleyen atamada kart okunur ama seçim kapalı ve nedeni yazılı;
+ * biten atamada yalnız kayıt kalıyor.
  */
 export function WorkTransport({
   detail,
@@ -51,6 +54,11 @@ export function WorkTransport({
   return (
     <section className="work-detail-section work-transport" aria-labelledby="work-transport-heading" data-testid="work-transport">
       <h2 id="work-transport-heading">Ulaşım</h2>
+      {detail.assignment.status === "PENDING_CONFIRMATION" && hasShuttle(transport) ? (
+        <p className="work-transport-pending muted" role="status">
+          Koltuk seçimi işveren onayladıktan sonra açılır.
+        </p>
+      ) : null}
       {transport.notes ? <p className="work-transport-notes">{transport.notes}</p> : null}
       {transportDirections.map((direction) => (
         <DirectionBlock
@@ -66,11 +74,11 @@ export function WorkTransport({
   );
 }
 
-const seatSelectableStatuses: ReadonlySet<string> = new Set([
-  "PENDING_CONFIRMATION",
-  "CONFIRMED",
-  "IN_PROGRESS",
-]);
+const seatSelectableStatuses: ReadonlySet<string> = new Set(["CONFIRMED", "IN_PROGRESS"]);
+
+function hasShuttle(transport: AssignmentTransport): boolean {
+  return transport.outboundMethod === "SHUTTLE" || transport.returnMethod === "SHUTTLE";
+}
 
 function DirectionBlock({
   direction,
@@ -85,7 +93,7 @@ function DirectionBlock({
   pending: boolean;
   onCommand: (command: WorkDetailCommand) => Promise<unknown>;
 }) {
-  const method = direction === "OUTBOUND" ? transport.outboundMethod : transport.returnMethod;
+  const method = methodFor(transport, direction);
   const shuttles = shuttlesFor(transport.shuttles, direction);
   const seat = seatFor(transport, direction);
 

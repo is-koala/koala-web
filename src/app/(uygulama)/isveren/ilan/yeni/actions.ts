@@ -3,11 +3,7 @@
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import { readAddressWrite } from "@/address/write";
-import {
-  newIndividualJobPath,
-  publishedJobPath,
-  publishedJobPathAfterTransportFailure,
-} from "@/lib/app-routes";
+import { newIndividualJobPath } from "@/lib/app-routes";
 import type { FormState } from "@/lib/form-state";
 import {
   individualJobBody,
@@ -22,8 +18,8 @@ import {
   closedGateState,
   loadJobCategories,
   readJobDraft,
+  finishJobPublish,
   readTransportPlanForPublish,
-  writeTransportPlanAfterPublish,
 } from "@/server/jobs/submission";
 import { currentGates } from "@/server/session/gates";
 
@@ -96,10 +92,5 @@ export async function publishIndividualJobAction(
   // Yayımdan sonra kullanıcı ilanın kendi sayfasına düşer: fiyat orada
   // kilitlenmiş hâliyle duruyor ve form durumu geride kalmıyor.
   if (!created.id) redirect(newIndividualJobPath);
-  const transportWritten = await writeTransportPlanAfterPublish(created.id, transport);
-  redirect(
-    transportWritten
-      ? publishedJobPath(created.id)
-      : publishedJobPathAfterTransportFailure(created.id),
-  );
+  return finishJobPublish(created.id, transport);
 }

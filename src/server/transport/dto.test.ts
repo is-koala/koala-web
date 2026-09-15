@@ -125,7 +125,9 @@ describe("işçi görünümü (AssignmentTransportDto)", () => {
 });
 
 describe("herkese açık özet (JobTransportDto)", () => {
-  it("dolu özeti ilçe/semt ve saat düzeyinde daraltır; plaka, şoför, adres tipte yok", () => {
+  it("dolu özeti ilçe/semt ve saat düzeyinde daraltır; plaka, şoför, adres gelse de modele girmez", () => {
+    // Tel biçimi bir gün işveren `ShuttleDto`'sunu sızdırsa bile çevirici yalnız
+    // özet alanlarını okur; çıktı `toEqual` ile birebir.
     const summary = toPublicTransportSummary({
       outboundMethod: "SHUTTLE",
       returnMethod: "NONE",
@@ -133,13 +135,14 @@ describe("herkese açık özet (JobTransportDto)", () => {
       shuttleCount: 1,
       shuttles: [
         {
+          ...shuttleDto,
           direction: "OUTBOUND",
           name: "Anadolu yakası servisi",
           stops: [
-            { districtName: "Kadıköy", neighborhood: "Caferağa", scheduledAt: "2026-09-20T03:40:00Z" },
+            { ...shuttleDto.stops[0], districtName: "Kadıköy", neighborhood: "Caferağa", scheduledAt: "2026-09-20T03:40:00Z" },
             { districtName: "Kadıköy", neighborhood: null, scheduledAt: null },
           ],
-        },
+        } as never,
         { direction: "SIDEWAYS", name: "bozuk", stops: [] },
       ],
     });
@@ -157,6 +160,7 @@ describe("herkese açık özet (JobTransportDto)", () => {
         },
       ],
     });
+    expect(JSON.stringify(summary)).not.toMatch(/34 ABC 12|Mehmet|0500|Bağdat|latitude|plate|driver/);
   });
 
   it("alan yoksa (eski sunucu) ya da null ise özet yok; servis sayısı gelmezse listeden sayılır", () => {

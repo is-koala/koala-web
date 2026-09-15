@@ -6,6 +6,7 @@ import type { TransportPlan } from "./contract";
 import {
   emptyTransportPlanDraft,
   isEmptyTransportPlan,
+  mergeServerPlan,
   parseTransportPlanField,
   serializeTransportPlanDraft,
   stopAddressFieldErrors,
@@ -258,5 +259,44 @@ describe("backend alan hataları", () => {
         1,
       ),
     ).toEqual({ postalCode: "5 haneli", position: "Sınır dışı", districtId: "İlçe" });
+  });
+});
+
+describe("sunucu planını taslağa birleştirme (404/409 sonrası)", () => {
+  it("kullanıcının alanları kalır, doluluk ve kayıtlı adres sunucudan gelir", () => {
+    const draft = transportPlanDraftFrom(savedPlan);
+    const edited: TransportPlanDraft = {
+      ...draft,
+      notes: "yeni not",
+      shuttles: [{ ...draft.shuttles[0], name: "Yeni ad", capacity: "2" }],
+    };
+    const server: TransportPlan = {
+      ...savedPlan,
+      shuttles: [
+        {
+          ...savedPlan.shuttles[0],
+          seatsTaken: 4,
+          stops: [{ ...savedPlan.shuttles[0].stops[0], seatsTaken: 4, address: { displayAddress: "Yeni satır", position: null } }],
+        },
+      ],
+    };
+
+    const merged = mergeServerPlan(edited, server);
+
+    expect(merged.notes).toBe("yeni not");
+    expect(merged.shuttles[0]).toMatchObject({ id: savedPlan.shuttles[0].id, name: "Yeni ad", capacity: "2", seatsTaken: 4 });
+    expect(merged.shuttles[0].stops[0]).toMatchObject({ seatsTaken: 4, savedAddress: "Yeni satır", editingAddress: false });
+    // Birleşik taslak yeniden denetlenince kapasite hatası servisin altına düşer.
+    expect(transportPlanErrors(merged, () => true)["shuttles[0].capacity"]).toContain("4 koltuk seçilmiş");
+  });
+
+  it("sunucuda silinen servis/durak kimliğini bırakır ve adres ister; sunucuda yeni açılan servis sona eklenir", () => {
+    const draft = transportPlanDraftFrom(savedPlan);
+    const other = { ...savedPlan.shuttles[0], id: "cccccccc-cccc-4ccc-8ccc-000000000002", name: "Başka cihazdan" };
+    const merged = mergeServerPlan(draft, { ...savedPlan, shuttles: [other] });
+
+    expect(merged.shuttles[0]).toMatchObject({ id: null, name: "Anadolu yakası", seatsTaken: 0 });
+    expect(merged.shuttles[0].stops[0]).toMatchObject({ id: null, editingAddress: true, savedAddress: null, seatsTaken: 0 });
+    expect(merged.shuttles[1]).toMatchObject({ id: other.id, key: `shuttle-${other.id}`, name: "Başka cihazdan" });
   });
 });

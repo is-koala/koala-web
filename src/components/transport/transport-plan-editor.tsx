@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useSyncExternalStore } from "react";
 
 import type { AddressGateway } from "@/address/gateway-client";
 import { assignmentErrorMessage } from "@/components/assignment-error-message";
@@ -12,8 +12,10 @@ import {
   type TransportPlanFormAction,
   type TransportPlanFormState,
 } from "@/transport/editor-state";
-import { transportErrors } from "@/transport/errors";
+import { takeTransportDraftHandoff } from "@/transport/carry-over";
+import { transportErrorSentences } from "@/transport/errors";
 import {
+  mergeServerPlan,
   transportAddressField,
   transportFieldErrors,
   transportPlanDraftFrom,
@@ -32,28 +34,42 @@ import { TransportPlanFields } from "./transport-plan-fields";
  * duraklar kimliklerini alıyor ve ikinci kayıt onları yerinde güncelliyor.
  *
  * Gönderimden önceki son kapı istemcide (`transportPlanErrors`); aynı kural
- * sunucu action'ında da okunuyor. 409'lar (`TRANSPORT_SHUTTLE_CAPACITY_BELOW_SEATS`,
- * `TRANSPORT_SHUTTLE_DIRECTION_LOCKED`) alan hatası taşımıyor; üst bant
- * cümleyi kendi kataloğundan (`transportErrors`) yazıyor. Kapasite kuralı
- * istemcide de var: taslak `seatsTaken`'ı taşıyor ve gönderimden önce
- * ilgili servisin alanına düşüyor; 409 yalnız yarış yedeği.
+ * sunucu action'ında da okunuyor. 404 ve 409'da (`TRANSPORT_SHUTTLE_NOT_FOUND`,
+ * `TRANSPORT_SHUTTLE_CAPACITY_BELOW_SEATS`, …) action güncel planı da
+ * getiriyor ve form kullanıcının taslağını **silmeden** onunla birleştiriyor
+ * (`mergeServerPlan`): yazdıkları durur, doluluk ve kimlikler sunucudan
+ * gelir; birleşik taslak yeniden denetlenip kapasite hatası ilgili servisin
+ * altına düşer, üst bant cümleyi kendi kataloğundan (`transportErrors`) yazar.
  */
 export function TransportPlanEditor({
   plan,
   action,
   addressGateway,
   addressDebounceMs,
-  publishNotice = null,
+  publishFailed = false,
 }: {
   plan: TransportPlan | null;
   action: TransportPlanFormAction;
   addressGateway?: AddressGateway;
   addressDebounceMs?: number;
-  /** Sihirbazdan gelen "ilan yayımlandı ama plan kaydedilemedi" notu. */
-  publishNotice?: string | null;
+  /**
+   * Sihirbaz ilanı yayımladı ama planı yazamadı (`?ulasim=kaydedilemedi`):
+   * not çizilir ve sihirbazın bıraktığı taslak (`carry-over.ts`) forma alınır.
+   */
+  publishFailed?: boolean;
 }) {
   const [draft, setDraft] = useState<TransportPlanDraft>(() => transportPlanDraftFrom(plan));
   const [clientErrors, setClientErrors] = useState<Readonly<Record<string, string>>>({});
+
+  // `sessionStorage` sunucuda yok; taşınan taslak hidrasyondan sonra, aynı
+  // render içinde ("önceki render'dan bilgi saklama" kalıbı) bir kez alınıyor.
+  const hydrated = useSyncExternalStore(subscribeToNothing, () => true, () => false);
+  const [handoffTaken, setHandoffTaken] = useState(false);
+  if (publishFailed && hydrated && !handoffTaken) {
+    setHandoffTaken(true);
+    const carried = takeTransportDraftHandoff();
+    if (carried !== null) setDraft(carried);
+  }
 
   const submit = async (
     previous: TransportPlanFormState,
@@ -80,11 +96,14 @@ export function TransportPlanEditor({
     if (state.status === "done") {
       setDraft(transportPlanDraftFrom(state.plan));
       setClientErrors({});
-    } else if (state.status === "error" && state.httpStatus === 404 && state.plan !== undefined) {
-      // Red, planın bu sırada değişmesinden geliyorsa kullanıcı güncel
-      // plan üzerinde düzeltsin; yazdıklarını korumanın karşılığı yok çünkü
-      // kimlikler ve koltuk sayıları artık başka.
-      setDraft(transportPlanDraftFrom(state.plan));
+    } else if (state.status === "error" && state.plan) {
+      // Red planın bu sırada değişmesinden geliyor (başka cihazdan koltuk,
+      // silinen servis): kullanıcının yazdıkları kalır, gerçekler sunucudan
+      // gelir ve birleşik taslak yeniden denetlenir ki kapasite hatası
+      // ilgili servisin altında görünsün.
+      const merged = mergeServerPlan(draft, state.plan);
+      setDraft(merged);
+      setClientErrors(transportPlanErrors(merged, () => true));
     }
   }
 
@@ -102,7 +121,7 @@ export function TransportPlanEditor({
 
   const errorMessage =
     state.status === "error" && state.errorCode !== "VALIDATION_FAILED"
-      ? assignmentErrorMessage(state.errorCode, state.httpStatus, transportSentences)
+      ? assignmentErrorMessage(state.errorCode, state.httpStatus, transportErrorSentences)
       : state.status === "error"
         ? "Bazı alanlar eksik ya da hatalı; işaretli alanları düzelt."
         : null;
@@ -115,8 +134,11 @@ export function TransportPlanEditor({
         tanımlarsan işe aldığın çalışanlar durağını kendisi seçer; plaka, şoför ve tam adres
         yalnızca onlara görünür.
       </p>
-      {publishNotice ? (
-        <p className="form-warning" role="alert">{publishNotice}</p>
+      {publishFailed ? (
+        <p className="form-warning" role="alert" data-testid="transport-publish-notice">
+          İlan yayımlandı ama ulaşım planı kaydedilemedi. Sihirbazda girdiklerin aşağıda;
+          durak adreslerini yeniden onaylayıp planı kaydet.
+        </p>
       ) : null}
       {savedPlan?.updatedAt ? (
         <p className="field-hint">
@@ -148,9 +170,10 @@ export function TransportPlanEditor({
   );
 }
 
-const transportSentences: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(transportErrors).map(([code, entry]) => [code, entry.message]),
-);
+/** Hidrasyon dışında değişen bir şey yok; abone olunacak bir kaynak da yok. */
+function subscribeToNothing() {
+  return () => {};
+}
 
 /** Adres arama kutusunda Enter formu göndermesin (`job-form.tsx` ile aynı). */
 function blockImplicitSubmit(event: React.KeyboardEvent<HTMLFormElement>) {

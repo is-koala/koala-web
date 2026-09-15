@@ -1,8 +1,10 @@
 import type { AddressWrite } from "@/address/contract";
+import { isUuid } from "@/lib/identifiers";
 
 import {
   instantToIstanbulLocal,
   istanbulLocalToInstant,
+  methodFor,
   transportDirections,
   transportMethods,
   type TransportDirection,
@@ -157,26 +159,34 @@ export function transportPlanDraftFrom(plan: TransportPlan | null): TransportPla
     allowanceAmount: plan.allowanceAmount ?? "",
     allowanceNote: plan.allowanceNote ?? "",
     notes: plan.notes ?? "",
-    shuttles: plan.shuttles.map((shuttle) => ({
-      key: `shuttle-${shuttle.id}`,
-      id: shuttle.id,
-      direction: shuttle.direction,
-      name: shuttle.name,
-      plate: shuttle.plate ?? "",
-      capacity: String(shuttle.capacity),
-      driverName: shuttle.driverName ?? "",
-      driverPhone: shuttle.driverPhone ?? "",
-      seatsTaken: shuttle.seatsTaken,
-      stops: shuttle.stops.map((stop) => ({
-        key: `stop-${stop.id}`,
-        id: stop.id,
-        label: stop.label ?? "",
-        scheduledAt: instantToIstanbulLocal(stop.scheduledAt),
-        savedAddress: stop.address?.displayAddress ?? null,
-        editingAddress: false,
-        seatsTaken: stop.seatsTaken,
-      })),
-    })),
+    shuttles: plan.shuttles.map(shuttleDraftFrom),
+  };
+}
+
+function shuttleDraftFrom(shuttle: TransportPlan["shuttles"][number]): ShuttleDraft {
+  return {
+    key: `shuttle-${shuttle.id}`,
+    id: shuttle.id,
+    direction: shuttle.direction,
+    name: shuttle.name,
+    plate: shuttle.plate ?? "",
+    capacity: String(shuttle.capacity),
+    driverName: shuttle.driverName ?? "",
+    driverPhone: shuttle.driverPhone ?? "",
+    seatsTaken: shuttle.seatsTaken,
+    stops: shuttle.stops.map(stopDraftFrom),
+  };
+}
+
+function stopDraftFrom(stop: TransportPlan["shuttles"][number]["stops"][number]): StopDraft {
+  return {
+    key: `stop-${stop.id}`,
+    id: stop.id,
+    label: stop.label ?? "",
+    scheduledAt: instantToIstanbulLocal(stop.scheduledAt),
+    savedAddress: stop.address?.displayAddress ?? null,
+    editingAddress: false,
+    seatsTaken: stop.seatsTaken,
   };
 }
 
@@ -190,11 +200,6 @@ export function isTransportMethod(value: unknown): value is TransportMethod {
 
 function isTransportDirection(value: unknown): value is TransportDirection {
   return typeof value === "string" && (transportDirections as readonly string[]).includes(value);
-}
-
-/** Yönün yöntemi. */
-export function methodFor(draft: TransportPlanDraft, direction: TransportDirection): TransportMethod {
-  return direction === "OUTBOUND" ? draft.outboundMethod : draft.returnMethod;
 }
 
 /** Yöntemlerden biri yol parası ise tutar zorunlu; değilse gövdeye giremez. */
@@ -414,6 +419,53 @@ export function parseTransportPlanDraft(raw: unknown): TransportPlanDraft | null
 }
 
 /**
+ * Sunucudan yeniden okunan planı kullanıcının taslağına birleştirir
+ * (404/409 sonrası). Kullanıcının yazdıkları korunur; sunucudan yalnız
+ * **gerçekler** gelir: doluluk (`seatsTaken`) ve kayıtlı adres satırı. Sunucuda
+ * artık olmayan servis/durak (başka cihazdan kaldırılmış) kimliğini kaybeder:
+ * yeniden kaydedilirse yeni açılır ve durak adresi yeniden istenir — kimliği
+ * korumak backend'de 404 olurdu. Sunucuda yeni açılmış servisler taslağa
+ * sona eklenir ki bir sonraki kayıt onları silmesin.
+ */
+export function mergeServerPlan(draft: TransportPlanDraft, plan: TransportPlan): TransportPlanDraft {
+  const serverShuttles = new Map(plan.shuttles.map((shuttle) => [shuttle.id, shuttle]));
+  const seen = new Set<string>();
+  const shuttles: ShuttleDraft[] = draft.shuttles.map((shuttle) => {
+    const server = shuttle.id === null ? undefined : serverShuttles.get(shuttle.id);
+    if (server === undefined) return detachShuttle(shuttle);
+    seen.add(server.id);
+    const serverStops = new Map(server.stops.map((stop) => [stop.id, stop]));
+    const seenStops = new Set<string>();
+    const stops: StopDraft[] = shuttle.stops.map((stop) => {
+      const serverStop = stop.id === null ? undefined : serverStops.get(stop.id);
+      if (serverStop === undefined) return detachStop(stop);
+      seenStops.add(serverStop.id);
+      return {
+        ...stop,
+        seatsTaken: serverStop.seatsTaken,
+        savedAddress: serverStop.address?.displayAddress ?? stop.savedAddress,
+      };
+    });
+    for (const serverStop of server.stops) {
+      if (!seenStops.has(serverStop.id)) stops.push(stopDraftFrom(serverStop));
+    }
+    return { ...shuttle, seatsTaken: server.seatsTaken, stops };
+  });
+  for (const server of plan.shuttles) {
+    if (!seen.has(server.id)) shuttles.push(shuttleDraftFrom(server));
+  }
+  return { ...draft, shuttles };
+}
+
+function detachShuttle(shuttle: ShuttleDraft): ShuttleDraft {
+  return { ...shuttle, id: null, seatsTaken: 0, stops: shuttle.stops.map(detachStop) };
+}
+
+function detachStop(stop: StopDraft): StopDraft {
+  return { ...stop, id: null, seatsTaken: 0, savedAddress: null, editingAddress: true };
+}
+
+/**
  * Gizli alanın ham metni; JSON bozuksa `null`. Ayrıştırma burada, çünkü
  * oturumlu sunucu modüllerinde her `catch` Next kontrol akışını yeniden
  * fırlatmak zorunda (`control-flow-rethrow.test.ts`) ve `JSON.parse`
@@ -495,10 +547,8 @@ export function stopAddressFieldErrors(
   return errors;
 }
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function uuidOrNull(value: unknown): string | null {
-  return typeof value === "string" && uuidPattern.test(value) ? value : null;
+  return typeof value === "string" && isUuid(value) ? value : null;
 }
 
 function text(value: unknown): string {

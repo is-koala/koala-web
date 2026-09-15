@@ -1,6 +1,7 @@
 import { formatMoney } from "@/lib/money";
 import {
   formatStopTime,
+  methodFor,
   shuttlesFor,
   transportDirectionLabels,
   transportDirections,
@@ -70,7 +71,7 @@ export function JobTransportSummary({
 
 /** "Servis (2 servis)" · "Yol parası: 150,00 ₺" · "Kendi imkânıyla". */
 function methodLine(transport: PublicTransportSummary, direction: TransportDirection): string {
-  const method = direction === "OUTBOUND" ? transport.outboundMethod : transport.returnMethod;
+  const method = methodFor(transport, direction);
   const label = transportMethodLabels[method];
   if (method === "CASH_ALLOWANCE" && transport.allowanceAmount !== null) {
     return `${label}: ${formatMoney(transport.allowanceAmount, "TRY")}`;

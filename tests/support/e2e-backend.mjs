@@ -79,8 +79,11 @@ const server = createServer(async (request, response) => {
       deviceRenames: [],
       // `?transport=race`: aynı plan ama koltuk seçimi 409 `TRANSPORT_SHUTTLE_FULL`
       // ile reddedilir — görünümde boş görünen koltuk bu arada başkasınca alındı.
-      transportPlan: ["plan", "race"].includes(url.searchParams.get("transport"))
-        ? initialTransportPlan()
+      // `?transport=seated`: gidiş servisinde başkalarınca seçilmiş 2 koltuk
+      // (fikstürde koltuk seçebilen tek atama var; işverenin silme uyarısı ve
+      // kapasite kuralı iki koltuk ister).
+      transportPlan: ["plan", "race", "seated"].includes(url.searchParams.get("transport"))
+        ? initialTransportPlan(url.searchParams.get("transport") === "seated" ? 2 : 0)
         : null,
       transportSeatRace: url.searchParams.get("transport") === "race",
       seats: [],
@@ -688,7 +691,8 @@ const server = createServer(async (request, response) => {
     if (request.method === "PUT" && transportMatch[2]) {
       const body = await readJson(request);
       state.transportRequests.push({ method: "PUT", path: url.pathname, body });
-      if (!["PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS"].includes(assignment.status)) {
+      // `TransportManager.SEAT_STATUSES`: onay bekleyen atama koltuk seçemez.
+      if (!["CONFIRMED", "IN_PROGRESS"].includes(assignment.status)) {
         return backendError(response, 409, "TRANSPORT_ASSIGNMENT_NOT_ACTIVE", "DATA_CONFLICT");
       }
       const shuttle = state.transportPlan.shuttles.find((row) => row.id === body?.shuttleId);
@@ -929,7 +933,7 @@ class ConflictSignal extends Error {
   }
 }
 
-function initialTransportPlan() {
+function initialTransportPlan(seatsTaken = 0) {
   return {
     outboundMethod: "SHUTTLE",
     returnMethod: "CASH_ALLOWANCE",
@@ -944,7 +948,7 @@ function initialTransportPlan() {
         name: "Anadolu yakası servisi",
         plate: "34 ABC 12",
         capacity: 2,
-        seatsTaken: 0,
+        seatsTaken,
         driverName: "Mehmet Şoför",
         driverPhone: "0500 000 00 00",
         sortOrder: 0,
@@ -954,7 +958,7 @@ function initialTransportPlan() {
             label: "Kadıköy İskele",
             scheduledAt: "2026-09-20T03:40:00Z",
             sortOrder: 0,
-            seatsTaken: 0,
+            seatsTaken,
             address: stopAddress("Rıhtım Caddesi No: 1, Caferağa, Kadıköy/İstanbul", "Caferağa", 40.9925, 29.0245),
           },
           {

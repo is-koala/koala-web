@@ -25,7 +25,7 @@ const jobLifecycleActions = vi.hoisted(() =>
 );
 const readTransportPlan = vi.hoisted(() => vi.fn());
 const transportPlanEditor = vi.hoisted(() =>
-  vi.fn((props: { plan: unknown; action: unknown; publishNotice: string | null }) => {
+  vi.fn((props: { plan: unknown; action: unknown; publishFailed: boolean }) => {
     void props;
     return null;
   }),
@@ -262,7 +262,7 @@ describe("yayımlanmış ilan sayfası", () => {
     const props = transportPlanEditor.mock.calls[0][0];
     expect(props.plan).toBe(plan);
     expect(typeof props.action).toBe("function");
-    expect(props.publishNotice).toBeNull();
+    expect(props.publishFailed).toBe(false);
   });
 
   it("sihirbaz planı kaydedemediyse sorgudan gelen notu düzenleyiciye taşır", async () => {
@@ -275,7 +275,29 @@ describe("yayımlanmış ilan sayfası", () => {
       }),
     );
 
-    expect(transportPlanEditor.mock.calls[0][0].publishNotice).toContain("ulaşım planı kaydedilemedi");
+    expect(transportPlanEditor.mock.calls[0][0].publishFailed).toBe(true);
+  });
+
+  it("plan okunamazsa ilan yüklü kalır, yalnız bölüm hata kartı çizer", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+    readTransportPlan.mockRejectedValue(
+      new ApiError({ status: 503, errorCode: "UNEXPECTED", errorCategory: "UNEXPECTED", message: "ham" }),
+    );
+
+    render(await Page({ params: Promise.resolve({ id: jobId }) }));
+
+    expect(screen.getByRole("heading", { name: "Hafta sonu garson" })).toBeVisible();
+    expect(screen.getByTestId("transport-plan-unavailable")).toHaveTextContent("Ulaşım planı şu an okunamadı");
+    expect(transportPlanEditor).not.toHaveBeenCalled();
+    expect(screen.queryByText("ham")).toBeNull();
+  });
+
+  it("plan okumasının oturum yönlendirmesini bölüm kartına dönüştürmez", async () => {
+    fetchJobDetail.mockResolvedValue(jobDetail("OPEN"));
+    const interrupt = sessionExpiryRedirect(`/giris?next=%2Fisveren%2Filan%2F${jobId}`);
+    readTransportPlan.mockRejectedValue(interrupt);
+
+    await expect(Page({ params: Promise.resolve({ id: jobId }) })).rejects.toBe(interrupt);
   });
 
   it("backend enum'undaki her durumu adlandırır", async () => {

@@ -7,12 +7,24 @@ import type { ErrorCatalog } from "@/lib/error-presentation";
  * Kabuk kataloğuna (`@/lib/errors`) **birleştirilmiyor**, `identityRevealErrors`
  * ile aynı gerekçeyle: cümleler yalnız işverenin plan düzenleyicisinde ve
  * çalışanın ulaşım kartında okunuyor; iki bileşen onları önce buradan, sonra
- * kabuk kataloğundan seçiyor. 404'ler (`JOB_NOT_FOUND`,
- * `TRANSPORT_SHUTTLE_NOT_FOUND`, `TRANSPORT_STOP_NOT_FOUND`) katalogda
- * değil: backend var/yok sızdırmıyor ve ekran da ayırt etmiyor; plan
- * düzenleyicisi 404'te formu güncel planla yeniden çiziyor.
+ * kabuk kataloğundan seçiyor. `JOB_NOT_FOUND` katalogda değil (kabuk
+ * kataloğunun genel cümlesi); servis/durak 404'ü ise kendi cümlesini taşıyor,
+ * çünkü anlamı "yok" değil "başka bir cihazdan bu arada kaldırıldı" ve
+ * düzenleyici taslağı sunucunun planıyla birleştirip yeniden kaydetmeyi istiyor.
  */
 export const transportErrors: ErrorCatalog = {
+  TRANSPORT_SHUTTLE_NOT_FOUND: {
+    title: "Servis bu arada kaldırılmış",
+    message:
+      "Servis ya da durak bu arada kaldırılmış; plan güncellendi, kontrol edip yeniden kaydet.",
+    action: "none",
+  },
+  TRANSPORT_STOP_NOT_FOUND: {
+    title: "Durak bu arada kaldırılmış",
+    message:
+      "Servis ya da durak bu arada kaldırılmış; plan güncellendi, kontrol edip yeniden kaydet.",
+    action: "none",
+  },
   TRANSPORT_SHUTTLE_CAPACITY_BELOW_SEATS: {
     title: "Koltuk sayısı seçilmiş koltukların altında",
     message:
@@ -51,3 +63,8 @@ export const transportErrors: ErrorCatalog = {
     action: "none",
   },
 };
+
+/** `assignmentErrorMessage`'ın `own` sözlüğü: kod → cümle. */
+export const transportErrorSentences: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(transportErrors).map(([code, entry]) => [code, entry.message]),
+);

@@ -79,8 +79,9 @@ ile gelir, `errors.ts`'ten değil.
 `errors.ts`'e birleştirilmedi: bileşen onları doğrudan okuyor; `errors.ts`'e dokunulmadı.
 
 2026-09-15 (is-koala/koala-web#187, ulaşım planı T1: işveren düzenleyici, çalışan servis kartı,
-herkese açık özet) ölçümü: ana sayfa **237.749**, ilan listesi **239.640**, ilan ayrıntısı
-**241.149** bayt — üçü de bir önceki ölçümün bir bayt altında (chunk adı). İlan ayrıntısına
+herkese açık özet) ölçümü: ana sayfa **237.765**, ilan listesi **239.678**, ilan ayrıntısı
+**241.165** bayt (#189 ve #192 üzerine; aynı dal #186 üzerinde 237.749 / 239.640 / 241.149
+ölçmüştü — ilan ayrıntısında +16 bayt chunk adından, istemci koduna bayt girmedi). İlan ayrıntısına
 giren tek şey sunucu bileşeni `src/components/job-transport-summary.tsx` ve onun okuduğu
 `src/transport/contract.ts` (tip + saat biçimlendirici, `ErrorCatalog` yok); düzenleyici ve
 koltuk seçimi yalnız kabuk rotalarının istemci grafiğinde, cümleleri `src/transport/errors.ts`'te

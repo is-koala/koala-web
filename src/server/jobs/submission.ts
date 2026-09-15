@@ -1,6 +1,8 @@
 import "server-only";
 
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+
+import { publishedJobPath, publishedJobPathAfterTransportFailure } from "@/lib/app-routes";
 
 import { gateNotice } from "@/lib/gate-notices";
 import type { FormState } from "@/lib/form-state";
@@ -87,13 +89,25 @@ export function readTransportPlanForPublish(formData: FormData): TransportPlanRe
 }
 
 /**
- * İlan yaratıldıktan **sonra** planı yazar; plan ilanın gövdesinde değil,
- * ayrı bir uçta ve ilan kimliği ister. İkinci çağrı düşerse ilan zaten
- * yayımda: geri alınmıyor (iptal etmek ilanı öldürür), kullanıcı ilan
- * sayfasına bir notla düşüyor ve planı oradan yeniden kaydediyor.
- * Dönüş: yazıldı ya da yazılacak bir şey yoktu → `true`; düştü → `false`.
+ * Yayımın son adımı: ilan yaratıldıktan **sonra** planı yazar ve ilanın
+ * sayfasına yönlendirir. Plan ilanın gövdesinde değil, ayrı bir uçta ve ilan
+ * kimliği ister. Yazma düşerse ilan zaten yayımda: geri alınmıyor (iptal
+ * etmek ilanı öldürür), kullanıcı ilan sayfasına `?ulasim=kaydedilemedi` ile
+ * düşüyor; sihirbazın bıraktığı taslağı düzenleyici oradan alıyor.
+ *
+ * `redirect` istisnayla çalışıyor ve `try` dışında; iki sihirbaz action'ı da
+ * kendi `try`'ları bittikten sonra buraya geliyor.
  */
-export async function writeTransportPlanAfterPublish(
+export async function finishJobPublish(
+  jobId: string,
+  transport: TransportPlanRead,
+): Promise<never> {
+  const written = await writeTransportPlanAfterPublish(jobId, transport);
+  redirect(written ? publishedJobPath(jobId) : publishedJobPathAfterTransportFailure(jobId));
+}
+
+/** Yazıldı ya da yazılacak bir şey yoktu → `true`; düştü → `false`. */
+async function writeTransportPlanAfterPublish(
   jobId: string,
   transport: TransportPlanRead,
 ): Promise<boolean> {

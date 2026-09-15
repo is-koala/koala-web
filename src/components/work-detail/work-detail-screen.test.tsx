@@ -388,7 +388,9 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
 
     fireEvent.focus(window);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Aradığın kayıt artık mevcut olmayabilir.");
+    // 404 cümlesi öbür atama bölümleriyle ortak köprüden (`assignmentErrorMessage`):
+    // backend var/yok sızdırmıyor, ekran da ayırt etmiyor.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Atama bulunamadı veya erişim yetkiniz yok.");
     expect(screen.queryByText("Caferağa Mahallesi, Moda Caddesi No: 12/4")).toBeNull();
     expect(screen.getByRole("link", { name: "İşlerime dön" })).toHaveAttribute("href", "/panel/islerim");
   });
