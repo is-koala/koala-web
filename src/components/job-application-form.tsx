@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { SubmitButton, TextareaField } from "@/components/form-controls";
-import { PublicFormAlert } from "@/components/public-states";
+import { PublicFormAlert } from "@/components/public-form-alert";
 import { applicationRemedy } from "@/jobs/application";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 

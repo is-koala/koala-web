@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { DoneNotice, SubmitButton, TextField } from "@/components/form-controls";
-import { PublicFormAlert } from "@/components/public-states";
+import { PublicFormAlert } from "@/components/public-form-alert";
 import { forgotPasswordContent } from "@/content/account";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 

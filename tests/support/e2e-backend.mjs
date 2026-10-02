@@ -134,6 +134,16 @@ const server = createServer(async (request, response) => {
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
 
+  // Herkese açık formun aile metni yolu (is-koala/koala-web#184): bu adres
+  // küçük katalogda olmayan bir kodla reddedilir ve metin tembel yüklenen aile
+  // haritasından gelir. Öbür giriş denemeleri eskisi gibi aşağıda 401 alır.
+  if (request.method === "POST" && url.pathname === "/auth/login") {
+    const body = await readJson(request);
+    if (body?.email === "aile-kodu@example.test") {
+      return backendError(response, 400, "VALIDATION_FAILED", "VALIDATION");
+    }
+  }
+
   if (request.method === "GET" && url.pathname === `/jobs/${expiredOpenJobId}`) {
     return backendSuccess(response, expiredOpenJob());
   }

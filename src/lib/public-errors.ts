@@ -1,4 +1,5 @@
-import { backendErrorFamilies, type BackendErrorFamily } from "./backend-error-codes";
+import type { BackendErrorFamily } from "./backend-error-codes";
+import type { BackendErrorFamilies } from "./backend-error-families";
 import {
   notFoundErrorPresentation,
   unexpectedErrorPresentation,
@@ -18,6 +19,11 @@ import {
  * modüllerinde (`src/payments/errors.ts` gibi) durur ve `@/lib/errors`
  * onları yalnız oturumlu kabuk için birleştirir. Buraya cümle eklemeden önce
  * bütçeyi yeniden ölç.
+ *
+ * 244 kodun aile haritası (`backend-error-codes.ts`) bu dosyadan statik
+ * okunmuyor (is-koala/koala-web#184): sunum fonksiyonları onu parametre
+ * olarak alır. Kabuk statik haritayı geçirir; herkese açık kart katalogda
+ * olmayan kodda haritayı tembel yükler (`PublicErrorState`).
  */
 
 export const publicErrors: ErrorCatalog = {
@@ -162,21 +168,48 @@ export function catalogErrorPresentation(
   catalog: ErrorCatalog,
   errorCode: string | null | undefined,
   status: number,
+  families: BackendErrorFamilies,
 ): ErrorPresentation {
-  if (errorCode && catalog[errorCode]) return catalog[errorCode];
-  if (errorCode && backendErrorFamilies[errorCode]) {
-    return familyErrors[backendErrorFamilies[errorCode]];
-  }
-  if (status === 401) return publicErrors.AUTHENTICATION_REQUIRED;
-  if (status === 403) return publicErrors.ACCESS_DENIED;
-  if (status === 404) return notFoundErrorPresentation;
-  return unexpectedErrorPresentation;
+  if (errorCode && Object.hasOwn(catalog, errorCode)) return catalog[errorCode];
+  if (errorCode && Object.hasOwn(families, errorCode)) return familyErrors[families[errorCode]];
+  return statusErrorPresentation(status);
 }
 
 /** Herkese açık yüzeylerin sunumu; kabuk `@/lib/errors` içindeki tam kataloğu okur. */
 export function publicErrorPresentation(
   errorCode: string | null | undefined,
   status: number,
+  families: BackendErrorFamilies,
 ): ErrorPresentation {
-  return catalogErrorPresentation(publicErrors, errorCode, status);
+  return catalogErrorPresentation(publicErrors, errorCode, status, families);
+}
+
+/**
+ * `ErrorCategory.UNEXPECTED`; BFF de okunamayan her hatayı bu nötr koda
+ * düşürüyor (`unexpectedError`, `src/server/contract.ts`). Aile haritasında
+ * yok, metni her zaman durum kodundan geliyor — ve en sık ağ koparken
+ * görülüyor: onu haritayı bekleterek çizmek, düşen bağlantıdan bir parça daha
+ * istemek olurdu.
+ */
+const neutralErrorCode = "UNEXPECTED";
+
+/**
+ * Aile haritasına bakmadan verilebilen sunum: kod küçük katalogdaysa onun
+ * cümlesi, kod hiç yoksa (ya da nötr koddaysa) durum kodunun yedeği. Kod var
+ * ama katalogda yoksa `null` — doğru metin ancak harita gelince bilinir ve
+ * durum koduna erken düşmek yanlış cümle göstermek olurdu.
+ */
+export function publicCatalogPresentation(
+  errorCode: string | null | undefined,
+  status: number,
+): ErrorPresentation | null {
+  if (!errorCode || errorCode === neutralErrorCode) return statusErrorPresentation(status);
+  return Object.hasOwn(publicErrors, errorCode) ? publicErrors[errorCode] : null;
+}
+
+function statusErrorPresentation(status: number): ErrorPresentation {
+  if (status === 401) return publicErrors.AUTHENTICATION_REQUIRED;
+  if (status === 403) return publicErrors.ACCESS_DENIED;
+  if (status === 404) return notFoundErrorPresentation;
+  return unexpectedErrorPresentation;
 }
