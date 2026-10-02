@@ -65,6 +65,9 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
       // Destek formu oturumsuz; SMTP Next'te yok, BFF `apiFetch` ile
       // `POST /public/contact` çağırır. Dizin izni `submit.ts`'i de açardı.
       path.join(sourceRoot, "server", "support", "contact.ts"),
+      // Ticari e-postanın çıkış bağlantısı girişsiz: kimlik tokenın kendisi,
+      // backend ucu `permitAll` (is-koala/koala-web#54). Dizin değil dosya.
+      path.join(sourceRoot, "server", "notifications", "unsubscribe.ts"),
     ];
 
     const direct = sourceFiles(sourceRoot)
@@ -132,6 +135,28 @@ describe("kapı katmanının gizlilik sınırı", () => {
       const source = readFileSync(file, "utf8");
       expect(
         /console\.|captureException|sendHandoffEvent|localStorage|sessionStorage|indexedDB|document\.cookie/.test(source),
+        file,
+      ).toBe(false);
+    }
+  });
+
+  it("abonelikten çıkma tokenı hiçbir yerde günlüğe, ölçümlemeye ya da tarayıcı deposuna yazılmaz", () => {
+    // Ticari e-postanın çıkış tokenı 90 gün geçerli ve girişsiz bir tercihi
+    // kapatıyor (is-koala/koala-web#54). Tokenı okuyan ya da taşıyan her
+    // modül — istemci paneli dahil — `console`, Sentry, ölçümleme ve kalıcı
+    // tarayıcı deposundan uzak durur; adres çubuğu dışında hiçbir yere düşmez.
+    const tokenModules = [
+      path.join(sourceRoot, "notifications", "unsubscribe.ts"),
+      path.join(sourceRoot, "components", "unsubscribe-panel.tsx"),
+      path.join(sourceRoot, "server", "notifications", "unsubscribe.ts"),
+      path.join(sourceRoot, "app", "api", "notification-preferences", "unsubscribe", "route.ts"),
+      path.join(sourceRoot, "app", "(account)", "bildirim-tercihleri", "cikis", "page.tsx"),
+    ];
+
+    for (const file of tokenModules) {
+      const source = readFileSync(file, "utf8");
+      expect(
+        /console\.|@sentry\/|Sentry\.|captureException|captureMessage|sendHandoffEvent|localStorage|sessionStorage|indexedDB|document\.cookie/.test(source),
         file,
       ).toBe(false);
     }

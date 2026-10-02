@@ -53,6 +53,13 @@ export const privateRouteDescriptors = [
   { kind: "exact", path: "/uygulamayi-ac" },
   { kind: "exact", path: "/kimlik-dogrula" },
   { kind: "exact", path: "/payment/result" },
+  // Ticari e-postanın tek tıklık çıkış bağlantısı 90 gün geçerli bir token
+  // taşıyor ve girişsiz bir tercihi kapatıyor (is-koala/koala-web#54).
+  { kind: "exact", path: "/bildirim-tercihleri/cikis" },
+  { kind: "exact", path: "/api/notification-preferences/unsubscribe" },
+  // Rolü çözüp tercihlere yönlendiren adres; içerik taşımıyor ama dizine
+  // girecek bir şeyi de yok.
+  { kind: "exact", path: "/hesap/bildirimler" },
   { kind: "exact", path: "/isveren/adres" },
   { kind: "exact", path: "/panel/adres" },
   { kind: "tree", path: "/isveren" },

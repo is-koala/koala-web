@@ -1,3 +1,5 @@
+import type { NotificationCategory, NotificationChannel } from "./notification-labels";
+
 export type EmploymentType =
   | "FULL_TIME"
   | "PART_TIME"
@@ -73,21 +75,18 @@ export function badgeTierLabel(tier: BadgeTier): string | null {
   return Object.hasOwn(badgeTierLabels, tier) ? badgeTierLabels[tier] : null;
 }
 
-export const notificationCategoryValues = [
-  "ACCOUNT_SECURITY",
-  "APPLICATION_UPDATES",
-  "IDENTITY_VERIFICATION",
-  "MARKETINGS",
-  "COMPANY_UPDATES",
-  "JOB_ALERTS",
-  "NEWSLETTER",
-] as const;
-
-export type NotificationCategory = (typeof notificationCategoryValues)[number];
-
-export const notificationChannelValues = ["EMAIL", "PUSH", "IN_APP"] as const;
-
-export type NotificationChannel = (typeof notificationChannelValues)[number];
+// Bildirim değerleri ve etiketleri ayrı bir yaprakta: herkese açık çıkış
+// sayfası (is-koala/koala-web#54) yalnız etiketleri okuyor ve bu modülün
+// geri kalanını paketine taşımamalı.
+export {
+  notificationCategoryLabel,
+  notificationCategoryLabels,
+  notificationCategoryValues,
+  notificationChannelLabel,
+  notificationChannelLabels,
+  notificationChannelValues,
+} from "./notification-labels";
+export type { NotificationCategory, NotificationChannel } from "./notification-labels";
 
 export type NotificationPreference = {
   category: NotificationCategory;
@@ -167,28 +166,6 @@ export const gradeTypeOptions: readonly { value: GradeType; label: string }[] = 
   { value: "SIXTH_GRADE", label: "6. sınıf" },
   { value: "GRADUATE", label: "Mezun" },
 ];
-
-export const notificationCategoryLabels = {
-  ACCOUNT_SECURITY: "Hesap güvenliği",
-  APPLICATION_UPDATES: "Başvuru güncellemeleri",
-  IDENTITY_VERIFICATION: "Kimlik doğrulama",
-  MARKETINGS: "Kampanya ve duyurular",
-  COMPANY_UPDATES: "Şirket güncellemeleri",
-  JOB_ALERTS: "İş alarmları",
-  NEWSLETTER: "Bülten",
-} satisfies Record<NotificationCategory, string>;
-
-export function notificationCategoryLabel(category: string): string {
-  return Object.hasOwn(notificationCategoryLabels, category)
-    ? notificationCategoryLabels[category as NotificationCategory]
-    : "Diğer bildirim";
-}
-
-export const notificationChannelLabels = {
-  EMAIL: "E-posta",
-  PUSH: "Anlık bildirim",
-  IN_APP: "Uygulama içi",
-} satisfies Record<NotificationChannel, string>;
 
 function hasText(value: string | null): boolean {
   return Boolean(value?.trim());

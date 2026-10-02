@@ -127,6 +127,12 @@ export const backendPaths = {
   changePassword: "/users/me/password",
   notifications: "/users/me/notifications",
   /**
+   * `POST /notification-preferences/unsubscribe` — ticari e-postadaki tek
+   * tıklık çıkış (`NotificationPreferencesController`, koala-backend#234).
+   * Giriş istemiyor; gövde `{ token }`, yanıt `UnsubscribedChannelDto`.
+   */
+  notificationUnsubscribe: "/notification-preferences/unsubscribe",
+  /**
    * `POST /payment-quotes`. İlan öncesi fiyat dökümü; aynı hesap ilan
    * yayımlanırken `pricingService.snapshot(job)` ile tekrar yapılıp kilitlenir.
    */

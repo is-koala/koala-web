@@ -88,6 +88,23 @@ describe("arama motorlarına kapalı rotalar", () => {
     }
   });
 
+  it("abonelikten çıkma bağlantısını ve BFF ucunu kapatır", () => {
+    /*
+     * Ticari e-postadaki bağlantı 90 gün geçerli bir token taşıyor ve giriş
+     * istemeden bir tercihi kapatıyor (is-koala/koala-web#54). Adres arama
+     * motoruna, `Referer` başlığına ve önbelleğe girmemeli; tokenı gövdede
+     * taşıyan BFF ucu da aynı politikayla yanıt verir.
+     */
+    expect(blocked("/bildirim-tercihleri/cikis")).toBe(true);
+    expect(blocked("/bildirim-tercihleri/cikis?token=abc")).toBe(true);
+    expect(privateHeaderSources).toContain("/bildirim-tercihleri/cikis");
+    expect(blocked("/api/notification-preferences/unsubscribe")).toBe(true);
+    expect(privateHeaderSources).toContain("/api/notification-preferences/unsubscribe");
+    // Tercihleri yönetme bağlantısının indiği, rolü çözüp kabuğa yönlendiren adres.
+    expect(blocked("/hesap/bildirimler")).toBe(true);
+    expect(privateHeaderSources).toContain("/hesap/bildirimler");
+  });
+
   it("başlık kuralı her kabuk kökü için alt yolları da kapsar", () => {
     for (const root of privateRouteTrees) {
       expect(privateHeaderSources).toContain(root);

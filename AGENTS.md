@@ -65,8 +65,15 @@ src/app/
 ```
 
 Rota adları Türkçe ve kalıcıdır: `/hesap-dogrula`, `/sifre-belirle`,
-`/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`, `/davet/{invitationId}`.
-Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
+`/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`, `/davet/{invitationId}`,
+`/bildirim-tercihleri/cikis`. Bunlar e-postalara gömülecek; **değiştirmek eski
+e-postaları kırar.** Sonuncusu ticari e-postanın tek tıklık çıkışı
+(is-koala/koala-web#54): sayfa statik ve açılışta hiçbir şeyi değiştirmez,
+tercih yalnız kullanıcının onayıyla `POST /api/notification-preferences/unsubscribe`
+üzerinden kapanır; token sunucu render'ına, DOM'a ve loglara girmez. Sayfanın
+"tercihlerimi yönet" bağlantısı `/hesap/bildirimler`'e iner: rol bilmeyen bu
+adres oturumlu kullanıcıyı kendi kabuğunun `hesap#bildirim-tercihleri`
+bölümüne, oturumsuzu `?next=` ile girişe yönlendirir.
 `/kimlik-dogrula` e-postada değil: kimlik kapısının aktarım adresi, yeniden
 adlandırmak şeritleri ve başvuru çözümünü kırar.
 
@@ -245,7 +252,13 @@ küçük kataloğu alan modülleriyle birleştirir: `src/payments/errors.ts`,
 Yeni kabuk cümlesi ait olduğu alan dosyasına yazılır (alanı yoksa yeni bir
 `*-errors.ts`); herkese açık bir sayfada görünecek cümle `public-errors.ts`'e
 gider ve önce ilan ayrıntısının betik bütçesi ölçülür
-(`docs/performance-accessibility-budget.md`).
+(`docs/performance-accessibility-budget.md`). İstisna rotaya özgü sonuç
+metni: ham `errorCode` ile değil, BFF'nin döndürdüğü bir sonuçla seçilen ve
+yalnız tek rotada görülen cümle o rotanın `src/content/*` modülünde durur
+(`ErrorCatalog` olarak değil) — `public-errors.ts` ilan ayrıntısının ilk
+yüküne giriyor ve oraya yazılan her cümle o sayfanın betik bütçesinden yer.
+Örnek: çıkış bağlantısının "süresi dolmuş/geçersiz" kartları
+(`src/content/unsubscribe.ts`).
 `src/lib/error-catalog-boundary.test.ts` sınırı iki yönde tutar: herkese açık
 rotaların import grafiği `ErrorCatalog` bildiren hiçbir modüle ulaşmaz
 (`public-errors.ts` hariç), kabuk küçük kataloğu doğrudan okumaz.

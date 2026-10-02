@@ -1,4 +1,5 @@
 import type { GateId } from "./gates";
+import { notificationPreferencesAnchor } from "./notification-routes";
 
 /**
  * Oturumlu kabukların rota kaydı.
@@ -178,6 +179,14 @@ export function accountSettingsPath(shell: AppShellId): string {
 /** Hesap sayfasındaki oturum listesinin çapası; ayrıntıdan geri dönüş buraya. */
 export function accountSessionsHref(shell: AppShellId): string {
   return `${accountSettingsPath(shell)}#oturumlar`;
+}
+
+/**
+ * Hesap sayfasındaki bildirim tercihleri; `/hesap/bildirimler` rolü çözüp
+ * buraya yönlendiriyor (is-koala/koala-web#54).
+ */
+export function accountNotificationPreferencesHref(shell: AppShellId): string {
+  return `${accountSettingsPath(shell)}#${notificationPreferencesAnchor}`;
 }
 
 /**
