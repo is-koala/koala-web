@@ -65,6 +65,9 @@ describe("oturumlu backend çağrısının tek kapısı", () => {
       // Destek formu oturumsuz; SMTP Next'te yok, BFF `apiFetch` ile
       // `POST /public/contact` çağırır. Dizin izni `submit.ts`'i de açardı.
       path.join(sourceRoot, "server", "support", "contact.ts"),
+      // Ticari e-postanın çıkış bağlantısı girişsiz: kimlik tokenın kendisi,
+      // backend ucu `permitAll` (is-koala/koala-web#54). Dizin değil dosya.
+      path.join(sourceRoot, "server", "notifications", "unsubscribe.ts"),
     ];
 
     const direct = sourceFiles(sourceRoot)

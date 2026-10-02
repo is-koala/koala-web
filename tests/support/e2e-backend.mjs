@@ -50,6 +50,11 @@ const fixtureManifestCreatedAt = new Date().toISOString();
 const fixtureManifestExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
 const stateKeyPattern = /^[0-9a-f]{16}$/;
 const states = new Map();
+// Tek tıklık abonelikten çıkma (is-koala/koala-web#54, backend #234). Uç
+// oturumsuz olduğu için durum test anahtarına değil tokenın kendisine bağlı:
+// `abone-` ilk tıkta kapatır, sonrakilerde `alreadyDisabled=true` döner;
+// `suresi-dolmus-` 400 EXPIRED, `ariza-` 503; öbür her token 400 INVALID.
+const unsubscribeRequests = new Map();
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
@@ -127,6 +132,9 @@ const server = createServer(async (request, response) => {
       ? json(response, 200, state.companyRequests)
       : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
+  if (request.method === "GET" && url.pathname === "/__test__/unsubscribe-requests") {
+    return json(response, 200, { count: unsubscribeRequests.get(url.searchParams.get("token")) ?? 0 });
+  }
   if (request.method === "GET" && url.pathname === "/__test__/application-requests") {
     const state = stateFrom(url);
     return state
@@ -202,6 +210,29 @@ const server = createServer(async (request, response) => {
       shardSize: 50_000,
       shards: [],
     });
+  }
+
+  if (request.method === "POST" && url.pathname === "/notification-preferences/unsubscribe") {
+    const token = (await readJson(request))?.token;
+    if (typeof token !== "string" || !token.trim()) {
+      return backendError(response, 400, "VALIDATION_FAILED", "VALIDATION");
+    }
+    const previous = unsubscribeRequests.get(token) ?? 0;
+    unsubscribeRequests.set(token, previous + 1);
+    if (token.startsWith("abone-")) {
+      return backendSuccess(response, {
+        category: "MARKETINGS",
+        channel: "EMAIL",
+        alreadyDisabled: previous > 0,
+      });
+    }
+    if (token.startsWith("suresi-dolmus-")) {
+      return backendError(response, 400, "NOTIFICATION_UNSUBSCRIBE_TOKEN_EXPIRED", "VALIDATION");
+    }
+    if (token.startsWith("ariza-")) {
+      return backendError(response, 503, "UNEXPECTED", "UNEXPECTED");
+    }
+    return backendError(response, 400, "NOTIFICATION_UNSUBSCRIBE_TOKEN_INVALID", "VALIDATION");
   }
 
   const state = authorizedState(request);

@@ -7,7 +7,11 @@ const apiURL = `http://127.0.0.1:${apiPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["sitemap-production.spec.ts", "identity-upload-production.spec.ts"],
+  testMatch: [
+    "sitemap-production.spec.ts",
+    "identity-upload-production.spec.ts",
+    "unsubscribe-production.spec.ts",
+  ],
   workers: 1,
   timeout: 120_000,
   use: { baseURL: appURL },

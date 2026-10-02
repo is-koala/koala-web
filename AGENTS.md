@@ -65,8 +65,12 @@ src/app/
 ```
 
 Rota adları Türkçe ve kalıcıdır: `/hesap-dogrula`, `/sifre-belirle`,
-`/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`, `/davet/{invitationId}`.
-Bunlar e-postalara gömülecek; **değiştirmek eski e-postaları kırar.**
+`/sifre-sifirla`, `/eposta-onayla`, `/uygulamayi-ac`, `/davet/{invitationId}`,
+`/bildirim-tercihleri/cikis`. Bunlar e-postalara gömülecek; **değiştirmek eski
+e-postaları kırar.** Sonuncusu ticari e-postanın tek tıklık çıkışı
+(is-koala/koala-web#54): sayfa statik ve açılışta hiçbir şeyi değiştirmez,
+tercih yalnız kullanıcının onayıyla `POST /api/notification-preferences/unsubscribe`
+üzerinden kapanır; token sunucu render'ına, DOM'a ve loglara girmez.
 `/kimlik-dogrula` e-postada değil: kimlik kapısının aktarım adresi, yeniden
 adlandırmak şeritleri ve başvuru çözümünü kırar.
 
