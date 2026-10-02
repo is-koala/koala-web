@@ -68,8 +68,8 @@ async function tokenOf(request: Request): Promise<string | null> {
 
   let body: unknown;
   try {
-    const text = await request.text();
-    if (text.length > maxBodyBytes) return null;
+    const text = await cappedText(request, maxBodyBytes);
+    if (text === null) return null;
     body = JSON.parse(text);
   } catch {
     return null;
@@ -80,6 +80,34 @@ async function tokenOf(request: Request): Promise<string | null> {
   if (typeof candidate !== "string") return null;
   const token = readSingleToken(candidate);
   return token.ok ? token.value : null;
+}
+
+/**
+ * Gövdeyi sınıra kadar okur. `Content-Length` taşımayan (chunked) bir gövde
+ * önce tamamen belleğe alınıp sonra ölçülseydi, girişsiz bu uç sınırsız
+ * okumaya açık olurdu; sınır aşılınca akış iptal edilir ve `null` döner.
+ */
+async function cappedText(request: Request, maxBytes: number): Promise<string | null> {
+  if (!request.body) return "";
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return text + decoder.decode();
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function statusOf(outcome: UnsubscribeOutcome): number {

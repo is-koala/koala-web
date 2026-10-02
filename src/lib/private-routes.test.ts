@@ -100,6 +100,9 @@ describe("arama motorlarına kapalı rotalar", () => {
     expect(privateHeaderSources).toContain("/bildirim-tercihleri/cikis");
     expect(blocked("/api/notification-preferences/unsubscribe")).toBe(true);
     expect(privateHeaderSources).toContain("/api/notification-preferences/unsubscribe");
+    // Tercihleri yönetme bağlantısının indiği, rolü çözüp kabuğa yönlendiren adres.
+    expect(blocked("/hesap/bildirimler")).toBe(true);
+    expect(privateHeaderSources).toContain("/hesap/bildirimler");
   });
 
   it("başlık kuralı her kabuk kökü için alt yolları da kapsar", () => {

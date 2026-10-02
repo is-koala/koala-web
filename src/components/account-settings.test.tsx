@@ -7,6 +7,7 @@ import type {
   SettingsAction,
   SettingsActionState,
 } from "@/app/(uygulama)/hesap-actions";
+import { notificationPreferencesAnchor } from "@/lib/notification-routes";
 import type { AccountSettingsData } from "@/server/account-settings/settings";
 
 import { AccountSettings } from "./account-settings";
@@ -272,6 +273,16 @@ describe("hesap ve ayarlar ekranı", () => {
 
     expect(screen.getByRole("checkbox", { name: /E-posta · İş alarmları/ })).toBeEnabled();
     expect(screen.getByRole("checkbox", { name: /Uygulama içi · Hesap güvenliği/ })).toBeDisabled();
+  });
+
+  it("bildirim tercihleri bölümü çıkış sayfasından gelinen çapayı taşır", () => {
+    // `/hesap/bildirimler` kullanıcıyı `…/hesap#bildirim-tercihleri`'ne
+    // yönlendiriyor (is-koala/koala-web#54); çapa kaybolursa sayfanın başına düşer.
+    renderSettings();
+
+    const section = document.getElementById(notificationPreferencesAnchor);
+    expect(section).not.toBeNull();
+    expect(within(section!).getByRole("heading", { name: "Bildirim tercihleri" })).toBeVisible();
   });
 
   it("mevcut cihazı çıkışa, diğer cihazı sonlandırma action'ına bağlar", () => {

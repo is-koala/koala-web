@@ -4,6 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UnsubscribePanel } from "./unsubscribe-panel";
 
+const loadBackendErrorFamilies = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/backend-error-families", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/backend-error-families")>();
+  loadBackendErrorFamilies.mockImplementation(original.loadBackendErrorFamilies);
+  return { ...original, loadBackendErrorFamilies };
+});
+
+/** Tercihlerin yönetildiği yer; giriş ve rol çözümü bu adreste (`/hesap/bildirimler`). */
+const manageHref = "/hesap/bildirimler";
+const manageLabel = "Bildirim tercihlerimi yönet";
+
 const token = "gizli-abonelik-tokeni_0123456789";
 
 function openLink(search: string) {
@@ -77,7 +89,7 @@ describe("abonelikten çıkma paneli", () => {
     expect(status).toHaveTextContent("Abonelikten çıktın");
     expect(status).toHaveTextContent("Kampanya ve duyurular");
     expect(status).toHaveTextContent("E-posta");
-    expect(screen.getByRole("link", { name: "Giriş yap" })).toHaveAttribute("href", "/giris");
+    expect(screen.getByRole("link", { name: manageLabel })).toHaveAttribute("href", manageHref);
     expect(document.body.innerHTML).not.toContain(token);
   });
 
@@ -104,7 +116,7 @@ describe("abonelikten çıkma paneli", () => {
     await confirm();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Bağlantının süresi dolmuş");
-    expect(screen.getByRole("link", { name: "Giriş yap" })).toHaveAttribute("href", "/giris");
+    expect(screen.getByRole("link", { name: manageLabel })).toHaveAttribute("href", manageHref);
     expect(screen.queryByRole("button", { name: "Abonelikten çık" })).toBeNull();
   });
 
@@ -155,6 +167,68 @@ describe("abonelikten çıkma paneli", () => {
     await confirm();
 
     expect(await screen.findByRole("status")).toHaveTextContent("Abonelikten çıktın");
+  });
+
+  it("genel arızada da tercihlerin yönetileceği yeri gösterir", async () => {
+    bffResponds(503, { outcome: "failed", errorCode: "UNEXPECTED", httpStatus: 503 });
+    render(<UnsubscribePanel />);
+
+    await confirm();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bir sorun oluştu");
+    expect(screen.getByRole("link", { name: manageLabel })).toHaveAttribute("href", manageHref);
+  });
+
+  it("sonuç formun yerini alınca odağı sonucun başlığına taşır", async () => {
+    // Düğme kaybolunca odak `<body>`'ye düşüyor ve içeriğiyle birlikte eklenen
+    // `role="status"` her ekran okuyucuda duyurulmuyor; başlığa taşınan odak
+    // sonucu okutur ve klavye kullanıcısını yerinde tutar.
+    bffResponds(200, {
+      outcome: "unsubscribed",
+      category: "MARKETINGS",
+      channel: "EMAIL",
+      alreadyDisabled: false,
+    });
+    render(<UnsubscribePanel />);
+
+    await confirm();
+
+    expect(await screen.findByRole("heading", { name: "Abonelikten çıktın" })).toHaveFocus();
+  });
+
+  it("bağlantı sorununda da odağı sonucun başlığına taşır", async () => {
+    bffResponds(400, { outcome: "expired" });
+    render(<UnsubscribePanel />);
+
+    await confirm();
+
+    expect(await screen.findByRole("heading", { name: "Bağlantının süresi dolmuş" })).toHaveFocus();
+  });
+
+  it("açılışta çizilen geçersiz bağlantı kartı odağı çalmaz", () => {
+    openLink("");
+
+    render(<UnsubscribePanel />);
+
+    expect(screen.getByRole("heading", { name: "Bağlantı geçersiz" })).not.toHaveFocus();
+  });
+
+  it("onayla birlikte aile haritasını önden ısıtır", async () => {
+    // Katalogda olmayan bir ret kodu kartı bir parça bekletmesin
+    // (is-koala/koala-web#184); `PublicFormAlert` aynısını gönderimde yapıyor.
+    bffResponds(200, {
+      outcome: "unsubscribed",
+      category: "MARKETINGS",
+      channel: "EMAIL",
+      alreadyDisabled: false,
+    });
+    loadBackendErrorFamilies.mockClear();
+    render(<UnsubscribePanel />);
+    expect(loadBackendErrorFamilies).not.toHaveBeenCalled();
+
+    await confirm();
+
+    expect(loadBackendErrorFamilies).toHaveBeenCalled();
   });
 
   it("ağ hatasını başarı saymaz", async () => {

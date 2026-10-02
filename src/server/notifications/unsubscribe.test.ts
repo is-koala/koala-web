@@ -140,6 +140,35 @@ describe("abonelikten çıkma BFF ucu", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("uzunluğu bildirilmemiş büyük gövdeyi sonuna kadar okumadan geçersiz sayar", async () => {
+    // `Transfer-Encoding: chunked` gövde `Content-Length` taşımıyor; tamamını
+    // belleğe alıp sonra 4 KiB'ye bakmak, girişsiz bir uçta sınırsız okuma demek.
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const chunk = new TextEncoder().encode(`{"token":"${"a".repeat(1_000)}`);
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        if (pulled > 1_000) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const request = new Request("https://iskoala.com/api/notification-preferences/unsubscribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+
+    const outcome = await readOutcome(await unsubscribeRoute(request));
+
+    expect(outcome).toMatchObject({ status: 400, body: { outcome: "invalid" } });
+    expect(request.headers.get("content-length")).toBeNull();
+    expect(pulled).toBeLessThan(10);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("tokenı ne yanıta ne de sunucu loglarına yazar", async () => {
     const logs = [
       vi.spyOn(console, "log"),

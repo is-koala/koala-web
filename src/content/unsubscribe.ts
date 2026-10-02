@@ -11,8 +11,10 @@ import type { ErrorPresentation } from "@/lib/error-presentation";
 export const unsubscribeContent = {
   eyebrow: "Bildirim tercihleri",
   title: "Abonelikten çık",
+  // Token yalnız e-posta kanalını kapatıyor; aynı türün anlık ve uygulama içi
+  // bildirimleri sürer — metin "bildirim türü kapanır" demez.
   intro:
-    "Onaylarsan bu e-postanın geldiği bildirim türü kapanır. Diğer bildirim tercihlerin olduğu gibi kalır.",
+    "Onaylarsan bu türdeki e-postalar artık gönderilmez. Diğer e-postaların ve bildirimlerin olduğu gibi kalır.",
   confirmLabel: "Abonelikten çık",
   pendingLabel: "Kapatılıyor…",
   confirmNote: "Düğmeye basmadan hiçbir tercihin değişmez.",
@@ -25,8 +27,8 @@ export const unsubscribeContent = {
   categoryTerm: "Bildirim türü",
   channelTerm: "Kanal",
   manageBody:
-    "Bütün bildirim tercihlerini Koala uygulamasından ya da giriş yaptıktan sonra Hesap ve ayarlar sayfasının Bildirimler bölümünden yönetebilirsin.",
-  manageAction: "Giriş yap",
+    "Bütün bildirim tercihlerini Koala uygulamasından ya da web'de Hesap ve ayarlar sayfasından yönetebilirsin.",
+  manageAction: "Bildirim tercihlerimi yönet",
 } as const;
 
 /**

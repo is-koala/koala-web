@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { SettingsAction } from "@/app/(uygulama)/hesap-actions";
 import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form";
+import { notificationPreferencesAnchor } from "@/lib/notification-routes";
 import { notificationCategoryLabel, type NotificationPreference } from "@/lib/profile";
 import type { Notification, NotificationFeed } from "@/server/account-settings/settings";
 
@@ -27,7 +28,11 @@ export function NotificationSettings({
         markAllReadAction={markAllReadAction}
         pageHref={(page) => `?bildirimSayfasi=${page}#bildirimler`}
       />
-      <section className="settings-card" aria-labelledby="bildirim-tercihleri-baslik">
+      <section
+        className="settings-card"
+        id={notificationPreferencesAnchor}
+        aria-labelledby="bildirim-tercihleri-baslik"
+      >
         <h2 id="bildirim-tercihleri-baslik">Bildirim tercihleri</h2>
         <p className="muted">İşlemsel bildirimler hesap güvenliği için kapatılamaz.</p>
         <NotificationPreferencesForm preferences={preferences} />

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useSyncExternalStore } from "react";
+import { useActionState, useEffect, useRef, useSyncExternalStore } from "react";
 
 import { ErrorCard } from "@/components/error-card";
 import { DoneNotice } from "@/components/form-controls";
 import { PublicErrorState } from "@/components/public-states";
 import { FactList } from "@/components/ui/list-row";
 import { unsubscribeContent, unsubscribeLinkProblems } from "@/content/unsubscribe";
-import { loginPath } from "@/lib/login-path";
+import { loadBackendErrorFamilies } from "@/lib/backend-error-families";
 import { notificationCategoryLabel, notificationChannelLabel } from "@/lib/notification-labels";
+import { notificationPreferencesEntryPath } from "@/lib/notification-routes";
 import {
   unsubscribeEndpoint,
   unsubscribeOutcomeFrom,
@@ -33,9 +34,10 @@ export function UnsubscribePanel() {
   const [outcome, confirm, pending] = useActionState(sendUnsubscribe, null);
 
   const token = search === null ? null : unsubscribeTokenFrom(search);
-  if (search !== null && token === null) return <LinkProblem kind="invalid" />;
+  // Açılışta çizilen kart odağı çalmaz; yalnız onaydan dönen sonuç odağı alır.
+  if (search !== null && token === null) return <LinkProblem kind="invalid" focusOnMount={false} />;
   if (outcome?.outcome === "expired" || outcome?.outcome === "invalid") {
-    return <LinkProblem kind={outcome.outcome} />;
+    return <LinkProblem kind={outcome.outcome} focusOnMount />;
   }
   if (outcome?.outcome === "unsubscribed") return <Unsubscribed outcome={outcome} />;
 
@@ -49,9 +51,12 @@ export function UnsubscribePanel() {
       {outcome?.outcome === "failed" ? (
         <PublicErrorState errorCode={outcome.errorCode} status={outcome.httpStatus} />
       ) : null}
-      <button className="button button-primary" type="submit" disabled={pending}>
+      {/* Token okunana kadar kapalı: statik HTML'de ve hidrasyondan önce
+          düğmenin eylemi React'in yer tutucusu, basılsa dokunuş kaybolurdu. */}
+      <button className="button button-primary" type="submit" disabled={pending || token === null}>
         {pending ? unsubscribeContent.pendingLabel : unsubscribeContent.confirmLabel}
       </button>
+      {outcome?.outcome === "failed" ? <ManagePreferences className="muted" /> : null}
       <p className="trust-note">{unsubscribeContent.confirmNote}</p>
     </form>
   );
@@ -61,6 +66,9 @@ async function sendUnsubscribe(
   _previous: UnsubscribeOutcome | null,
   token: string,
 ): Promise<UnsubscribeOutcome> {
+  // Ret katalogda olmayan bir kodla gelirse kart bir parça beklemesin
+  // (is-koala/koala-web#184); `PublicFormAlert` gönderimde aynısını yapıyor.
+  void loadBackendErrorFamilies();
   try {
     const response = await fetch(unsubscribeEndpoint, {
       method: "POST",
@@ -80,6 +88,7 @@ function Unsubscribed({
 }: {
   outcome: Extract<UnsubscribeOutcome, { outcome: "unsubscribed" }>;
 }) {
+  const result = useResultFocus(true);
   const facts = [
     outcome.category
       ? { term: unsubscribeContent.categoryTerm, detail: notificationCategoryLabel(outcome.category) }
@@ -89,7 +98,7 @@ function Unsubscribed({
       : null,
   ];
   return (
-    <div className="unsubscribe-outcome">
+    <div className="unsubscribe-outcome" ref={result}>
       <DoneNotice
         title={outcome.alreadyDisabled ? unsubscribeContent.alreadyTitle : unsubscribeContent.doneTitle}
       >
@@ -101,9 +110,16 @@ function Unsubscribed({
   );
 }
 
-function LinkProblem({ kind }: { kind: keyof typeof unsubscribeLinkProblems }) {
+function LinkProblem({
+  kind,
+  focusOnMount,
+}: {
+  kind: keyof typeof unsubscribeLinkProblems;
+  focusOnMount: boolean;
+}) {
+  const result = useResultFocus(focusOnMount);
   return (
-    <div className="unsubscribe-outcome">
+    <div className="unsubscribe-outcome" ref={result}>
       <ErrorCard presentation={unsubscribeLinkProblems[kind]} />
       <ManagePreferences />
     </div>
@@ -111,15 +127,34 @@ function LinkProblem({ kind }: { kind: keyof typeof unsubscribeLinkProblems }) {
 }
 
 /**
- * Hesap ayarları iki kabukta ayrı adreste (`/panel/hesap`, `/isveren/hesap`)
- * ve bağlantı rolü bilmiyor; giriş, rolü okuyup kullanıcıyı kendi kabuğuna
- * bırakıyor (`postLoginDestination`).
+ * Sonuç formun yerini alıyor: düğme kaybolunca odak `<body>`'ye düşer ve
+ * içeriğiyle birlikte eklenen `role="status"` her ekran okuyucuda
+ * duyurulmuyor. Odak sonucun başlığına taşınır; başlık okunur ve klavye
+ * kullanıcısı yerinde kalır.
  */
-function ManagePreferences() {
+function useResultFocus(enabled: boolean) {
+  const container = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const heading = container.current?.querySelector<HTMLElement>("h2");
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus();
+  }, [enabled]);
+  return container;
+}
+
+/**
+ * Hesap ayarları iki kabukta ayrı adreste (`/panel/hesap`, `/isveren/hesap`)
+ * ve bağlantı rolü bilmiyor. `/hesap/bildirimler` rolü sunucuda çözüp
+ * kullanıcıyı kendi kabuğundaki tercihlere bırakıyor; oturum yoksa girişe
+ * gönderip oraya döndürüyor.
+ */
+function ManagePreferences({ className = "trust-note" }: { className?: string }) {
   return (
-    <p className="trust-note">
+    <p className={className}>
       {unsubscribeContent.manageBody}{" "}
-      <Link className="text-link" href={loginPath}>
+      <Link className="text-link" href={notificationPreferencesEntryPath}>
         {unsubscribeContent.manageAction}
       </Link>
     </p>

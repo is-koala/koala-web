@@ -140,6 +140,28 @@ describe("kapı katmanının gizlilik sınırı", () => {
     }
   });
 
+  it("abonelikten çıkma tokenı hiçbir yerde günlüğe, ölçümlemeye ya da tarayıcı deposuna yazılmaz", () => {
+    // Ticari e-postanın çıkış tokenı 90 gün geçerli ve girişsiz bir tercihi
+    // kapatıyor (is-koala/koala-web#54). Tokenı okuyan ya da taşıyan her
+    // modül — istemci paneli dahil — `console`, Sentry, ölçümleme ve kalıcı
+    // tarayıcı deposundan uzak durur; adres çubuğu dışında hiçbir yere düşmez.
+    const tokenModules = [
+      path.join(sourceRoot, "notifications", "unsubscribe.ts"),
+      path.join(sourceRoot, "components", "unsubscribe-panel.tsx"),
+      path.join(sourceRoot, "server", "notifications", "unsubscribe.ts"),
+      path.join(sourceRoot, "app", "api", "notification-preferences", "unsubscribe", "route.ts"),
+      path.join(sourceRoot, "app", "(account)", "bildirim-tercihleri", "cikis", "page.tsx"),
+    ];
+
+    for (const file of tokenModules) {
+      const source = readFileSync(file, "utf8");
+      expect(
+        /console\.|@sentry\/|Sentry\.|captureException|captureMessage|sendHandoffEvent|localStorage|sessionStorage|indexedDB|document\.cookie/.test(source),
+        file,
+      ).toBe(false);
+    }
+  });
+
   it("kapı kararları hiçbir yerde log'a ya da ölçümlemeye yazılmaz", () => {
     // `sendHandoffEvent` kapalı bir olay birliği taşıyor ve `console` yalnız
     // ölçümleme ucunda; kapı modülleri ikisine de dokunmamalı.
