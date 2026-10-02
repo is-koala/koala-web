@@ -13,6 +13,21 @@ test("giriş sayfası açılıyor ve boş form gönderilemiyor", async ({ page }
   expect(emailIsValid).toBe(false);
 });
 
+test("katalogda olmayan ret kodu tembel yüklenen aile metniyle gösterilir", async ({ page }) => {
+  // Aile haritası (244 kod) herkese açık formların ilk yüküne girmiyor
+  // (is-koala/koala-web#184); bant harita gelince çizilir ve durum koduna
+  // göre seçilmiş yanlış bir cümle göstermez.
+  await page.goto("/giris");
+  await page.getByLabel("E-posta").fill("aile-kodu@example.test");
+  await page.getByLabel("Parola").fill("Koala2026");
+  await page.getByRole("button", { name: "Giriş yap" }).click();
+
+  // Next'in rota duyurucusu da `role="alert"` taşıyor; iddia içerikle sınırlı.
+  const alert = page.getByRole("main").getByRole("alert");
+  await expect(alert).toContainText("Bilgileri kontrol et");
+  await expect(alert).not.toContainText("Bir sorun oluştu");
+});
+
 test("dönüş hedefi yalnız site içi yollarda taşınır", async ({ page }) => {
   await page.goto("/giris?next=%2Fpanel%2Fislerim%3Ffiltre%3Dacik");
   await expect(page.locator("input[name='next']")).toHaveValue("/panel/islerim?filtre=acik");

@@ -6,6 +6,7 @@ import { messagingErrors } from "@/messaging/errors";
 import { paymentErrors } from "@/payments/errors";
 
 import { accountErrors } from "./account-errors";
+import { backendErrorFamilies } from "./backend-error-codes";
 import { companyErrors } from "./company-errors";
 import type { ErrorCatalog, ErrorPresentation } from "./error-presentation";
 import { galleryErrors } from "./gallery-errors";
@@ -47,5 +48,7 @@ export function errorPresentation(
   errorCode: string | null | undefined,
   status: number,
 ): ErrorPresentation {
-  return catalogErrorPresentation(appErrors, errorCode, status);
+  // Kabukta harita statik: bu paketin bütçesi yok ve kabuk kodu hiç
+  // beklemeden doğru aile metnini çizmeli (is-koala/koala-web#184).
+  return catalogErrorPresentation(appErrors, errorCode, status, backendErrorFamilies);
 }

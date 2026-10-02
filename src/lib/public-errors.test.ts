@@ -8,11 +8,21 @@ import { messagingErrors } from "@/messaging/errors";
 import { paymentErrors } from "@/payments/errors";
 
 import { accountErrors } from "./account-errors";
+import { backendErrorFamilies } from "./backend-error-codes";
 import { companyErrors } from "./company-errors";
 import type { ErrorCatalog } from "./error-presentation";
 import { errorPresentation } from "./errors";
 import { galleryErrors } from "./gallery-errors";
-import { publicErrorPresentation, publicErrors } from "./public-errors";
+import {
+  publicCatalogPresentation,
+  publicErrorPresentation as presentationWithFamilies,
+  publicErrors,
+} from "./public-errors";
+
+/** Kartın harita geldikten sonraki sunumu; testler haritayı statik geçirir. */
+function publicErrorPresentation(errorCode: string, status: number) {
+  return presentationWithFamilies(errorCode, status, backendErrorFamilies);
+}
 
 const shellCatalogs: Record<string, ErrorCatalog> = {
   identityErrors,
@@ -66,6 +76,29 @@ describe("herkese açık hata kataloğu", () => {
       action: "retry",
     });
     expect(publicErrorPresentation("NEW_INTERNAL_DETAIL", 500).title).toBe("Bir sorun oluştu");
+  });
+
+  it("aile haritasına bakmadan yalnız kesin bildiği metni verir", () => {
+    // is-koala/koala-web#184: harita tembel; katalogda olmayan kodda durum
+    // koduna erken düşmek yanlış cümle göstermek olurdu, bu yüzden `null`.
+    expect(publicCatalogPresentation("TOKEN_EXPIRED", 401)).toEqual(publicErrors.TOKEN_EXPIRED);
+    expect(publicCatalogPresentation(undefined, 404)?.title).toBe("Aradığın içerik bulunamadı");
+    expect(publicCatalogPresentation("VALIDATION_FAILED", 400)).toBeNull();
+    expect(publicCatalogPresentation("NEW_INTERNAL_DETAIL", 500)).toBeNull();
+    // Nesne prototipinin anahtarı katalogda bir cümle sayılmaz.
+    expect(publicCatalogPresentation("constructor", 500)).toBeNull();
+  });
+
+  it("nötr kodu haritayı beklemeden, haritalı sunumla aynı metinle çizer", () => {
+    // BFF okunamayan her hatayı `UNEXPECTED`'a düşürüyor; ağ koparken bir
+    // parça daha istemek yerine durum kodunun metni hemen çizilir. Kod bir gün
+    // aile haritasına girerse bu kestirme yanlış metin gösterirdi.
+    expect(backendErrorFamilies.UNEXPECTED).toBeUndefined();
+    for (const status of [500, 503, 404, 401]) {
+      expect(publicCatalogPresentation("UNEXPECTED", status)).toEqual(
+        publicErrorPresentation("UNEXPECTED", status),
+      );
+    }
   });
 
   it("kabuk kataloğu herkese açık cümleleri değiştirmeden içerir", () => {

@@ -58,7 +58,9 @@ girmesiydi: başvuru formu (`FormAlert` → `ErrorState` → `errorPresentation`
 | `src/lib/errors.ts` | yukarıdakiler + alan katalogları (kabuğun tam kataloğu) | yalnız `(uygulama)` kabuğu ve `/davet`, `/kimlik-dogrula`, `/payment/result` |
 | `src/payments/errors.ts`, `src/lib/company-errors.ts`, `src/messaging/errors.ts`, `src/assignments/errors.ts`, `src/jobs/errors.ts`, `src/identity/errors.ts`, `src/address/errors.ts`, `src/lib/gallery-errors.ts`, `src/lib/account-errors.ts` | alanın kendi cümleleri | yalnız `errors.ts` üzerinden kabuk |
 | `src/lib/gate-notices.ts` | kapı metinleri (`gateNotice`) ve `app-routes` bağımlılığı | yalnız kabuk (`EmployerGate`, ilan gönderimi) |
-| `src/components/public-states.tsx` | `PublicErrorState`, `PublicFormAlert` (küçük katalog) | herkese açık formlar ve sayfalar (ilan listesi, hesap doğrulama dahil) |
+| `src/components/public-states.tsx` | `PublicErrorState` (küçük katalog; katalogda olmayan kodda aile haritası tembel) | herkese açık formlar ve sayfalar (ilan listesi, hesap doğrulama dahil) |
+| `src/components/public-form-alert.tsx` | `PublicFormAlert` (istemci; gönderim sürerken aile haritasını önden ısıtır) | herkese açık formlar |
+| `src/lib/backend-error-families.ts` → `backend-error-codes.ts` | 244 kodun aile haritası, `import()` ile ayrı parça (#184) | herkese açık yüzeyde ilk yüke girmez; kabukta `errors.ts` statik okur |
 | `src/components/placeholder-states.tsx` | `LoadingState`, `EmptyState` (katalogsuz) | her rota |
 | `src/components/states.tsx` | `ErrorState`, `FormAlert` (tam katalog) + yer tutucuların yeniden dışa aktarımı | kabuk |
 
@@ -86,6 +88,20 @@ giren tek şey sunucu bileşeni `src/components/job-transport-summary.tsx` ve on
 `src/transport/contract.ts` (tip + saat biçimlendirici, `ErrorCatalog` yok); düzenleyici ve
 koltuk seçimi yalnız kabuk rotalarının istemci grafiğinde, cümleleri `src/transport/errors.ts`'te
 ve `errors.ts`'e birleştirilmedi.
+
+2026-10-03 (is-koala/koala-web#184, aile haritasının herkese açık yüzeyde tembel yüklenmesi)
+ölçümü: ana sayfa **237.765**, ilan listesi **239.678**, ilan ayrıntısı **239.252** bayt (`main`
+91ed899 üzerinde aynı makinede ölçülen önceki değer 237.765 / 239.678 / **241.165**) — ilan
+ayrıntısında 1.913 bayt düşüş, 240.000 hedefinin 748 bayt altında; sınıra 16.748 bayt kaldı.
+`public-errors.ts` haritayı artık statik içe aktarmıyor; `PublicErrorState` kodu küçük katalogda
+bulamazsa haritayı `loadBackendErrorFamilies()` ile ayrı bir parça olarak getiriyor (`use()` +
+`Suspense fallback={null}`: kart bir parça sonra çizilir, yanlış metinle hiç çizilmez). Düşüşün
+haritanın tamamı (~2,3 KB) olmaması tembel yükleyicinin, `Suspense`'in ve istemci bandının
+(`public-form-alert.tsx`) kendi payından. Nötr `UNEXPECTED` kodu ve kodsuz hatalar haritayı
+beklemiyor; sunucu sayfalarında harita modül yüklenirken hazırlandığı için kart doğrudan HTML'de.
+Sınır testi artık ilk yükü ayrıca tutuyor: herkese açık istemci grafiğinin statik kenarları
+`backend-error-codes.ts`'e ulaşmaz. Ana sayfa ve ilan listesi bayt bayt aynı (liste kartı sunucuda
+çiziyor).
 
 Ürün hedefleri iyi Core Web Vitals deneyimini tanımlar; mevcut baz çizgisinin ilk PR'da kapıyı
 kırmaması için CI sınırları ayrı tutulur. 3G laboratuvar LCP'si 6,6–8,1 saniye aralığında ölçüldü;

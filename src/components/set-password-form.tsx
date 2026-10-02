@@ -9,7 +9,7 @@ import {
   SubmitButton,
   TextField,
 } from "@/components/form-controls";
-import { PublicFormAlert } from "@/components/public-states";
+import { PublicFormAlert } from "@/components/public-form-alert";
 import { setPasswordContent } from "@/content/account";
 import { agreementLink, agreementTitle, type Agreement } from "@/lib/consents";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";

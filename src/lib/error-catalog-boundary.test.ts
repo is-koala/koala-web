@@ -21,7 +21,14 @@ import { describe, expect, it } from "vitest";
 const sourceRoot = path.resolve(import.meta.dirname, "..");
 
 const publicCatalog = path.join(sourceRoot, "lib", "public-errors.ts");
-const publicCatalogModules = [publicCatalog, path.join(sourceRoot, "components", "public-states.tsx")];
+const publicCatalogModules = [
+  publicCatalog,
+  path.join(sourceRoot, "components", "public-states.tsx"),
+  path.join(sourceRoot, "components", "public-form-alert.tsx"),
+];
+
+/** 244 kodun aile haritası; herkese açık yüzeyde yalnız tembel yüklenir (#184). */
+const backendErrorCodes = path.join(sourceRoot, "lib", "backend-error-codes.ts");
 
 /** Küçük kataloğu okuması beklenen tek kabuk kodu: onu tam katalogla birleştiren. */
 const publicCatalogComposers = [path.join(sourceRoot, "lib", "errors.ts")];
@@ -75,14 +82,15 @@ function resolveImport(from: string, specifier: string): string | null {
   return null;
 }
 
-type Module = { file: string; client: boolean; imports: string[] };
+type Module = { file: string; client: boolean; imports: string[]; staticImports: string[] };
 
 const modules = new Map<string, Module>();
 
 /**
  * Tip içe aktarmaları derlemeden düşer, pakete girmez; grafikte kenar değil.
  * Dinamik `import()` kenar sayılır: tembel yüklense de sınırın öbür yanına
- * geçmek yine bir sızıntı.
+ * geçmek yine bir sızıntı. İlk yükü soran test (`staticOnly`) ise yalnız
+ * statik kenarları izler — dinamik kenar ayrı bir parça demek.
  */
 function moduleOf(file: string): Module {
   const cached = modules.get(file);
@@ -96,6 +104,7 @@ function moduleOf(file: string): Module {
     file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const imports = new Set<string>();
+  const staticImports = new Set<string>();
   const client = source.statements.some(
     (statement) =>
       ts.isExpressionStatement(statement) &&
@@ -103,9 +112,11 @@ function moduleOf(file: string): Module {
       statement.expression.text === "use client",
   );
 
-  function add(specifier: string) {
+  function add(specifier: string, { dynamic = false } = {}) {
     const resolved = resolveImport(file, specifier);
-    if (resolved) imports.add(resolved);
+    if (!resolved) return;
+    imports.add(resolved);
+    if (!dynamic) staticImports.add(resolved);
   }
 
   function visit(node: ts.Node) {
@@ -132,19 +143,25 @@ function moduleOf(file: string): Module {
       node.arguments[0] &&
       ts.isStringLiteral(node.arguments[0])
     ) {
-      add(node.arguments[0].text);
+      add(node.arguments[0].text, { dynamic: true });
     }
     ts.forEachChild(node, visit);
   }
   visit(source);
 
-  const graphNode = { file, client, imports: [...imports] };
+  const graphNode = { file, client, imports: [...imports], staticImports: [...staticImports] };
   modules.set(file, graphNode);
   return graphNode;
 }
 
-/** Giriş dosyalarından ulaşılan her modül; `client` ile yalnız istemci grafiği. */
-function reachable(entries: string[], { clientOnly }: { clientOnly: boolean }): string[] {
+/**
+ * Giriş dosyalarından ulaşılan her modül; `clientOnly` ile yalnız istemci
+ * grafiği, `staticOnly` ile yalnız ilk yükte inen statik kenarlar.
+ */
+function reachable(
+  entries: string[],
+  { clientOnly, staticOnly = false }: { clientOnly: boolean; staticOnly?: boolean },
+): string[] {
   const seen = new Set<string>();
   const queue = entries.map((file) => ({ file, client: false }));
   const found = new Set<string>();
@@ -157,7 +174,9 @@ function reachable(entries: string[], { clientOnly }: { clientOnly: boolean }): 
     if (seen.has(key)) continue;
     seen.add(key);
     if (!clientOnly || client) found.add(file);
-    for (const dependency of node.imports) queue.push({ file: dependency, client });
+    for (const dependency of staticOnly ? node.staticImports : node.imports) {
+      queue.push({ file: dependency, client });
+    }
   }
   return [...found].sort();
 }
@@ -222,6 +241,27 @@ describe("hata kataloğunun rota sınırı", () => {
 
     expect(client).toContain(publicCatalog);
     expect(client).toContain(path.join(sourceRoot, "components", "public-states.tsx"));
+  });
+
+  it("herkese açık istemci grafiğinin ilk yükü aile haritasını taşımaz", () => {
+    // is-koala/koala-web#184: 244 kodun aile haritası (≈2,3 KB) ilan
+    // ayrıntısının başvuru formu parçasındaydı, oysa yalnız küçük katalogda
+    // olmayan bir kod geldiğinde okunuyor. Statik bir içe aktarma onu yeniden
+    // her ziyaretçinin ilk yüküne sokar; ilan ayrıntısı 240.000 bayt hedefini
+    // yine aşar. Dinamik kenar ise kalmalı: kesilirse bilinmeyen kod aile
+    // metnine değil durum koduna düşerdi.
+    const entries = [
+      ...sourceFiles(path.join(sourceRoot, "app", "(marketing)")),
+      ...publicAccountEntries(),
+      ...rootEntries,
+    ];
+
+    const firstLoad = reachable(entries, { clientOnly: true, staticOnly: true });
+    const withLazyChunks = reachable(entries, { clientOnly: true });
+
+    expect(firstLoad).toContain(publicCatalog);
+    expect(firstLoad).not.toContain(backendErrorCodes);
+    expect(withLazyChunks).toContain(backendErrorCodes);
   });
 
   it("kabuk küçük kataloğu doğrudan okumaz", () => {

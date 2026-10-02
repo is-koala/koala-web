@@ -11,7 +11,7 @@ import {
   TextareaField,
   TextField,
 } from "@/components/form-controls";
-import { PublicFormAlert } from "@/components/public-states";
+import { PublicFormAlert } from "@/components/public-form-alert";
 import { controllerIdentity, supportContent } from "@/content/support";
 import { fieldError, idleFormState, type FormAction } from "@/lib/form-state";
 

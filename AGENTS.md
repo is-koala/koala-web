@@ -228,8 +228,12 @@ Backend'in kullanıcıya yönelik ham hata metnine göre dallanma; davranışı
 Hata kataloğu **rota bazında bölünmüş** (is-koala/koala-web#177):
 `src/lib/public-errors.ts` yalnız oturum, giriş, kayıt ve başvuru kodlarını
 taşır; `(marketing)` ile `(account)` giriş/kayıt/parola rotaları — sunucu
-sayfaları dahil — yalnız onu okur (`PublicErrorState`, `PublicFormAlert` —
-`src/components/public-states.tsx`; kök `error.tsx` kod bilmediği için
+sayfaları dahil — yalnız onu okur (`PublicErrorState` —
+`src/components/public-states.tsx`, `PublicFormAlert` —
+`src/components/public-form-alert.tsx`; 244 kodun aile haritası
+`backend-error-codes.ts` bu yüzeyde statik içe aktarılmaz, katalogda olmayan
+kodda `loadBackendErrorFamilies` ile tembel gelir, is-koala/koala-web#184;
+kök `error.tsx` kod bilmediği için
 doğrudan `unexpectedErrorPresentation` çizer; yükleniyor/boş durumları
 katalogsuz `src/components/placeholder-states.tsx`'te). Kabuk ve `(account)`
 altındaki `davet`, `kimlik-dogrula`, `payment` rotaları `src/lib/errors.ts`'i
