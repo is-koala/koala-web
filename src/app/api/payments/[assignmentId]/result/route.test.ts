@@ -8,7 +8,7 @@ import { GET } from "./route";
 const expectedPrivateHeaders = [
   ["Cache-Control", "no-store"],
   ["X-Robots-Tag", "noindex, nofollow, noarchive"],
-  ["Referrer-Policy", "no-referrer"],
+  ["Referrer-Policy", "strict-origin"],
   ["X-Content-Type-Options", "nosniff"],
 ] as const;
 

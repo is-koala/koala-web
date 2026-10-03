@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   privateDisallowRules,
   privateHeaderSources,
+  privateResponseHeaders,
   privateRouteTrees,
   privateRoutes,
 } from "./private-routes";
@@ -103,6 +104,17 @@ describe("arama motorlarına kapalı rotalar", () => {
     // Tercihleri yönetme bağlantısının indiği, rolü çözüp kabuğa yönlendiren adres.
     expect(blocked("/hesap/bildirimler")).toBe(true);
     expect(privateHeaderSources).toContain("/hesap/bildirimler");
+  });
+
+  it("gizli rotaların Referer politikası form POST'unu null origin'e düşürmez", () => {
+    /*
+     * `no-referrer` politikalı sayfadan gelen düz form POST'u `Origin: null`
+     * taşıyor ve hem vekil hem Next'in action CSRF denetimi onu reddediyor
+     * (is-koala/koala-web#199). Politika aynı origin POST'una gerçek origin'i
+     * yazdırmalı ve `Referer`'a yol/sorgu (token) koymamalı; ikisini birlikte
+     * yalnız `strict-origin` sağlıyor.
+     */
+    expect(privateResponseHeaders["Referrer-Policy"]).toBe("strict-origin");
   });
 
   it("başlık kuralı her kabuk kökü için alt yolları da kapsar", () => {

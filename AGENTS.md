@@ -103,11 +103,18 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   olmayan ama adresi bir sır taşıyan rotalar da oraya girer — `/davet` bir
   davet kimliği taşıyor ve `GET /contact-invitations/{id}` sahiplik denetimi
   yapmadığı için o kimliği bilen herkes daveti okuyabiliyor.
-  `next.config.ts` bu listeden `X-Robots-Tag`, `Referrer-Policy: no-referrer`
+  `next.config.ts` bu listeden `X-Robots-Tag`, `Referrer-Policy: strict-origin`
   ve `Cache-Control: no-store` basıyor; üçüncüsü yalnız `next start` ile
   görülür, `next dev` her dinamik yanıtın üzerine kendi
   `no-cache, must-revalidate` başlığını yazıyor, bu yüzden Playwright
-  koşuları ona bakamaz.
+  koşuları ona bakamaz. Politika **`no-referrer` değil**: o politikada
+  tarayıcı düz form POST'una `Origin: null` yazıyor ve server action'lı her
+  form JavaScript'siz ve hidrasyondan önce hem vekilde (403) hem Next'in
+  action CSRF denetiminde (500) reddediliyordu (is-koala/koala-web#199,
+  `tests/e2e/no-js-forms.spec.ts`). `strict-origin` aynı origin POST'una
+  gerçek origin'i yazdırır, `Referer`'a yalnız origin girer — yol ve sorgu
+  (token, davet kimliği) hiçbir isteğe girmez. CSRF kapısını `null`'u kabul
+  edecek biçimde gevşetme.
 - `loading.tsx` bir segmenti Suspense sınırına sokar ve bunun **iki** ayrı yan
   etkisi var. İkisi de ekranda görünmez; JavaScript açık her tarayıcıda sayfa
   doğru çalışır. `src/app/route-shape.test.ts` ikisini de zorluyor.

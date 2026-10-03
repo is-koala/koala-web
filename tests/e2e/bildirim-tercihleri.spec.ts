@@ -47,7 +47,7 @@ test("çıkış bağlantısı açılışta hiçbir şeyi değiştirmez, onayla k
 
   // E-posta tarayıcıları bağlantıyı GET ile açıyor: açılış backend'e gitmez.
   expect(response?.status()).toBe(200);
-  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+  expect(response?.headers()["referrer-policy"]).toBe("strict-origin");
   expect(response?.headers()["x-robots-tag"]).toContain("noindex");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   await expect(page.getByRole("button", { name: "Abonelikten çık" })).toBeEnabled();

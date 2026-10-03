@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const assignmentId = "3b1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f6e";
 const expectedPrivateHeaders = [
   ["x-robots-tag", "noindex, nofollow, noarchive"],
-  ["referrer-policy", "no-referrer"],
+  ["referrer-policy", "strict-origin"],
   ["x-content-type-options", "nosniff"],
 ] as const;
 
