@@ -39,12 +39,13 @@ test("biçimi bozuk davet kimliği de önce oturum kapısına takılır", async 
   expect(response.headers().location).toBe("/giris?next=%2Fdavet%2Fabc");
 });
 
-test("davet adresi indekslenmez, referrer taşımaz ve önbelleğe girmez", async ({ request }) => {
+test("davet adresi indekslenmez, Referer'a yalnız origin bırakır ve önbelleğe girmez", async ({ request }) => {
   /*
    * Adres bir davet kimliği taşıyor ve `getInvitationById` sahiplik denetimi
    * yapmıyor: kimliği bilen her oturumlu kullanıcı daveti okuyabiliyor. Yani
-   * adresin arama sonuçlarına, dış sitelere giden `Referer` başlığına ya da
-   * paylaşılan bir önbelleğe girmesi davetin kendisini sızdırır.
+   * adresin arama sonuçlarına, `Referer` başlığına ya da paylaşılan bir
+   * önbelleğe girmesi davetin kendisini sızdırır. `strict-origin`
+   * (is-koala/koala-web#199): `Referer`'a yalnız origin girer, kimlik girmez.
    */
   for (const path of [`/davet/${invitationId}`, "/davet/abc"]) {
     const response = await request.get(path, { maxRedirects: 0 });

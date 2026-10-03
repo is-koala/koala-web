@@ -53,12 +53,29 @@ test("JavaScript kapalıyken çıkış formu gönderilir", async ({ browser }) =
   await context.close();
 });
 
-test("gizli sayfa Referer'a yalnız origin'i bırakır", async ({ page }) => {
+test("gizli sayfanın kendi istekleri Referer'a yalnız origin'i yazar", async ({ page }) => {
   // `strict-origin`: yol ve sorgu (tokenlı karşılama adresleri, davet
-  // kimliği) hiçbir isteğe girmez.
+  // kimliği) hiçbir isteğe girmez. `document.referrer` `page.goto`'da zaten
+  // boş, bir şey kanıtlamıyor; ölçülen şey sayfanın attığı aynı origin
+  // isteğinin başlığı.
+  const scriptRequest = page.waitForRequest((request) =>
+    new URL(request.url()).pathname.startsWith("/_next/static/"),
+  );
   const response = await page.goto("/sifre-sifirla?token=gizli-sifirlama-tokeni");
   expect(response?.headers()["referrer-policy"]).toBe("strict-origin");
-  expect(await page.evaluate(() => document.referrer)).toBe("");
+
+  const referer = await (await scriptRequest).headerValue("referer");
+  expect(referer).toBe(`${baseURL}/`);
+  expect(referer).not.toContain("gizli");
+});
+
+test("tanıtım sayfası da strict-origin taşır", async ({ request }) => {
+  // İstemci tarafı gezinme belge politikasını değiştirmiyor: tanıtım
+  // sayfasından `/panel/**`'e geçen belge ilk yüklemenin politikasını korur.
+  for (const path of ["/", "/is-ilanlari"]) {
+    const response = await request.get(path);
+    expect(response.headers()["referrer-policy"], path).toBe("strict-origin");
+  }
 });
 
 test("çapraz origin ve null origin POST'u yine reddedilir", async ({ request }) => {

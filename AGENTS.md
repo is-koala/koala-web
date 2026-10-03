@@ -119,7 +119,13 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   `tests/e2e/no-js-forms.spec.ts`). `strict-origin` aynı origin POST'una
   gerçek origin'i yazdırır, `Referer`'a yalnız origin girer — yol ve sorgu
   (token, davet kimliği) hiçbir isteğe girmez. CSRF kapısını `null`'u kabul
-  edecek biçimde gevşetme.
+  edecek biçimde gevşetme. Aynı politika `next.config.ts`'te **site geneli**
+  de basılıyor: belge politikası yalnız sert yüklemede yerleşiyor ve tanıtım
+  sayfasından istemci tarafı gezinmeyle gizli bir rotaya geçen belge aksi
+  hâlde varsayılanda kalırdı. Tek istisna abonelikten çıkma sayfası
+  (`/bildirim-tercihleri/cikis`): `<meta name="referrer" content="no-referrer">`
+  ile sıkılaştırıyor; düz form POST'u olmadığı (onay `cors` kipinde bir
+  `fetch`) için `Origin: null` sorunu orada doğmuyor.
 - `loading.tsx` bir segmenti Suspense sınırına sokar ve bunun **iki** ayrı yan
   etkisi var. İkisi de ekranda görünmez; JavaScript açık her tarayıcıda sayfa
   doğru çalışır. `src/app/route-shape.test.ts` ikisini de zorluyor.
