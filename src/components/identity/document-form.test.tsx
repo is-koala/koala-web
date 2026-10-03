@@ -25,7 +25,7 @@ describe("kimlik belge formu", () => {
     await user.type(screen.getByLabelText("Kimlik seri numarası"), "A01A00000");
     await user.upload(screen.getByLabelText("Yüz fotoğrafı"), photo("yuz.jpg"));
     await user.upload(screen.getByLabelText("Kimlik ön yüzü"), photo("on.jpg"));
-    await user.upload(screen.getByLabelText("Kimlik arka yüzü"), photo("arka.webp", "image/webp"));
+    await user.upload(screen.getByLabelText("Kimlik arka yüzü"), photo("arka.png", "image/png"));
     await user.upload(screen.getByLabelText("Kimlik yüzün altında"), photo("birlikte.jpg"));
 
     const submit = screen.getByRole("button", { name: "İncelemeye gönder" });

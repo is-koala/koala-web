@@ -15,7 +15,7 @@ export const disputeErrors: ErrorCatalog = {
   },
   DISPUTE_EVIDENCE_REQUIRED: {
     title: "Kanıt dosyası seçmelisin",
-    message: "Devam etmek için PDF, PNG, JPG veya WEBP biçiminde bir kanıt dosyası seç.",
+    message: "Devam etmek için PDF, PNG, JPG veya JPEG biçiminde bir kanıt dosyası seç.",
     action: "none",
   },
   DISPUTE_EVIDENCE_TOO_MANY: {
@@ -50,7 +50,7 @@ export const disputeErrors: ErrorCatalog = {
   },
   STORAGE_UNSUPPORTED_TYPE: {
     title: "Dosya biçimi desteklenmiyor",
-    message: "PDF, PNG, JPG veya WEBP biçiminde geçerli bir dosya seçip yeniden dene.",
+    message: "PDF, PNG, JPG veya JPEG biçiminde geçerli bir dosya seçip yeniden dene.",
     action: "none",
   },
   STORAGE_DOWNLOAD_FAILED: {

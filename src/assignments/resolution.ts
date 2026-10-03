@@ -1,3 +1,5 @@
+import { imageUploadExtensions } from "@/lib/image-upload-policy";
+
 export type RefundStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "UNKNOWN";
 
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "UNKNOWN";
@@ -89,7 +91,8 @@ export type ResolutionActionState =
 export const disputeEvidenceLimits = {
   maxFilesPerRequest: 1,
   maxFileBytes: 10 * 1024 * 1024,
-  acceptedExtensions: ["pdf", "png", "jpg", "jpeg", "webp"],
+  // `evidenceExtensions` WebP'yi sayıyor ama backend okuyamıyor (koala-backend#348).
+  acceptedExtensions: ["pdf", ...imageUploadExtensions],
 } as const;
 
 export type DisputeEvidenceUploadFeedback = {

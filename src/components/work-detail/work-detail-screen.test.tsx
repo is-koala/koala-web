@@ -415,7 +415,7 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     await user.click(screen.getByText("Uyuşmazlık aç"));
     expect(screen.getByLabelText("Kanıt dosyaları (isteğe bağlı)")).toHaveAttribute(
       "accept",
-      ".pdf,.png,.jpg,.jpeg,.webp",
+      ".pdf,.png,.jpg,.jpeg",
     );
     await user.type(screen.getByLabelText("Uyuşmazlık nedeni"), "Çalışma süresi yanlış");
     await user.click(screen.getByRole("button", { name: "Uyuşmazlığı gönder" }));

@@ -22,7 +22,7 @@ export function DisputeEvidenceFields({
         required={required}
       />
       <p className="field-hint">
-        Her yüklemede 1 dosya; uyuşmazlığa toplam 5 dosya ekleyebilirsiniz. PDF, PNG, JPG veya WEBP. Dosya en fazla 10 MB olabilir.
+        Her yüklemede 1 dosya; uyuşmazlığa toplam 5 dosya ekleyebilirsiniz. PDF, PNG, JPG veya JPEG. Dosya en fazla 10 MB olabilir.
       </p>
     </div>
   );

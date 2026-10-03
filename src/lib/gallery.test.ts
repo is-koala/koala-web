@@ -107,12 +107,12 @@ describe("yükleme ön kontrolü", () => {
 
     expect(precheckGalleryUpload(file, 4)).toEqual({
       ok: false,
-      reason: "PNG, JPG, JPEG veya WEBP biçiminde bir görsel seç.",
+      reason: "PNG, JPG veya JPEG biçiminde bir görsel seç.",
     });
   });
 
   it("10 MB üzeri dosyayı sunucuya hiç göndermez", () => {
-    const file = new File(["x"], "buyuk.webp", { type: "image/webp" });
+    const file = new File(["x"], "buyuk.jpg", { type: "image/jpeg" });
     Object.defineProperty(file, "size", { value: 10 * 1024 * 1024 + 1 });
 
     expect(precheckGalleryUpload(file, 4)).toEqual({
@@ -122,11 +122,21 @@ describe("yükleme ön kontrolü", () => {
   });
 
   it("kota yokken dosyayı sunucuya hiç göndermez", () => {
-    const file = new File(["koala"], "mekan.webp", { type: "image/webp" });
+    const file = new File(["koala"], "mekan.png", { type: "image/png" });
 
     expect(precheckGalleryUpload(file, 0)).toEqual({
       ok: false,
       reason: galleryQuotaReason,
+    });
+  });
+
+  it("WebP'yi sunucuya hiç göndermez", () => {
+    // Backend WebP'yi okuyamıyor (ImageIO okuyucusu yok, koala-backend#348).
+    const file = new File(["koala"], "mekan.webp", { type: "image/webp" });
+
+    expect(precheckGalleryUpload(file, 4)).toEqual({
+      ok: false,
+      reason: "PNG, JPG veya JPEG biçiminde bir görsel seç.",
     });
   });
 
@@ -137,7 +147,7 @@ describe("yükleme ön kontrolü", () => {
   });
 
   it("boş dosyayı sunucuya hiç göndermez", () => {
-    const file = new File([], "bos.webp", { type: "image/webp" });
+    const file = new File([], "bos.png", { type: "image/png" });
 
     expect(precheckGalleryUpload(file, 1)).toEqual({
       ok: false,

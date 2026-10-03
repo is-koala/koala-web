@@ -187,7 +187,7 @@ export function GalleryManager({
       <section className="app-panel" aria-labelledby="gallery-upload-title">
         <p className="eyebrow">Yükle</p>
         <h2 id="gallery-upload-title">Görsel ekle</h2>
-        <p className="lede">PNG, JPG, JPEG veya WEBP, en fazla 10 MB. Yüklemeler sırayla gider.</p>
+        <p className="lede">PNG, JPG veya JPEG, en fazla 10 MB. Yüklemeler sırayla gider.</p>
         <div className="gallery-upload">
           <input
             ref={fileInput}

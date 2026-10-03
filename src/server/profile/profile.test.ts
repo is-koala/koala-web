@@ -227,7 +227,7 @@ describe("profil backend modülü", () => {
 
   it("profil fotoğrafını image parçasıyla multipart aktarır", async () => {
     const fetchMock = successfulFetch();
-    const image = new File(["koala"], "profil.webp", { type: "image/webp" });
+    const image = new File(["koala"], "profil.png", { type: "image/png" });
 
     await uploadProfilePicture(image);
 

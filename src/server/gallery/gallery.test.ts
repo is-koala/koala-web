@@ -91,7 +91,7 @@ describe("galeri BFF sözleşmesi", () => {
   });
 
   it("yüklemeyi image parçasıyla, Content-Type elle koymadan gönderir", async () => {
-    const image = new File(["koala"], "mekan.webp", { type: "image/webp" });
+    const image = new File(["koala"], "mekan.jpg", { type: "image/jpeg" });
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, envelope([])));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -150,9 +150,23 @@ describe("yükleme ve toptan yazma kuralları", () => {
     ).resolves.toMatchObject({
       status: "error",
       errorCode: "VALIDATION_FAILED",
-      fieldErrors: { image: "PNG, JPG, JPEG veya WEBP biçiminde bir görsel seç." },
+      fieldErrors: { image: "PNG, JPG veya JPEG biçiminde bir görsel seç." },
     });
     expect(list).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("WebP'yi yüklemeye göndermeden reddeder", async () => {
+    // Backend WebP'yi okuyamıyor (koala-backend#348); gönderilse kota
+    // turu ve yükleme boşa gider, kullanıcı belirsiz bir ret alırdı.
+    const list = vi.fn();
+    const upload = vi.fn();
+
+    await expect(
+      uploadWithPrecheck(new File(["koala"], "mekan.webp", { type: "image/webp" }), list, upload),
+    ).resolves.toMatchObject({
+      fieldErrors: { image: "PNG, JPG veya JPEG biçiminde bir görsel seç." },
+    });
     expect(upload).not.toHaveBeenCalled();
   });
 
@@ -167,7 +181,7 @@ describe("yükleme ve toptan yazma kuralları", () => {
     const upload = vi.fn();
 
     await expect(
-      uploadWithPrecheck(new File(["koala"], "mekan.webp", { type: "image/webp" }), list, upload),
+      uploadWithPrecheck(new File(["koala"], "mekan.jpg", { type: "image/jpeg" }), list, upload),
     ).resolves.toMatchObject({
       status: "error",
       fieldErrors: { image: galleryQuotaReason },
@@ -196,7 +210,7 @@ describe("yükleme ve toptan yazma kuralları", () => {
     );
 
     await expect(
-      uploadWithPrecheck(new File(["koala"], "mekan.webp", { type: "image/webp" }), list, upload),
+      uploadWithPrecheck(new File(["koala"], "mekan.jpg", { type: "image/jpeg" }), list, upload),
     ).resolves.toEqual({
       status: "error",
       errorCode: "GALLERY_LIMIT_EXCEEDED",
@@ -214,7 +228,7 @@ describe("yükleme ve toptan yazma kuralları", () => {
     const upload = vi.fn().mockRejectedValue(interrupt);
 
     await expect(
-      uploadWithPrecheck(new File(["koala"], "mekan.webp", { type: "image/webp" }), list, upload),
+      uploadWithPrecheck(new File(["koala"], "mekan.jpg", { type: "image/jpeg" }), list, upload),
     ).rejects.toBe(interrupt);
   });
 

@@ -211,7 +211,7 @@ describe("POST /api/users/me/identity-documents", () => {
       {
         selfie: expect.objectContaining({ name: "yuz.jpg", size: 4 * 1024 * 1024 }),
         front: expect.objectContaining({ name: "on.jpg", size: 4 * 1024 * 1024 }),
-        back: expect.objectContaining({ name: "arka.webp", size: 4 * 1024 * 1024 }),
+        back: expect.objectContaining({ name: "arka.png", size: 4 * 1024 * 1024 }),
         together: expect.objectContaining({ name: "birlikte.jpg", size: 4 * 1024 * 1024 }),
       },
     );
@@ -263,7 +263,22 @@ describe("POST /api/users/me/identity-documents", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { front: "PNG, JPG, JPEG veya WEBP biçiminde bir fotoğraf seç." },
+      fieldErrors: { front: "PNG, JPG veya JPEG biçiminde bir fotoğraf seç." },
+    });
+    expect(submitIdentityDocuments).not.toHaveBeenCalled();
+  });
+
+  it("WebP fotoğrafı backend'e göndermeden reddeder", async () => {
+    // Backend WebP'yi okuyamıyor (ImageIO okuyucusu yok, koala-backend#348):
+    // dört fotoğraflık yükleme her seferinde `STORAGE_UNSUPPORTED_TYPE` alırdı.
+    const response = await POST(multipartRequest(1024, {
+      back: { fileName: "arka.webp", contentType: "image/webp" },
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { back: "PNG, JPG veya JPEG biçiminde bir fotoğraf seç." },
     });
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });
@@ -335,7 +350,7 @@ function multipartRequest(
   const photos = [
     ["selfie", "yuz.jpg", "image/jpeg"],
     ["front", "on.jpg", "image/jpeg"],
-    ["back", "arka.webp", "image/webp"],
+    ["back", "arka.png", "image/png"],
     ["together", "birlikte.jpg", "image/jpeg"],
   ] as const;
   const chunks: Array<string | Uint8Array<ArrayBuffer>> = [];

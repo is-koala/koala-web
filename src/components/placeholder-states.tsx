@@ -75,7 +75,7 @@ const emptyCopy = {
   ],
   gallery: [
     "Henüz görsel yok",
-    "PNG, JPG, JPEG veya WEBP biçiminde görseller ekleyebilirsin.",
+    "PNG, JPG veya JPEG biçiminde görseller ekleyebilirsin.",
   ],
 } as const;
 

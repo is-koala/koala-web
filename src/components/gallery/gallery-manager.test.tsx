@@ -60,7 +60,7 @@ describe("galeri yöneticisi", () => {
     });
 
     expect(uploadAction).not.toHaveBeenCalled();
-    expect(screen.getByText("PNG, JPG, JPEG veya WEBP biçiminde bir görsel seç.")).toBeVisible();
+    expect(screen.getByText("PNG, JPG veya JPEG biçiminde bir görsel seç.")).toBeVisible();
   });
 
   it("sunucu yükleme hatasını kota doldu diye yazmaz", async () => {
@@ -74,11 +74,11 @@ describe("galeri yöneticisi", () => {
 
     await userEvent.upload(
       screen.getByLabelText("Görsel seç"),
-      new File(["a"], "mutfak.webp", { type: "image/webp" }),
+      new File(["a"], "mutfak.jpg", { type: "image/jpeg" }),
     );
 
     await waitFor(() => expect(uploadAction).toHaveBeenCalled());
-    const row = screen.getByText("mutfak.webp").closest("li");
+    const row = screen.getByText("mutfak.jpg").closest("li");
     expect(row).toHaveTextContent("Görseli şu anda yükleyemedik");
     expect(row).not.toHaveTextContent("Galeri kotası doldu");
   });
@@ -97,8 +97,8 @@ describe("galeri yöneticisi", () => {
     render(manager({ uploadAction }));
 
     await userEvent.upload(screen.getByLabelText("Görsel seç"), [
-      new File(["a"], "ilk.webp", { type: "image/webp" }),
-      new File(["b"], "ikinci.webp", { type: "image/webp" }),
+      new File(["a"], "ilk.jpg", { type: "image/jpeg" }),
+      new File(["b"], "ikinci.jpg", { type: "image/jpeg" }),
     ]);
 
     await waitFor(() => expect(uploadAction).toHaveBeenCalledTimes(2));
