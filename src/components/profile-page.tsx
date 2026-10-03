@@ -6,6 +6,7 @@ import { EducationCreator, EducationEditor } from "@/components/profile/educatio
 import { ExperienceCreator, ExperienceEditor } from "@/components/profile/experience-forms";
 import { NotificationPreferencesForm } from "@/components/profile/notification-preferences-form";
 import { ErrorState } from "@/components/states";
+import { accountSettingsPath } from "@/lib/app-routes";
 import type { Availability } from "@/lib/availability";
 import { formatDate } from "@/lib/dates";
 import {
@@ -235,7 +236,10 @@ export function ProfilePageView({
             message="Tercihler hazır olduğunda burada listelenecek."
           />
         ) : (
-          <NotificationPreferencesForm preferences={preferences.data} />
+          <NotificationPreferencesForm
+            preferences={preferences.data}
+            contactHref={`${accountSettingsPath("worker")}#iletisim`}
+          />
         )}
       </section>
     </div>

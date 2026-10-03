@@ -219,6 +219,12 @@ describe("profil backend modülü", () => {
     ]);
   });
 
+  it("tercih listesi boş zarfla gelirse boş liste döner", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(null))));
+
+    await expect(getNotificationPreferences()).resolves.toEqual([]);
+  });
+
   it("profil fotoğrafını image parçasıyla multipart aktarır", async () => {
     const fetchMock = successfulFetch();
     const image = new File(["koala"], "profil.webp", { type: "image/webp" });

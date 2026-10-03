@@ -60,15 +60,31 @@ for (const shellPath of ["/panel/hesap", "/isveren/hesap"]) {
         `${backendURL}/__test__/notification-preference-requests?key=${stateKeyFor(testInfo)}`,
       )
     ).json()) as { category: string; channel: string; enabled: boolean }[][];
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toEqual(
-      expect.arrayContaining([
-        { category: "MESSAGES", channel: "SMS", enabled: false },
+    // Yalnız değişen iki satır gider: backend her ticari satır için rıza
+    // kaydı ve İYS görevi yazıyor; değişmeyen satır, işlemsel satır ve
+    // tanınmayan satır gönderilmez.
+    expect(sent).toEqual([
+      [
         { category: "JOB_ALERTS", channel: "SMS", enabled: true },
-      ]),
-    );
-    // İşlemsel satır ve tanınmayan satır gönderilmez.
-    expect(sent[0].some((entry) => entry.category === "TRANSPORT")).toBe(false);
-    expect(sent[0].some((entry) => entry.category === "FUTURE_CATEGORY")).toBe(false);
+        { category: "MESSAGES", channel: "SMS", enabled: false },
+      ],
+    ]);
+  });
+
+  test(`${shellPath} değişiklik yokken backend'e yazmaz`, async ({ page, request }, testInfo) => {
+    await page.goto(shellPath);
+    const consent = page.getByRole("button", { name: "Yalnız zorunlu" });
+    if (await consent.isVisible()) await consent.click();
+
+    const section = page.getByRole("region", { name: "Bildirim tercihleri" });
+    await section.getByRole("button", { name: "İletişim tercihlerini kaydet" }).click();
+
+    await expect(section.getByRole("status")).toContainText("Değişiklik yok");
+    const sent = (await (
+      await request.get(
+        `${backendURL}/__test__/notification-preference-requests?key=${stateKeyFor(testInfo)}`,
+      )
+    ).json()) as unknown[];
+    expect(sent).toEqual([]);
   });
 }

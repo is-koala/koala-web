@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
 const port = Number(process.argv[2]);
@@ -935,8 +936,15 @@ async function drain(request) {
   }
 }
 
-// Backend `NotificationCategory` / `NotificationChannel` (canlı OpenAPI).
-const notificationCategoryKinds = {
+// Bildirim kategorisi ve kanal listeleri sözleşme parçasından okunuyor
+// (`tests/contracts/notification-preferences.openapi.json`, canlı OpenAPI);
+// üçüncü bir elle kopya tutulmuyor. Kategori türü OpenAPI'de yok — backend
+// `NotificationCategory(kind)` — o yüzden burada; sözleşmeye yeni bir
+// kategori girer de türü yazılmazsa fikstür açılışta düşer.
+const notificationContract = JSON.parse(
+  readFileSync(new URL("../contracts/notification-preferences.openapi.json", import.meta.url), "utf8"),
+).schemas.NotificationPreferenceDto;
+const notificationCategoryKindsByName = {
   ACCOUNT_SECURITY: "TRANSACTIONAL",
   APPLICATION_UPDATES: "TRANSACTIONAL",
   IDENTITY_VERIFICATION: "TRANSACTIONAL",
@@ -947,7 +955,14 @@ const notificationCategoryKinds = {
   NEWSLETTER: "COMMERCIAL",
   TRANSPORT: "TRANSACTIONAL",
 };
-const notificationChannels = ["EMAIL", "SMS", "PUSH", "IN_APP"];
+const notificationCategoryKinds = Object.fromEntries(
+  notificationContract.category.enum.map((category) => {
+    const kind = notificationCategoryKindsByName[category];
+    if (!kind) throw new Error(`E2E fikstüründe ${category} kategorisinin türü yok.`);
+    return [category, kind];
+  }),
+);
+const notificationChannels = notificationContract.channel.enum;
 
 function initialNotificationPreferences() {
   const row = (category, channel, enabled) => ({
