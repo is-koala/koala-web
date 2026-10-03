@@ -6,8 +6,11 @@ import { unsubscribeContent } from "@/content/unsubscribe";
 export const metadata: Metadata = {
   title: "Abonelikten Çık",
   robots: { index: false, follow: false },
-  // Başlık `private-routes.ts`'ten de geliyor; token 90 gün geçerli olduğu
-  // için kural ters vekil başlığı düşürse bile belgenin içinde durur.
+  // Gizli rotaların başlığı `strict-origin` (`private-routes.ts`, #199); bu
+  // sayfa onu `no-referrer`'a sıkılaştırıyor. Bunu yapabiliyor, çünkü düz bir
+  // form POST'u yok: onay `fetch` ile gidiyor ve `fetch` politikadan bağımsız
+  // olarak `Origin` taşıyor. Token 90 gün geçerli; kural ters vekil başlığı
+  // düşürse bile belgenin içinde durur.
   referrer: "no-referrer",
 };
 

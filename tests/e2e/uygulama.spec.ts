@@ -129,7 +129,7 @@ test("kabuk adresleri indekslenmez", async ({ request }) => {
   ]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["x-robots-tag"], path).toContain("noindex");
-    expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
+    expect(response.headers()["referrer-policy"], path).toBe("strict-origin");
   }
 
   const robots = await (await request.get("/robots.txt")).text();

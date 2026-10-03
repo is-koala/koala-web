@@ -83,10 +83,24 @@ export const privateRouteTrees: readonly string[] = privateRouteDescriptors.flat
   route.kind === "tree" ? [route.path] : [],
 );
 
-/** Gizli sayfa ve BFF yanıtlarının ortak tarayıcı güvenlik politikası. */
+/**
+ * Gizli sayfa ve BFF yanıtlarının ortak tarayıcı güvenlik politikası.
+ *
+ * `Referrer-Policy: strict-origin`, `no-referrer` değil (is-koala/koala-web#199).
+ * Fetch standardı `no-referrer` politikalı sayfadan gelen düz form POST'una
+ * `Origin: null` yazdırıyor; server action'lı formlar hidrasyondan önce ve
+ * JavaScript'siz tam olarak böyle gidiyor ve hem `src/proxy.ts` (403) hem
+ * Next'in action CSRF denetimi (500) onu reddediyordu. `strict-origin` aynı
+ * origin POST'una gerçek origin'i yazdırır; iki denetim de gevşemeden geçer.
+ * `Referer` yalnız origin'i taşır: yol ve sorgu — tokenlı karşılama
+ * adresleri, davet kimliği — hiçbir isteğe girmez. `same-origin` ve
+ * `strict-origin-when-cross-origin` aynı origin isteğinde tam adresi (token
+ * dahil) yazdığı için elendi; `null`'u CSRF denetimlerinde kabul etmek ise
+ * sandbox iframe gibi her `null` kaynağa kapı açardı.
+ */
 export const privateResponseHeaders = {
   "X-Robots-Tag": "noindex, nofollow, noarchive",
-  "Referrer-Policy": "no-referrer",
+  "Referrer-Policy": "strict-origin",
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
 } as const;

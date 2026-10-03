@@ -24,7 +24,7 @@ test("kayıt ve parola sayfaları indekslenmez", async ({ request }) => {
   for (const path of ["/kayit", "/sifre-unuttum", "/hesap-dogrula", "/sifre-sifirla"]) {
     const response = await request.get(path);
     expect(response.headers()["x-robots-tag"]).toContain("noindex");
-    expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+    expect(response.headers()["referrer-policy"]).toBe("strict-origin");
   }
 
   const robots = await (await request.get("/robots.txt")).text();

@@ -49,7 +49,7 @@ test("davet adresi indekslenmez, referrer taşımaz ve önbelleğe girmez", asyn
   for (const path of [`/davet/${invitationId}`, "/davet/abc"]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["x-robots-tag"], path).toContain("noindex");
-    expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
+    expect(response.headers()["referrer-policy"], path).toBe("strict-origin");
   }
 
   /*

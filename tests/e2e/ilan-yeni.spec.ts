@@ -31,7 +31,7 @@ test("ilan adresleri indekslenmez", async ({ request }) => {
   for (const path of ["/isveren/ilan/yeni", `/isveren/ilan/${jobId}`, `/isveren/ilan/${jobId}/galeri`]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["x-robots-tag"], path).toContain("noindex");
-    expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
+    expect(response.headers()["referrer-policy"], path).toBe("strict-origin");
   }
 });
 
