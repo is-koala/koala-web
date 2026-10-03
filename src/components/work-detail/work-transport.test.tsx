@@ -106,6 +106,7 @@ function detailWith(value: AssignmentTransport | null, status: WorkDetail["assig
     dressCode: null,
     fullAddress: null,
     additionalDirections: null,
+    directions: null,
     headcount: null,
     hiredCount: 0,
     createdAt: null,

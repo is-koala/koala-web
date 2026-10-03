@@ -8,6 +8,7 @@ import type {
   WorkEmployer,
   WorkSession,
 } from "@/assignments/work-detail";
+import { transitDirections } from "@/assignments/transit-directions";
 import type { JobEmployerType } from "@/jobs/employer-jobs";
 import { safeExternalUrl, safeImageUrl } from "@/lib/urls";
 import { messagingAvailabilityFrom } from "@/messaging/contract";
@@ -39,10 +40,11 @@ export { selectSeat } from "@/server/transport/transport";
 /**
  * `JobDetailDto`'nun bu ekranda okunan parçası.
  *
- * `address` yalnız `displayAddress` ve tarif taşıyor; koordinat ve öbür
- * bileşenler tipte yok, yani `toWorkDetail` içinde okunamıyor. İkisi de
- * `addressPrecision === "EXACT"` kapısından geçiyor: yaklaşık adresli bir
- * ilanda tarif de tam adres kadar konum ele verir.
+ * `address` yalnız `displayAddress`, tarif ve konumu taşıyor; öbür
+ * bileşenler tipte yok. Üçü de `addressPrecision === "EXACT"` kapısından
+ * geçiyor: yaklaşık adresli bir ilanda tarif de tam adres kadar konum ele
+ * verir. Koordinat ham alan olarak sınırı geçmiyor; yalnız yol tarifi
+ * bağlantısının içinde (is-koala/koala-web#178).
  */
 type JobDetailDto = {
   description?: string | null;
@@ -55,6 +57,7 @@ type JobDetailDto = {
   address?: {
     displayAddress?: string | null;
     components?: { additionalDirections?: string | null } | null;
+    position?: { latitude?: number | null; longitude?: number | null } | null;
   } | null;
   headcount?: number | null;
   hiredCount?: number | null;
@@ -66,6 +69,9 @@ type PaymentAttemptDto = {
   status?: string | null;
   completedAt?: string | null;
 };
+
+/** Backend'in kesin adresi açtığı atama durumları (`ADDRESS_VISIBLE_ASSIGNMENT_STATUSES`). */
+const directionsStatuses = new Set(["PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS"]);
 
 /** Ödemesi bir kez emanete girmiş atamalar; öbürlerinde deneme listesi hiç istenmiyor. */
 const securedPaymentStatuses = new Set(["HELD_IN_ESCROW", "RELEASED_TO_WORKER", "REFUNDED"]);
@@ -125,6 +131,11 @@ export async function readWorkDetail(assignmentId: string): Promise<WorkDetail |
     dressCode: clean(job.dressCode),
     fullAddress: exact ? clean(job.address?.displayAddress) : null,
     additionalDirections: exact ? clean(job.address?.components?.additionalDirections) : null,
+    // Yol tarifi yalnız kesin adreste ve atama hâlâ işe gidilecekken: herkese
+    // açık şirket adresi biten atamada da `EXACT` gelebiliyor.
+    directions: exact && directionsStatuses.has(assignment.status)
+      ? transitDirections(job.address?.position)
+      : null,
     ...openings(job),
     createdAt: clean(job.createdAt),
     sessions: sessionDtos.map(toWorkSession),

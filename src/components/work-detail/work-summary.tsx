@@ -1,3 +1,4 @@
+import type { TransitDirections } from "@/assignments/transit-directions";
 import type { WorkDetail, WorkEmployer } from "@/assignments/work-detail";
 import {
   assignmentStatusLabel,
@@ -96,6 +97,15 @@ export function WorkSummary({ detail }: { detail: WorkDetail }) {
             {detail.additionalDirections}
           </p>
         ) : null}
+        {detail.directions ? (
+          <TransitDirectionsLinks
+            directions={detail.directions}
+            startsAt={assignment.startsAt}
+            // Ulaşım planı varsa servis kartı ayrıca çiziliyor; bu bağlantı
+            // planın dışındaki seçenek (is-koala/koala-web#178).
+            withTransportPlan={detail.transport !== null}
+          />
+        ) : null}
       </div>
 
       {detail.description || detail.duties || detail.dressCode ? (
@@ -129,5 +139,53 @@ function EmployerCard({ employer }: { employer: WorkEmployer }) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * Toplu taşımayla yol tarifi: Google ve Apple Haritalar'a anahtarsız
+ * evrensel bağlantı. Platform tahmin edilmiyor (kullanıcı ajanı güvenilir
+ * değil, sunucu çizimi de onu bilmiyor); iki bağlantı da her yerde açılıyor.
+ * Varış saati bağlantıda taşınamıyor, iş başlangıcı yanında yazılı.
+ */
+function TransitDirectionsLinks({
+  directions,
+  startsAt,
+  withTransportPlan,
+}: {
+  directions: TransitDirections;
+  startsAt: string;
+  withTransportPlan: boolean;
+}) {
+  const title = withTransportPlan
+    ? "Kendi imkânınla: toplu taşımayla yol tarifi"
+    : "Toplu taşımayla yol tarifi";
+  return (
+    <section className="work-directions" aria-labelledby="work-directions-heading">
+      <h3 id="work-directions-heading">{title}</h3>
+      <p className="muted">
+        Harita bulunduğun yerden iş adresine rota açar. İş{" "}
+        <time dateTime={startsAt}>{formatDateTime(startsAt)}</time> başlıyor; haritada varış
+        saatini buna göre seç.
+      </p>
+      <div className="work-directions-links">
+        <a
+          className="button button-secondary button-small"
+          href={directions.google}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Google Haritalar&apos;da aç
+        </a>
+        <a
+          className="button button-secondary button-small"
+          href={directions.apple}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Apple Haritalar&apos;da aç
+        </a>
+      </div>
+    </section>
   );
 }
