@@ -93,8 +93,19 @@ const server = createServer(async (request, response) => {
       transportSeatRace: url.searchParams.get("transport") === "race",
       seats: [],
       transportRequests: [],
+      // Bildirim tercihleri (is-koala/koala-web#198): backend'in döndürdüğü
+      // gibi mesaj/ulaşım kategorileri ve SMS kanalı dahil; bir satır da
+      // web'in henüz tanımadığı gelecekteki bir kategori.
+      notificationPreferences: initialNotificationPreferences(),
+      notificationPreferenceRequests: [],
     });
     return json(response, 200, { ok: true });
+  }
+  if (request.method === "GET" && url.pathname === "/__test__/notification-preference-requests") {
+    const state = stateFrom(url);
+    return state
+      ? json(response, 200, state.notificationPreferenceRequests)
+      : backendError(response, 404, "TEST_STATE_NOT_FOUND", "RESOURCE_NOT_FOUND");
   }
   if (request.method === "GET" && url.pathname === "/__test__/device-renames") {
     const state = stateFrom(url);
@@ -493,7 +504,28 @@ const server = createServer(async (request, response) => {
     });
   }
   if (request.method === "GET" && url.pathname === "/users/me/notification-preferences") {
-    return backendSuccess(response, []);
+    return backendSuccess(response, state.notificationPreferences);
+  }
+  if (request.method === "PUT" && url.pathname === "/users/me/notification-preferences") {
+    // `UpdateNotificationPreferencesDto` doğrulamasının aynısı: bilinmeyen
+    // enum değeri gövde çözümlemesinde, işlemsel kategoriyi kapatmak ve
+    // tercih edilemeyen kanal `@AssertTrue` ile 400.
+    const body = await readJson(request);
+    const entries = Array.isArray(body?.preferences) ? body.preferences : [];
+    state.notificationPreferenceRequests.push(entries);
+    const invalid = entries.length === 0 || entries.some((entry) =>
+      !notificationCategoryKinds[entry?.category] ||
+      !notificationChannels.includes(entry?.channel) ||
+      typeof entry?.enabled !== "boolean" ||
+      (notificationCategoryKinds[entry.category] === "TRANSACTIONAL" && entry.enabled === false));
+    if (invalid) return backendError(response, 400, "VALIDATION_FAILED", "VALIDATION");
+    for (const entry of entries) {
+      const row = state.notificationPreferences.find(
+        (candidate) => candidate.category === entry.category && candidate.channel === entry.channel,
+      );
+      if (row) row.enabled = entry.enabled;
+    }
+    return backendSuccess(response, state.notificationPreferences);
   }
   if (request.method === "GET" && url.pathname === "/users/me/sessions") {
     if (!state.sessionsMode) return backendSuccess(response, []);
@@ -901,6 +933,41 @@ async function drain(request) {
   for await (const chunk of request) {
     void chunk;
   }
+}
+
+// Backend `NotificationCategory` / `NotificationChannel` (canlı OpenAPI).
+const notificationCategoryKinds = {
+  ACCOUNT_SECURITY: "TRANSACTIONAL",
+  APPLICATION_UPDATES: "TRANSACTIONAL",
+  IDENTITY_VERIFICATION: "TRANSACTIONAL",
+  MARKETINGS: "COMMERCIAL",
+  COMPANY_UPDATES: "TRANSACTIONAL",
+  JOB_ALERTS: "ALERT",
+  MESSAGES: "ALERT",
+  NEWSLETTER: "COMMERCIAL",
+  TRANSPORT: "TRANSACTIONAL",
+};
+const notificationChannels = ["EMAIL", "SMS", "PUSH", "IN_APP"];
+
+function initialNotificationPreferences() {
+  const row = (category, channel, enabled) => ({
+    category,
+    kind: notificationCategoryKinds[category] ?? "ALERT",
+    channel,
+    enabled,
+    editable: (notificationCategoryKinds[category] ?? "ALERT") !== "TRANSACTIONAL",
+  });
+  return [
+    row("ACCOUNT_SECURITY", "EMAIL", true),
+    row("JOB_ALERTS", "PUSH", true),
+    row("JOB_ALERTS", "SMS", false),
+    row("MESSAGES", "EMAIL", true),
+    row("MESSAGES", "SMS", true),
+    row("NEWSLETTER", "EMAIL", true),
+    row("TRANSPORT", "PUSH", true),
+    // Web'in tanımadığı değer: formda gösterilmemeli, kaydı bozmamalı.
+    { category: "FUTURE_CATEGORY", kind: "ALERT", channel: "EMAIL", enabled: true, editable: true },
+  ];
 }
 
 function initialSessions() {

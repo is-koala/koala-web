@@ -10,6 +10,7 @@ import type {
   NotificationChannel,
   NotificationPreference,
 } from "@/lib/profile";
+import { isNotificationCategory, isNotificationChannel } from "@/lib/notification-labels";
 import { apiRequest } from "@/server/session/session";
 
 export type ProfileUpdate = {
@@ -103,8 +104,18 @@ export async function deleteEducation(id: string): Promise<void> {
   await apiRequest(`/users/me/educations/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export function getNotificationPreferences(): Promise<NotificationPreference[]> {
-  return apiRequest("/users/me/notification-preferences");
+/**
+ * Kullanıcının tercih satırları; web'in tanımadığı kategori ya da kanal
+ * taşıyan satır düşürülür. Backend web'den önce yeni bir değer eklerse o
+ * satır formda gösterilseydi gizli alanı action'da reddedilir ve kaydın
+ * tamamı düşerdi (is-koala/koala-web#198); gizlemek yalnız o satırı
+ * düzenlenemez bırakır. Liste sözleşme testiyle backend'e bağlı.
+ */
+export async function getNotificationPreferences(): Promise<NotificationPreference[]> {
+  const rows = await apiRequest<NotificationPreference[] | null>("/users/me/notification-preferences");
+  return (rows ?? []).filter(
+    (row) => isNotificationCategory(row.category) && isNotificationChannel(row.channel),
+  );
 }
 
 export function updateNotificationPreferences(

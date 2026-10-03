@@ -147,6 +147,27 @@ describe("profil Server Action'ları", () => {
     });
   });
 
+  it("backend'in mesaj ve ulaşım kategorilerini ve SMS kanalını kaydeder", async () => {
+    // Liste backend'den geride kaldığında bu satırlar formdan geliyor ama
+    // action onları tanımayıp kaydın tamamını reddediyordu (is-koala/koala-web#198).
+    const fetchMock = successfulFetch();
+    const form = new FormData();
+    form.append("preferences", "MESSAGES|EMAIL|false");
+    form.append("preferences", "TRANSPORT|PUSH|true");
+    form.append("preferences", "JOB_ALERTS|SMS|false");
+
+    await expect(updateNotificationPreferencesAction(idleFormState, form)).resolves.toEqual({
+      status: "done",
+    });
+    expect(JSON.parse(String(requestOf(fetchMock).body))).toEqual({
+      preferences: [
+        { category: "MESSAGES", channel: "EMAIL", enabled: false },
+        { category: "TRANSPORT", channel: "PUSH", enabled: true },
+        { category: "JOB_ALERTS", channel: "SMS", enabled: false },
+      ],
+    });
+  });
+
   it("tercih kaydında süresi dolan oturumu hata state'ine çevirmeden girişe yönlendirir", async () => {
     vi.stubGlobal(
       "fetch",
