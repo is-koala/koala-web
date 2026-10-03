@@ -1,0 +1,83 @@
+{
+  "source": "https://api.iskoala.com/v3/api-docs",
+  "fetchedAt": "2026-10-03",
+  "info": "v1",
+  "schemas": {
+    "NotificationPreferenceDto": {
+      "category": {
+        "enum": [
+          "ACCOUNT_SECURITY",
+          "APPLICATION_UPDATES",
+          "IDENTITY_VERIFICATION",
+          "MARKETINGS",
+          "COMPANY_UPDATES",
+          "JOB_ALERTS",
+          "MESSAGES",
+          "NEWSLETTER",
+          "TRANSPORT"
+        ]
+      },
+      "channel": {
+        "enum": [
+          "EMAIL",
+          "SMS",
+          "PUSH",
+          "IN_APP"
+        ]
+      },
+      "kind": {
+        "enum": [
+          "TRANSACTIONAL",
+          "ALERT",
+          "COMMERCIAL"
+        ]
+      }
+    },
+    "NotificationPreferenceEntryDto": {
+      "category": {
+        "enum": [
+          "ACCOUNT_SECURITY",
+          "APPLICATION_UPDATES",
+          "IDENTITY_VERIFICATION",
+          "MARKETINGS",
+          "COMPANY_UPDATES",
+          "JOB_ALERTS",
+          "MESSAGES",
+          "NEWSLETTER",
+          "TRANSPORT"
+        ]
+      },
+      "channel": {
+        "enum": [
+          "EMAIL",
+          "SMS",
+          "PUSH",
+          "IN_APP"
+        ]
+      }
+    },
+    "UnsubscribedChannelDto": {
+      "category": {
+        "enum": [
+          "ACCOUNT_SECURITY",
+          "APPLICATION_UPDATES",
+          "IDENTITY_VERIFICATION",
+          "MARKETINGS",
+          "COMPANY_UPDATES",
+          "JOB_ALERTS",
+          "MESSAGES",
+          "NEWSLETTER",
+          "TRANSPORT"
+        ]
+      },
+      "channel": {
+        "enum": [
+          "EMAIL",
+          "SMS",
+          "PUSH",
+          "IN_APP"
+        ]
+      }
+    }
+  }
+}

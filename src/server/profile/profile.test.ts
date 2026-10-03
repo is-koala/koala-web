@@ -12,6 +12,7 @@ import {
   createExperience,
   deleteEducation,
   deleteExperience,
+  getNotificationPreferences,
   updateEducation,
   updateExperience,
   updateNotificationPreferences,
@@ -191,6 +192,37 @@ describe("profil backend modülü", () => {
         ],
       }),
     });
+  });
+
+  it("tercih listesinde tanımadığı kategori ya da kanalı forma taşımaz", async () => {
+    // Backend web'den önce yeni bir değer eklerse satır gizlenir: gösterilse
+    // gizli alanı action'da reddedilir ve kaydın tamamı düşerdi
+    // (is-koala/koala-web#198). Bilinen satırlar — yeni üç değer dahil — kalır.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          200,
+          envelope([
+            { category: "MESSAGES", kind: "ALERT", channel: "SMS", enabled: true, editable: true },
+            { category: "TRANSPORT", kind: "TRANSACTIONAL", channel: "PUSH", enabled: true, editable: false },
+            { category: "FUTURE_CATEGORY", kind: "ALERT", channel: "EMAIL", enabled: true, editable: true },
+            { category: "JOB_ALERTS", kind: "ALERT", channel: "FAX", enabled: true, editable: true },
+          ]),
+        ),
+      ),
+    );
+
+    await expect(getNotificationPreferences()).resolves.toEqual([
+      { category: "MESSAGES", kind: "ALERT", channel: "SMS", enabled: true, editable: true },
+      { category: "TRANSPORT", kind: "TRANSACTIONAL", channel: "PUSH", enabled: true, editable: false },
+    ]);
+  });
+
+  it("tercih listesi boş zarfla gelirse boş liste döner", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, envelope(null))));
+
+    await expect(getNotificationPreferences()).resolves.toEqual([]);
   });
 
   it("profil fotoğrafını image parçasıyla multipart aktarır", async () => {

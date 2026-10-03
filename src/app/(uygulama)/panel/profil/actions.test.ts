@@ -147,6 +147,63 @@ describe("profil Server Action'ları", () => {
     });
   });
 
+  it("backend'in mesaj ve ulaşım kategorilerini ve SMS kanalını kaydeder", async () => {
+    // Liste backend'den geride kaldığında bu satırlar formdan geliyor ama
+    // action onları tanımayıp kaydın tamamını reddediyordu (is-koala/koala-web#198).
+    const fetchMock = successfulFetch();
+    const form = new FormData();
+    form.append("preferences", "MESSAGES|EMAIL|false");
+    form.append("preferences", "TRANSPORT|PUSH|true");
+    form.append("preferences", "JOB_ALERTS|SMS|false");
+
+    await expect(updateNotificationPreferencesAction(idleFormState, form)).resolves.toEqual({
+      status: "done",
+    });
+    expect(JSON.parse(String(requestOf(fetchMock).body))).toEqual({
+      preferences: [
+        { category: "MESSAGES", channel: "EMAIL", enabled: false },
+        { category: "TRANSPORT", channel: "PUSH", enabled: true },
+        { category: "JOB_ALERTS", channel: "SMS", enabled: false },
+      ],
+    });
+  });
+
+  it("yalnız yüklendiği değerden farklı satırları gönderir", async () => {
+    // Backend her ticari satır için — değişsin değişmesin — bir rıza kaydı ve
+    // İYS görevi yazıyor; değişmeyen satırı göndermek kullanıcının rızayı
+    // taze zaman damgasıyla yeniden vermiş gibi görünmesi demek.
+    const fetchMock = successfulFetch();
+    const form = new FormData();
+    for (const value of ["NEWSLETTER|EMAIL|true", "MESSAGES|SMS|true", "JOB_ALERTS|PUSH|false"]) {
+      form.append("initialPreferences", value);
+    }
+    form.append("preferences", "NEWSLETTER|EMAIL|false");
+    form.append("preferences", "NEWSLETTER|EMAIL|true");
+    form.append("preferences", "MESSAGES|SMS|false");
+    form.append("preferences", "JOB_ALERTS|PUSH|false");
+
+    await expect(updateNotificationPreferencesAction(idleFormState, form)).resolves.toEqual({
+      status: "done",
+    });
+    expect(JSON.parse(String(requestOf(fetchMock).body))).toEqual({
+      preferences: [{ category: "MESSAGES", channel: "SMS", enabled: false }],
+    });
+  });
+
+  it("hiçbir satır değişmediyse backend'e gitmez ve bunu ayrı bir sonuçla söyler", async () => {
+    const fetchMock = successfulFetch();
+    const form = new FormData();
+    form.append("initialPreferences", "NEWSLETTER|EMAIL|true");
+    form.append("preferences", "NEWSLETTER|EMAIL|false");
+    form.append("preferences", "NEWSLETTER|EMAIL|true");
+
+    await expect(updateNotificationPreferencesAction(idleFormState, form)).resolves.toEqual({
+      status: "done",
+      unchanged: true,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("tercih kaydında süresi dolan oturumu hata state'ine çevirmeden girişe yönlendirir", async () => {
     vi.stubGlobal(
       "fetch",

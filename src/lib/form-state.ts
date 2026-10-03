@@ -11,8 +11,11 @@ import type { CanonicalAddress } from "@/address/contract";
  */
 export type FormState =
   | { status: "idle" }
-  /** İşlem tamamlandı ve sayfa değişmiyor; form yerine onay paneli çizilir. */
-  | { status: "done" }
+  /**
+   * İşlem tamamlandı ve sayfa değişmiyor; form yerine onay paneli çizilir.
+   * `unchanged`: gönderilecek bir değişiklik yoktu ve backend'e gidilmedi.
+   */
+  | { status: "done"; unchanged?: true }
   | {
       status: "error";
       errorCode: string;

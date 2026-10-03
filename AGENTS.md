@@ -48,6 +48,11 @@ yaptığını değil.
 - Adres seçimi backend'in sağlayıcıdan bağımsız ağ geçidi üzerinden yapılır;
   Google anahtarı istemciye **hiç** girmez. Harita için ayrı, HTTP referrer
   kısıtlı bir Maps JavaScript anahtarı gerekir.
+- Web'in backend enum'larından kopyaladığı listeler (bugün bildirim
+  kategorisi/kanalı) `tests/contracts/*.openapi.json` parçasına sözleşme
+  testiyle bağlı. Parça canlı `/v3/api-docs`'a karşı `npm run test:contract`
+  ile denetlenir: sürümden önce ve backend bir enum'u değiştirdiğinde koştur;
+  kırmızıysa parçayı ve web listesini birlikte güncelle (is-koala/koala-web#198).
 - Bir alanı, o alanın **sahibi** uçtan oku: şirket adresi
   `GET /companies/{id}`'den, ilanın `company` özetinden değil. İç içe özet
   DTO'lar (`JobCompanyDto` gibi) sonradan alan düşürebiliyor ve `?.` zinciri

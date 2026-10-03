@@ -35,7 +35,7 @@ export function NotificationSettings({
       >
         <h2 id="bildirim-tercihleri-baslik">Bildirim tercihleri</h2>
         <p className="muted">İşlemsel bildirimler hesap güvenliği için kapatılamaz.</p>
-        <NotificationPreferencesForm preferences={preferences} />
+        <NotificationPreferencesForm preferences={preferences} contactHref="#iletisim" />
       </section>
     </>
   );

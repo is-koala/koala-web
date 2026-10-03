@@ -275,6 +275,24 @@ describe("hesap ve ayarlar ekranı", () => {
     expect(screen.getByRole("checkbox", { name: /Uygulama içi · Hesap güvenliği/ })).toBeDisabled();
   });
 
+  it("mesaj ve ulaşım kategorilerini ve SMS kanalını adıyla gösterir", () => {
+    // Liste backend'den geride kaldığında SMS satırı "undefined · …" diye
+    // çiziliyordu (is-koala/koala-web#198).
+    renderSettings({
+      data: {
+        ...data,
+        preferences: [
+          { category: "MESSAGES", kind: "ALERT", channel: "SMS", enabled: true, editable: true },
+          { category: "TRANSPORT", kind: "TRANSACTIONAL", channel: "PUSH", enabled: true, editable: false },
+        ],
+      },
+    });
+
+    expect(screen.getByRole("checkbox", { name: /SMS · Mesajlar/ })).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: /Anlık bildirim · Ulaşım/ })).toBeDisabled();
+    expect(document.body.textContent).not.toContain("undefined");
+  });
+
   it("bildirim tercihleri bölümü çıkış sayfasından gelinen çapayı taşır", () => {
     // `/hesap/bildirimler` kullanıcıyı `…/hesap#bildirim-tercihleri`'ne
     // yönlendiriyor (is-koala/koala-web#54); çapa kaybolursa sayfanın başına düşer.
