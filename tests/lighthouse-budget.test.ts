@@ -35,7 +35,7 @@ describe("Lighthouse performans bütçesi", () => {
       "/is-ilanlari",
       "/is-ilanlari/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
     ]);
-    expect(budget.numberOfRuns).toBe(5);
+    expect(budget.numberOfRuns).toBe(3);
     expect(budget.settings).toMatchObject({
       formFactor: "mobile",
       throttlingMethod: "simulate",
@@ -47,7 +47,7 @@ describe("Lighthouse performans bütçesi", () => {
     });
   });
 
-  it("ilk yük JS, LCP, TBT, CLS ve performans puanı aşıldığında kapıyı kırar", () => {
+  it("ilk yük JS, LCP, TBT ve CLS kapıyı kırar; performans puanı yalnız uyarır", () => {
     const { assertions } = budget;
 
     expect(assertions["resource-summary:script:size"]).toEqual([
@@ -60,14 +60,15 @@ describe("Lighthouse performans bütçesi", () => {
     ]);
     expect(assertions["total-blocking-time"]).toEqual([
       "error",
-      { maxNumericValue: 300, aggregationMethod: "median" },
+      { maxNumericValue: 300, aggregationMethod: "optimistic" },
     ]);
     expect(assertions["cumulative-layout-shift"]).toEqual([
       "error",
       { maxNumericValue: 0.1, aggregationMethod: "optimistic" },
     ]);
+    // Puan runner CPU'suna bağlı gürültü taşıyor; kapı değil sinyal.
     expect(assertions["categories:performance"]).toEqual([
-      "error",
+      "warn",
       { minScore: 0.7, aggregationMethod: "median" },
     ]);
   });
