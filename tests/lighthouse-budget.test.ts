@@ -35,7 +35,7 @@ describe("Lighthouse performans bütçesi", () => {
       "/is-ilanlari",
       "/is-ilanlari/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
     ]);
-    expect(budget.numberOfRuns).toBe(2);
+    expect(budget.numberOfRuns).toBe(5);
     expect(budget.settings).toMatchObject({
       formFactor: "mobile",
       throttlingMethod: "simulate",
@@ -56,11 +56,11 @@ describe("Lighthouse performans bütçesi", () => {
     ]);
     expect(assertions["largest-contentful-paint"]).toEqual([
       "error",
-      { maxNumericValue: 12_000, aggregationMethod: "optimistic" },
+      { maxNumericValue: 12_000, aggregationMethod: "median" },
     ]);
     expect(assertions["total-blocking-time"]).toEqual([
       "error",
-      { maxNumericValue: 300, aggregationMethod: "optimistic" },
+      { maxNumericValue: 300, aggregationMethod: "median" },
     ]);
     expect(assertions["cumulative-layout-shift"]).toEqual([
       "error",
@@ -68,7 +68,7 @@ describe("Lighthouse performans bütçesi", () => {
     ]);
     expect(assertions["categories:performance"]).toEqual([
       "error",
-      { minScore: 0.7, aggregationMethod: "optimistic" },
+      { minScore: 0.7, aggregationMethod: "median" },
     ]);
   });
 
