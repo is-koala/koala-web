@@ -59,11 +59,11 @@ test("ilan galerisine yüklenen görsel listede kalır, kapak ve sıra yenilemed
   await expect(page.getByRole("status")).toContainText("Henüz görsel yok");
 
   // WebP backend'de okunamıyor (koala-backend#348): seçilse sunucuya hiç
-  // gitmeden "PNG, JPG veya JPEG" metniyle reddedilir.
+  // gitmeden "PNG ya da JPEG" metniyle reddedilir.
   await page.locator("#gallery-files").setInputFiles([
     { name: "kapak.webp", mimeType: "image/webp", buffer: Buffer.from("kapak") },
   ]);
-  await expect(page.getByText("PNG, JPG veya JPEG biçiminde bir görsel seç.")).toBeVisible();
+  await expect(page.getByText("PNG ya da JPEG biçiminde bir görsel seç.")).toBeVisible();
 
   await page.locator("#gallery-files").setInputFiles([
     { name: "mutfak.jpg", mimeType: "image/jpeg", buffer: Buffer.from("mutfak") },

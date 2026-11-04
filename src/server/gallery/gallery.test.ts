@@ -150,7 +150,7 @@ describe("yükleme ve toptan yazma kuralları", () => {
     ).resolves.toMatchObject({
       status: "error",
       errorCode: "VALIDATION_FAILED",
-      fieldErrors: { image: "PNG, JPG veya JPEG biçiminde bir görsel seç." },
+      fieldErrors: { image: "PNG ya da JPEG biçiminde bir görsel seç." },
     });
     expect(list).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
@@ -165,7 +165,7 @@ describe("yükleme ve toptan yazma kuralları", () => {
     await expect(
       uploadWithPrecheck(new File(["koala"], "mekan.webp", { type: "image/webp" }), list, upload),
     ).resolves.toMatchObject({
-      fieldErrors: { image: "PNG, JPG veya JPEG biçiminde bir görsel seç." },
+      fieldErrors: { image: "PNG ya da JPEG biçiminde bir görsel seç." },
     });
     expect(upload).not.toHaveBeenCalled();
   });

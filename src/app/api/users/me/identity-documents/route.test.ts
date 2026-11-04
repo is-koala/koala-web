@@ -263,7 +263,7 @@ describe("POST /api/users/me/identity-documents", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { front: "PNG, JPG veya JPEG biçiminde bir fotoğraf seç." },
+      fieldErrors: { front: "PNG ya da JPEG biçiminde bir fotoğraf seç." },
     });
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });
@@ -278,7 +278,7 @@ describe("POST /api/users/me/identity-documents", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { back: "PNG, JPG veya JPEG biçiminde bir fotoğraf seç." },
+      fieldErrors: { back: "PNG ya da JPEG biçiminde bir fotoğraf seç." },
     });
     expect(submitIdentityDocuments).not.toHaveBeenCalled();
   });

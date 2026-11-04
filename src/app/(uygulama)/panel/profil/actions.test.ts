@@ -293,7 +293,7 @@ describe("profil Server Action'ları", () => {
 
     await expect(uploadProfilePictureAction(idleFormState, form)).resolves.toMatchObject({
       status: "error",
-      fieldErrors: { image: "PNG, JPG veya JPEG biçiminde bir fotoğraf seç." },
+      fieldErrors: { image: "PNG ya da JPEG biçiminde bir fotoğraf seç." },
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

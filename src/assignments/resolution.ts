@@ -91,7 +91,7 @@ export type ResolutionActionState =
 export const disputeEvidenceLimits = {
   maxFilesPerRequest: 1,
   maxFileBytes: 10 * 1024 * 1024,
-  // `evidenceExtensions` WebP'yi sayıyor ama backend okuyamıyor (koala-backend#348).
+  // Backend `evidenceExtensions` ile aynı: PDF + görsel politikası, WebP yok (koala-backend#348).
   acceptedExtensions: ["pdf", ...imageUploadExtensions],
 } as const;
 

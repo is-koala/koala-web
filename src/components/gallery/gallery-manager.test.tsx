@@ -60,7 +60,7 @@ describe("galeri yöneticisi", () => {
     });
 
     expect(uploadAction).not.toHaveBeenCalled();
-    expect(screen.getByText("PNG, JPG veya JPEG biçiminde bir görsel seç.")).toBeVisible();
+    expect(screen.getByText("PNG ya da JPEG biçiminde bir görsel seç.")).toBeVisible();
   });
 
   it("sunucu yükleme hatasını kota doldu diye yazmaz", async () => {

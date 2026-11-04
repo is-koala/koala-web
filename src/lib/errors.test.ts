@@ -197,7 +197,7 @@ describe("API hata sunumu", () => {
     });
     expect(errorPresentation("STORAGE_UNSUPPORTED_TYPE", 400)).toEqual({
       title: "Dosya biçimi desteklenmiyor",
-      message: "PDF, PNG, JPG veya JPEG biçiminde geçerli bir dosya seçip yeniden dene.",
+      message: "PDF, PNG ya da JPEG biçiminde geçerli bir dosya seçip yeniden dene.",
       action: "none",
     });
     expect(errorPresentation("IMAGE_EMPTY_ERROR", 400)).toEqual({

@@ -107,7 +107,7 @@ describe("yükleme ön kontrolü", () => {
 
     expect(precheckGalleryUpload(file, 4)).toEqual({
       ok: false,
-      reason: "PNG, JPG veya JPEG biçiminde bir görsel seç.",
+      reason: "PNG ya da JPEG biçiminde bir görsel seç.",
     });
   });
 
@@ -136,7 +136,7 @@ describe("yükleme ön kontrolü", () => {
 
     expect(precheckGalleryUpload(file, 4)).toEqual({
       ok: false,
-      reason: "PNG, JPG veya JPEG biçiminde bir görsel seç.",
+      reason: "PNG ya da JPEG biçiminde bir görsel seç.",
     });
   });
 
