@@ -86,9 +86,12 @@ describe("Lighthouse performans bütçesi", () => {
       "tests/e2e/keyboard.spec.ts",
     );
     expect(packageMetadata.scripts?.["test:e2e"]).toContain("playwright test");
-    expect(workflow).not.toMatch(/pull_request:/);
-    expect(workflow).not.toContain("branches: [main]");
+    // Kapı GitHub'ın kendi runner'ında PR ve main push'ta koşar.
+    expect(workflow).toMatch(/pull_request:\n\s+branches: \[main\]/);
+    expect(workflow).toMatch(/push:\n\s+branches: \[main\]/);
     expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("runs-on: ubuntu-latest");
+    expect(workflow).not.toContain("self-hosted");
     expect(workflow).toMatch(/npx playwright install --with-deps chromium/);
     expect(workflow).toMatch(/npm run test:performance/);
     expect(workflow.indexOf("npm run test:performance")).toBeGreaterThan(
