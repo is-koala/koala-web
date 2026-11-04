@@ -1,46 +1,99 @@
 name: CI
 
 on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
+# Aynı PR'a yeni push gelince eski koşu iptal edilir; main'deki koşular
+# birbirini iptal etmez (her commit'in sonucu kalsın).
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
+# `.env.example`'daki zararsız örnek değerler. Hiçbiri sır değil; E2E ve
+# Lighthouse kendi hermetik backend'lerini başlatıp `API_URL`'i ezer, staging'e
+# çıkmazlar. Sentry/Maps/App Links değerleri boş: build bunlarsız geçer
+# (kaynak haritası yüklemesi `SENTRY_AUTH_TOKEN` yokken kapalı).
 env:
   NEXT_PUBLIC_SITE_URL: https://iskoala.com
   NEXT_PUBLIC_APP_URL_SCHEME: koala
   NEXT_PUBLIC_ANDROID_PACKAGE_ID: com.iskoala.koala
   API_URL: https://api-staging.iskoala.com
   APP_VERSION: 0.1.0
-  APPLE_APP_IDENTIFIER: ${{ vars.APPLE_APP_IDENTIFIER }}
-  ANDROID_APP_LINKS_PACKAGE_NAME: ${{ vars.ANDROID_APP_LINKS_PACKAGE_NAME }}
-  ANDROID_APP_LINKS_SHA256_CERT_FINGERPRINTS: ${{ vars.ANDROID_APP_LINKS_SHA256_CERT_FINGERPRINTS }}
-  NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY: ${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_JS_KEY }}
-  NEXT_PUBLIC_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+  ANDROID_APP_LINKS_PACKAGE_NAME: com.iskoala.koala,com.iskoala.koala.staging
   NEXT_PUBLIC_SENTRY_ENVIRONMENT: ci
-  NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
-  SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-  SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-  SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+  NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
   quality:
     name: Kalite kapısı
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      # Pi kısıtı vitest.config.ts'te, CI'a bağlı. Buradan bayrak geçirmiyoruz:
-      # AGENTS.md kapıyı `npm test` olarak sabitliyor ve iki yer ayrışmasın.
-      - run: npm test
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:performance
-      - run: npm run test:e2e
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Tam takım: yol argümanı yok (birden çok yol verilince Vitest 0 test
+      # koşturabiliyor). CI kısıtı `vitest.config.ts` içinde `process.env.CI`'a bağlı.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Playwright sürümü
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Playwright tarayıcı cache'i
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+      # Yalnız Chromium: E2E ve Lighthouse (`lighthouserc.cjs`) ikisi de onu kullanıyor.
+      - name: Chromium kur
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium sistem bağımlılıkları
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Lighthouse bütçesi
+        run: npm run test:performance
+
+      - name: E2E
+        run: npm run test:e2e
+
+      - name: Raporları yükle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+            .lighthouseci/
+          retention-days: 7
+          if-no-files-found: ignore
