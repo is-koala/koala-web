@@ -1,5 +1,6 @@
 const fixtureJobId = "9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60";
 const optimistic = { aggregationMethod: "optimistic" };
+const median = { aggregationMethod: "median" };
 
 /**
  * Lighthouse CI bütçesi. Playwright Chromium yolu `lighthouserc.cjs`
@@ -9,7 +10,7 @@ const optimistic = { aggregationMethod: "optimistic" };
 module.exports = {
   urls: ["/", "/is-ilanlari", `/is-ilanlari/${fixtureJobId}`],
   fixtureJobId,
-  numberOfRuns: 2,
+  numberOfRuns: 5,
   settings: {
     formFactor: "mobile",
     throttlingMethod: "simulate",
@@ -31,9 +32,9 @@ module.exports = {
     chromeFlags: "--headless=new --no-sandbox",
   },
   assertions: {
-    "categories:performance": ["error", { minScore: 0.7, ...optimistic }],
-    "largest-contentful-paint": ["error", { maxNumericValue: 12_000, ...optimistic }],
-    "total-blocking-time": ["error", { maxNumericValue: 300, ...optimistic }],
+    "categories:performance": ["error", { minScore: 0.7, ...median }],
+    "largest-contentful-paint": ["error", { maxNumericValue: 12_000, ...median }],
+    "total-blocking-time": ["error", { maxNumericValue: 300, ...median }],
     "cumulative-layout-shift": ["error", { maxNumericValue: 0.1, ...optimistic }],
     "resource-summary:script:size": ["error", { maxNumericValue: 256_000, ...optimistic }],
   },
