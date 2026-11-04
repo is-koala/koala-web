@@ -8,6 +8,7 @@ import type { AddressGateway } from "@/address/gateway-client";
 import { CanonicalAddressForm } from "@/components/canonical-address-form";
 import { EmployerGate } from "@/components/employer-gate";
 import {
+  CheckboxField,
   FieldError,
   InputField,
   SelectField,
@@ -152,6 +153,7 @@ const fieldSteps: Readonly<Record<string, StepName>> = {
   experienceRequired: "Koşullar",
   headcount: "Koşullar",
   insurancePreference: "Koşullar",
+  hideAddress: "Adres",
   address: "Adres",
 };
 
@@ -514,18 +516,20 @@ export function JobForm({
       </StepPanel>
 
       <StepPanel name="Adres" current={step}>
-        {/*
-          ADR-0003: bireysel işverenin tam adresi hiçbir zaman herkese açık
-          olmuyor ve sunucu `addressPublic`'i koşulsuz `false` yapıyor
-          (`JobManager.java:155`). Şirket ilanında alan gövdede taşınabiliyor
-          ama gönderilmiyor: işyeri adresini herkese açmak ayrı bir ürün
-          kararı ve verilmedi, yani sunucu orada da `false` yazıyor. İki
-          durumda da burada bir seçenek değil, bir bilgi var.
-        */}
-        <p className="field-hint">
-          İşin adresini yalnızca işe aldığın işçi görür; ilanda yalnızca ilçe ve yaklaşık
-          konum görünür.
-        </p>
+        {owner.kind === "company" ? (
+          <AddressVisibilityChoice
+            hidden={draft.hideAddress === "true"}
+            onChange={(hidden) => set("hideAddress")(hidden ? "true" : "false")}
+          />
+        ) : (
+          // ADR-0003: bireysel işverenin tam adresi hiçbir zaman herkese açık
+          // olmuyor ve sunucu `addressPublic`'i koşulsuz `false` yapıyor
+          // (`JobManager.java:179`); burada bir seçenek değil, bir bilgi var.
+          <p className="field-hint">
+            İşin adresini yalnızca işe aldığın işçi görür; ilanda yalnızca ilçe ve yaklaşık
+            konum görünür.
+          </p>
+        )}
         <p className="field-hint">Koala şu anda yalnızca İstanbul&apos;da hizmet veriyor.</p>
         <FieldError id={`${formId}-address`} message={fieldErrors.address} />
         <CanonicalAddressForm
@@ -774,6 +778,48 @@ function InsuranceChoice({
         {locked
           ? "Bu kategoride sigorta zorunlu; koşul ilandan kaldırılamaz."
           : "İstersen bu ilanda sigortalı çalışma koşulu arayabilirsin."}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Şirket ilanının "adresi gizle" anahtarı.
+ *
+ * Kural (Yusuf, 04.11.2026): şirket ilanında tam konum — kesin pin, sokak,
+ * bina — herkese **varsayılan açık**; işveren ilanı açarken kapatabilir. Kat,
+ * daire ve tarif bayraktan bağımsız olarak yalnız sahibe ve atanmış işçiye
+ * gidiyor. Anahtar bu yüzden "göster" değil "gizle" diye soruyor: kutu
+ * işaretsizken gönderime hiç girmiyor ve boş değerin "açık" okunması kuralın
+ * varsayılanıyla aynı yönde (`addressPublicFor`).
+ *
+ * Açıklama anahtarın durumuna göre değişiyor; ikisi de kullanıcıya ilanda
+ * **ne göreceğini** söylüyor, yalnız gizli olanı değil.
+ */
+function AddressVisibilityChoice({
+  hidden,
+  onChange,
+}: {
+  hidden: boolean;
+  onChange: (hidden: boolean) => void;
+}) {
+  const hintId = useId();
+  return (
+    <div className="address-visibility-choice">
+      <CheckboxField
+        name="hideAddress"
+        value="true"
+        required={false}
+        checked={hidden}
+        onCheckedChange={onChange}
+        describedBy={hintId}
+      >
+        Adresi gizle (yalnızca işe aldığın işçi görsün)
+      </CheckboxField>
+      <p id={hintId} className="field-hint">
+        {hidden
+          ? "Tam adresi yalnızca işe aldığın işçi görür; ilanda yalnızca ilçe ve yaklaşık konum görünür."
+          : "İlanda tam adres ve haritadaki kesin konum herkese görünür. Kat, daire ve adres tarifini yalnızca işe aldığın işçi görür."}
       </p>
     </div>
   );

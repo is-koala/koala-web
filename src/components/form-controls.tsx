@@ -279,21 +279,36 @@ export function FileField({
   );
 }
 
+/**
+ * Tek kutulu onay alanı.
+ *
+ * `checked` verilirse kutu denetimli olur ve değişikliği `onCheckedChange`
+ * bildirir; verilmezse tarayıcının kendi durumunda kalır. `describedBy`
+ * kutunun dışında duran bir açıklamayı (kimliğiyle) kutuya bağlar — durumuna
+ * göre değişen bir açıklama, ekran okuyucuya kutuyla birlikte okunur.
+ */
 export function CheckboxField({
   name,
   value,
   required = false,
+  checked,
+  onCheckedChange,
+  describedBy,
   error,
   children,
 }: {
   name: string;
   value: string;
   required?: boolean;
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  describedBy?: string;
   error?: string;
   children: ReactNode;
 }) {
   const id = `${name}-${value}`;
   const errorId = error ? `${id}-error` : undefined;
+  const describedByIds = [describedBy, errorId].filter(Boolean).join(" ") || undefined;
   return (
     <div className={`checkbox-field${error ? " checkbox-field-with-error" : ""}`}>
       <input
@@ -302,8 +317,10 @@ export function CheckboxField({
         type="checkbox"
         value={value}
         required={required}
+        checked={checked}
+        onChange={onCheckedChange ? (event) => onCheckedChange(event.target.checked) : undefined}
         aria-invalid={error ? true : undefined}
-        aria-describedby={errorId}
+        aria-describedby={describedByIds}
       />
       <label htmlFor={id}>{children}</label>
       <FieldError id={errorId} message={error} />

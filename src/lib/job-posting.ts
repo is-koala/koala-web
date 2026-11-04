@@ -111,6 +111,21 @@ export type JobDraft = {
    * taşımıyor ve sunucu değeri `false` sabitliyor (`JobManager.java:153`).
    */
   insurancePreference: string;
+  /**
+   * Şirket ilanında "adresi gizle" anahtarı: `"true"` gizli, başka her değer
+   * açık.
+   *
+   * Taslakta adres **gizlemek** olarak duruyor, göstermek olarak değil:
+   * varsayılan boş dize, ve boşun "açık" okunması kuralın kendisi (Yusuf,
+   * 04.11.2026 — şirket ilanında tam konum herkese varsayılan açık). Alan
+   * `addressPublic` adını taşısaydı boş değer "kapalı" okunur ve eski bir
+   * taslak ya da işaretlenmemiş bir kutu (gönderime hiç girmiyor) adresi
+   * sessizce gizlerdi.
+   *
+   * Bireysel ilanda hiç okunmuyor: `CreateIndividualJobDto` alanı taşımıyor
+   * ve bireysel adres herkese yaklaşık kalıyor (ADR-0003).
+   */
+  hideAddress: string;
 };
 
 export const emptyJobDraft: JobDraft = {
@@ -131,6 +146,7 @@ export const emptyJobDraft: JobDraft = {
   experienceRequired: "",
   headcount: "",
   insurancePreference: "",
+  hideAddress: "",
 };
 
 /**
@@ -257,11 +273,8 @@ function commonJobErrors(
 /**
  * İki uçta da aynı olan gövde alanları.
  *
- * `addressPublic` **yok**: bireysel DTO onu hiç taşımıyor, şirket DTO'su
- * taşıyor ama sunucu alan gelmediğinde `false` yazıyor (primitive `boolean`).
- * İşyeri adresini herkese açmak ayrı bir ürün kararı ve bu dilimde forma
- * girmiyor; gövde tipinin onu kabul etmemesi, kararı vermeden alanı
- * göndermeyi imkânsız kılıyor.
+ * `addressPublic` burada **yok**: bireysel DTO onu hiç taşımıyor ve bireysel
+ * adres herkese yaklaşık kalıyor (ADR-0003). Alan yalnız şirket gövdesinde.
  */
 type SharedJobBody = {
   categoryId: string;
@@ -302,11 +315,17 @@ export type CreateIndividualJobBody = SharedJobBody;
 /**
  * `POST /companies/{companyId}/jobs` gövdesi — `CreateCompanyJobDto`.
  *
- * Bireyselden tek farkı `insuranceRequired` ve **isteğe bağlı değil**:
+ * Bireyselden iki farkı var. `insuranceRequired` **isteğe bağlı değil**:
  * `@NotNull`, yani alan gövdeye hiç girmezse ilan alan doğrulamasına takılır.
+ * `addressPublic` her gönderimde **açıkça** yazılıyor: bugünkü backend'de
+ * alan primitive `boolean` ve gelmediğinde `false` okunuyor, yeni kuralda
+ * (`feat/job-location-rule`) gelmediğinde `true`. Değeri hep göndermek iki
+ * sürümde de aynı sonucu veriyor ve varsayılanın hangi tarafta olduğuna
+ * bağlı kalmıyor.
  */
 export type CreateCompanyJobBody = SharedJobBody & {
   insuranceRequired: boolean;
+  addressPublic: boolean;
 };
 
 /**
@@ -369,6 +388,11 @@ export function individualJobBody(
  * Sigorta değeri taslaktan **kopyalanmıyor**, kategoriden türetiliyor: gövdeyi
  * kuran tek yer burası olduğu için kilitli bir kategoride kapalı bir tercihle
  * gönderim yapılamıyor.
+ *
+ * Adres yalnız işveren "adresi gizle" dediğinde kapalı; tam konum (kesin pin,
+ * sokak, bina) şirket ilanında varsayılan olarak herkese açık. Kat, daire ve
+ * tarifi bu bayrak açmıyor — onları backend yalnız sahibe ve atanmış işçiye
+ * veriyor.
  */
 export function companyJobBody(
   draft: JobDraft,
@@ -381,7 +405,13 @@ export function companyJobBody(
   return {
     ...shared,
     insuranceRequired: insuranceRequiredFor(categories, draft.categoryId, draft.insurancePreference),
+    addressPublic: addressPublicFor(draft),
   };
+}
+
+/** Şirket ilanının `addressPublic` değeri: yalnız açık bir "gizle" kapatır. */
+export function addressPublicFor(draft: Pick<JobDraft, "hideAddress">): boolean {
+  return draft.hideAddress !== "true";
 }
 
 function sharedJobBody(

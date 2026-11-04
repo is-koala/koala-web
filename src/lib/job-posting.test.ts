@@ -5,6 +5,7 @@ import type { AddressWrite } from "@/address/contract";
 import {
   emptyJobDraft,
   addressFieldErrors,
+  addressPublicFor,
   companyJobBody,
   companyJobErrors,
   deserializeDraft,
@@ -126,8 +127,9 @@ describe("bireysel ilan gövdesi", () => {
 
   it("sigorta ve 'adresi herkese göster' alanlarını hiç göndermez", () => {
     // İkisi de `CreateIndividualJobDto`'da yok ve sunucu ikisini de sabitliyor
-    // (`JobManager.java:153,155`).
-    const body = individualJobBody(draft(), address, [category]);
+    // (`JobManager.java:153,179`). Taslakta "gizle" işaretli kalmış olsa da
+    // (aynı kullanıcı şirket formundan dönmüş olabilir) alan gövdeye girmez.
+    const body = individualJobBody(draft({ hideAddress: "true" }), address, [category]);
 
     expect(body).not.toHaveProperty("insuranceRequired");
     expect(body).not.toHaveProperty("addressPublic");
@@ -231,6 +233,18 @@ describe("taslağın tarayıcıda saklanması", () => {
 
   it("yazdığı alanları geri okur", () => {
     expect(deserializeDraft(serializeDraft(draft()))).toEqual(draft());
+    expect(deserializeDraft(serializeDraft(draft({ hideAddress: "true" })))).toEqual(
+      draft({ hideAddress: "true" }),
+    );
+  });
+
+  it("'gizle' alanı olmayan eski bir taslakta adres açık kalır", () => {
+    // Alan bu sürümde eklendi; önceki sürümün kaydı onu taşımıyor ve boş
+    // değer "açık" okunmalı — kuralın varsayılanı.
+    const restored = deserializeDraft(JSON.stringify({ title: "eski taslak" }));
+
+    expect(restored.hideAddress).toBe("");
+    expect(addressPublicFor(restored)).toBe(true);
   });
 
   it("tanımadığı alanları geri okurken düşürür", () => {
@@ -326,11 +340,28 @@ describe("şirket ilanı gövdesi", () => {
     expect(body?.insuranceRequired).toBe(true);
   });
 
-  it("'adresi herkese göster' alanını hiç göndermez", () => {
-    // `CreateCompanyJobDto.addressPublic` var ama bir ürün kararı taşıyor ve
-    // bu dilimde forma girmiyor; primitive `boolean` olduğu için alan
-    // gelmediğinde sunucu `false` yazıyor.
-    expect(companyJobBody(draft(), address, [category])).not.toHaveProperty("addressPublic");
+  it("adres varsayılan olarak herkese açık gider ve alan her zaman yazılır", () => {
+    // Kural (04.11.2026): şirket ilanında tam konum varsayılan açık. Alan
+    // gönderilmeseydi bugünkü backend primitive `boolean`'ı `false` okurdu;
+    // değer bu yüzden her gövdede açıkça var.
+    expect(companyJobBody(draft(), address, [category])).toHaveProperty("addressPublic", true);
+    expect(companyJobBody(draft({ hideAddress: "false" }), address, [category])).toHaveProperty(
+      "addressPublic",
+      true,
+    );
+  });
+
+  it("işveren adresi gizlediğinde `addressPublic=false` gönderir", () => {
+    expect(companyJobBody(draft({ hideAddress: "true" }), address, [category])).toHaveProperty(
+      "addressPublic",
+      false,
+    );
+  });
+
+  it("yalnız açık bir 'gizle' adresi kapatır; tanımadığı değer açık kalır", () => {
+    expect(addressPublicFor({ hideAddress: "" })).toBe(true);
+    expect(addressPublicFor({ hideAddress: "on" })).toBe(true);
+    expect(addressPublicFor({ hideAddress: "true" })).toBe(false);
   });
 
   it("adresi kanonik bileşenden geldiği gibi taşır", () => {

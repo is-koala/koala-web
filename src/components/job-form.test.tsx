@@ -195,6 +195,87 @@ describe("bireysel ilan formu — backend'in sabitlediği alanlar", () => {
 
     expect(screen.getByText(/adresin.*yalnızca.*işçi/i)).toBeVisible();
   });
+
+  it("'adresi gizle' anahtarını çizmez", async () => {
+    // Bireysel adres herkese hep yaklaşık; seçenek koymak olmayan bir seçim
+    // yaptırırdı.
+    const { user, container } = renderForm();
+
+    await goToStep(user, "Adres");
+
+    expect(screen.queryByRole("checkbox", { name: /Adresi gizle/ })).toBeNull();
+    expect(container.querySelector("[name='hideAddress']")).toBeNull();
+  });
+});
+
+describe("şirket ilanı formu — adres görünürlüğü", () => {
+  /** Şirket formunu adres onaylanmış hâlde yayımlama düğmesine getirir. */
+  async function fillCompanyForm(user: ReturnType<typeof userEvent.setup>) {
+    await fillForm(user);
+    await goToStep(user, "Adres");
+    await user.type(screen.getByLabelText("Adres ara"), "büyükdere");
+    await user.click(await screen.findByRole("option", { name: /Büyükdere Caddesi 12/ }));
+  }
+
+  it("anahtar varsayılan olarak kapalı ve tam adresin herkese görüneceğini yazar", async () => {
+    const { user } = renderCompanyForm();
+
+    await goToStep(user, "Adres");
+
+    const hide = screen.getByRole("checkbox", { name: /Adresi gizle/ });
+    expect(hide).not.toBeChecked();
+    expect(hide).toHaveAccessibleDescription(/tam adres.*herkese görünür/i);
+    expect(screen.getByText(/kat, daire ve adres tarifini yalnızca işe aldığın işçi/i)).toBeVisible();
+    // Bireysel ilanın metni şirket ilanında artık yanlış: tam adres açık.
+    expect(screen.queryByText(/^İşin adresini yalnızca işe aldığın işçi görür/)).toBeNull();
+  });
+
+  it("anahtar açılınca açıklama yaklaşık konuma döner", async () => {
+    const { user } = renderCompanyForm();
+
+    await goToStep(user, "Adres");
+    const hide = screen.getByRole("checkbox", { name: /Adresi gizle/ });
+    await user.click(hide);
+
+    expect(hide).toBeChecked();
+    expect(hide).toHaveAccessibleDescription(/tam adresi yalnızca işe aldığın işçi.*yaklaşık konum/i);
+    expect(screen.queryByText(/herkese görünür/)).toBeNull();
+  });
+
+  it("anahtar kapalıyken gönderime 'gizle' girmez", async () => {
+    const action = vi.fn<FormAction>().mockResolvedValue({ status: "idle" });
+    const { user } = renderCompanyForm({ action });
+
+    await fillCompanyForm(user);
+    await user.click(screen.getByRole("button", { name: "İlanı yayımla" }));
+
+    expect(action).toHaveBeenCalled();
+    expect(action.mock.calls[0][1].get("hideAddress")).toBeNull();
+  });
+
+  it("anahtar açıkken gönderime 'gizle' girer", async () => {
+    const action = vi.fn<FormAction>().mockResolvedValue({ status: "idle" });
+    const { user } = renderCompanyForm({ action });
+
+    await fillCompanyForm(user);
+    await user.click(screen.getByRole("checkbox", { name: /Adresi gizle/ }));
+    await user.click(screen.getByRole("button", { name: "İlanı yayımla" }));
+
+    expect(action).toHaveBeenCalled();
+    expect(action.mock.calls[0][1].get("hideAddress")).toBe("true");
+  });
+
+  it("gizleme tercihi taslakla birlikte geri yüklenir", async () => {
+    const first = renderCompanyForm();
+    await goToStep(first.user, "Adres");
+    await first.user.click(screen.getByRole("checkbox", { name: /Adresi gizle/ }));
+    first.unmount();
+
+    const second = renderCompanyForm();
+    await goToStep(second.user, "Adres");
+
+    expect(screen.getByRole("checkbox", { name: /Adresi gizle/ })).toBeChecked();
+  });
 });
 
 describe("bireysel ilan formu — ulaşım adımı", () => {

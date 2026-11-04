@@ -146,6 +146,18 @@ describe("bireysel ilan yayımlama action'ı", () => {
     });
   });
 
+  it("formdan 'adresi gizle' gelse de bireysel gövdeye `addressPublic` koymaz", async () => {
+    // Bireysel adres herkese yaklaşık; alan `CreateIndividualJobDto`'da yok
+    // ve kurcalanmış bir gönderim onu gövdeye sokamamalı.
+    const fetchMock = backend(jsonResponse(201, envelope({ id: jobId })));
+
+    await publishIndividualJobAction(idleFormState, submission({ hideAddress: "false" })).catch(
+      () => {},
+    );
+
+    expect(bodyOf(fetchMock, "/users/me/jobs")).not.toHaveProperty("addressPublic");
+  });
+
   it("yayımlandıktan sonra yeni ilanın sayfasına yönlendirir", async () => {
     backend(jsonResponse(201, envelope({ id: jobId })));
 
