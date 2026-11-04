@@ -329,11 +329,11 @@ Değişiklikler ayrı feature branch'te küçük Conventional Commit'lerle
 gönderilir ve PR açılır. Doğrudan `main` dalına push edilmez; başlık İngilizce imperative,
 gövde `Refs #NN` taşır ve `git add .` kullanılmaz.
 
-**Kalite kapısı bu Mac'tedir.** Ajan kapıyı Yusuf'un Mac'inde koşturur;
-GitHub kuyruğunu beklemez. Mac org runner kaydedilmez. GitHub PR ve `main`
-push'ta kalite işi koşmaz. `.github/workflows/ci.yml` yalnız
-`workflow_dispatch` ile org `self-hosted` Hetzner x86_64 üzerinde isteğe
-bağlı durur. Dördü de yeşil olmadan PR açılmaz:
+**Kalite kapısı GitHub Actions'tadır.** `.github/workflows/ci.yml` her
+`main` PR'ında, `main` push'unda ve `workflow_dispatch` ile GitHub'ın kendi
+`ubuntu-latest` runner'ında koşar; self-hosted runner yok. Aynı PR'a yeni
+push eski koşuyu iptal eder. Başarısız koşu Playwright/Lighthouse raporlarını
+7 günlük artifact olarak bırakır. Dördü de yeşil olmadan PR birleşmez:
 
 ```
 npm run lint && npm run typecheck && npm test && npm run build
@@ -345,7 +345,7 @@ Build'den sonra Playwright E2E (`npm run test:e2e`) ve Lighthouse bütçesi
 
 `CI` ortamına özgü kısıt (tek worker, uzun zaman sınırı) `vitest.config.ts`
 ve `playwright.config.ts` içinde `process.env.CI`'a bağlı; iş akışından
-bayrak geçirilmez, yoksa belgelenen kapı ile isteğe bağlı dispatch'in
+bayrak geçirilmez, yoksa belgelenen kapı ile iş akışının
 koştuğu komut sessizce ayrışır.
 
 `npm run build` `.env.local` istiyor; `.env.example` kopyalanıp `API_URL`
