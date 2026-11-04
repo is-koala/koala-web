@@ -89,6 +89,11 @@ jobs:
       - name: Lighthouse bütçesi
         run: npm run test:performance
 
+      # Kapı kırmızı olsa da her ölçümün puanı ve metrikleri özette görünsün.
+      - name: Lighthouse özeti
+        if: ${{ !cancelled() }}
+        run: node scripts/lighthouse-summary.mjs
+
       - name: E2E
         run: npm run test:e2e
 
@@ -103,3 +108,6 @@ jobs:
             .lighthouseci/
           retention-days: 7
           if-no-files-found: ignore
+          # v4 nokta ile başlayan dizinleri varsayılan olarak atlıyor;
+          # bu olmadan `.lighthouseci/` hiç yüklenmiyordu.
+          include-hidden-files: true
