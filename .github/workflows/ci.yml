@@ -49,6 +49,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # `next-env.d.ts` (resim modülü tipleri dahil) Git'e girmiyor; yerelde
+      # `next dev`/`next build` üretiyor. Temiz checkout'ta typecheck'ten önce
+      # üretilmezse `.png`/`.webp` import'ları TS2307 verir.
+      - name: Next tiplerini üret
+        run: npx next typegen
+
       - name: Typecheck
         run: npm run typecheck
 
