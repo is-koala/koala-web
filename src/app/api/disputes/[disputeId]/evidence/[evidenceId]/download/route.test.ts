@@ -65,7 +65,9 @@ describe("GET /api/disputes/:disputeId/evidence/:evidenceId/download", () => {
     expect(response.headers.get("content-disposition")).toBe("attachment");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    // Referer politikası rota başlığı değil: `next.config.ts` (`private-routes.ts`,
+    // `/api/disputes/**`) basıyor ve aynı anahtarda yapılandırma kazanıyor.
+    expect(response.headers.get("referrer-policy")).toBeNull();
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(
