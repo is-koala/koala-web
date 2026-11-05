@@ -27,7 +27,9 @@ test("giriş ve kayıt ana eylemleri yalnız klavyeyle gönderilir", async ({ pa
   await fillWithKeyboard(page, page.getByLabel("Parola"), "parola-yer-tutucu");
   await tabTo(page, page.getByRole("button", { name: "Giriş yap" }));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("alert")).toBeVisible();
+  // Next'in rota duyurucusu da `role="alert"` taşıyor ve `main` dışında
+  // duruyor; kapsamsız seçici iki eleman bulup katı kipte düşüyordu.
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
 
   await page.goto("/kayit");
   await fillWithKeyboard(page, page.getByLabel("Ad", { exact: true }), "Ada");
@@ -35,7 +37,7 @@ test("giriş ve kayıt ana eylemleri yalnız klavyeyle gönderilir", async ({ pa
   await fillWithKeyboard(page, page.getByLabel("E-posta"), "ada@example.test");
   await tabTo(page, page.getByRole("button", { name: "Doğrulama bağlantısı gönder" }));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
 });
 
 test("ilan ayrıntısındaki başvuru eylemi klavyeyle giriş kapısına ulaşır", async ({ page }) => {
