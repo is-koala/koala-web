@@ -274,7 +274,7 @@ describe("profil Server Action'ları", () => {
   it("fotoğraf formundan yalnız image dosyasını multipart iletir", async () => {
     const fetchMock = successfulFetch();
     const form = new FormData();
-    const image = new File(["koala"], "profil.webp", { type: "image/webp" });
+    const image = new File(["koala"], "profil.png", { type: "image/png" });
     form.set("image", image);
 
     await uploadProfilePictureAction(idleFormState, form);
@@ -283,6 +283,19 @@ describe("profil Server Action'ları", () => {
     expect(request.body).toBeInstanceOf(FormData);
     expect((request.body as FormData).get("image")).toBe(image);
     expect(request.headers.has("Content-Type")).toBe(false);
+  });
+
+  it("WebP fotoğrafı backend'e göndermeden reddeder", async () => {
+    // Backend WebP'yi okuyamıyor (ImageIO okuyucusu yok, koala-backend#348).
+    const fetchMock = successfulFetch();
+    const form = new FormData();
+    form.set("image", new File(["koala"], "profil.webp", { type: "image/webp" }));
+
+    await expect(uploadProfilePictureAction(idleFormState, form)).resolves.toMatchObject({
+      status: "error",
+      fieldErrors: { image: "PNG ya da JPEG biçiminde bir fotoğraf seç." },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

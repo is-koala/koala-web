@@ -1,3 +1,5 @@
+import { imageUploadAccept, imageUploadFormatsLabel } from "@/lib/image-upload-policy";
+
 /**
  * Logo dosyasının istemciye söylenen sınırları.
  *
@@ -9,7 +11,7 @@
  * "desteklenmeyen tür" ile reddediliyor. `accept` bu yüzden uzantıları da
  * sayıyor.
  */
-export const logoAccept = ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp";
+export const logoAccept = imageUploadAccept;
 
-/** `UploadProperties`: 10 MB, 50 megapiksel, dört uzantı. */
-export const logoHint = "PNG, JPG, JPEG veya WEBP · en fazla 10 MB";
+/** `UploadProperties`: 10 MB, 50 megapiksel; biçimler görsel yükleme politikasından (WebP yok, koala-backend#348). */
+export const logoHint = `${imageUploadFormatsLabel} · en fazla 10 MB`;

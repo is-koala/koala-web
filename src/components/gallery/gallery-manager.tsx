@@ -4,6 +4,7 @@ import { useRef, useState, type DragEvent } from "react";
 
 import { ErrorState, EmptyState } from "@/components/states";
 import { errorPresentation } from "@/lib/errors";
+import { imageUploadFormatsLabel } from "@/lib/image-upload-policy";
 import {
   galleryAccept,
   galleryCaptionLimit,
@@ -187,7 +188,7 @@ export function GalleryManager({
       <section className="app-panel" aria-labelledby="gallery-upload-title">
         <p className="eyebrow">Yükle</p>
         <h2 id="gallery-upload-title">Görsel ekle</h2>
-        <p className="lede">PNG, JPG, JPEG veya WEBP, en fazla 10 MB. Yüklemeler sırayla gider.</p>
+        <p className="lede">{imageUploadFormatsLabel}, en fazla 10 MB. Yüklemeler sırayla gider.</p>
         <div className="gallery-upload">
           <input
             ref={fileInput}

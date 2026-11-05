@@ -16,6 +16,7 @@ import {
 import { FormAlert } from "@/components/states";
 import { fieldError, idleFormState } from "@/lib/form-state";
 import type { EditableProfile } from "@/lib/profile";
+import { imageUploadAccept, imageUploadFormatsLabel } from "@/lib/image-upload-policy";
 
 export function ProfileDetailsForm({ profile }: { profile: EditableProfile }) {
   const [state, submit] = useActionState(updateProfileAction, idleFormState);
@@ -108,8 +109,8 @@ export function ProfilePictureForm() {
         id="profile-image"
         name="image"
         label="Yeni fotoğraf"
-        accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-        hint="PNG, JPG, JPEG veya WEBP · en fazla 10 MB"
+        accept={imageUploadAccept}
+        hint={`${imageUploadFormatsLabel} · en fazla 10 MB`}
         error={fieldError(state, "image")}
       />
       <SubmitButton label="Fotoğrafı yükle" pendingLabel="Yükleniyor…" />
