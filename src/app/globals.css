@@ -738,6 +738,10 @@ html:has(.mobile-nav-backdrop) { overflow: hidden; }
 .work-address address { font-style: normal; font-weight: 750; overflow-wrap: anywhere; }
 .work-address p, .work-brief-grid p { margin: 0; }
 .work-address .work-address-directions { margin-top: 8px; font-size: var(--size-14); overflow-wrap: anywhere; }
+.work-directions { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.work-directions h3 { margin: 0 0 4px; font-size: var(--size-14); }
+.work-directions p { font-size: var(--size-14); }
+.work-directions-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 /* İşveren kartı: logo/avatar solda, tür etiketi + ad + web sitesi sağda. Tanıtımdaki
    `.job-detail-employer` ile aynı düzen; kabuk yüzeyi olduğu için kart token'larını okur. */
 .work-employer { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 14px 16px; border-radius: var(--r-16); background: var(--surface-sunken); }

@@ -1,6 +1,7 @@
 import type { WorkerAssignment } from "@/assignments/contract";
 import type { WorkerAssignmentResolution } from "@/assignments/resolution";
 import type { AssignmentReviewState } from "@/assignments/review";
+import type { TransitDirections } from "@/assignments/transit-directions";
 import type { MessagingAvailability } from "@/messaging/contract";
 import type { AssignmentTransport } from "@/transport/contract";
 
@@ -62,6 +63,11 @@ export type WorkDetail = {
   fullAddress: string | null;
   /** Adres tarifi; `fullAddress` ile aynı kesinlik kapısından geçer (EXACT). */
   additionalDirections: string | null;
+  /**
+   * Toplu taşımayla yol tarifi bağlantıları; yalnız kesin adresli etkin
+   * atamada (is-koala/koala-web#178). Koordinat bağlantının içinde.
+   */
+  directions: TransitDirections | null;
   /** `null` sınırsız kontenjan; `hiredCount` kalan yerin üst sınırı (`openings`). */
   headcount: number | null;
   hiredCount: number;
