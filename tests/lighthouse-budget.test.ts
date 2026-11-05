@@ -29,11 +29,16 @@ const require = createRequire(import.meta.url);
 const budget = require("../lighthouse-budget.cjs") as LighthouseBudget;
 
 describe("Lighthouse performans bütçesi", () => {
-  it("ilan listesi ve ilan ayrıntısını düzenli-3G laboratuvar profilinde ölçer", () => {
+  it("ilan listesi, ilan ayrıntısı ve hesap girişlerini düzenli-3G laboratuvar profilinde ölçer", () => {
+    // `/giris` 264 KB ölçülmüştü ve listede olmadığı için kapı onu hiç
+    // görmüyordu (is-koala/koala-web#197).
     expect(budget.urls).toEqual([
       "/",
       "/is-ilanlari",
       "/is-ilanlari/9c1f0d24-4c2f-4f6c-8a9e-5d3c1b0a7f60",
+      "/giris",
+      "/kayit",
+      "/sifre-unuttum",
     ]);
     expect(budget.numberOfRuns).toBe(3);
     expect(budget.settings).toMatchObject({

@@ -8,7 +8,9 @@ const median = { aggregationMethod: "median" };
  * sayıları pinlemesi için ayrı duruyor.
  */
 module.exports = {
-  urls: ["/", "/is-ilanlari", `/is-ilanlari/${fixtureJobId}`],
+  // Hesap girişleri (is-koala/koala-web#197): `/giris` 256 KB sınırını
+  // aşıyordu ve listede olmadığı için hiçbir kapı görmüyordu.
+  urls: ["/", "/is-ilanlari", `/is-ilanlari/${fixtureJobId}`, "/giris", "/kayit", "/sifre-unuttum"],
   fixtureJobId,
   numberOfRuns: 3,
   settings: {
