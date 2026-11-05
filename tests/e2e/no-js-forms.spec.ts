@@ -69,6 +69,41 @@ test("gizli sayfanın kendi istekleri Referer'a yalnız origin'i yazar", async (
   expect(referer).not.toContain("gizli");
 });
 
+test("istemci tarafı gezinmeden sonra da Referer yalnız origin'dir", async ({ page }) => {
+  // Politika belgeye yalnız sert yüklemede yerleşir; istemci tarafı gezinme
+  // onu değiştirmez. Tanıtım sayfası tarayıcı varsayılanında kalsaydı,
+  // bağlantıyla geçilen sayfanın aynı origin istekleri tam adresi yazardı.
+  const sessionRead = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/session",
+  );
+  await page.goto("/");
+  // `/api/session` başlığın `useEffect`'inden gidiyor: cevap geldiyse sayfa
+  // hidrate oldu ve tıklama sert yükleme değil, istemci tarafı gezinme olur.
+  await sessionRead;
+  await page.evaluate(() => {
+    (window as Window & { __softNavigation?: boolean }).__softNavigation = true;
+  });
+
+  await page
+    .getByRole("navigation", { name: "Ana menü" })
+    .getByRole("link", { name: "Giriş yap" })
+    .click();
+  await expect(page).toHaveURL(`${baseURL}/giris`);
+  await expect(page.getByRole("heading", { name: "Giriş yap" })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as Window & { __softNavigation?: boolean }).__softNavigation === true,
+    ),
+  ).toBe(true);
+
+  const apiRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/session",
+  );
+  await page.evaluate(() => fetch("/api/session").then(() => undefined));
+  const referer = await (await apiRequest).headerValue("referer");
+  expect(referer).toBe(`${baseURL}/`);
+});
+
 test("tanıtım sayfası da strict-origin taşır", async ({ request }) => {
   // İstemci tarafı gezinme belge politikasını değiştirmiyor: tanıtım
   // sayfasından `/panel/**`'e geçen belge ilk yüklemenin politikasını korur.
