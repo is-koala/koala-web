@@ -63,6 +63,7 @@ const detail = {
   duties: null,
   dressCode: null,
   additionalDirections: null,
+  directions: null,
   headcount: null,
   hiredCount: 0,
   createdAt: null,

@@ -56,6 +56,7 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
     dressCode: "Siyah gömlek",
     fullAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4",
     additionalDirections: "Arka kapıdan girin.",
+    directions: null,
     headcount: 4,
     hiredCount: 1,
     createdAt: "2026-08-30T07:15:00Z",
@@ -336,6 +337,78 @@ describe("iş ve çalışma oturumu ayrıntısı", () => {
     expect(screen.getByText("1 sa 7 dk")).toBeVisible();
     expect(screen.queryByRole("timer")).toBeNull();
     expect(await screen.findByRole("button", { name: "İşe giriş yap" })).toBeEnabled();
+  });
+
+  it("kesin adresli etkin atamada toplu taşımayla yol tarifini iki haritada açar", async () => {
+    // is-koala/koala-web#178: anahtarsız evrensel bağlantı, yeni sekme,
+    // Referer'sız; varış saati URL'de taşınamıyor, iş başlangıcı yanında yazılı.
+    const directions = {
+      google: "https://www.google.com/maps/dir/?api=1&destination=40.98%2C29.02&travelmode=transit",
+      apple: "https://maps.apple.com/?daddr=40.98%2C29.02&dirflg=r",
+    };
+    render(
+      <WorkDetailScreen
+        conversationAction={conversationAction}
+        initialDetail={workDetail({ directions })}
+        action={vi.fn()}
+        locate={located}
+      />,
+    );
+
+    const route = screen.getByRole("region", { name: "Toplu taşımayla yol tarifi" });
+    const google = within(route).getByRole("link", { name: /Google Haritalar/ });
+    const apple = within(route).getByRole("link", { name: /Apple Haritalar/ });
+    expect(google).toHaveAttribute("href", directions.google);
+    expect(apple).toHaveAttribute("href", directions.apple);
+    for (const link of [google, apple]) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    expect(route).toHaveTextContent("12 Eyl 2026 12:00");
+  });
+
+  it("ulaşım planı varken yol tarifini kendi imkânınla seçeneği olarak sunar", () => {
+    const directions = {
+      google: "https://www.google.com/maps/dir/?api=1&destination=40.98%2C29.02&travelmode=transit",
+      apple: "https://maps.apple.com/?daddr=40.98%2C29.02&dirflg=r",
+    };
+    render(
+      <WorkDetailScreen
+        conversationAction={conversationAction}
+        initialDetail={workDetail({
+          directions,
+          transport: {
+            outboundMethod: "CASH_ALLOWANCE",
+            returnMethod: "SELF",
+            allowanceAmount: "150.00",
+            allowanceNote: null,
+            notes: null,
+            shuttles: [],
+            seats: [],
+          },
+        })}
+        action={vi.fn()}
+        locate={located}
+      />,
+    );
+
+    expect(
+      screen.getByRole("region", { name: "Kendi imkânınla: toplu taşımayla yol tarifi" }),
+    ).toBeVisible();
+  });
+
+  it("yol tarifi yoksa bölüm de yok", () => {
+    render(
+      <WorkDetailScreen
+        conversationAction={conversationAction}
+        initialDetail={workDetail({ directions: null })}
+        action={vi.fn()}
+        locate={located}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: /Google Haritalar/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /yol tarifi/ })).toBeNull();
   });
 
   it("odak ve görünürlük dönüşlerinde sunucuyu yeniler; kaybolan tam adresi tutmaz", async () => {
