@@ -164,7 +164,30 @@ describe("şirket ilanı yayımlama action'ı", () => {
       maxAge: 45,
       experienceRequired: false,
       insuranceRequired: false,
+      addressPublic: true,
     });
+  });
+
+  it("'adresi gizle' işaretlenmemişse adresi herkese açık gönderir", async () => {
+    // İşaretsiz kutu gönderime hiç girmiyor; formdan alan gelmemesi
+    // "açık" demek (kural: şirket ilanında tam konum varsayılan açık).
+    const fetchMock = backend(jsonResponse(201, envelope({ id: jobId })));
+    const formData = submission();
+    formData.delete("hideAddress");
+
+    await publishCompanyJobAction(companyId, idleFormState, formData).catch(() => {});
+
+    expect(bodyOf(fetchMock, `/companies/${companyId}/jobs`)).toHaveProperty("addressPublic", true);
+  });
+
+  it("'adresi gizle' işaretliyse `addressPublic=false` gönderir", async () => {
+    const fetchMock = backend(jsonResponse(201, envelope({ id: jobId })));
+
+    await publishCompanyJobAction(companyId, idleFormState, submission({ hideAddress: "true" })).catch(
+      () => {},
+    );
+
+    expect(bodyOf(fetchMock, `/companies/${companyId}/jobs`)).toHaveProperty("addressPublic", false);
   });
 
   it("sigorta zorunlu kategoride, gövdeye sigorta kapalı gelse de açık gönderir", async () => {
