@@ -335,7 +335,10 @@ npm run lint && npm run typecheck && npm test && npm run build
 
 Build'den sonra Playwright E2E (`npm run test:e2e`) ve Lighthouse bütçesi
 (`npm run test:performance`) de yeşil olur; ikincisinin sayıları
-`docs/performance-accessibility-budget.md` içindedir.
+`docs/performance-accessibility-budget.md` içindedir. Lighthouse kapısını
+betik baytı, CLS, LCP ve TBT kırar; performans **puanı** yalnız uyarıdır,
+çünkü GitHub runner'ında aynı kodla 0,55–0,78 arası oynuyor. Puanı yeniden
+`error` yapma; gerileme varsa onu oluşturan ölçüyü sıkılaştır.
 
 `CI` ortamına özgü kısıt (tek worker, uzun zaman sınırı) `vitest.config.ts`
 ve `playwright.config.ts` içinde `process.env.CI`'a bağlı; iş akışından
