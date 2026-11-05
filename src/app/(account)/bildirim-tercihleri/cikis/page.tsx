@@ -8,9 +8,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   // Gizli rotaların başlığı `strict-origin` (`private-routes.ts`, #199); bu
   // sayfa onu `no-referrer`'a sıkılaştırıyor. Bunu yapabiliyor, çünkü düz bir
-  // form POST'u yok: onay `fetch` ile gidiyor ve `fetch` politikadan bağımsız
-  // olarak `Origin` taşıyor. Token 90 gün geçerli; kural ters vekil başlığı
-  // düşürse bile belgenin içinde durur.
+  // form POST'u yok: onay `cors` kipindeki bir `fetch` ile gidiyor ve o kipte
+  // tarayıcı `Origin`'i politikadan bağımsız olarak gerçek değeriyle yazıyor
+  // (Fetch standardı `null`'u yalnız `cors` olmayan istekte yazdırıyor). Token
+  // 90 gün geçerli; kural ters vekil başlığı düşürse bile belgenin içinde durur.
   referrer: "no-referrer",
 };
 

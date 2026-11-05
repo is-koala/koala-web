@@ -48,6 +48,16 @@ const nextConfig: NextConfig = {
       value,
     }));
     return [
+      // Site geneli Referer politikası (is-koala/koala-web#199 sonrası): politika
+      // belgeye yalnız sert yüklemede yerleşiyor; tanıtım sayfasından istemci
+      // tarafı gezinmeyle `/panel/**` ya da `/davet/{id}`'e geçen belge
+      // varsayılanda kalıp aynı origin isteklerine tam adresi yazıyordu.
+      // Çapraz origin istekleri (Maps anahtarının referrer kısıtı dahil)
+      // varsayılanda da yalnız origin alıyordu; o davranış değişmiyor.
+      {
+        source: "/:path*",
+        headers: [{ key: "Referrer-Policy", value: privateResponseHeaders["Referrer-Policy"] }],
+      },
       {
         source: "/:path*",
         has: [{ type: "host", value: "staging.iskoala.com" }],

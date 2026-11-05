@@ -16,6 +16,11 @@ function routeDirectories(directory: string): string[] {
 
 const directories = routeDirectories(appRoot);
 
+/** Kaynakta `Referrer-Policy` başlık adını (büyük/küçük harf fark etmeden) dize olarak yazıyor mu. */
+function writesReferrerPolicy(source: string): boolean {
+  return /["'`]referrer-policy["'`]/i.test(source);
+}
+
 describe("rota dosya biçimi", () => {
   it("notFound() çağıran hiçbir sayfanın yanında loading.tsx durmaz", () => {
     /*
@@ -67,6 +72,28 @@ describe("rota dosya biçimi", () => {
 
     expect(existsSync(path.join(segment, "page.tsx"))).toBe(true);
     expect(existsSync(path.join(segment, "loading.tsx"))).toBe(false);
+  });
+
+  it("kaynak tarayıcısı başlık adını harf biçiminden bağımsız tanır", () => {
+    expect(writesReferrerPolicy(`headers.set("Referrer-Policy", "no-referrer")`)).toBe(true);
+    expect(writesReferrerPolicy(`{ 'referrer-policy': "no-referrer" }`)).toBe(true);
+    expect(writesReferrerPolicy(`new Headers({ "Cache-Control": "no-store" })`)).toBe(false);
+  });
+
+  it("hiçbir rota handler'ı kendi Referrer-Policy başlığını yazmaz", () => {
+    /*
+     * `next.config.ts` her yanıta `Referrer-Policy: strict-origin` basıyor ve
+     * Next bu yapılandırma başlığını handler yanıtının üzerine yazıyor
+     * (`next/dist/server/send-response.js`). Handler'ın daha sıkı değeri hata
+     * vermeden kayboluyor: kanıt indirme ucunun `no-referrer`'ı böyle hiç
+     * gönderilmedi. Sıkılaştırma gerekiyorsa yeri `next.config.ts`.
+     */
+    const violations = directories.filter((directory) => {
+      const route = path.join(directory, "route.ts");
+      return existsSync(route) && writesReferrerPolicy(readFileSync(route, "utf8"));
+    });
+
+    expect(violations.map((directory) => path.relative(appRoot, directory))).toEqual([]);
   });
 
   it("kabuk köklerinin hiçbirinde loading.tsx yok", () => {

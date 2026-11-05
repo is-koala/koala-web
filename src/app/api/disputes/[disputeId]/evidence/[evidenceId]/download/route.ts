@@ -93,10 +93,14 @@ function errorResponse(errorCode: string, httpStatus: number) {
   );
 }
 
+/**
+ * Referer politikası burada yok: `next.config.ts` (`private-routes.ts`,
+ * `/api/disputes/**`) aynı anahtarı basıyor ve Next yapılandırma değerini
+ * koruyor; rotadaki ikinci değer hiçbir zaman tarayıcıya ulaşmıyordu.
+ */
 function downloadHeaders(): Headers {
   return new Headers({
     "Cache-Control": "no-store",
-    "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow, noarchive",
   });
