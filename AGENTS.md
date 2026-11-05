@@ -125,7 +125,11 @@ adlandırmak şeritleri ve başvuru çözümünü kırar.
   hâlde varsayılanda kalırdı. Tek istisna abonelikten çıkma sayfası
   (`/bildirim-tercihleri/cikis`): `<meta name="referrer" content="no-referrer">`
   ile sıkılaştırıyor; düz form POST'u olmadığı (onay `cors` kipinde bir
-  `fetch`) için `Origin: null` sorunu orada doğmuyor.
+  `fetch`) için `Origin: null` sorunu orada doğmuyor. Rota handler'ları
+  (`route.ts`) kendi `Referrer-Policy` başlığını yazmaz: Next yapılandırma
+  başlığını yanıtın üzerine yazıyor (`next/dist/server/send-response.js`) ve
+  handler'ın değeri hiçbir hata vermeden kayboluyor
+  (`src/app/route-shape.test.ts` bunu zorluyor).
 - `loading.tsx` bir segmenti Suspense sınırına sokar ve bunun **iki** ayrı yan
   etkisi var. İkisi de ekranda görünmez; JavaScript açık her tarayıcıda sayfa
   doğru çalışır. `src/app/route-shape.test.ts` ikisini de zorluyor.
