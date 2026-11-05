@@ -70,7 +70,12 @@ type PaymentAttemptDto = {
   completedAt?: string | null;
 };
 
-/** Backend'in kesin adresi açtığı atama durumları (`ADDRESS_VISIBLE_ASSIGNMENT_STATUSES`). */
+/**
+ * Backend'in kesin adresi açtığı atama durumları. Backend bu kümeyi dışarı
+ * vermediği için `koala-backend` `JobManager.ADDRESS_VISIBLE_ASSIGNMENT_STATUSES`
+ * elle kopyalandı; orada değişirse burada da değişmeli, yoksa adresi gizlenmiş
+ * bir atamada yol tarifi çizilir ya da açık adreste kaybolur.
+ */
 const directionsStatuses = new Set(["PENDING_CONFIRMATION", "CONFIRMED", "IN_PROGRESS"]);
 
 /** Ödemesi bir kez emanete girmiş atamalar; öbürlerinde deneme listesi hiç istenmiyor. */
