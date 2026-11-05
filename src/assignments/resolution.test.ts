@@ -75,6 +75,9 @@ describe("uyuşmazlık kanıt dosyası doğrulaması", () => {
     [new File([new Uint8Array(10 * 1024 * 1024 + 1)], "buyuk.pdf", { type: "application/pdf" }), "DISPUTE_EVIDENCE_TOO_LARGE"],
     [new File(["veri"], "zararli.exe", { type: "application/octet-stream" }), "STORAGE_UNSUPPORTED_TYPE"],
     [new File(["veri"], "pdf", { type: "application/pdf" }), "STORAGE_UNSUPPORTED_TYPE"],
+    // Backend WebP'yi okuyamıyor (ImageIO okuyucusu yok, koala-backend#348):
+    // gönderilse her gerçek WebP `STORAGE_UNSUPPORTED_TYPE` ile dönerdi.
+    [new File(["veri"], "kanit.webp", { type: "image/webp" }), "STORAGE_UNSUPPORTED_TYPE"],
   ])("%s için nedenini koruyan hata kodu döndürür", (file, errorCode) => {
     expect(disputeEvidenceValidationError([file])).toBe(errorCode);
   });

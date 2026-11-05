@@ -410,7 +410,7 @@ describe("BFF oturum katmanı", () => {
      * yenilenmiş tokenla bile yükleme sessizce düşer (is-koala/koala-web#35).
      * Aynı nesne hem ilk denemede hem tekrarda durmalı.
      */
-    const image = new File(["koala"], "mekan.webp", { type: "image/webp" });
+    const image = new File(["koala"], "mekan.png", { type: "image/png" });
     const body = new FormData();
     body.set("image", image);
 

@@ -113,7 +113,8 @@ describe("şirket logosu eylemleri", () => {
 
     expect(screen.getByLabelText("Yeni logo")).toHaveAttribute(
       "accept",
-      ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp",
+      // WebP yok: backend okuyamıyor (koala-backend#348).
+      "image/png,image/jpeg,.png,.jpg,.jpeg",
     );
   });
 });

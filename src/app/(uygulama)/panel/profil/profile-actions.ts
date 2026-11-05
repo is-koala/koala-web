@@ -1,13 +1,15 @@
 "use server";
 
 import type { FormState } from "@/lib/form-state";
+import { imageUploadExtensions, imageUploadFormatsLabel } from "@/lib/image-upload-policy";
 import { textField, validationState } from "@/server/form";
 import { updateProfile, uploadProfilePicture } from "@/server/profile/profile";
 import { requireSessionForCurrentPath } from "@/server/session/guard";
 
 import { runProfileMutation } from "./action-support";
 
-const allowedImageExtensions = new Set(["png", "jpg", "jpeg", "webp"]);
+// WebP yok: backend okuyamıyor (koala-backend#348).
+const allowedImageExtensions: ReadonlySet<string> = new Set(imageUploadExtensions);
 const maximumImageBytes = 10 * 1024 * 1024;
 
 export async function updateProfileAction(
@@ -50,7 +52,7 @@ export async function uploadProfilePictureAction(
   }
   const extension = image.name.split(".").pop()?.toLocaleLowerCase("tr");
   if (!extension || !allowedImageExtensions.has(extension)) {
-    return validationState({ image: "PNG, JPG, JPEG veya WEBP biçiminde bir fotoğraf seç." });
+    return validationState({ image: `${imageUploadFormatsLabel} biçiminde bir fotoğraf seç.` });
   }
 
   return runProfileMutation(() => uploadProfilePicture(image));

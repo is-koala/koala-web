@@ -48,7 +48,7 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     fireEvent.click(screen.getByText("Uyuşmazlık aç", { selector: "summary" }));
     const evidence = screen.getByLabelText("Kanıt dosyaları (isteğe bağlı)");
     expect(evidence).not.toHaveAttribute("multiple");
-    expect(evidence).toHaveAttribute("accept", ".pdf,.png,.jpg,.jpeg,.webp");
+    expect(evidence).toHaveAttribute("accept", ".pdf,.png,.jpg,.jpeg");
     expect(screen.getByText(/her yüklemede 1 dosya/i)).toBeVisible();
   });
 
@@ -202,7 +202,7 @@ describe("işveren iptal ve uyuşmazlık işlemleri", () => {
     expect(screen.getByRole("button", { name: "Kanıtları yükle" })).toBeVisible();
     expect(screen.getByLabelText("Yeni kanıt dosyaları")).toHaveAttribute(
       "accept",
-      ".pdf,.png,.jpg,.jpeg,.webp",
+      ".pdf,.png,.jpg,.jpeg",
     );
     expect(screen.getByLabelText("Yeni kanıt dosyaları")).not.toHaveAttribute("multiple");
     expect(screen.getByText(/mevcut uyuşmazlık sonuçlanana kadar/i)).toBeVisible();

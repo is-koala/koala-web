@@ -112,7 +112,7 @@ describe("BFF API istemcisi", () => {
   it("multipart gövdeyi sınır başlığını bozmadan backend'e aktarır", async () => {
     const fetchMock = stubFetch(jsonResponse(200, { success: true, data: null }));
     const body = new FormData();
-    body.set("image", new File(["koala"], "profil.webp", { type: "image/webp" }));
+    body.set("image", new File(["koala"], "profil.png", { type: "image/png" }));
 
     await apiFetch("/users/me/profile-picture", {
       deviceId,
