@@ -13,7 +13,7 @@ bir laboratuvar regresyon kapısıdır. Ana sayfa, ilan listesi ve sabit test il
 | INP | ≤ 200 ms (p75 alan) | Doğrudan laboratuvar kapısı yok | Alan verisi henüz yok |
 | TBT (INP laboratuvar vekili) | < 200 ms | ≤ 300 ms | 29–64 ms |
 | CLS | ≤ 0,1 | ≤ 0,1 | 0 |
-| Lighthouse performans puanı | ≥ 0,90 | ≥ 0,70 | 0,75–0,77 |
+| Lighthouse performans puanı | ≥ 0,90 | ≥ 0,70 (uyarı) | 0,75–0,77 |
 
 2026-09-14 (is-koala/koala-web#156, kabuk yeniden tasarımı) ölçümü: betik aktarımı ana sayfa
 247.648, ilan listesi 249.447, ilan ayrıntısı **255.559** bayt — sınıra 441 bayt kaldı. Aynı
@@ -116,9 +116,20 @@ erken bir regresyon sinyalidir ve INP'nin yerine geçtiği varsayılmaz.
 700 Kbit/sn aktarım, 4× CPU yavaşlatma ve 412×823 / 1,75 DPR mobil ekran. Bu profil,
 Lighthouse kaynak kodunda Chrome UX Report'un 3G tanımına yaklaşık olarak hizalanır.
 
-CI maliyetini Raspberry Pi koşucuda sınırlamak için rota başına iki ölçüm alınır. `optimistic`
-toplama, tek bir gürültülü koşunun PR'ı kırmasını engeller; bütçe ihlalinin iki koşuda da görünmesi
-kapıyı kırar. Kaydedilen raporlar `.lighthouseci/reports` altında yerel artefakt olarak kalır.
+Kapı GitHub'ın `ubuntu-latest` runner'ında koşar ve rota başına üç ölçüm alır. Kapıyı kıran
+ölçüler: ilk yük betik baytı ve CLS (deterministik), LCP (üç ölçümün medyanı; ağ ağırlıklı, 12 sn
+sınırına ~4 sn pay) ve TBT (`optimistic`, yani en iyi ölçüm). TBT ana iş parçacığı süresidir ve
+runner gürültüsü tek ölçümü 104 ms'den 672 ms'ye çıkarabiliyor; gerçek bir regresyon her ölçümde
+görünür, o yüzden en iyi ölçüm de sınırı aşınca kapı kırılır.
+
+**Lighthouse performans puanı `warn`'dur** (medyan, ≥ 0,70). 2026-11-04 ölçümünde
+(is-koala/koala-web#209) aynı kod `ubuntu-latest`'te 0,55–0,78 arası puan aldı: puanın yarısı
+CPU'ya bağlı TBT ile çift kipli Speed Index'ten (aynı rotada 1,8 ↔ 6,3 sn) geliyor ve `/` rotasının
+medyanı beş ölçümde bile 0,66–0,69 çıktı. Puan rapor ve adım özetinde görünmeye devam eder; düşüşü
+kapıdaki ölçülerden biri açıklamıyorsa ayrıca incelenir.
+
+Her ölçümün puanı ve metrikleri `scripts/lighthouse-summary.mjs` ile CI adım özetine yazılır;
+başarısız koşuda `.lighthouseci/` raporları artifact olarak yüklenir.
 
 Yerel CI eşdeğeri:
 
