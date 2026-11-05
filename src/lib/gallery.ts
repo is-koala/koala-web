@@ -1,3 +1,4 @@
+import { imageUploadAccept, imageUploadExtensions, imageUploadFormatsLabel } from "./image-upload-policy";
 import { isUuid } from "./identifiers";
 
 /**
@@ -51,12 +52,13 @@ export const galleryCaptionLimit = 255;
  */
 export const galleryClientLimit = 10;
 
-export const galleryAcceptedExtensions = ["png", "jpg", "jpeg", "webp"] as const;
+/** Görsel yükleme politikasından (WebP yok, koala-backend#348). */
+export const galleryAcceptedExtensions = imageUploadExtensions;
 
 /** `UploadProperties` varsayılanı: görsel başına 10 MB. */
 export const galleryMaxImageBytes = 10 * 1024 * 1024;
 
-export const galleryAccept = "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp";
+export const galleryAccept = imageUploadAccept;
 
 export type GalleryUploadRejection = {
   readonly ok: false;
@@ -113,7 +115,7 @@ export function precheckGalleryUpload(file: File, remainingSlots: number): Galle
   }
   const extension = file.name.split(".").pop()?.toLocaleLowerCase("tr") ?? "";
   if (!galleryAcceptedExtensions.includes(extension as (typeof galleryAcceptedExtensions)[number])) {
-    return { ok: false, reason: "PNG, JPG, JPEG veya WEBP biçiminde bir görsel seç." };
+    return { ok: false, reason: `${imageUploadFormatsLabel} biçiminde bir görsel seç.` };
   }
   return { ok: true };
 }

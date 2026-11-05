@@ -88,7 +88,7 @@ describe("şirket backend modülü", () => {
     // Logo ayrı bir istekle gitseydi, şirket kurulup logo yüklemesi
     // düştüğünde kullanıcı silinemeyen ve logosuz kalan bir şirketle kalırdı.
     const fetchMock = successfulFetch({ id: companyId });
-    const logo = new File(["koala"], "logo.webp", { type: "image/webp" });
+    const logo = new File(["koala"], "logo.png", { type: "image/png" });
 
     await createCompany(details, logo);
 
@@ -96,7 +96,7 @@ describe("şirket backend modülü", () => {
     expect(body.get("logo")).toBe(logo);
     // `uploadValidator` desteklenen türü **dosya adının uzantısından**
     // okuyor; adı düşüren bir ekleme her logoyu "desteklenmeyen tür" yapardı.
-    expect((body.get("logo") as File).name).toBe("logo.webp");
+    expect((body.get("logo") as File).name).toBe("logo.png");
   });
 
   it("logo seçilmediğinde parçayı hiç eklemez", async () => {

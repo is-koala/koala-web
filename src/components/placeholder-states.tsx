@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { imageUploadFormatsLabel } from "@/lib/image-upload-policy";
+
 import { EmptyStateCard, type Mascot } from "./ui/empty-state";
 
 /**
@@ -75,7 +77,7 @@ const emptyCopy = {
   ],
   gallery: [
     "Henüz görsel yok",
-    "PNG, JPG, JPEG veya WEBP biçiminde görseller ekleyebilirsin.",
+    `${imageUploadFormatsLabel} biçiminde görseller ekleyebilirsin.`,
   ],
 } as const;
 

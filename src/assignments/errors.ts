@@ -1,4 +1,5 @@
 import type { ErrorCatalog } from "@/lib/error-presentation";
+import { evidenceUploadFormatsLabel } from "@/lib/image-upload-policy";
 
 /** Uyuşmazlık ve kanıt dosyası (yükleme, indirme) redleri. */
 export const disputeErrors: ErrorCatalog = {
@@ -15,7 +16,7 @@ export const disputeErrors: ErrorCatalog = {
   },
   DISPUTE_EVIDENCE_REQUIRED: {
     title: "Kanıt dosyası seçmelisin",
-    message: "Devam etmek için PDF, PNG, JPG veya WEBP biçiminde bir kanıt dosyası seç.",
+    message: `Devam etmek için ${evidenceUploadFormatsLabel} biçiminde bir kanıt dosyası seç.`,
     action: "none",
   },
   DISPUTE_EVIDENCE_TOO_MANY: {
@@ -50,7 +51,7 @@ export const disputeErrors: ErrorCatalog = {
   },
   STORAGE_UNSUPPORTED_TYPE: {
     title: "Dosya biçimi desteklenmiyor",
-    message: "PDF, PNG, JPG veya WEBP biçiminde geçerli bir dosya seçip yeniden dene.",
+    message: `${evidenceUploadFormatsLabel} biçiminde geçerli bir dosya seçip yeniden dene.`,
     action: "none",
   },
   STORAGE_DOWNLOAD_FAILED: {

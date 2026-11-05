@@ -92,6 +92,10 @@ const server = createServer(async (request, response) => {
         ? initialTransportPlan(url.searchParams.get("transport") === "seated" ? 2 : 0)
         : null,
       transportSeatRace: url.searchParams.get("transport") === "race",
+      // `?address=exact`: oturumlu çalışana ilan kesin adresle (ADR-0003,
+      // etkin atama) döner; toplu taşıma tarifi bu koordinattan kurulur
+      // (is-koala/koala-web#178). Öbür senaryolar yaklaşık adresi varsayıyor.
+      exactAddress: url.searchParams.get("address") === "exact",
       seats: [],
       transportRequests: [],
       // Bildirim tercihleri (is-koala/koala-web#198): backend'in döndürdüğü
@@ -174,7 +178,19 @@ const server = createServer(async (request, response) => {
     const transport = viewerState
       ? publicTransportSummary(viewerState)
       : publicTransportSummary({ transportPlan: initialTransportPlan() });
-    return backendSuccess(response, { ...viewerJob(openJob(), request), transport });
+    const exact = viewerState?.exactAddress
+      ? {
+          addressPrecision: "EXACT",
+          address: {
+            cityName: "İstanbul",
+            districtName: "Kadıköy",
+            displayAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4, Kadıköy/İstanbul",
+            components: { additionalDirections: "Arka kapıdan girin." },
+            position: { latitude: 40.987654, longitude: 29.025431, source: "USER_CONFIRMED_PIN" },
+          },
+        }
+      : {};
+    return backendSuccess(response, { ...viewerJob(openJob(), request), ...exact, transport });
   }
   if (request.method === "GET" && url.pathname === `/users/${jobCreatorId}/employer-stats`) {
     // İlan sayfasının işveren güven kartı (is-koala/koala-web#166); uç herkese

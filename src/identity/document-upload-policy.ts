@@ -1,3 +1,10 @@
+import {
+  imageUploadAccept,
+  imageUploadExtensions,
+  imageUploadFormatsLabel,
+  imageUploadMimeTypes,
+} from "@/lib/image-upload-policy";
+
 const mebibyte = 1024 * 1024;
 
 export const identityPhotoSlots = ["selfie", "front", "back", "together"] as const;
@@ -13,14 +20,15 @@ export const identityPhotoTransportMaxBytes = identityPhotoContentMaxBytes + 2 *
 
 export const identityDocumentUploadPath = "/api/users/me/identity-documents";
 
-export const identityPhotoInputAccept = "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp";
-export const identityPhotoAllowedExtensions = new Set(["png", "jpg", "jpeg", "webp"]);
-export const identityPhotoAllowedMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+// Biçimler görsel yükleme politikasından (WebP yok, koala-backend#348).
+export const identityPhotoInputAccept = imageUploadAccept;
+export const identityPhotoAllowedExtensions: ReadonlySet<string> = new Set(imageUploadExtensions);
+export const identityPhotoAllowedMimeTypes: ReadonlySet<string> = new Set(imageUploadMimeTypes);
 
 export const identityPhotoUploadErrors = {
   fileTooLarge: "Fotoğraf en fazla 10 MB olabilir.",
   contentTooLarge: "Dört fotoğrafın toplam boyutu en fazla 40 MB olabilir.",
   invalidMultipart: "Dört kimlik fotoğrafını yeniden seç.",
   timedOut: "Yükleme durdu. İnternet bağlantını kontrol edip yeniden dene.",
-  unsupportedType: "PNG, JPG, JPEG veya WEBP biçiminde bir fotoğraf seç.",
+  unsupportedType: `${imageUploadFormatsLabel} biçiminde bir fotoğraf seç.`,
 } as const;

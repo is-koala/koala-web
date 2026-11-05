@@ -202,6 +202,12 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
       dressCode: "Siyah gömlek",
       fullAddress: "Caferağa Mahallesi, Moda Caddesi No: 12/4",
       additionalDirections: "Arka kapıdan girin.",
+      // Kesin adresli etkin atamada toplu taşıma tarifi (is-koala/koala-web#178);
+      // koordinat yalnız harita bağlantısının içinde, alan adı olarak değil.
+      directions: {
+        google: "https://www.google.com/maps/dir/?api=1&destination=40.98%2C29.02&travelmode=transit",
+        apple: "https://maps.apple.com/?daddr=40.98%2C29.02&dirflg=r",
+      },
       headcount: 4,
       hiredCount: 1,
       createdAt: "2026-08-30T07:15:00Z",
@@ -258,6 +264,8 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
         address: {
           displayAddress: "Caferağa Mahallesi, Kadıköy",
           components: { additionalDirections: "Arka kapıdan girin." },
+          // Yaklaşık yanıtta backend iki ondalığa yuvarlıyor; tarif yine kurulmaz.
+          position: { latitude: 40.98, longitude: 29.02 },
         },
         headcount: null,
         hiredCount: 0,
@@ -285,6 +293,7 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
     expect(result?.assignment.paymentSecuredAt).toBeNull();
     expect(result?.fullAddress).toBeNull();
     expect(result?.additionalDirections).toBeNull();
+    expect(result?.directions).toBeNull();
     expect(result?.headcount).toBeNull();
     expect(result?.createdAt).toBeNull();
     expect(fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/payments"))).toBe(false);
@@ -435,6 +444,30 @@ describe("iş ayrıntısı BFF sözleşmesi", () => {
     expect(result?.description).toBeNull();
     expect(result?.duties).toBeNull();
     expect(result?.dressCode).toBeNull();
+  });
+
+  it("biten atamada kesin adres gelse de yol tarifi kurmaz", async () => {
+    // Herkese açık şirket adresi biten atamada da `EXACT` gelebiliyor;
+    // başlangıç saatine varış tarifi o noktada anlamsız.
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, envelope(page([assignmentDto("COMPLETED")]))))
+      .mockResolvedValueOnce(jsonResponse(200, envelope({
+        id: jobId,
+        addressPrecision: "EXACT",
+        address: {
+          displayAddress: "Moda Caddesi No: 12",
+          position: { latitude: 40.98, longitude: 29.02 },
+        },
+      })))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])))
+      .mockResolvedValueOnce(jsonResponse(200, envelope([])));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readWorkDetail(assignmentId);
+
+    expect(result?.fullAddress).toBe("Moda Caddesi No: 12");
+    expect(result?.directions).toBeNull();
   });
 
   it("backend kesin adresi artık döndürmüyorsa tarayıcı modeline adres koymaz", async () => {
